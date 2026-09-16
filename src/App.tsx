@@ -4,6 +4,12 @@ import LoginPage from "./LoginPage";
 import SignupPage from "./SignupPage";
 import DashboardPage from "./DashboardPage";
 import AdminDashboardPage from "./AdminDashboardPage";
+import AdminStoresPage from "./AdminStoresPage";
+import AdminApplicationsPage from "./AdminApplicationsPage";
+import AdminCategoriesPage from "./AdminCategoriesPage";
+import AdminPromotionsPage from "./AdminPromotionsPage";
+import AdminUsersPage from "./AdminUsersPage";
+import AdminRolesPage from "./AdminRolesPage";
 import MerchantDashboardPage from "./MerchantDashboardPage";
 import ProductManagementPage from "./ProductManagementPage";
 import OrderManagementPage from "./OrderManagementPage";
@@ -529,6 +535,12 @@ export default function App() {
   if (window.location.pathname === "/signup") return <SignupPage />;
   if (window.location.pathname === "/dashboard") return <DashboardPage />;
   if (window.location.pathname === "/admin") return <AdminDashboardPage />;
+  if (window.location.pathname === "/admin/stores") return <AdminStoresPage />;
+  if (window.location.pathname === "/admin/store-applications") return <AdminApplicationsPage />;
+  if (window.location.pathname === "/admin/categories") return <AdminCategoriesPage />;
+  if (window.location.pathname === "/admin/promotions") return <AdminPromotionsPage />;
+  if (window.location.pathname === "/admin/users") return <AdminUsersPage />;
+  if (window.location.pathname === "/admin/roles") return <AdminRolesPage />;
   if (window.location.pathname === "/merchant/dashboard")
     return <MerchantDashboardPage />;
   if (window.location.pathname === "/merchant/products")

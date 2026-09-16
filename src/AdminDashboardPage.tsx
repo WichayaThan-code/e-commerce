@@ -10,7 +10,7 @@ import './admin-dashboard.css'
 
 const navGroups=[
   {label:'จัดการร้านค้า',items:[[Store,'ร้านค้า'],[FileCheck2,'ใบสมัครร้านค้า','18'],[Tags,'หมวดหมู่สินค้า'],[Megaphone,'โปรโมชั่น/แคมเปญ']]},
-  {label:'จัดการผู้ใช้',items:[[UsersRound,'ผู้ใช้งาน'],[UserCog,'บทบาทและสิทธิ์'],[ShoppingBag,'ร้านค้าในระบบ']]},
+  {label:'จัดการผู้ใช้',items:[[UsersRound,'ผู้ใช้งาน'],[UserCog,'บทบาทและสิทธิ์']]},
   {label:'การเงิน',items:[[CircleDollarSign,'รายได้/ค่าธรรมเนียม'],[WalletCards,'การชำระเงิน'],[ReceiptText,'ใบแจ้งหนี้']]},
   {label:'รายงาน',items:[[BarChart3,'รายงานภาพรวม'],[TrendingUp,'รายงานการขาย'],[FileText,'รายงานการเงิน']]},
   {label:'ระบบ',items:[[Settings,'ตั้งค่า'],[ClipboardList,'จัดการเนื้อหา'],[Bell,'แจ้งเตือน'],[FileCheck2,'บันทึกการใช้งาน']]},
@@ -40,7 +40,7 @@ export default function AdminDashboardPage(){
   const signOut=async()=>{await logout();window.location.replace('/')}
   return <main className="admin-shell">
     <header className="admin-topbar"><AdminBrand/><form onSubmit={e=>{e.preventDefault();notify('กำลังค้นหาในระบบ')}}><input aria-label="ค้นหา" placeholder="ค้นหาร้านค้า ผู้ใช้ ใบสมัคร หรือคำสั่งซื้อ..."/><button aria-label="ค้นหา"><Search/></button></form><button className="admin-bell" aria-label="การแจ้งเตือน"><Bell/><i>12</i></button><div className="admin-profile"><span>{user.firstName.charAt(0).toUpperCase()}</span><p><b>{user.email}</b><small>Administrator</small></p><ChevronDown/></div></header>
-    <aside className="admin-sidebar"><a className="active" href="/admin"><Home/>หน้าแรก</a>{navGroups.map(group=><section key={group.label}><h3>{group.label}</h3>{group.items.map(([Icon,label,badge])=><button key={label} onClick={()=>notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}><Icon/>{label}{badge&&<i>{badge}</i>}</button>)}</section>)}<button className="admin-help"><Headphones/>ศูนย์ช่วยเหลือ</button><button className="admin-logout" onClick={signOut}><LogOut/>ออกจากระบบ</button></aside>
+    <aside className="admin-sidebar"><a className="active" href="/admin"><Home/>หน้าแรก</a>{navGroups.map(group=><section key={group.label}><h3>{group.label}</h3>{group.items.map(([Icon,label,badge])=>label==='ร้านค้า'?<a href="/admin/stores" key={label}><Icon/>{label}</a>:label==='ใบสมัครร้านค้า'?<a href="/admin/store-applications" key={label}><Icon/>{label}{badge&&<i>{badge}</i>}</a>:label==='หมวดหมู่สินค้า'?<a href="/admin/categories" key={label}><Icon/>{label}</a>:label==='โปรโมชั่น/แคมเปญ'?<a href="/admin/promotions" key={label}><Icon/>{label}</a>:label==='ผู้ใช้งาน'?<a href="/admin/users" key={label}><Icon/>{label}</a>:label==='บทบาทและสิทธิ์'?<a href="/admin/roles" key={label}><Icon/>{label}</a>:<button key={label} onClick={()=>notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}><Icon/>{label}{badge&&<i>{badge}</i>}</button>)}</section>)}<button className="admin-help"><Headphones/>ศูนย์ช่วยเหลือ</button><button className="admin-logout" onClick={signOut}><LogOut/>ออกจากระบบ</button></aside>
     <div className="admin-content"><section className="admin-welcome"><div><span>👋</span><div><h1>สวัสดีครับ, {user.email}</h1><p>ภาพรวมการใช้งานแพลตฟอร์ม ThaiShopFun</p><small>“สนับสนุนร้านค้าไทย เพื่อธุรกิจไทยเติบโตไปด้วยกัน”</small></div></div><button><CalendarDays/>ช่วงวันที่ <b>1 ก.ย. 2026 - 12 ก.ย. 2026</b><ChevronDown/></button></section>
       <section className="admin-kpis">
         <article className="blue"><span><Store/></span><div><small>ร้านค้าทั้งหมด</small><b>1,245 <i>↑ 12%</i></b><em>จากเดือนก่อน</em></div></article>

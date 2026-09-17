@@ -1,53 +1,94 @@
 # ThaiShopFun
 
-Marketplace สำหรับสินค้าไทย: สมัครร้านแล้วได้ Web Store พร้อมขายทันที โดยแพลตฟอร์มหักค่าธรรมเนียม 5% เมื่อขายสำเร็จ
+Marketplace สำหรับสินค้าไทย ใช้ Vite + React + TypeScript, Spring Boot และ PostgreSQL
 
-## เทคโนโลยี
+## แบ่งงานตามโฟลเดอร์
 
-- Frontend: Vite + React + TypeScript (`http://localhost:5173`)
-- Backend: Java 17 + Spring Boot (`http://localhost:8081`)
-- Database: PostgreSQL (`thaishopfun`)
-- Authentication: BCrypt, JWT access token 15 นาที และ rotating refresh token แบบ HttpOnly cookie 30 วัน
+| โฟลเดอร์ | งาน | จุดเริ่มต้น |
+| --- | --- | --- |
+| `frontend/` | งาน UX/UI ของ pond และหน้าเว็บ | [คู่มือ frontend](frontend/README.md) |
+| `backend/` | API, ระบบสมาชิก, กฎธุรกิจ และฐานข้อมูล | [คู่มือ backend](backend/README.md) |
+| `docs/` | รูปต้นแบบหน้าจอ แบรนด์ และแผนภาพการทำงาน | `docs/design/`, `docs/flows/` |
 
-## รันครั้งแรก
-
-ต้องมี Node.js, Java 17 และ PostgreSQL ก่อน จาก PowerShell ที่โฟลเดอร์โปรเจกต์:
-
-```powershell
-.\backend\setup-postgres.ps1
+```text
+ThaiShopFun/
+├── frontend/
+│   ├── src/
+│   │   ├── pages/          หน้าเว็บ
+│   │   ├── styles/         CSS
+│   │   ├── assets/images/  รูปที่ import ในโค้ด
+│   │   ├── contexts/       สถานะผู้ใช้ร่วมกัน
+│   │   ├── services/       การเรียก API
+│   │   ├── App.tsx         การเลือกหน้าเว็บ
+│   │   └── main.tsx        จุดเริ่มต้น React
+│   ├── public/assets/images/ รูปที่เรียกผ่าน URL
+│   ├── package.json        คำสั่ง npm และ dependencies
+│   └── .env.example        ตัวอย่างที่อยู่ API
+├── backend/
+│   ├── src/main/java/      โค้ด Java และ API
+│   ├── src/main/resources/ การตั้งค่าและ migration ฐานข้อมูล
+│   ├── src/test/           การทดสอบ backend
+│   └── pom.xml             Maven dependencies
+└── docs/
+    ├── design/             screens, branding, variants
+    └── flows/              ขั้นตอนการทำงาน
 ```
 
-สคริปต์จะตรวจและสร้างฐานข้อมูล `thaishopfun` บน PostgreSQL หลักที่ port `5432` โดยถามรหัสผ่านผู้ดูแลแบบซ่อน
+## pond: รันเพื่อแก้ UX/UI
 
-เปิด PowerShell หน้าต่างที่ 1:
+เริ่มจากโฟลเดอร์ `ThaiShopFun`:
 
-```powershell
-.\backend\run-local.ps1
-```
-
-เปิด PowerShell หน้าต่างที่ 2:
-
-```powershell
-npm install
+```sh
+cd frontend
+npm ci
 npm run dev
 ```
 
-เข้า `http://localhost:5173` แล้วสมัครสมาชิก จากนั้นระบบจะ login และพาไป `/dashboard` อัตโนมัติ
+เปิด http://localhost:5173 แล้วแก้ไฟล์ใน `src/pages/`, `src/styles/` และ `src/assets/images/` ได้เลย
+ติดตั้ง dependencies ด้วย `npm ci` ครั้งแรกหรือเมื่อ lockfile เปลี่ยน
+ตรวจงานก่อนส่งด้วย `npm run build` จาก `frontend/`
 
-## ตรวจสอบก่อนส่งงาน
+หน้าเว็บเปิดดูได้โดยไม่รัน backend แต่การเข้าสู่ระบบ สมัครสมาชิก และงานที่ใช้ API ต้องรัน backend และ PostgreSQL ด้วย
 
-```powershell
-npm run build
+## รัน backend
+
+เปิด Terminal อีกหน้าต่าง เริ่มจากโฟลเดอร์ `ThaiShopFun`:
+
+```sh
 cd backend
-.\mvnw.cmd test
 ```
 
-Flyway จะสร้างตาราง `users` และ `refresh_tokens` อัตโนมัติเมื่อ backend เริ่มทำงาน
+ทำตาม [คู่มือ backend](backend/README.md) เพื่อตั้งค่าฐานข้อมูลและรันที่ http://localhost:8081
 
-## API authentication
+**คำสั่ง npm รันใน `frontend/` ส่วนคำสั่ง Maven รันใน `backend/`**
+หาก Terminal อยู่ใน `frontend/` แล้ว ให้ใช้ `cd ../backend` เพื่อเปลี่ยนไปทำงาน backend
 
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-- `POST /api/auth/logout`
-- `GET /api/auth/me`
+## รูปภาพ
+
+- รูปที่ import: `frontend/src/assets/images/`
+- รูปที่ใช้ URL: `frontend/public/assets/images/` อ้างอิงเป็น `/assets/images/<หมวด>/<ชื่อไฟล์>`
+- รูปต้นแบบที่ไม่ได้ใช้บนเว็บ: `docs/design/`
+- แผนภาพ: `docs/flows/`
+- ตั้งชื่อรูปเป็นตัวพิมพ์เล็กและขีดกลาง เช่น `merchant-dashboard.png`
+
+## Git สำหรับทีม
+
+Repository หลัก: https://github.com/WichayaThan-code/e-commerce
+
+```sh
+git clone https://github.com/WichayaThan-code/e-commerce.git
+cd e-commerce/frontend
+npm ci
+npm run dev
+```
+
+แยก branch สำหรับแต่ละงาน แล้วเปิด Pull Request เข้า `main`:
+
+```sh
+git switch -c feature/your-task
+git add <ไฟล์ที่แก้>
+git commit -m "Describe your change"
+git push -u origin feature/your-task
+```
+
+สมาชิกแต่ละคนต้องตั้งค่าฐานข้อมูลของเครื่องตนเองตาม `backend/README.md` และไม่ commit `.env.local`

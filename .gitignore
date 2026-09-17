@@ -6,3 +6,14 @@ dist/
 backend/target/
 backend/uploads/
 *.tsbuildinfo
+
+# macOS metadata
+.DS_Store
+
+# Local database credentials
+.env.local
+
+# Local environment overrides and runtime logs
+.env.*
+!.env.example
+*.log

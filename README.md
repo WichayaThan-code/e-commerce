@@ -1,6 +1,10 @@
 # ThaiShopFun
 
-Marketplace สำหรับสินค้าไทย ใช้ Vite + React + TypeScript, Spring Boot และ PostgreSQL
+ระบบ OMS (Order Management System) สำหรับร้านค้าออนไลน์ไทย — พระเอกคือการรวมออเดอร์จากหลายช่องทางไว้ศูนย์กลางเดียว ทำ Report ยิง Ads และปริ้น Label ออเดอร์ พร้อมหน้าร้าน (storefront) ให้ร้านที่ยังไม่มีแพลตฟอร์มใช้แทนการจดออเดอร์ทาง DM
+
+เราขาย "ระบบ" ไม่ได้ทำแพลตฟอร์มมาแข่งกับ Shopee/TikTok — ดูภาพรวมโปรเจ็คที่ [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) และตำแหน่งธุรกิจฉบับเต็มที่ [docs/notion/06-OMS-Product-Vision.md](docs/notion/06-OMS-Product-Vision.md)
+
+ใช้ Vite + React + TypeScript, Spring Boot และ PostgreSQL
 
 ## แบ่งงานตามโฟลเดอร์
 

@@ -104,7 +104,7 @@ export default function CartPage() {
           <a className="cart-icon" href="/cart" aria-label="ตะกร้าสินค้า"><ShoppingCart/><i>{items.length}</i></a>
         </div>
       </div>
-      <nav className="cart-nav cart-width"><a href="/"><Menu/>หมวดหมู่สินค้า</a><a href="/deals">ดีลพิเศษ</a><a href="/recommendations">สินค้าแนะนำ</a><a href="/#shops">ร้านค้าแนะนำ</a><a href="/best-sellers">สินค้าขายดี</a><a href="/thai-brands">แบรนด์ไทย</a><a href="/articles">บทความ</a><a href="/help">ช่วยเหลือ</a></nav>
+      <nav className="cart-nav cart-width"><a href="/"><Menu/>หมวดหมู่สินค้า</a><a href="/deals">ดีลพิเศษ</a><a href="/recommendations">สินค้าแนะนำ</a><a href="/shops">ร้านค้าแนะนำ</a><a href="/best-sellers">สินค้าขายดี</a><a href="/thai-brands">แบรนด์ไทย</a><a href="/articles">บทความ</a><a href="/help">ช่วยเหลือ</a></nav>
     </header>
 
     <div className="cart-heading cart-width"><a href="/">← กลับไปช้อปปิ้ง</a><ol aria-label="ขั้นตอนการสั่งซื้อ"><li aria-current="step"><span>1</span> ตะกร้าสินค้า</li><li><span>2</span> ชำระเงิน</li><li><span>3</span> เสร็จสิ้น</li></ol></div>

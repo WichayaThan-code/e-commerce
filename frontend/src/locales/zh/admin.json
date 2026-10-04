@@ -1,0 +1,12 @@
+{
+  "search": "搜索店铺、店主、邮箱或电话",
+  "searchAction": "搜索",
+  "searchLabel": "在后台中搜索",
+  "notify": "待审核店铺通知",
+  "notifyList": "通知列表",
+  "pendingTitle": "待审核店铺",
+  "shopCount": "家",
+  "empty": "没有待审核的店铺",
+  "waiting": "等待审核",
+  "unknownOwner": "未填写店主"
+}

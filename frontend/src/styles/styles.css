@@ -52,3 +52,35 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #ffb3
 @media (max-width:720px){.account-profile{padding:3px!important}.account-profile p,.account-profile>svg{display:none}.account-profile>span{width:34px;height:34px}.account-menu{right:-43px}.account-loading{width:40px;height:40px}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 .seller-card a.primary{text-decoration:none}
+.route-progress{position:fixed;inset:0;z-index:120;pointer-events:none}
+.route-progress-bar{position:fixed;top:0;left:0;height:3px;width:100%;transform-origin:left;background:linear-gradient(90deg,#0869ef,#ff7900);animation:routeBar .52s ease-out}
+.route-progress p{position:fixed;top:16px;left:50%;transform:translateX(-50%);margin:0;display:flex;align-items:center;gap:8px;background:#061d52;color:#fff;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;box-shadow:0 10px 24px #061d5240}
+.route-progress i{width:14px;height:14px;border:2px solid #ffffff55;border-top-color:#fff;border-radius:50%;animation:routeSpin .7s linear infinite}
+@keyframes routeBar{from{transform:scaleX(.08)}to{transform:scaleX(1)}}
+@keyframes routeSpin{to{transform:rotate(360deg)}}
+.merchant-auth-gate{min-height:100vh;display:grid;place-items:center;padding:24px;background:#f4f8fd;color:#061d52}
+.merchant-auth-gate section{width:min(460px,100%);border:1px solid #d7e4f3;border-radius:16px;background:#fff;padding:28px;box-shadow:0 12px 30px #08245d12}
+.merchant-auth-gate h1{margin:0;font-size:24px;line-height:1.35}
+.merchant-auth-gate p{margin:10px 0 0;color:#4d6788;line-height:1.5}
+.merchant-auth-gate div{display:flex;gap:10px;margin-top:18px}
+.merchant-auth-gate a{height:42px;padding:0 16px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+.merchant-auth-gate a.primary{background:#0879f6;color:#fff}
+.merchant-auth-gate a.quiet{border:1px solid #0879f6;color:#0879f6}
+.merchant-shop-menu{position:relative;justify-self:end}
+.merchant-topbar .merchant-shop-menu>button.merchant-profile{border:0;background:transparent;cursor:pointer;font:inherit;color:inherit;width:auto}
+.merchant-shop-menu-panel{position:absolute;top:calc(100% + 10px);right:0;z-index:40;width:min(320px,78vw);background:#fff;border:1px solid #d7e4f3;border-radius:14px;box-shadow:0 16px 40px #08245d24;padding:6px;display:grid}
+.merchant-shop-menu-panel button{display:flex;align-items:center;justify-content:space-between;gap:12px;border:0;background:transparent;border-radius:10px;padding:10px 12px;color:#061d52;font:700 14px "Noto Sans Thai",sans-serif;cursor:pointer;text-align:left}
+.merchant-shop-menu-panel button.active{background:#e8f3ff}
+.merchant-shop-menu-panel button small{color:#6d84a3;font-weight:600;font-size:12px}
+.merchant-shop-menu-panel button.add{justify-content:flex-start;color:#0879f6;border-top:1px solid #e6eef6;border-radius:0;margin-top:4px}
+.merchant-shop-menu-panel button.add svg{width:16px;height:16px}
+.merchant-gate-bar{position:fixed;top:14px;right:18px;z-index:30;background:#fff;border:1px solid #d7e4f3;border-radius:12px;padding:8px 12px;box-shadow:0 8px 20px #08245d12}
+.merchant-auth-gate section.reinstatement-card{width:min(560px,100%)}
+.reinstatement-card form{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.reinstatement-card label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700}
+.reinstatement-card textarea{width:100%;border:1px solid #d5e3f2;border-radius:8px;padding:10px 12px;font:500 14px "Noto Sans Thai",sans-serif;color:#12366e;resize:vertical}
+.reinstatement-card small{align-self:flex-end;color:#67809f;font-size:12px}
+.reinstatement-card button{height:42px;padding:0 16px;border:0;border-radius:8px;background:#0879f6;color:#fff;font-weight:700;cursor:pointer}
+.reinstatement-card button:disabled{opacity:.55;cursor:default}
+.reinstatement-status{margin-top:12px;padding:10px 12px;border-radius:8px;background:#fff7e8;color:#8a5a12}
+.merchant-reuse-note{margin:8px 0 0;color:#0c6b4d;background:#e8f7ef;border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.45}

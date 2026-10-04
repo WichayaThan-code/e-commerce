@@ -1,0 +1,56 @@
+{
+  "brand": {
+    "homeAria": "ThaiShopFun home"
+  },
+  "dashboard": {
+    "checkingAuth": "Checking your session...",
+    "welcome": "Welcome",
+    "readyTitle": "Your account is ready",
+    "readyBody": "You are signed in as {{role}}. You can start shopping or apply to open a shop.",
+    "shopLink": "Back to shopping"
+  },
+  "lang": {
+    "choose": "Choose language"
+  },
+  "search": {
+    "placeholder": "Search products, brands, or shops...",
+    "action": "Search"
+  },
+  "menu": {
+    "open": "Open menu"
+  },
+  "role": {
+    "customer": "Customer",
+    "merchant": "Shop owner",
+    "admin": "Administrator"
+  },
+  "account": {
+    "admin": "Admin console",
+    "store": "Manage shop",
+    "cart": "My cart",
+    "deals": "Special deals",
+    "help": "Help center",
+    "logout": "Log out",
+    "loggingOut": "Logging out..."
+  },
+  "nav": {
+    "categories": "Categories",
+    "openStore": "Open a shop",
+    "deals": "Deals",
+    "recommended": "Recommended",
+    "shops": "Shops",
+    "best": "Best sellers",
+    "brands": "Thai brands",
+    "articles": "Articles",
+    "help": "Help",
+    "main": "Main menu"
+  },
+  "merchant": {
+    "home": "Home",
+    "products": "Products",
+    "shops": "Shops",
+    "apply": "Become a seller",
+    "help": "Help",
+    "search": "Search products, orders, customers..."
+  }
+}

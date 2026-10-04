@@ -2,19 +2,28 @@ package com.thaishopfun;
 
 import com.jayway.jsonpath.JsonPath;
 import com.thaishopfun.auth.RefreshTokenRepository;
+import com.thaishopfun.auth.UserAccount;
 import com.thaishopfun.auth.UserAccountRepository;
+import com.thaishopfun.auth.UserRole;
 import com.thaishopfun.merchant.MerchantApplicationRepository;
 import com.thaishopfun.merchant.MerchantDocumentRepository;
+import com.thaishopfun.merchant.OwnerAuditLogRepository;
+import com.thaishopfun.merchant.OwnerRepository;
+import com.thaishopfun.merchant.ShopReinstatementRequestRepository;
+import com.thaishopfun.merchant.ShopRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -25,10 +34,15 @@ class MerchantApplicationIntegrationTests {
     @Autowired MockMvc mvc;
     @Autowired MerchantDocumentRepository documents;
     @Autowired MerchantApplicationRepository applications;
+    @Autowired ShopRepository shops;
+    @Autowired ShopReinstatementRequestRepository reinstatements;
+    @Autowired OwnerRepository owners;
+    @Autowired OwnerAuditLogRepository ownerAudits;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired UserAccountRepository users;
+    @Autowired PasswordEncoder passwords;
 
-    @BeforeEach void clean(){documents.deleteAll();applications.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
+    @BeforeEach void clean(){reinstatements.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
 
     @Test void savesUploadsAndSubmitsRealApplication() throws Exception {
         var registered=mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
@@ -37,7 +51,7 @@ class MerchantApplicationIntegrationTests {
         String token=JsonPath.read(registered.getResponse().getContentAsString(),"$.accessToken");
 
         mvc.perform(put("/api/merchant-applications/draft/shop").header("Authorization","Bearer "+token).contentType(MediaType.APPLICATION_JSON).content("""
-          {"shopName":"ร้านทดสอบ","shopNameEn":"Test Shop","description":"สินค้าคุณภาพ","category":"สินค้าไทย","saleType":"OWNER","website":"https://example.com","address":"88 Silom Rd.","province":"กรุงเทพมหานคร","district":"บางรัก","subdistrict":"สีลม","postalCode":"10500"}
+          {"shopName":"ร้านทดสอบ","shopNameEn":"Test Shop","description":"สินค้าคุณภาพ","category":"อาหารและเครื่องดื่ม","saleType":"OWNER","website":"https://example.com","address":"88 Silom Rd.","province":"กรุงเทพมหานคร","district":"บางรัก","subdistrict":"สีลม","postalCode":"10500"}
           """)).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT"));
 
         mvc.perform(put("/api/merchant-applications/draft/owner").header("Authorization","Bearer "+token).contentType(MediaType.APPLICATION_JSON).content("""
@@ -45,18 +59,193 @@ class MerchantApplicationIntegrationTests {
           """)).andExpect(status().isOk()).andExpect(jsonPath("$.citizenIdMasked").value("*********0123"));
 
         upload(token,"IDENTITY","identity.png");
+        upload(token,"IDENTITY","identity-replaced.png");
         upload(token,"ADDRESS","address.png");
+        upload(token,"LOGO","logo.png");
 
         mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization","Bearer "+token))
           .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SUBMITTED"))
-          .andExpect(jsonPath("$.referenceNo").isNotEmpty()).andExpect(jsonPath("$.documents.length()").value(2));
+          .andExpect(jsonPath("$.referenceNo").isNotEmpty()).andExpect(jsonPath("$.documents.length()").value(3))
+          .andExpect(jsonPath("$.shopPath").value("/shop/test-shop"));
+        mvc.perform(get("/api/shops"))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/shops/test-shop"))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("ร้านทดสอบ"))
+          .andExpect(jsonPath("$.status").value("PENDING_REVIEW")).andExpect(jsonPath("$.path").value("/shop/test-shop"))
+          .andExpect(jsonPath("$.bankName").doesNotExist())
+          .andExpect(jsonPath("$.logoUrl").value("/api/shops/test-shop/logo"));
+        mvc.perform(get("/api/shops/test-shop/logo"))
+          .andExpect(status().isOk()).andExpect(content().contentType(MediaType.IMAGE_PNG));
+        org.junit.jupiter.api.Assertions.assertEquals(1, shops.count());
+        org.junit.jupiter.api.Assertions.assertEquals(1, owners.count());
+        mvc.perform(get("/api/merchant-applications/draft").header("Authorization","Bearer "+token))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT"));
         mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization","Bearer "+token))
-          .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("APPLICATION_ALREADY_SUBMITTED"));
+          .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("APPLICATION_INCOMPLETE"));
+        org.junit.jupiter.api.Assertions.assertEquals(1, shops.count());
+    }
+
+    @Test void usesACodeWhenTheShopHasNoEnglishNameAndSuffixesARepeatedSlug() throws Exception {
+        String first = tokenFor("thai@example.com", "0833333333");
+        saveShop(first, "ร้านไทย", "").andExpect(status().isOk());
+        saveOwner(first, "1111111111111").andExpect(status().isOk());
+        upload(first, "IDENTITY", "identity.png");
+        upload(first, "ADDRESS", "address.png");
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + first))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.shopPath").value(org.hamcrest.Matchers.matchesPattern("/shop/shop-[0-9]+")));
+
+        String second = tokenFor("other@example.com", "0844444444");
+        saveShop(second, "ร้านหนึ่ง", "Shared Shop").andExpect(status().isOk());
+        saveOwner(second, "2222222222222").andExpect(status().isOk());
+        upload(second, "IDENTITY", "identity.png");
+        upload(second, "ADDRESS", "address.png");
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + second))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.shopPath").value("/shop/shared-shop"));
+
+        String third = tokenFor("third@example.com", "0855555555");
+        saveShop(third, "ร้านสอง", "Shared Shop").andExpect(status().isOk());
+        saveOwner(third, "3333333333333").andExpect(status().isOk());
+        upload(third, "IDENTITY", "identity.png");
+        upload(third, "ADDRESS", "address.png");
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + third))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.shopPath").value("/shop/shared-shop-2"));
+        mvc.perform(get("/api/shops/missing")).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SHOP_NOT_FOUND"));
+    }
+
+    @Test void rejectsDuplicateShopNameAndAllowsTheSameOwnerOnAnotherShop() throws Exception {
+        String first = tokenFor("first@example.com", "0811111111");
+        String second = tokenFor("second@example.com", "0822222222");
+        saveShop(first, "ร้านซ้ำ").andExpect(status().isOk());
+        saveOwner(first).andExpect(status().isOk());
+        saveShop(first, "ร้านซ้ำ").andExpect(status().isOk());
+        saveShop(second, "ร้านซ้ำ").andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SHOP_EXISTS"));
+        saveShop(second, "ร้านอื่น").andExpect(status().isOk());
+        saveOwner(second).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CITIZEN_ID_TAKEN"));
+    }
+
+    @Test void secondShopReusesTheSameOwnerWithoutUploadingDocumentsAgain() throws Exception {
+        String token = tokenFor("again@example.com", "0866666666");
+        saveShop(token, "ร้านแรก", "First Shop").andExpect(status().isOk());
+        saveOwner(token, "4444444444444").andExpect(status().isOk());
+        upload(token, "IDENTITY", "identity.png");
+        upload(token, "ADDRESS", "address.png");
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+        var listed = mvc.perform(get("/api/merchant/owners").header("Authorization", "Bearer " + token)).andExpect(status().isOk()).andReturn();
+        String ownerId = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].id");
+        mvc.perform(post("/api/merchant/shops?ownerId=" + ownerId).header("Authorization", "Bearer " + token))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.ownerId").value(ownerId)).andExpect(jsonPath("$.documents.length()").value(0));
+        saveShop(token, "ร้านสอง", "Second Shop").andExpect(status().isOk());
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+        mvc.perform(get("/api/merchant/shops").header("Authorization", "Bearer " + token))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
+          .andExpect(jsonPath("$[0].ownerId").value(ownerId))
+          .andExpect(jsonPath("$[1].ownerId").value(ownerId));
+        org.junit.jupiter.api.Assertions.assertEquals(1, owners.count());
+        org.junit.jupiter.api.Assertions.assertEquals(2, shops.count());
+    }
+
+    @Test void approvalUnlocksStoreManagementAndRejectionClosesIt() throws Exception {
+        String merchant = tokenFor("seller@example.com", "0844444444");
+        saveShop(merchant, "ร้านรออนุมัติ", "Pending Shop").andExpect(status().isOk());
+        mvc.perform(put("/api/merchant-applications/draft/owner").header("Authorization", "Bearer " + merchant).contentType(MediaType.APPLICATION_JSON).content("""
+          {"ownerType":"PERSON","title":"นาย","firstName":"สมชาย","lastName":"รอตรวจ","citizenId":"1234567890123","birthDate":"1980-08-15","nationality":"ไทย","phone":"0844444444","email":"seller@example.com","houseNo":"9","province":"เชียงใหม่","district":"เมือง","subdistrict":"ศรีภูมิ","postalCode":"50200","bankName":"KBANK","bankAccountNumber":"1234567890","bankAccountName":"สมชาย รอตรวจ"}
+          """)).andExpect(status().isOk());
+        upload(merchant, "IDENTITY", "identity.png");
+        upload(merchant, "ADDRESS", "address.png");
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + merchant)).andExpect(status().isOk());
+        mvc.perform(get("/api/merchant/store-access").header("Authorization", "Bearer " + merchant))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.approved").value(false)).andExpect(jsonPath("$.hasShop").value(true)).andExpect(jsonPath("$.status").value("PENDING_REVIEW"));
+        mvc.perform(get("/api/admin/store-applications").header("Authorization", "Bearer " + merchant)).andExpect(status().isForbidden());
+
+        users.save(UserAccount.admin("review-admin@example.com", passwords.encode("Password1")));
+        var adminLogin = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
+          {"identity":"review-admin@example.com","password":"Password1"}
+          """)).andExpect(status().isOk()).andReturn();
+        String admin = JsonPath.read(adminLogin.getResponse().getContentAsString(), "$.accessToken");
+        var listed = mvc.perform(get("/api/admin/store-applications").header("Authorization", "Bearer " + admin))
+          .andExpect(status().isOk()).andExpect(jsonPath("$[0].shopId").isNumber()).andExpect(jsonPath("$[0].shopName").value("ร้านรออนุมัติ"))
+          .andExpect(jsonPath("$[0].ownerName").value("นาย สมชาย รอตรวจ"))
+          .andExpect(jsonPath("$[0].status").value("PENDING_REVIEW"))
+          .andExpect(jsonPath("$[0].citizenId").doesNotExist())
+          .andExpect(jsonPath("$[0].bankAccount").doesNotExist())
+          .andExpect(jsonPath("$[0].documents.length()").value(2))
+          .andReturn();
+        Number shopId = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].shopId");
+        String documentId = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].documents[0].id");
+        mvc.perform(get("/api/admin/store-applications/" + shopId + "/documents/" + documentId).header("Authorization", "Bearer " + admin))
+          .andExpect(status().isOk())
+          .andExpect(content().contentType("image/png"))
+          .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("inline")));
+        mvc.perform(get("/api/admin/store-applications/" + shopId + "/documents/" + documentId).header("Authorization", "Bearer " + merchant))
+          .andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/store-applications/export").header("Authorization", "Bearer " + admin))
+          .andExpect(status().isOk())
+          .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        mvc.perform(get("/api/admin/store-applications/export").header("Authorization", "Bearer " + merchant))
+          .andExpect(status().isForbidden());
+
+        mvc.perform(post("/api/admin/store-applications/bulk/approve").header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON).content("{\"shopIds\":[" + shopId + "]}"))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.updated").value(1)).andExpect(jsonPath("$.applications[0].status").value("APPROVED"));
+        mvc.perform(post("/api/admin/store-applications/bulk/approve").header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON).content("{\"shopIds\":[" + shopId + "]}"))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.updated").value(0)).andExpect(jsonPath("$.skipped").value(1));
+        mvc.perform(post("/api/admin/store-applications/" + shopId + "/approve").header("Authorization", "Bearer " + admin))
+          .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SHOP_ALREADY_APPROVED"));
+        mvc.perform(get("/api/merchant/store-access").header("Authorization", "Bearer " + merchant))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.approved").value(true)).andExpect(jsonPath("$.hasShop").value(true));
+        org.junit.jupiter.api.Assertions.assertEquals(UserRole.MERCHANT, users.findByEmailIgnoreCaseOrPhone("seller@example.com", "seller@example.com").orElseThrow().getRole());
+
+        mvc.perform(post("/api/admin/store-applications/bulk/suspend").header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON).content("{\"shopIds\":[" + shopId + "]}"))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.updated").value(1)).andExpect(jsonPath("$.applications[0].status").value("SUSPENDED"));
+        mvc.perform(post("/api/admin/store-applications/bulk/reject").header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON).content("{\"shopIds\":[" + shopId + "]}"))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.updated").value(0)).andExpect(jsonPath("$.skipped").value(1));
+        mvc.perform(post("/api/admin/store-applications/" + shopId + "/approve").header("Authorization", "Bearer " + admin))
+          .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SHOP_ALREADY_APPROVED"));
+        mvc.perform(get("/api/merchant/store-access").header("Authorization", "Bearer " + merchant))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.approved").value(false)).andExpect(jsonPath("$.hasShop").value(true)).andExpect(jsonPath("$.status").value("SUSPENDED"));
+        mvc.perform(post("/api/merchant/reinstatement?shopId=" + shopId).header("Authorization", "Bearer " + merchant).contentType(MediaType.APPLICATION_JSON).content("{\"message\":\"ขอให้ตรวจสอบอีกครั้ง ร้านพร้อมแก้ไขตามเงื่อนไข\"}"))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PENDING"));
+        mvc.perform(get("/api/admin/store-applications").header("Authorization", "Bearer " + admin))
+          .andExpect(status().isOk()).andExpect(jsonPath("$[0].reinstatementMessage").value("ขอให้ตรวจสอบอีกครั้ง ร้านพร้อมแก้ไขตามเงื่อนไข"));
+        mvc.perform(post("/api/admin/store-applications/" + shopId + "/reactivate").header("Authorization", "Bearer " + admin))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"));
+        mvc.perform(get("/api/merchant/store-access").header("Authorization", "Bearer " + merchant))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.approved").value(true)).andExpect(jsonPath("$.status").value("APPROVED"));
+        mvc.perform(get("/api/merchant/settings").header("Authorization", "Bearer " + merchant))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.shopName").value("ร้านรออนุมัติ"));
+    }
+
+    private String tokenFor(String email, String phone) throws Exception {
+        var registered = mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
+          {"firstName":"สมหญิง","lastName":"ใจดี","email":"%s","phone":"%s","password":"Password1"}
+          """.formatted(email, phone))).andExpect(status().isCreated()).andReturn();
+        return JsonPath.read(registered.getResponse().getContentAsString(), "$.accessToken");
+    }
+
+    private org.springframework.test.web.servlet.ResultActions saveShop(String token, String shopName) throws Exception {
+        return saveShop(token, shopName, "Shop");
+    }
+
+    private org.springframework.test.web.servlet.ResultActions saveShop(String token, String shopName, String shopNameEn) throws Exception {
+        return mvc.perform(put("/api/merchant-applications/draft/shop").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content("""
+          {"shopName":"%s","shopNameEn":"%s","description":"สินค้า","category":"อาหารและเครื่องดื่ม","saleType":"OWNER","website":"","address":"88 Silom Rd.","province":"กรุงเทพมหานคร","district":"บางรัก","subdistrict":"สีลม","postalCode":"10500"}
+          """.formatted(shopName, shopNameEn)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions saveOwner(String token) throws Exception {
+        return saveOwner(token, "1234567890123");
+    }
+
+    private org.springframework.test.web.servlet.ResultActions saveOwner(String token, String citizenId) throws Exception {
+        return mvc.perform(put("/api/merchant-applications/draft/owner").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content("""
+          {"ownerType":"PERSON","title":"นาง","firstName":"สมหญิง","lastName":"ใจดี","citizenId":"%s","birthDate":"1980-08-15","nationality":"ไทย","phone":"0822222222","email":"second@example.com","houseNo":"1","province":"กรุงเทพมหานคร","district":"บางรัก","subdistrict":"สีลม","postalCode":"10500","bankName":"KBANK","bankAccountNumber":"1234567890","bankAccountName":"สมหญิง ใจดี"}
+          """.formatted(citizenId)));
     }
 
     private void upload(String token,String type,String filename) throws Exception {
         var file=new MockMultipartFile("file",filename,"image/png",new byte[]{(byte)137,80,78,71,13,10,26,10});
         mvc.perform(multipart("/api/merchant-applications/draft/documents/"+type).file(file).header("Authorization","Bearer "+token))
-          .andExpect(status().isOk()).andExpect(jsonPath("$.documents[0].originalFilename").isNotEmpty());
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.documents[?(@.type == '" + type + "')]").isNotEmpty())
+          .andExpect(jsonPath("$.documents[?(@.type == '" + type + "')].originalFilename", everyItem(matchesPattern("Doc_\\(" + type + "\\)_[A-F0-9]{10}\\.png"))));
     }
 }

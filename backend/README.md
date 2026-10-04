@@ -1,6 +1,6 @@
 # Backend — API และฐานข้อมูล
 
-ต้องมี Java 17 และ PostgreSQL พร้อมฐานข้อมูล `thaishopfun`
+ต้องมี Java 17 และ PostgreSQL ที่เปิดรับการเชื่อมต่อ ถ้ายังไม่มีฐานข้อมูล `thaishopfun` การสตาร์ตจะสร้างให้เองเมื่อผู้ใช้มีสิทธิ์ ถ้าสร้างไม่ได้ให้รัน `setup-postgres.ps1` หมวดหมู่สินค้าและบัญชีแอดมินเริ่มต้นถูกใส่เฉพาะเมื่อยังไม่มีแถวนั้น
 เปิด Terminal แยกจาก frontend และเข้า `ThaiShopFun/backend` ก่อนรันคำสั่งด้านล่าง
 
 ## เครื่อง macOS นี้ (ตั้งค่าแล้ว)
@@ -26,8 +26,8 @@
 
 ```sh
 export DB_URL='jdbc:postgresql://127.0.0.1:5432/thaishopfun'
-export DB_USERNAME='postgresql'
-printf 'PostgreSQL password: '
+export DB_USERNAME='thaishopfun_user'
+printf 'PostgreSQL password: Pg@ThaiShopFun2026!'
 read -r -s DB_PASSWORD
 printf '\n'
 export DB_PASSWORD
@@ -51,6 +51,7 @@ bash ./mvnw spring-boot:run
 - Frontend ที่อนุญาต: http://localhost:5173 (เปลี่ยนด้วย `FRONTEND_URL`)
 - การตั้งค่า: `src/main/resources/application.yml`
 - Flyway migrations: `src/main/resources/db/migration/`
+- เจ้าของร้านอยู่ตาราง `owners` (หนึ่งตัวตนต่อหนึ่งแถว ตาม `citizen_id_hash`) และร้านชี้ด้วย `shops.owner_id` เจ้าของหนึ่งคนมีได้หลายร้าน ร้านหนึ่งมีเจ้าของได้คนเดียว
 - ไฟล์อัปโหลด: `uploads/` เมื่อรันจากโฟลเดอร์นี้
 - ระบบ backend อ่าน environment variables; ไม่ได้โหลด `.env` ของ frontend
 

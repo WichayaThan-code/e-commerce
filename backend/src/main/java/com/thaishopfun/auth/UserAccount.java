@@ -40,6 +40,12 @@ public class UserAccount {
         return account;
     }
 
+    public void promoteToMerchant() {
+        if (role == UserRole.ADMIN) return;
+        role = UserRole.MERCHANT;
+        updatedAt = Instant.now();
+    }
+
     public UUID getId() { return id; }
     public String getFirstName() { return firstName; }
     public String getLastName() { return lastName; }

@@ -1,0 +1,56 @@
+{
+  "brand": {
+    "homeAria": "ThaiShopFun 首页"
+  },
+  "dashboard": {
+    "checkingAuth": "正在验证登录状态...",
+    "welcome": "欢迎",
+    "readyTitle": "您的账户已就绪",
+    "readyBody": "您已以 {{role}} 身份登录。接下来可以选购商品或申请开店。",
+    "shopLink": "返回选购"
+  },
+  "lang": {
+    "choose": "选择语言"
+  },
+  "search": {
+    "placeholder": "搜索商品、品牌或店铺...",
+    "action": "搜索"
+  },
+  "menu": {
+    "open": "打开菜单"
+  },
+  "role": {
+    "customer": "顾客",
+    "merchant": "店主",
+    "admin": "管理员"
+  },
+  "account": {
+    "admin": "管理后台",
+    "store": "管理店铺",
+    "cart": "我的购物车",
+    "deals": "优惠活动",
+    "help": "帮助中心",
+    "logout": "退出登录",
+    "loggingOut": "正在退出..."
+  },
+  "nav": {
+    "categories": "商品分类",
+    "openStore": "开店",
+    "deals": "优惠",
+    "recommended": "推荐商品",
+    "shops": "推荐店铺",
+    "best": "热销商品",
+    "brands": "泰国品牌",
+    "articles": "文章",
+    "help": "帮助",
+    "main": "主菜单"
+  },
+  "merchant": {
+    "home": "首页",
+    "products": "商品",
+    "shops": "店铺",
+    "apply": "申请开店",
+    "help": "帮助",
+    "search": "搜索商品、订单、顾客..."
+  }
+}

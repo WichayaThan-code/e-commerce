@@ -1,25 +1,28 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   Building2,
   Check,
   CheckCircle2,
-  FileText,
   Headphones,
   Home,
   IdCard,
   Lightbulb,
-  Search,
   ShieldCheck,
-  ShoppingBag,
   Store,
   UploadCloud,
   UserRound,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { useLanguage } from "../contexts/LanguageContext";
+import MerchantOnboardingSidebar from "../components/merchant/MerchantOnboardingSidebar";
+import MerchantHeader from "../components/MerchantHeader";
 import { ApiError, merchantApi, type DocumentType } from "../services/api";
+import { SHOP_IMAGE_ACCEPT } from "../services/shopImage";
+import { readMerchantDraft, rememberDocumentName, writeMerchantDraft } from "../services/merchantDraft";
 import "../styles/doc-confirm.css";
+import "../styles/form-fields.css";
 
 const docFlow = [
   {
@@ -55,23 +58,6 @@ const topSteps = [
   ["4", "ตรวจสอบและส่ง", ""],
 ];
 
-function DocBrand() {
-  return (
-    <a className="brand doc-brand" href="/">
-      <span className="brand-mark">
-        <ShoppingBag />
-        <i>✓</i>
-      </span>
-      <span>
-        <b>
-          ThaiShop<span>Fun</span>
-        </b>
-        <small>Shop Local · Support Thai · Smile Together</small>
-      </span>
-    </a>
-  );
-}
-
 type DocRowProps = {
   kind: "id" | "home" | "business";
   type: DocumentType;
@@ -79,6 +65,7 @@ type DocRowProps = {
   description: string;
   uploadText: string;
   exampleTitle: string;
+  existingName?: string;
 };
 function DocumentRow({
   kind,
@@ -87,10 +74,15 @@ function DocumentRow({
   description,
   uploadText,
   exampleTitle,
+  existingName,
 }: DocRowProps) {
+  const { user } = useAuth();
   const Icon = kind === "id" ? IdCard : kind === "home" ? Home : Building2;
-  const [file, setFile] = useState("");
+  const [file, setFile] = useState(existingName || readMerchantDraft(user?.id).documentNames?.[type] || "");
   const [uploading, setUploading] = useState(false);
+  useEffect(() => {
+    if (existingName) setFile(existingName);
+  }, [existingName]);
   const select = async (selected?: File) => {
     if (!selected) return;
     if (selected.size > 5 * 1024 * 1024) {
@@ -102,6 +94,7 @@ function DocumentRow({
     try {
       await merchantApi.uploadDocument(type, selected);
       setFile(selected.name);
+      rememberDocumentName(user?.id, type, selected.name);
     } catch (error) {
       setFile(
         error instanceof ApiError ? error.message : "อัปโหลดไฟล์ไม่สำเร็จ",
@@ -130,14 +123,14 @@ function DocumentRow({
         >
           <UploadCloud />
           <b>{file || uploadText}</b>
-          <span>ไฟล์ JPG, PNG, PDF ขนาดไม่เกิน 5 MB</span>
+          <span>{existingName ? "ใช้เอกสารที่มีอยู่ในระบบแล้ว ไม่ต้องอัปโหลดใหม่" : "ไฟล์ JPG, PNG, WEBP หรือ PDF ขนาดไม่เกิน 5 MB"}</span>
           <i>
             {uploading ? "กำลังอัปโหลด" : file ? "เปลี่ยนไฟล์" : "เลือกไฟล์"}
           </i>
           <input
             disabled={uploading}
             type="file"
-            accept="image/jpeg,image/png,application/pdf"
+            accept={`${SHOP_IMAGE_ACCEPT},application/pdf`}
             onChange={(e) => void select(e.target.files?.[0])}
           />
         </label>
@@ -177,8 +170,30 @@ function DocumentRow({
 
 export default function DocumentConfirmPage() {
   const { user } = useAuth();
-  const [confirmed, setConfirmed] = useState(true);
+  const { onboarding: ob } = useLanguage();
+  const d = ob.documents;
+  const o = ob.owner;
+  const [confirmed, setConfirmed] = useState(() => readMerchantDraft(user?.id).documentsConfirmed ?? true);
   const [message, setMessage] = useState("");
+  const [existingDocs, setExistingDocs] = useState<Partial<Record<DocumentType, string>>>({});
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    merchantApi.getDraft().then((draft) => {
+      if (!active) return;
+      const names: Partial<Record<DocumentType, string>> = {};
+      for (const doc of draft.documents) {
+        names[doc.type] = doc.originalFilename;
+        rememberDocumentName(user.id, doc.type, doc.originalFilename);
+      }
+      setExistingDocs(names);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [user]);
+  useEffect(() => {
+    if (!user) return;
+    writeMerchantDraft(user.id, { ...readMerchantDraft(user.id), documentsConfirmed: confirmed });
+  }, [confirmed]);
   const next = async () => {
     if (!user) {
       window.location.assign("/login?next=/merchant/documents");
@@ -205,114 +220,30 @@ export default function DocumentConfirmPage() {
   };
   return (
     <main className="doc-page">
-      <header className="doc-header">
-        <DocBrand />
-        <nav>
-          <a href="/">หน้าหลัก</a>
-          <a href="/#recommended">สินค้า</a>
-          <a href="/#shops">ร้านค้า</a>
-          <a href="/merchant/register">สมัครเป็นร้านค้า</a>
-          <a href="/help">ช่วยเหลือ</a>
-        </nav>
-        <div className="doc-actions">
-          <button aria-label="ค้นหา">
-            <Search />
-          </button>
-          <label>
-            <span className="mini-flag" />
-            <select defaultValue="th">
-              <option value="th">ไทย</option>
-              <option value="en">English</option>
-            </select>
-          </label>
-          <a href={user ? "/dashboard" : "/login"}>
-            {user ? "บัญชีของฉัน" : "เข้าสู่ระบบ"}
-          </a>
-        </div>
-      </header>
+      <MerchantHeader />
       <div className="doc-layout">
-        <aside className="doc-sidebar">
-          <a className="doc-back-home" href="/">
-            <ArrowLeft />
-            กลับสู่หน้าหลัก
-          </a>
-          <h2>สมัครเป็นร้านค้า</h2>
-          <p>
-            สร้างร้านค้าของคุณกับ ThaiShopFun
-            <br />
-            ง่ายๆ ในไม่กี่ขั้นตอน
-          </p>
-          <div className="doc-flow">
-            {docFlow.map((step) => (
-              <div className={step.state} key={step.title}>
-                <span>{step.number}</span>
-                <p>
-                  <b>{step.title}</b>
-                  <small>{step.text}</small>
-                </p>
-              </div>
-            ))}
-          </div>
-          <div className="doc-help">
-            <Headphones />
-            <p>
-              <b>ต้องการความช่วยเหลือ?</b>
-              <span>ทีมงานพร้อมดูแลคุณ</span>
-              <a href="#contact">ติดต่อทีมงาน</a>
-            </p>
-          </div>
-          <blockquote>
-            ร้านค้าไทย
-            <br />
-            เติบโตไปด้วยกัน <i>♡</i>
-            <span />
-          </blockquote>
-          <div className="parcel-art">
-            <i>📦</i>
-            <i>📦</i>
-            <i>📦</i>
-          </div>
-        </aside>
+        <MerchantOnboardingSidebar copy={ob} activeStep={2} />
         <section className="doc-center">
           <div className="doc-card">
             <div className="doc-title">
-              <h1>เอกสารยืนยัน</h1>
-              <p>
-                กรุณาอัปโหลดเอกสารเพื่อยืนยันตัวตนและความน่าเชื่อถือของร้านค้า
-              </p>
+              <h1>{d.pageTitle}</h1>
+              <p>{d.pageLead}</p>
             </div>
             <div className="doc-top-steps">
-              {topSteps.map(([number, label, state]) => (
-                <div className={state} key={label}>
-                  <span>{number}</span>
-                  <small>{label}</small>
-                </div>
-              ))}
+              {ob.steps.map((step, index) => {
+                const state = index < 2 ? "done" : index === 2 ? "active" : "";
+                const number = index < 2 ? "✓" : String(index + 1);
+                return (
+                  <div className={state} key={step.title}>
+                    <span>{number}</span>
+                    <small>{step.title}</small>
+                  </div>
+                );
+              })}
             </div>
-            <DocumentRow
-              type="IDENTITY"
-              kind="id"
-              title="เอกสารยืนยันตัวตน (เจ้าของร้าน)"
-              description="อัปโหลดบัตรประชาชน หรือพาสปอร์ต ของเจ้าของร้าน"
-              uploadText="อัปโหลดภาพบัตรประชาชน"
-              exampleTitle="ตัวอย่างบัตรประชาชน"
-            />
-            <DocumentRow
-              type="ADDRESS"
-              kind="home"
-              title="เอกสารยืนยันที่อยู่"
-              description="อัปโหลดเอกสารที่แสดงที่อยู่ปัจจุบัน เช่น ทะเบียนบ้าน, ใบแจ้งหนี้ค่าสาธารณูปโภค (อายุเอกสารไม่เกิน 3 เดือน)"
-              uploadText="อัปโหลดเอกสารที่อยู่"
-              exampleTitle="ตัวอย่างทะเบียนบ้าน"
-            />
-            <DocumentRow
-              type="BUSINESS"
-              kind="business"
-              title="เอกสารยืนยันธุรกิจ (กรณีจดทะเบียนบริษัท / ห้างหุ้นส่วน)"
-              description="อัปโหลดหนังสือรับรองบริษัท หรือ ห้างหุ้นส่วน พร้อมวัตถุประสงค์ (อายุเอกสารไม่เกิน 6 เดือน)"
-              uploadText="อัปโหลดหนังสือรับรองบริษัท"
-              exampleTitle="ตัวอย่างหนังสือรับรองบริษัท"
-            />
+            <DocumentRow type="IDENTITY" kind={d.rows[0].kind} title={d.rows[0].title} description={d.rows[0].description} uploadText={d.rows[0].uploadText} exampleTitle={d.rows[0].exampleTitle} existingName={existingDocs.IDENTITY} />
+            <DocumentRow type="ADDRESS" kind={d.rows[1].kind} title={d.rows[1].title} description={d.rows[1].description} uploadText={d.rows[1].uploadText} exampleTitle={d.rows[1].exampleTitle} existingName={existingDocs.ADDRESS} />
+            <DocumentRow type="BUSINESS" kind={d.rows[2].kind} title={d.rows[2].title} description={d.rows[2].description} uploadText={d.rows[2].uploadText} exampleTitle={d.rows[2].exampleTitle} existingName={existingDocs.BUSINESS} />
             <label className="doc-confirm-check">
               <input
                 type="checkbox"
@@ -323,19 +254,16 @@ export default function DocumentConfirmPage() {
                 <Check />
               </span>
               <p>
-                ข้าพเจ้าขอรับรองว่า เอกสารทั้งหมดเป็นข้อมูลจริง และยินยอมให้
-                ThaiShopFun ตรวจสอบข้อมูล
-                <br />
-                เพื่อใช้ในการยืนยันตัวตนและเปิดร้านค้า
+                {d.confirmText}
               </p>
             </label>
             <div className="doc-form-actions">
               <a href="/merchant/owner-info">
                 <ArrowLeft />
-                ย้อนกลับ
+                {ob.common.back}
               </a>
-              <button type="button" onClick={() => void next()}>
-                ถัดไป <ArrowRight />
+              <button className="login-submit" type="button" onClick={() => void next()}>
+                {d.next} <ArrowRight />
               </button>
             </div>
             {message && <p className="doc-message">{message}</p>}
@@ -347,13 +275,8 @@ export default function DocumentConfirmPage() {
               <ShieldCheck />
               <CheckCircle2 />
             </div>
-            <h3>ข้อมูลของคุณปลอดภัย</h3>
-            <ul>
-              <li>เข้ารหัสข้อมูล (SSL)</li>
-              <li>ใช้เฉพาะสำหรับยืนยันตัวตน</li>
-              <li>ไม่มีเปิดเผยข้อมูลต่อสาธารณะ</li>
-              <li>เป็นไปตาม PDPA</li>
-            </ul>
+            <h3>{o.safeTitle}</h3>
+            <ul>{o.safeBullets.map((line) => <li key={line}>{line}</li>)}</ul>
           </section>
           <section className="doc-tips">
             <h3>
@@ -378,16 +301,12 @@ export default function DocumentConfirmPage() {
                 ทุกขั้นตอน
               </p>
             </div>
-            <a href="#contact">ติดต่อทีมงาน</a>
+            <a href="#contact">{ob.common.contact}</a>
           </section>
           <div className="doc-shop-art">
             <span>🏪</span>
             <i>🪴</i>
-            <b>
-              Good Shops
-              <br />
-              Brighter Thailand
-            </b>
+            <b>{ob.common.quoteEn.split("\n").map((line, i) => <span key={i}>{line}{i === 0 && <br />}</span>)}</b>
           </div>
         </aside>
       </div>

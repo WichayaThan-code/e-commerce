@@ -1,0 +1,374 @@
+{
+  "common": {
+    "home": "Home",
+    "all": "All",
+    "viewAll": "View all",
+    "sortBy": "Sort by",
+    "gridView": "Grid view",
+    "listView": "List view",
+    "sold": "Sold",
+    "area": "Area",
+    "status": "Status",
+    "noAddress": "Address not provided",
+    "defaultShopBlurb": "A Thai shop on ThaiShopFun",
+    "shopPlaceholder": "Shop"
+  },
+  "footer": {
+    "tagline": "A space for Thai people, for every Thai shop",
+    "rights": "© 2026 ThaiShopFun. All rights reserved."
+  },
+  "shops": {
+    "breadcrumb": "Featured shops",
+    "title": "Featured shops",
+    "subtitle": "Pick a Thai shop and explore its storefront",
+    "heroAlt": "Thai shops on ThaiShopFun",
+    "filtersTitle": "Shop filters",
+    "searchTitle": "Search shops",
+    "searchPlaceholder": "Shop name or description...",
+    "searchAria": "Search shops",
+    "provinces": "Province",
+    "noProvinces": "No province data yet",
+    "sortLatest": "Newest shops",
+    "sortName": "Shop name",
+    "sortAria": "Sort shops",
+    "enterShop": "Visit shop",
+    "loading": "Loading shops...",
+    "empty": "No recommended shops",
+    "pagePrev": "Previous",
+    "pageNext": "Next",
+    "pageAria": "Shop pages",
+    "loadError": "Could not load shops",
+    "filterEmpty": "No shops match your filters",
+    "bannerOpenTitle": "Open a shop\nwith ThaiShopFun",
+    "bannerOpenText": "Register your Thai shop in a few steps",
+    "bannerOpenCta": "Apply to open →",
+    "bannerProductsTitle": "Products from\nThai shops",
+    "bannerProductsText": "Browse curated items for you",
+    "bannerProductsCta": "See recommendations →"
+  },
+  "shop": {
+    "breadcrumb": "Featured shops",
+    "defaultDescription": "Thai shop details on ThaiShopFun",
+    "noDescription": "This shop has not added a description yet",
+    "loading": "Opening shop...",
+    "loadError": "Could not open this shop",
+    "productsTitle": "Products in this shop",
+    "productsHint": "Sample data to preview this shop’s product list",
+    "statusApproved": "Open for business",
+    "statusRejected": "Not approved",
+    "statusSuspended": "Suspended",
+    "statusPending": "Under review",
+    "samples": [
+      "Thai-pattern canvas tote",
+      "Crispy multigrain rice snack",
+      "Natural extract face serum",
+      "Handwoven Thai silk scarf",
+      "Handcraft gift set",
+      "Thai herbal tea set",
+      "Decorative plant with pot",
+      "Cotton T-shirt"
+    ]
+  },
+  "home": {
+    "heroAlt": "Shop fun, support Thai products delivered to your home",
+    "shopNow": "Shop now",
+    "shopByCategory": "Shop by category",
+    "recommended": "Recommended products",
+    "addFavorite": "Add to favorites",
+    "addedFavorite": "Added to favorites",
+    "addedCart": "Added to cart",
+    "openStoreTitle": "Open a shop with us",
+    "openStoreSubtitle": "Start selling online with ease",
+    "openStoreBullets": [
+      "Reach customers nationwide",
+      "No monthly fee",
+      "Only 5% when you make a sale",
+      "Support team ready to help"
+    ],
+    "openStoreCta": "Apply to open a shop",
+    "memberEyebrow": "A space for people who love Thai goods",
+    "memberGreeting": "Hello, {{name}}",
+    "memberHello": "What should you shop today?",
+    "memberLead": "Great items from Thai shops to brighten your day",
+    "memberDeals": "Deals",
+    "memberDealsHint": "Find what you love",
+    "memberCart": "My cart",
+    "memberCartHint": "Continue shopping",
+    "memberHelp": "Help",
+    "memberHelpHint": "We are here for you",
+    "searchEmpty": "Type a product name to search",
+    "searchQuery": "Searching for “{{q}}”",
+    "logoutOk": "Signed out",
+    "logoutFail": "Sign out failed. Please try again",
+    "pickCategory": "Selected category {{name}}",
+    "promoThaiTitle": "Great goods from across Thailand\ndelivered home",
+    "promoThaiText": "Support Thai entrepreneurs\nshop easily, shop well",
+    "promoThaiBtn": "Shop Thai products",
+    "promoGadgetTitle": "The right gadgets\nat great prices",
+    "promoGadgetText": "Upgrade your lifestyle today",
+    "promoBeautyTitle": "Beautiful\nin your way",
+    "promoBeautyText": "Beauty products\nfrom Thai brands",
+    "promoThaiToast": "Opening Thai products",
+    "promoGadgetToast": "Opening gadgets",
+    "promoBeautyToast": "Opening beauty products",
+    "categoryEmojis": [
+      "👕",
+      "🧴",
+      "🛋️",
+      "📱",
+      "🥘",
+      "🏋️",
+      "🧸",
+      "🪑",
+      "🪴",
+      "🎁"
+    ],
+    "categories": [
+      "Fashion\n& apparel",
+      "Beauty\n& wellness",
+      "Home\n& lifestyle",
+      "Mobile\n& electronics",
+      "Food\n& drinks",
+      "Sports\n& outdoor",
+      "Toys\n& kids",
+      "Furniture\n& decor",
+      "Eco-friendly\nproducts",
+      "Gifts\n& crafts",
+      "More"
+    ],
+    "benefits": [
+      {
+        "title": "Nationwide delivery",
+        "text": "Multiple shipping options"
+      },
+      {
+        "title": "Secure payment",
+        "text": "QR Payment supported"
+      },
+      {
+        "title": "Quality Thai shops",
+        "text": "Curated for you"
+      },
+      {
+        "title": "Easy returns",
+        "text": "Shop with confidence"
+      },
+      {
+        "title": "Order support",
+        "text": "Help whenever you need"
+      }
+    ],
+    "productMeta": [
+      {
+        "price": 290,
+        "old": 350,
+        "rating": "4.8",
+        "sold": 120,
+        "emoji": "👜",
+        "bg": "#f3eee8"
+      },
+      {
+        "price": 89,
+        "old": 120,
+        "rating": "4.7",
+        "sold": 320,
+        "emoji": "🍘",
+        "bg": "#fff4dd"
+      },
+      {
+        "price": 590,
+        "old": 790,
+        "rating": "4.9",
+        "sold": 85,
+        "emoji": "🧴",
+        "bg": "#f3f1ef"
+      },
+      {
+        "price": 790,
+        "old": 1090,
+        "rating": "4.6",
+        "sold": 210,
+        "emoji": "🔊",
+        "bg": "#eff1f4"
+      },
+      {
+        "price": 490,
+        "old": 650,
+        "rating": "4.8",
+        "sold": 95,
+        "emoji": "🧸",
+        "bg": "#fff6e7"
+      },
+      {
+        "price": 350,
+        "old": 450,
+        "rating": "4.7",
+        "sold": 180,
+        "emoji": "🪴",
+        "bg": "#eef8ef"
+      }
+    ],
+    "products": [
+      "Thai-pattern canvas bag",
+      "Crispy multigrain rice snack",
+      "Natural extract serum",
+      "Portable Bluetooth speaker",
+      "Wooden learning toy set",
+      "Monstera plant with pot"
+    ]
+  },
+  "catalog": {
+    "filters": "Product filters",
+    "price": "Price range",
+    "priceRanges": [
+      "Under ฿100",
+      "฿100 - ฿300",
+      "฿301 - ฿500",
+      "฿501 - ฿1,000",
+      "Over ฿1,000"
+    ],
+    "rating": "Product rating",
+    "ratingRanges": [
+      "4.5 and up",
+      "4.0 and up",
+      "3.5 and up",
+      "3.0 and up"
+    ],
+    "brands": "Brands",
+    "brandSearch": "Search brands...",
+    "brandTags": [
+      "Thai brand products",
+      "OTOP products",
+      "Eco-friendly products"
+    ],
+    "sortFeatured": "Recommended",
+    "sortPrice": "Lowest price",
+    "sortBest": "Best sellers",
+    "sortAria": "Sort products",
+    "favorite": "Favorites",
+    "pickCategory": "Selected category {{name}}",
+    "logoutOk": "Signed out"
+  },
+  "recommend": {
+    "breadcrumb": "Recommended products",
+    "title": "Recommended products",
+    "subtitle": "Quality picks from Thai shops, chosen for you",
+    "heroAlt": "Great Thai goods near you — support local shops",
+    "categories": [
+      "All",
+      "Fashion",
+      "Beauty",
+      "Home & lifestyle",
+      "Mobile & gadgets",
+      "Food & drinks",
+      "Sports",
+      "Mom & kids",
+      "Gifts",
+      "Gifts",
+      "Eco products",
+      "More"
+    ],
+    "addToCart": "Add to cart",
+    "viewAllRecommended": "View all recommended products",
+    "loadMore": "Loading more recommended products",
+    "banners": [
+      {
+        "title": "Special gifts\nfor someone special",
+        "text": "Choose gifts from Thai shops",
+        "btn": "See gift picks →",
+        "toast": "Opening gift recommendations"
+      },
+      {
+        "title": "Quality products\ndelivered home",
+        "text": "Easy, safe, trusted shopping",
+        "btn": "See best sellers →",
+        "toast": "Opening best sellers"
+      },
+      {
+        "title": "Shop eco-friendly\nfor a sustainable future",
+        "text": "Support Thai brands, care for the planet",
+        "btn": "See eco products →",
+        "toast": "Opening eco products"
+      }
+    ],
+    "productRows": [
+      {
+        "tagClass": "red",
+        "price": 89,
+        "old": 120,
+        "discount": 26,
+        "rating": "4.8",
+        "reviews": 320,
+        "sold": "1.2K",
+        "crop": "crop-1"
+      },
+      {
+        "tagClass": "green",
+        "price": 259,
+        "old": 399,
+        "discount": 35,
+        "rating": "4.7",
+        "reviews": 210,
+        "sold": "856",
+        "crop": "crop-2"
+      },
+      {
+        "tagClass": "orange",
+        "price": 350,
+        "old": 450,
+        "discount": 22,
+        "rating": "4.9",
+        "reviews": 180,
+        "sold": "412",
+        "crop": "crop-3"
+      },
+      {
+        "tagClass": "red",
+        "price": 890,
+        "old": 1490,
+        "discount": 40,
+        "rating": "4.8",
+        "reviews": 142,
+        "sold": "320",
+        "crop": "crop-4"
+      },
+      {
+        "tagClass": "green",
+        "price": 290,
+        "old": 350,
+        "discount": 17,
+        "rating": "4.7",
+        "reviews": 98,
+        "sold": "564",
+        "crop": "crop-5"
+      }
+    ],
+    "products": [
+      {
+        "tag": "Pick",
+        "name": "Crispy multigrain rice chips\noriginal recipe",
+        "shop": "Mae Chan Rice Crisps"
+      },
+      {
+        "tag": "Best seller",
+        "name": "100% cotton T-shirt\nsoft breathable fabric",
+        "shop": "GoodWear Thailand"
+      },
+      {
+        "tag": "New",
+        "name": "Monstera plant\nminimal pot set",
+        "shop": "Green Home"
+      },
+      {
+        "tag": "Sale",
+        "name": "Natural skincare set\nherbal formula",
+        "shop": "Natura Official"
+      },
+      {
+        "tag": "Eco",
+        "name": "Canvas tote\nThai pattern",
+        "shop": "ThaiCraft"
+      }
+    ]
+  }
+}

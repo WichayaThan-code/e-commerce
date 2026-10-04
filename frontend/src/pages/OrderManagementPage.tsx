@@ -23,6 +23,8 @@ import {
   Truck,
   WalletCards,
 } from "lucide-react";
+import LanguageSwitcher from "../components/LanguageSwitcher";
+import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
 import productManageImage from "../assets/images/references/merchant/product-manage.png";
 import "../styles/merchant-dashboard.css";
@@ -231,18 +233,11 @@ export default function OrderManagementPage() {
             placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..."
           />
         </form>
-        <button className="merchant-bell" aria-label="การแจ้งเตือน">
+        <LanguageSwitcher /> <button className="merchant-bell" aria-label="การแจ้งเตือน">
           <Bell />
           <i>3</i>
         </button>
-        <div className="merchant-profile">
-          <span>🏪</span>
-          <p>
-            <b>{shopName}</b>
-            <small>เจ้าของร้าน</small>
-          </p>
-          <ChevronDown />
-        </div>
+        <MerchantShopMenu />
       </header>
       <aside className="merchant-sidebar pm-sidebar om-sidebar">
         <nav>

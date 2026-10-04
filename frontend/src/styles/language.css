@@ -1,0 +1,56 @@
+.lang-switch { position: relative; flex: none; }
+.lang-switch > button.lang-current {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px 0 7px;
+  border: 1px solid #d5e4f4;
+  border-radius: 12px;
+  background: #fff;
+  color: #0b3270;
+  font: 700 12px 'Noto Sans Thai', sans-serif;
+  letter-spacing: .03em;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(8, 36, 93, .05);
+}
+.lang-switch > button svg:last-child { width: 14px; color: #6681aa; }
+.lang-flag {
+  width: 22px;
+  height: 16px;
+  border-radius: 2px;
+  display: block;
+  flex: none;
+  box-shadow: 0 0 0 1px rgba(8, 36, 93, .16);
+}
+.lang-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  min-width: 168px;
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid #d7e6f5;
+  border-radius: 12px;
+  box-shadow: 0 14px 32px rgba(8, 36, 93, .14);
+}
+.lang-menu button {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  padding: 0 8px;
+  color: #0b3270;
+  font: 700 12px 'Noto Sans Thai', sans-serif;
+  cursor: pointer;
+}
+.lang-menu button small { margin-left: auto; font-weight: 600; color: #6681aa; }
+.lang-menu button[aria-selected='true'],
+.lang-menu button:hover { background: #eef6ff; }
+.login-nav-tools { margin-left: auto; display: flex; align-items: center; gap: 14px; }

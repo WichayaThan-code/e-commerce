@@ -8,6 +8,7 @@ import {
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
+import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { usePermissions } from "../hooks/usePermissions";
 import { ApiError, catalogApi, mediaUrl, merchantApi, type MerchantSettings, type MerchantSettingsPayload } from "../services/api";
@@ -178,7 +179,7 @@ export default function MyStorePage(){
 
   if(loading||!ready||formLoading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
   if(!user){window.location.replace("/login?next=/merchant/store");return null}
-  if(user.role==="ADMIN"){window.location.replace("/admin");return null}
+  if((hasPlatformAccess(user) && !hasMerchantAccess(user))){window.location.replace("/admin");return null}
   const statusLabel=STATUS_LABEL[form.status]||form.status;
   const createdLabel=form.createdAt?new Date(form.createdAt).toLocaleDateString("th-TH",{day:"numeric",month:"short",year:"numeric"}):"";
   const addressLine=[form.address,form.subdistrict,form.district,form.province,form.postalCode].filter(Boolean).join(" ");

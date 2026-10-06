@@ -27,6 +27,7 @@ import {
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
+import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
@@ -70,8 +71,8 @@ export default function ReportsPage() {
   const [notice, setNotice] = useState("");
   if (loading) return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
   if (!user) { window.location.replace("/login?next=/merchant/reports"); return null; }
-  if (user.role === "ADMIN") { window.location.replace("/admin"); return null; }
-  if (user.role !== "MERCHANT") { window.location.replace("/"); return null; }
+  if ((hasPlatformAccess(user) && !hasMerchantAccess(user))) { window.location.replace("/admin"); return null; }
+  if (!hasMerchantAccess(user)) { window.location.replace("/"); return null; }
 
   const shopName = (user.firstName || "MaeSomchai").toLowerCase() === "merchant" ? "MaeSomchai Official" : `${user.firstName || "MaeSomchai"} Official`;
   const notify = (message: string) => { setNotice(message); window.setTimeout(() => setNotice(""), 1900); };

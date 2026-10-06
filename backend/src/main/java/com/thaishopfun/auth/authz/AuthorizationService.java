@@ -25,10 +25,18 @@ import java.util.UUID;
  * Because nothing about a user's roles is cached across requests, changing shop_members / platform_roles (or
  * suspending the account, which the JWT "pv" validator rejects) takes effect on the very next request, even for
  * access tokens issued earlier.
+ * <p>
+ * <b>Super admin:</b> an active {@code platform_roles} row with role {@link #SUPER_ADMIN_ROLE} (PLATFORM_ADMIN) holds
+ * every permission: all account/platform codes and all store codes in every existing shop, independent of the
+ * explicit rows in auth_role_permissions. This is decided here rather than by mapping rows, so it also covers codes
+ * added later and survives re-running the generated seed (which rewrites auth_role_permissions). Everyone else stays
+ * deny-by-default.
  */
 @Service
 public class AuthorizationService {
     private static final String REQUEST_CACHE_PREFIX = AuthorizationService.class.getName() + ".grants.";
+    /** Platform role that is granted every permission (see class comment). */
+    public static final String SUPER_ADMIN_ROLE = PlatformRole.PLATFORM_ADMIN;
 
     private final JdbcTemplate jdbc;
     private final PermissionMatrix matrix;
@@ -39,21 +47,30 @@ public class AuthorizationService {
     }
 
     /** Role assignments of one user at the time of the request. shopRoles: shops.shop_no to shop_members.role. */
-    public record Grants(UUID userId, Set<String> platformRoles, NavigableMap<Long, String> shopRoles) {}
+    public record Grants(UUID userId, Set<String> platformRoles, NavigableMap<Long, String> shopRoles) {
+        public boolean superAdmin() { return platformRoles.contains(SUPER_ADMIN_ROLE); }
+    }
 
     public enum ShopDecision { GRANTED, DENIED, NOT_MEMBER }
 
     public record ShopPermissions(Long shopId, String role, List<String> permissions) {}
 
     /** What the current user may do, as exposed to the frontend through /api/auth/me. */
-    public record EffectivePermissions(List<String> roles, List<String> permissions, List<ShopPermissions> shops) {}
+    public record EffectivePermissions(List<String> roles, List<String> permissions, List<ShopPermissions> shops, boolean superAdmin) {}
+
+    /** True when the user holds an active PLATFORM_ADMIN platform role (all permissions everywhere). */
+    public boolean isSuperAdmin(UUID userId) {
+        return grants(userId).superAdmin();
+    }
 
     /** Account/platform-level permission check (never consults shop memberships). */
     public boolean hasPermission(UUID userId, String permission) {
         var snapshot = matrix.current();
         // Fast path: granted to every signed-in account (BUYER / APPLICANT), no query needed.
         if (snapshot.signedInPermissions().contains(permission)) return true;
-        for (var role : grants(userId).platformRoles()) {
+        var grants = grants(userId);
+        if (grants.superAdmin()) return true;
+        for (var role : grants.platformRoles()) {
             if (snapshot.permissionsOf(role).contains(permission)) return true;
         }
         return false;
@@ -62,17 +79,24 @@ public class AuthorizationService {
     /** Shop-level permission check on the shop with this public number (shops.shop_no). */
     public ShopDecision checkShop(UUID userId, Long shopNo, String permission) {
         if (shopNo == null) return ShopDecision.NOT_MEMBER;
-        var role = grants(userId).shopRoles().get(shopNo);
+        var grants = grants(userId);
+        // a super admin may act in any shop that exists; a missing shop is still 404 like for everyone else
+        if (grants.superAdmin()) return shopExists(shopNo) ? ShopDecision.GRANTED : ShopDecision.NOT_MEMBER;
+        var role = grants.shopRoles().get(shopNo);
         if (role == null) return ShopDecision.NOT_MEMBER;
         return matrix.permissionsOf(role).contains(permission) ? ShopDecision.GRANTED : ShopDecision.DENIED;
     }
 
-    /** Shops (shop numbers) in which the user holds the permission. */
+    /**
+     * Member shops (shop numbers) in which the user holds the permission. Lists stay limited to the user's own
+     * memberships; a super admin holds the permission in all of them and reaches other shops by shopId.
+     */
     public Set<Long> shopsWithPermission(UUID userId, String permission) {
         var snapshot = matrix.current();
+        var grants = grants(userId);
         var result = new TreeSet<Long>();
-        grants(userId).shopRoles().forEach((shopNo, role) -> {
-            if (snapshot.permissionsOf(role).contains(permission)) result.add(shopNo);
+        grants.shopRoles().forEach((shopNo, role) -> {
+            if (grants.superAdmin() || snapshot.permissionsOf(role).contains(permission)) result.add(shopNo);
         });
         return Collections.unmodifiableSet(result);
     }
@@ -95,10 +119,20 @@ public class AuthorizationService {
             roles.add(role);
             permissions.addAll(snapshot.permissionsOf(role));
         }
+        var superAdmin = grants.superAdmin();
+        var storeCodes = new TreeSet<String>();
+        snapshot.scopeByPermission().forEach((code, scope) -> {
+            if (!superAdmin) return;
+            if ("STORE".equals(scope)) storeCodes.add(code); else permissions.add(code);
+        });
         var shops = new ArrayList<ShopPermissions>();
-        grants.shopRoles().forEach((shopNo, role) ->
-            shops.add(new ShopPermissions(shopNo, role, List.copyOf(new TreeSet<>(snapshot.permissionsOf(role))))));
-        return new EffectivePermissions(List.copyOf(roles), List.copyOf(permissions), List.copyOf(shops));
+        grants.shopRoles().forEach((shopNo, role) -> shops.add(new ShopPermissions(shopNo, role,
+            List.copyOf(superAdmin ? storeCodes : new TreeSet<>(snapshot.permissionsOf(role))))));
+        return new EffectivePermissions(List.copyOf(roles), List.copyOf(permissions), List.copyOf(shops), superAdmin);
+    }
+
+    private boolean shopExists(Long shopNo) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM shops WHERE shop_no = ?)", Boolean.class, shopNo));
     }
 
     /** Grants of the user, loaded once per HTTP request. */

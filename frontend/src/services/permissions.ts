@@ -1,4 +1,4 @@
-import type { AuthUser } from './api'
+import type { AuthUser, UserRole } from './api'
 
 /**
  * Frontend view of the permission matrix.
@@ -56,15 +56,52 @@ export const INTERIM_PERMISSIONS = {
   PROMOTION_MANAGE: 'SHOP_UPDATE',
 } as const
 
-/** Account/platform level permission (BUYER_*, SHOP_APPLICATION_*, PLATFORM_*). */
-export function hasPermission(user: AuthUser | null | undefined, permission: string): boolean {
-  return !!user?.permissions?.includes(permission)
+/** Active PLATFORM_ADMIN: the backend grants every permission in every shop, including codes added later. */
+export function isSuperAdmin(user: AuthUser | null | undefined): boolean {
+  return !!user?.superAdmin
 }
 
-/** Store permission inside one shop; a shop the user is not an active member of grants nothing. */
+/** Account/platform level permission (BUYER_*, SHOP_APPLICATION_*, PLATFORM_*). */
+export function hasPermission(user: AuthUser | null | undefined, permission: string): boolean {
+  return isSuperAdmin(user) || !!user?.permissions?.includes(permission)
+}
+
+/** Store permission inside one shop; a shop the user is not an active member of grants nothing (except to a super admin). */
 export function hasShopPermission(user: AuthUser | null | undefined, permission: string, shopId: number | null | undefined): boolean {
   if (shopId == null) return false
+  if (isSuperAdmin(user)) return true
   return !!user?.shopPermissions?.some(shop => shop.shopId === shopId && shop.permissions.includes(permission))
+}
+
+/** May open the admin area: super admin or any PLATFORM_* permission (independent of the legacy users.role). */
+export function hasPlatformAccess(user: AuthUser | null | undefined): boolean {
+  if (!user) return false
+  return isSuperAdmin(user) || !!user.permissions?.some(code => code.startsWith('PLATFORM_'))
+}
+
+/** May open the merchant area: an active membership with permissions in at least one shop (owner or team member). */
+export function hasMerchantAccess(user: AuthUser | null | undefined): boolean {
+  if (!user) return false
+  return (user.shopPermissions?.length ?? 0) > 0 || user.role === 'MERCHANT'
+}
+
+/**
+ * Which kind of account to present (labels, home links, redirects), derived from the effective permissions so that
+ * platform admins and shop team members are recognised even when users.role says otherwise. Falls back to the legacy
+ * role only when the backend sent no permission fields.
+ */
+export function accountKind(user: AuthUser | null | undefined): UserRole {
+  if (!user) return 'CUSTOMER'
+  if (user.permissions === undefined && user.superAdmin === undefined) return user.role
+  if (hasPlatformAccess(user)) return 'ADMIN'
+  if (hasMerchantAccess(user)) return 'MERCHANT'
+  return 'CUSTOMER'
+}
+
+/** Landing page after login / for "my dashboard" links. */
+export function homePath(user: AuthUser | null | undefined): string {
+  const kind = accountKind(user)
+  return kind === 'ADMIN' ? '/admin' : kind === 'MERCHANT' ? '/merchant/dashboard' : '/'
 }
 
 export function routePermission(path: string): RoutePermission | undefined {

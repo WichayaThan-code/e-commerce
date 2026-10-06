@@ -24,6 +24,7 @@ import {
   Wine,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { accountKind } from "../services/permissions";
 import bestSellerReference from "../assets/images/references/storefront/best-seller.png";
 import "../styles/recommended-products.css";
 import "../styles/best-seller.css";
@@ -201,9 +202,9 @@ export default function BestSellerPage() {
     ? `${user.firstName} ${user.lastName}`.trim() || user.email
     : "";
   const dashboard =
-    user?.role === "ADMIN"
+    accountKind(user) === "ADMIN"
       ? "/admin"
-      : user?.role === "MERCHANT"
+      : accountKind(user) === "MERCHANT"
         ? "/merchant/dashboard"
         : "/";
   const signOut = async () => {
@@ -247,9 +248,9 @@ export default function BestSellerPage() {
                   <span>
                     <b>{accountName}</b>
                     <small>
-                      {user.role === "CUSTOMER"
+                      {accountKind(user) === "CUSTOMER"
                         ? "ลูกค้า"
-                        : user.role === "MERCHANT"
+                        : accountKind(user) === "MERCHANT"
                           ? "เจ้าของร้าน"
                           : "ผู้ดูแลระบบ"}
                     </small>

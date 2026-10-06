@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "./Navbar";
 import { useAuth } from "../contexts/AuthContext";
+import { accountKind } from "../services/permissions";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import {
@@ -57,7 +58,7 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
     finally { setSigningOut(false); }
   };
 
-  const dashboardPath = user?.role === "ADMIN" ? "/admin" : user?.role === "MERCHANT" ? "/merchant/dashboard" : "/";
+  const dashboardPath = accountKind(user) === "ADMIN" ? "/admin" : accountKind(user) === "MERCHANT" ? "/merchant/dashboard" : "/";
   const accountName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email : "";
 
   return (
@@ -93,7 +94,7 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
                 <span className="member-avatar">{(user.firstName || user.email).slice(0, 1).toUpperCase()}</span>
                 <p>
                   <b>{accountName}</b>
-                  <small>{user.role === "CUSTOMER" ? t('role.customer') : user.role === "MERCHANT" ? t('role.merchant') : t('role.admin')}</small>
+                  <small>{accountKind(user) === "CUSTOMER" ? t('role.customer') : accountKind(user) === "MERCHANT" ? t('role.merchant') : t('role.admin')}</small>
                 </p>
                 <ChevronDown />
               </button>
@@ -102,8 +103,8 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
                   <div className="member-menu-heading">
                     <b>{accountName}</b><span>{user.email}</span>
                   </div>
-                  {user.role !== "CUSTOMER" && (
-                    <Link to={dashboardPath}><Store /> {user.role === "ADMIN" ? t('account.admin') : t('account.store')} <ChevronRight /></Link>
+                  {accountKind(user) !== "CUSTOMER" && (
+                    <Link to={dashboardPath}><Store /> {accountKind(user) === "ADMIN" ? t('account.admin') : t('account.store')} <ChevronRight /></Link>
                   )}
                   <Link to="/cart"><ShoppingCart /> {t('account.cart')} <ChevronRight /></Link>
                   <Link to="/deals"><Gift /> {t('account.deals')} <ChevronRight /></Link>

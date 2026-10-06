@@ -3,6 +3,7 @@ import {BarChart3,Bell,Check,ChevronDown,ChevronLeft,ChevronRight,CircleDollarSi
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import {useAuth} from '../contexts/AuthContext'
+import { hasPlatformAccess } from '../services/permissions'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-roles.css'
 
@@ -17,7 +18,7 @@ const roles:Role[]=[
 ]
 export default function AdminRolesPage(){
  const {user,loading}=useAuth();const [query,setQuery]=useState('');const [selectedId,setSelectedId]=useState(1);const [activeTab,setActiveTab]=useState<'บทบาท'|'ผู้ใช้งาน'>('บทบาท');const [notice,setNotice]=useState('');const selected=roles.find(item=>item.id===selectedId)??roles[0];const filtered=useMemo(()=>roles.filter(item=>`${item.name} ${item.english} ${item.description}`.toLowerCase().includes(query.trim().toLowerCase())),[query])
- if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>;if(!user){window.location.replace('/login');return null};if(user.role!=='ADMIN'){window.location.replace('/dashboard');return null}
+ if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>;if(!user){window.location.replace('/login');return null};if(!hasPlatformAccess(user)){window.location.replace('/dashboard');return null}
  const notify=(message:string)=>{setNotice(message);window.setTimeout(()=>setNotice(''),1900)}
  return <main className="admin-shell roles-shell"><AdminHeader user={user} />
  <AdminSidebar active="roles" className="roles-sidebar"/>

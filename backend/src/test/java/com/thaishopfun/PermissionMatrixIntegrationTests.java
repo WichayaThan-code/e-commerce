@@ -5,6 +5,7 @@ import com.thaishopfun.auth.OtpVerificationRepository;
 import com.thaishopfun.auth.PasswordResetTokenRepository;
 import com.thaishopfun.auth.RefreshTokenRepository;
 import com.thaishopfun.auth.UserAccountRepository;
+import com.thaishopfun.auth.authz.AuthorizationService;
 import com.thaishopfun.auth.authz.PermissionMatrix;
 import com.thaishopfun.auth.authz.PlatformRole;
 import com.thaishopfun.auth.authz.PlatformRoleRepository;
@@ -67,6 +68,7 @@ class PermissionMatrixIntegrationTests {
     @Autowired JdbcTemplate jdbc;
     @Autowired JwtEncoder jwtEncoder;
     @Autowired PermissionMatrix matrix;
+    @Autowired AuthorizationService authorization;
     @Autowired UserAccountRepository users;
     @Autowired PlatformRoleRepository platformRoles;
     @Autowired RefreshTokenRepository refreshTokens;
@@ -189,9 +191,8 @@ class PermissionMatrixIntegrationTests {
             .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].shopId").value(bobShop));
         mvc.perform(get("/api/merchant/settings").header("Authorization", bearer(bob.token)))
             .andExpect(status().isOk()).andExpect(jsonPath("$.shopId").value(bobShop));
-        // a platform admin is not a shop member either: merchant endpoints of a shop stay closed
-        var admin = platformAdmin("admin@example.com", "0810000006");
-        mvc.perform(get("/api/merchant/settings?shopId=" + aliceShop).header("Authorization", bearer(admin.token)))
+        // another plain shop member (STORE_OWNER of a different shop) is still a stranger here
+        mvc.perform(get("/api/merchant/store-access?shopId=" + aliceShop).header("Authorization", bearer(bob.token)))
             .andExpect(status().isNotFound());
         // alice's shop was not modified by bob's attempts
         mvc.perform(get("/api/merchant/settings?shopId=" + aliceShop).header("Authorization", bearer(alice.token)))
@@ -339,6 +340,92 @@ class PermissionMatrixIntegrationTests {
             .andExpect(jsonPath("$.user.shopPermissions.length()").value(0));
         mvc.perform(get("/api/admin/store-applications").header("Authorization", bearer(admin.token)))
             .andExpect(status().isOk()).andExpect(jsonPath("$[0].shopId").value(shopId));
+    }
+
+    // ---------------------------------------------------------------- PLATFORM_ADMIN = super admin
+
+    @Test void platformAdminHoldsEveryPermissionInEveryShop() throws Exception {
+        var alice = register("super-alice@example.com", "0810000014");
+        long aliceShop = openShop(alice, "ร้านซูเปอร์", "Super Shop", "1000000000008");
+        // granted only through platform_roles; users.role stays CUSTOMER
+        var admin = platformAdmin("super-admin@example.com", "0810000015");
+        var asAdmin = bearer(admin.token);
+
+        // store permissions (not in PLATFORM_ADMIN's explicit mapping) in a shop the admin is not a member of
+        mvc.perform(get("/api/merchant/settings?shopId=" + aliceShop).header("Authorization", asAdmin))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.shopId").value(aliceShop));
+        mvc.perform(put("/api/merchant/settings/hours?shopId=" + aliceShop).header("Authorization", asAdmin)
+                .contentType(MediaType.APPLICATION_JSON).content(HOURS))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/merchant/store-access?shopId=" + aliceShop).header("Authorization", asAdmin))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.hasShop").value(true)).andExpect(jsonPath("$.shopId").value(aliceShop));
+        // passes authorization and reaches the business rule (the shop is not suspended)
+        mvc.perform(get("/api/merchant/reinstatement?shopId=" + aliceShop).header("Authorization", asAdmin))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SHOP_NOT_SUSPENDED"));
+        // a shop that does not exist is still 404, also for the super admin
+        mvc.perform(get("/api/merchant/settings?shopId=987654").header("Authorization", asAdmin))
+            .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SHOP_NOT_FOUND"));
+        // platform permissions
+        mvc.perform(get("/api/admin/store-applications").header("Authorization", asAdmin)).andExpect(status().isOk());
+        // non-admins stay deny-by-default
+        var stranger = register("super-stranger@example.com", "0810000016");
+        mvc.perform(get("/api/admin/store-applications").header("Authorization", bearer(stranger.token))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/merchant/settings?shopId=" + aliceShop).header("Authorization", bearer(stranger.token))).andExpect(status().isNotFound());
+
+        mvc.perform(get("/api/auth/me").header("Authorization", asAdmin))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.role").value("CUSTOMER"))
+            .andExpect(jsonPath("$.superAdmin").value(true))
+            .andExpect(jsonPath("$.roleCodes", hasItem("PLATFORM_ADMIN")))
+            .andExpect(jsonPath("$.permissions", hasItems("PLATFORM_APPLICATION_READ", "PLATFORM_SETTING_UPDATE", "BUYER_PROFILE_READ")));
+        mvc.perform(get("/api/auth/me").header("Authorization", bearer(stranger.token)))
+            .andExpect(jsonPath("$.superAdmin").value(false));
+    }
+
+    @Test void platformAdminGetsPermissionCodesItIsNotMappedToIncludingNewOnes() throws Exception {
+        var owner = register("future-owner@example.com", "0810000017");
+        long shopId = openShop(owner, "ร้านอนาคต", "Future Shop", "1000000000009");
+        var admin = platformAdmin("future-admin@example.com", "0810000018");
+        var now = Timestamp.from(Instant.now());
+        var insert = "INSERT INTO auth_permissions (id, code, module, scope, description_th, doc_section, is_active, policy_version, created_date_time, modified_date_time) VALUES (?, ?, 'TEST', ?, 'ทดสอบ', '§0', TRUE, '1.0', ?, ?)";
+        var savedMappings = jdbc.queryForList("SELECT rp.id, rp.role_id, rp.permission_id FROM auth_role_permissions rp JOIN auth_roles r ON r.id = rp.role_id WHERE r.code = 'PLATFORM_ADMIN'");
+        try {
+            // codes added to the catalog later, mapped to no role at all
+            jdbc.update(insert, UUID.randomUUID(), "FUTURE_PLATFORM_REPORT", "PLATFORM", now, now);
+            jdbc.update(insert, UUID.randomUUID(), "FUTURE_STORE_FEATURE", "STORE", now, now);
+            // and the generated seed rewrote PLATFORM_ADMIN's explicit mapping to nothing
+            jdbc.update("DELETE FROM auth_role_permissions WHERE role_id = (SELECT id FROM auth_roles WHERE code = 'PLATFORM_ADMIN')");
+            matrix.invalidate();
+
+            assertEquals(Set.of(), matrix.permissionsOf("PLATFORM_ADMIN"));
+            assertEquals(true, authorization.hasPermission(admin.id, "FUTURE_PLATFORM_REPORT"));
+            assertEquals(true, authorization.hasPermission(admin.id, "PLATFORM_SHOP_SUSPEND"));
+            assertEquals(AuthorizationService.ShopDecision.GRANTED, authorization.checkShop(admin.id, shopId, "FUTURE_STORE_FEATURE"));
+            // nobody else gets the unmapped codes: not the shop owner, not a plain user
+            assertEquals(false, authorization.hasPermission(owner.id, "FUTURE_PLATFORM_REPORT"));
+            assertEquals(AuthorizationService.ShopDecision.DENIED, authorization.checkShop(owner.id, shopId, "FUTURE_STORE_FEATURE"));
+
+            mvc.perform(get("/api/admin/store-applications").header("Authorization", bearer(admin.token))).andExpect(status().isOk());
+            mvc.perform(post("/api/admin/store-applications/" + shopId + "/approve").header("Authorization", bearer(admin.token))).andExpect(status().isOk());
+            mvc.perform(get("/api/admin/store-applications").header("Authorization", bearer(owner.token))).andExpect(status().isForbidden());
+            mvc.perform(get("/api/auth/me").header("Authorization", bearer(admin.token)))
+                .andExpect(jsonPath("$.superAdmin").value(true))
+                .andExpect(jsonPath("$.permissions", hasItems("FUTURE_PLATFORM_REPORT", "PLATFORM_APPLICATION_REVIEW")))
+                .andExpect(jsonPath("$.permissions", not(hasItem("FUTURE_STORE_FEATURE"))));
+            mvc.perform(get("/api/auth/me").header("Authorization", bearer(owner.token)))
+                .andExpect(jsonPath("$.permissions", not(hasItem("FUTURE_PLATFORM_REPORT"))))
+                .andExpect(jsonPath("$.shopPermissions[0].permissions", not(hasItem("FUTURE_STORE_FEATURE"))));
+        } finally {
+            jdbc.update("DELETE FROM auth_permissions WHERE code IN ('FUTURE_PLATFORM_REPORT', 'FUTURE_STORE_FEATURE')");
+            for (var row : savedMappings) {
+                jdbc.update("INSERT INTO auth_role_permissions (id, role_id, permission_id, policy_version, created_date_time, modified_date_time) VALUES (?, ?, ?, '1.0', ?, ?)",
+                    row.get("id"),
+                    row.get("role_id"),
+                    row.get("permission_id"), now, now);
+            }
+            matrix.invalidate();
+        }
+        assertEquals(10, matrix.permissionsOf("PLATFORM_ADMIN").size());
     }
 
     // ---------------------------------------------------------------- helpers

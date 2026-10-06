@@ -3,9 +3,10 @@ export type UserRole = 'CUSTOMER' | 'MERCHANT' | 'ADMIN'
 export type ShopPermissionGrant = { shopId:number; role:string; permissions:string[] }
 /**
  * `role` is the legacy account role kept for routing. `roleCodes`, `permissions` (account + platform level) and
- * `shopPermissions` are the effective permissions resolved from the database on every login/refresh/me call.
+ * `shopPermissions` are the effective permissions resolved from the database on every login/refresh/me call;
+ * `superAdmin` (active PLATFORM_ADMIN) means every permission in every shop.
  */
-export type AuthUser = { id:string; firstName:string; lastName:string; email:string; phone:string; role:UserRole; roleCodes?:string[]; permissions?:string[]; shopPermissions?:ShopPermissionGrant[] }
+export type AuthUser = { id:string; firstName:string; lastName:string; email:string; phone:string; role:UserRole; roleCodes?:string[]; permissions?:string[]; shopPermissions?:ShopPermissionGrant[]; superAdmin?:boolean }
 type AuthResponse = { accessToken:string; expiresIn:number; user:AuthUser }
 export type RegisterPayload = { firstName:string; lastName:string; email:string; phone:string; password:string }
 

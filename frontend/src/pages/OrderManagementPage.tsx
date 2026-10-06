@@ -26,6 +26,7 @@ import {
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
+import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
 import productManageImage from "../assets/images/references/merchant/product-manage.png";
 import "../styles/merchant-dashboard.css";
@@ -187,11 +188,11 @@ export default function OrderManagementPage() {
     window.location.replace("/login?next=/merchant/orders");
     return null;
   }
-  if (user.role === "ADMIN") {
+  if ((hasPlatformAccess(user) && !hasMerchantAccess(user))) {
     window.location.replace("/admin");
     return null;
   }
-  if (user.role !== "MERCHANT") {
+  if (!hasMerchantAccess(user)) {
     window.location.replace("/");
     return null;
   }

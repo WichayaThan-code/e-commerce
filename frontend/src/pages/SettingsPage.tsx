@@ -9,6 +9,7 @@ import {
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
+import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { usePermissions } from "../hooks/usePermissions";
 import { ApiError, merchantApi, type ShopHour } from "../services/api";
@@ -80,7 +81,7 @@ export default function SettingsPage(){
   };
   if(loading||!ready||settingsLoading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
   if(!user){window.location.replace("/login?next=/merchant/settings");return null}
-  if(user.role==="ADMIN"){window.location.replace("/admin");return null}
+  if((hasPlatformAccess(user) && !hasMerchantAccess(user))){window.location.replace("/admin");return null}
   return <main className="merchant-shell pm-shell settings-shell">
     <header className="merchant-topbar"><Brand/><form onSubmit={e=>{e.preventDefault();notify("ค้นหาข้อมูลร้านค้าแล้ว")}}><Search/><input aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..."/></form><LanguageSwitcher /> <button className="merchant-bell" aria-label="การแจ้งเตือน"><Bell/><i>3</i></button><MerchantShopMenu /></header>
     <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href,badge])=><a className={label==="ตั้งค่า"?"active":""} href={href} key={label}><Icon/>{label}{badge&&<i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button></div></aside>

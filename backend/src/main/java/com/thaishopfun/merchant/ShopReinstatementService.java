@@ -2,6 +2,7 @@ package com.thaishopfun.merchant;
 
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.UserAccountRepository;
+import com.thaishopfun.auth.authz.AuthorizationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,12 +15,14 @@ public class ShopReinstatementService {
     private final ShopReinstatementRequestRepository requests;
     private final UserAccountRepository users;
     private final ShopMemberRepository members;
+    private final AuthorizationService authorization;
 
-    public ShopReinstatementService(ShopRepository shops, ShopReinstatementRequestRepository requests, UserAccountRepository users, ShopMemberRepository members) {
+    public ShopReinstatementService(ShopRepository shops, ShopReinstatementRequestRepository requests, UserAccountRepository users, ShopMemberRepository members, AuthorizationService authorization) {
         this.shops = shops;
         this.requests = requests;
         this.users = users;
         this.members = members;
+        this.authorization = authorization;
     }
 
     @Transactional(readOnly = true)
@@ -60,7 +63,8 @@ public class ShopReinstatementService {
     private Shop ownedSuspended(UUID userId, Long shopId) {
         var shop = shops.findByShopId(shopId).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า"));
         // Permission is enforced by AuthorizationInterceptor; this is defense in depth with the same answer (404).
-        if (!members.existsByShopIdAndUserIdAndStatusAndRemovedAtIsNull(shop.getUuid(), userId, "ACTIVE")) {
+        if (!authorization.isSuperAdmin(userId)
+            && !members.existsByShopIdAndUserIdAndStatusAndRemovedAtIsNull(shop.getUuid(), userId, "ACTIVE")) {
             throw new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า");
         }
         if (shop.getStatus() != ShopStatus.SUSPENDED) {

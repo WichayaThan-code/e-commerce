@@ -374,7 +374,13 @@ psql -U postgres -d TSF_DB -v ON_ERROR_STOP=1 -c "SELECT set_config('app.admin_e
 
 **รหัสที่ยังไม่มีใน seed** (ใช้รหัสใกล้เคียงชั่วคราว ต้องเพิ่มที่ตัวสร้าง seed): `ORDER_CONFIRM` (ใช้ `ORDER_UPDATE`), `PROMOTION_*` (ใช้ `SHOP_READ` / `SHOP_UPDATE`), สิทธิ์การเงินร้าน (ใช้ `REPORT_READ` / `REPORT_EXPORT`), หมวดหมู่/โปรโมชั่น/บทบาทฝั่งแพลตฟอร์ม (ใช้ `PLATFORM_SETTING_UPDATE` / `PLATFORM_ACCOUNT_READ`) — ตอนนี้ยังไม่มี API ส่วนนี้ ใช้แค่ซ่อน/ปิดปุ่มใน frontend
 
-### ผู้ดูแลระบบ (PLATFORM_ADMIN)
+### ผู้ดูแลระบบ (PLATFORM_ADMIN) = สิทธิ์สูงสุด
+
+- ผู้ที่มีแถว `platform_roles` role `PLATFORM_ADMIN` (ยังไม่ `revoked_at`) ได้ **ทุกสิทธิ์**: สิทธิ์ระดับแพลตฟอร์ม/บัญชีทั้งหมด และสิทธิ์ร้าน (`STORE`) ทุกตัว **ในทุกร้านที่มีอยู่จริง** (เรียก endpoint ร้านด้วย `shopId` ของร้านใดก็ได้ ; ร้านที่ไม่มีจริงยังได้ 404) — รวมรหัสที่จะเพิ่มในอนาคตด้วย
+- ตัดสินใน `AuthorizationService` ไม่ได้พึ่งแถวใน `auth_role_permissions` → รัน seed ใหม่ (ซึ่งเขียน mapping ทับ) ก็ยังเป็นสิทธิ์สูงสุดอยู่ ; ผู้ใช้อื่นยังเป็น deny-by-default ตามเดิม
+- `/api/auth/me` คืน `"superAdmin": true` และ `permissions` = รหัสที่ active ทั้งหมด (ร้านที่เป็นสมาชิกใน `shopPermissions` = รหัส STORE ทั้งหมด) — frontend ถือว่า super admin ทำได้ทุกอย่าง
+- รายการ `GET /api/merchant/shops` ยังแสดงเฉพาะร้านที่เป็นสมาชิก (ร้านอื่นจัดการผ่านหน้า admin หรือส่ง `shopId`)
+- `users.role` ไม่มีผลกับสิทธิ์ — ให้สิทธิ์ผ่าน `platform_roles` เท่านั้น ; frontend เลือกหน้า admin/ร้านจากสิทธิ์ใน `/api/auth/me` (ไม่ใช่ `users.role`)
 
 - สิทธิ์ `/api/admin/**` มาจาก `platform_roles` (role `PLATFORM_ADMIN` ที่ยังไม่ `revoked_at`) — `V3__authz_platform_admin_backfill.sql` คัดลอก ADMIN เดิมให้แล้ว และ bootstrap admin (`app.bootstrap-admin.*`) ได้แถวนี้อัตโนมัติ
 - ตั้งให้ user ที่มีอยู่แล้ว: ใช้ seed พร้อม `app.admin_email` (หัวข้อ Seed ด้านบน) ; ถอนสิทธิ์: `UPDATE platform_roles SET revoked_at = now(), revoke_reason = '...' WHERE user_id = '...' AND revoked_at IS NULL;` (มีผลทันที)

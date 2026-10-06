@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { hasMerchantAccess } from "../services/permissions";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import MerchantShopMenu from "./MerchantShopMenu";
 import { merchantApi, type StoreAccess } from "../services/api";
@@ -19,6 +20,8 @@ export default function MerchantStoreGuard() {
   const appealRoute = location.pathname === APPEAL_PATH;
   const [access, setAccess] = useState<StoreAccess | null>(null);
   const [gate, setGate] = useState<"checking" | "none" | "no-shop" | "locked">("checking");
+  // re-read the session at most once (e.g. right after approval) so a stale account can never loop
+  const reloaded = useRef(false);
 
   useEffect(() => {
     if (loading || !user || !ready) return;
@@ -40,7 +43,10 @@ export default function MerchantStoreGuard() {
         setGate("locked");
         return;
       }
-      if (result.approved && user.role !== "MERCHANT") await reload();
+      if (result.approved && !hasMerchantAccess(user) && !reloaded.current) {
+        reloaded.current = true;
+        await reload();
+      }
       if (active) setGate("none");
     }).catch(() => {
       if (active) setGate("no-shop");

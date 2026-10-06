@@ -8,6 +8,7 @@ import {
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
+import { hasPlatformAccess } from '../services/permissions'
 import '../styles/admin-dashboard.css'
 
 const applications=[
@@ -28,7 +29,7 @@ export default function AdminDashboardPage(){
   const [notice,setNotice]=useState('')
   if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
   if(!user){window.location.replace('/login');return null}
-  if(user.role!=='ADMIN'){window.location.replace('/dashboard');return null}
+  if(!hasPlatformAccess(user)){window.location.replace('/dashboard');return null}
   const notify=(text:string)=>{setNotice(text);window.setTimeout(()=>setNotice(''),1800)}
   return <main className="admin-shell">
     <AdminHeader user={user} />

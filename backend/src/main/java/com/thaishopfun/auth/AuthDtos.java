@@ -44,17 +44,20 @@ public final class AuthDtos {
      * Current user. {@code role} is the legacy users.role (display / routing only, not used for authorization).
      * {@code roleCodes}, {@code permissions} (account + platform level) and {@code shopPermissions} (per shop the user
      * is an active member of) are computed from the database permission matrix at the time of the response.
+     * {@code superAdmin} is true for an active PLATFORM_ADMIN: every permission, in every shop, including codes added
+     * to the catalog later (the lists then contain every active code).
      */
     public record UserResponse(
         UUID id, String firstName, String lastName, String email, String phone, UserRole role,
         boolean emailVerified, boolean phoneVerified,
-        List<String> roleCodes, List<String> permissions, List<AuthorizationService.ShopPermissions> shopPermissions
+        List<String> roleCodes, List<String> permissions, List<AuthorizationService.ShopPermissions> shopPermissions,
+        boolean superAdmin
     ) {
         public static UserResponse from(UserAccount user, AuthorizationService.EffectivePermissions access) {
             return new UserResponse(
                 user.getId(), user.getFirstName(), user.getLastName(), user.getEmail(), user.getPhone(), user.getRole(),
                 user.isEmailVerified(), user.isPhoneVerified(),
-                access.roles(), access.permissions(), access.shops()
+                access.roles(), access.permissions(), access.shops(), access.superAdmin()
             );
         }
     }

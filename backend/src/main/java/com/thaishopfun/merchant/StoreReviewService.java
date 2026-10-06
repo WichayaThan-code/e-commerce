@@ -145,6 +145,10 @@ public class StoreReviewService {
 
     @Transactional(readOnly = true)
     public MerchantDtos.StoreAccessResponse access(UUID userId, Long shopId, String permission) {
+        if (shopId != null && authorization.isSuperAdmin(userId)) {
+            var shop = shop(shopId);
+            return new MerchantDtos.StoreAccessResponse(shop.getStatus() == ShopStatus.APPROVED, true, shop.getStatus(), shop.getName(), shop.getSlug(), shop.getId());
+        }
         var allowed = authorization.shopsWithPermission(userId, permission);
         var owned = shops.findMemberShops(userId).stream().filter(shop -> allowed.contains(shop.getId())).toList();
         if (owned.isEmpty()) return new MerchantDtos.StoreAccessResponse(false, false, null, null, null, null);

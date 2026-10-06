@@ -188,10 +188,15 @@ public class MerchantShopSettingsService {
     }
 
     /**
-     * The shop the caller works on: one of their ACTIVE memberships (newest first when shopId is omitted).
+     * The shop the caller works on: one of their ACTIVE memberships (newest first when shopId is omitted), or any
+     * existing shop for a super admin (PLATFORM_ADMIN) that names it by shopId.
      * AuthorizationInterceptor has already checked the endpoint's permission on this same shop.
      */
     private Shop ownedShop(UUID userId, Long shopId) {
+        if (shopId != null && authorization.isSuperAdmin(userId)) {
+            return shops.findByShopId(shopId)
+                .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้านี้"));
+        }
         var owned = shops.findMemberShops(userId);
         if (owned.isEmpty()) {
             throw new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ยังไม่มีร้านค้าที่สมัครไว้");

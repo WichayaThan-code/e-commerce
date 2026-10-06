@@ -34,6 +34,7 @@ import {
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
+import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
@@ -236,11 +237,11 @@ export default function CustomerManagementPage() {
     window.location.replace("/login?next=/merchant/customers");
     return null;
   }
-  if (user.role === "ADMIN") {
+  if ((hasPlatformAccess(user) && !hasMerchantAccess(user))) {
     window.location.replace("/admin");
     return null;
   }
-  if (user.role !== "MERCHANT") {
+  if (!hasMerchantAccess(user)) {
     window.location.replace("/");
     return null;
   }

@@ -10,6 +10,7 @@ import {
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
+import { hasPlatformAccess } from '../services/permissions'
 import { usePermissions } from '../hooks/usePermissions'
 import { adminApplicationApi, ApiError, mediaUrl, type AdminStoreApplication } from '../services/api'
 import '../styles/admin-dashboard.css'
@@ -97,7 +98,7 @@ export default function AdminStoresPage(){
   const [pageSize,setPageSize]=useState(10)
 
   useEffect(() => {
-    if (!user || user.role !== 'ADMIN') return
+    if (!user || !hasPlatformAccess(user)) return
     let active = true
     adminApplicationApi.list().then(data => {
       if (active) setRows(data.map(mapStore))
@@ -126,9 +127,9 @@ export default function AdminStoresPage(){
   useEffect(() => { setPage(1) }, [query, status, category, province, pageSize])
   useEffect(() => { if (page > pageCount) setPage(pageCount) }, [page, pageCount])
 
-  if(loading||(user?.role==='ADMIN'&&!loaded))return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
+  if(loading||(hasPlatformAccess(user)&&!loaded))return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
   if(!user){window.location.replace('/login');return null}
-  if(user.role!=='ADMIN'){window.location.replace('/dashboard');return null}
+  if(!hasPlatformAccess(user)){window.location.replace('/dashboard');return null}
 
   const notify=(text:string)=>{setNotice(text);window.setTimeout(()=>setNotice(''),1900)}
   const reset=()=>{setQuery('');setStatus('ทั้งหมด');setCategory('ทั้งหมด');setProvince('ทั้งหมด')}

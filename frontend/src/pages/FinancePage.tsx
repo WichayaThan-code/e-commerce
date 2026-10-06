@@ -8,6 +8,7 @@ import {
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
+import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
@@ -42,8 +43,8 @@ export default function FinancePage(){
   const [notice,setNotice]=useState("");
   if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
   if(!user){window.location.replace("/login?next=/merchant/finance");return null}
-  if(user.role==="ADMIN"){window.location.replace("/admin");return null}
-  if(user.role!=="MERCHANT"){window.location.replace("/");return null}
+  if((hasPlatformAccess(user) && !hasMerchantAccess(user))){window.location.replace("/admin");return null}
+  if(!hasMerchantAccess(user)){window.location.replace("/");return null}
   const shopName=(user.firstName||"MaeSomchai").toLowerCase()==="merchant"?"MaeSomchai Official":`${user.firstName||"MaeSomchai"} Official`;
   const notify=(text:string)=>{setNotice(text);window.setTimeout(()=>setNotice(""),1900)};
   const download=(kind="รายงาน")=>{const csv="date,type,order,sales,fee,income\n12/09/2026,QR,#TSF202609120045,890,44.50,845.50\n12/09/2026,Card,#TSF202609120044,1250,62.50,1187.50";const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));const link=document.createElement("a");link.href=url;link.download=`thaishopfun-${kind}.csv`;link.click();URL.revokeObjectURL(url);notify(`ดาวน์โหลด${kind}แล้ว`)};

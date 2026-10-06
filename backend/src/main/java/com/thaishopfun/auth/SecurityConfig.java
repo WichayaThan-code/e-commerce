@@ -1,11 +1,13 @@
 package com.thaishopfun.auth;
 
+import com.thaishopfun.auth.authz.AuthorizationInterceptor;
+import com.thaishopfun.auth.authz.JsonSecurityErrorHandlers;
+import com.thaishopfun.auth.authz.PublicEndpointRegistry;
 import jakarta.servlet.DispatcherType;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -109,7 +111,15 @@ public class SecurityConfig {
         return converter;
     }
 
-    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter converter) throws Exception {
+    /**
+     * Layer 1 (this filter chain): endpoints annotated {@code @PublicEndpoint} are permitAll, every other request
+     * needs a valid access token (401 JSON otherwise). Layer 2 ({@link AuthorizationInterceptor}): the permission
+     * declared on the endpoint is checked against the role/permission matrix in the database (403 / 404).
+     * The legacy "roles" claim (users.role) is no longer used for authorization.
+     */
+    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter converter, PublicEndpointRegistry publicEndpoints) throws Exception {
+        var entryPoint = JsonSecurityErrorHandlers.authenticationEntryPoint();
+        var accessDenied = JsonSecurityErrorHandlers.accessDeniedHandler();
         return http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> {})
@@ -117,22 +127,13 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                 .requestMatchers("/error").permitAll()
-                .requestMatchers(HttpMethod.POST,
-                    "/api/auth/register",
-                    "/api/auth/login",
-                    "/api/auth/refresh",
-                    "/api/auth/logout",
-                    "/api/auth/forgot-password",
-                    "/api/auth/reset-password",
-                    "/api/auth/otp/send",
-                    "/api/auth/otp/verify"
-                ).permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/shops", "/api/shops/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/categories").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers(publicEndpoints).permitAll()
                 .anyRequest().authenticated())
-            .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(converter)))
+            .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint).accessDeniedHandler(accessDenied))
+            .oauth2ResourceServer(oauth -> oauth
+                .jwt(jwt -> jwt.jwtAuthenticationConverter(converter))
+                .authenticationEntryPoint(entryPoint)
+                .accessDeniedHandler(accessDenied))
             .build();
     }
 

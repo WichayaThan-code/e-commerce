@@ -1,5 +1,6 @@
 package com.thaishopfun.merchant;
 
+import com.thaishopfun.auth.authz.PublicEndpoint;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
@@ -13,6 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Duration;
 import java.util.List;
 
+/** Public storefront (CATALOG_READ is granted to GUEST in the matrix, so these endpoints need no sign-in). */
+@PublicEndpoint("public storefront: CATALOG_READ (GUEST)")
 @RestController
 @RequestMapping("/api/shops")
 public class ShopController {

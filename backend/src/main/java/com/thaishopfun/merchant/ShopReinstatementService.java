@@ -13,11 +13,13 @@ public class ShopReinstatementService {
     private final ShopRepository shops;
     private final ShopReinstatementRequestRepository requests;
     private final UserAccountRepository users;
+    private final ShopMemberRepository members;
 
-    public ShopReinstatementService(ShopRepository shops, ShopReinstatementRequestRepository requests, UserAccountRepository users) {
+    public ShopReinstatementService(ShopRepository shops, ShopReinstatementRequestRepository requests, UserAccountRepository users, ShopMemberRepository members) {
         this.shops = shops;
         this.requests = requests;
         this.users = users;
+        this.members = members;
     }
 
     @Transactional(readOnly = true)
@@ -57,8 +59,9 @@ public class ShopReinstatementService {
 
     private Shop ownedSuspended(UUID userId, Long shopId) {
         var shop = shops.findByShopId(shopId).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า"));
-        if (shop.getUser() == null || !userId.equals(shop.getUser().getId())) {
-            throw new AuthException(HttpStatus.FORBIDDEN, "SHOP_FORBIDDEN", "ไม่มีสิทธิ์ใช้ร้านนี้");
+        // Permission is enforced by AuthorizationInterceptor; this is defense in depth with the same answer (404).
+        if (!members.existsByShopIdAndUserIdAndStatusAndRemovedAtIsNull(shop.getUuid(), userId, "ACTIVE")) {
+            throw new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า");
         }
         if (shop.getStatus() != ShopStatus.SUSPENDED) {
             throw new AuthException(HttpStatus.CONFLICT, "SHOP_NOT_SUSPENDED", "ยื่นคำร้องได้เฉพาะร้านที่ถูกระงับ");

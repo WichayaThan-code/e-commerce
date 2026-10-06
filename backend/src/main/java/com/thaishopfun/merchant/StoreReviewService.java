@@ -1,6 +1,7 @@
 package com.thaishopfun.merchant;
 
 import com.thaishopfun.auth.AuthException;
+import com.thaishopfun.auth.authz.AuthorizationService;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -17,12 +18,14 @@ public class StoreReviewService {
     private final MerchantDocumentRepository documents;
     private final MerchantStorageService storage;
     private final ShopReinstatementService reinstatements;
+    private final AuthorizationService authorization;
 
-    public StoreReviewService(ShopRepository shops, MerchantDocumentRepository documents, MerchantStorageService storage, ShopReinstatementService reinstatements) {
+    public StoreReviewService(ShopRepository shops, MerchantDocumentRepository documents, MerchantStorageService storage, ShopReinstatementService reinstatements, AuthorizationService authorization) {
         this.shops = shops;
         this.documents = documents;
         this.storage = storage;
         this.reinstatements = reinstatements;
+        this.authorization = authorization;
     }
 
     @Transactional(readOnly = true)
@@ -141,8 +144,9 @@ public class StoreReviewService {
     }
 
     @Transactional(readOnly = true)
-    public MerchantDtos.StoreAccessResponse access(UUID userId, Long shopId) {
-        var owned = shops.findByUser_IdOrderByShopIdDesc(userId);
+    public MerchantDtos.StoreAccessResponse access(UUID userId, Long shopId, String permission) {
+        var allowed = authorization.shopsWithPermission(userId, permission);
+        var owned = shops.findMemberShops(userId).stream().filter(shop -> allowed.contains(shop.getId())).toList();
         if (owned.isEmpty()) return new MerchantDtos.StoreAccessResponse(false, false, null, null, null, null);
         Shop shop;
         if (shopId == null) {

@@ -1,6 +1,8 @@
 package com.thaishopfun.auth;
 
+import com.thaishopfun.auth.authz.AuthorizationService;
 import jakarta.validation.constraints.*;
+import java.util.List;
 import java.util.UUID;
 
 public final class AuthDtos {
@@ -38,14 +40,21 @@ public final class AuthDtos {
         @NotBlank @Pattern(regexp = "^\\d{6}$", message = "รหัส OTP ต้องเป็นตัวเลข 6 หลัก") String code
     ) {}
 
+    /**
+     * Current user. {@code role} is the legacy users.role (display / routing only, not used for authorization).
+     * {@code roleCodes}, {@code permissions} (account + platform level) and {@code shopPermissions} (per shop the user
+     * is an active member of) are computed from the database permission matrix at the time of the response.
+     */
     public record UserResponse(
         UUID id, String firstName, String lastName, String email, String phone, UserRole role,
-        boolean emailVerified, boolean phoneVerified
+        boolean emailVerified, boolean phoneVerified,
+        List<String> roleCodes, List<String> permissions, List<AuthorizationService.ShopPermissions> shopPermissions
     ) {
-        public static UserResponse from(UserAccount user) {
+        public static UserResponse from(UserAccount user, AuthorizationService.EffectivePermissions access) {
             return new UserResponse(
                 user.getId(), user.getFirstName(), user.getLastName(), user.getEmail(), user.getPhone(), user.getRole(),
-                user.isEmailVerified(), user.isPhoneVerified()
+                user.isEmailVerified(), user.isPhoneVerified(),
+                access.roles(), access.permissions(), access.shops()
             );
         }
     }

@@ -1,5 +1,7 @@
 package com.thaishopfun.auth;
 
+import com.thaishopfun.auth.authz.PublicEndpoint;
+import com.thaishopfun.auth.authz.RequirePermission;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -27,43 +29,51 @@ public class AuthController {
         this.properties = properties;
     }
 
+    @PublicEndpoint
     @PostMapping("/register")
     ResponseEntity<AuthDtos.AuthResponse> register(@Valid @RequestBody AuthDtos.RegisterRequest request) {
         return session(auth.register(request), HttpStatus.CREATED);
     }
 
+    @PublicEndpoint
     @PostMapping("/login")
     ResponseEntity<AuthDtos.AuthResponse> login(@Valid @RequestBody AuthDtos.LoginRequest request) {
         return session(auth.login(request), HttpStatus.OK);
     }
 
+    @PublicEndpoint
     @PostMapping("/refresh")
     ResponseEntity<AuthDtos.AuthResponse> refresh(HttpServletRequest request) {
         return session(auth.refresh(cookie(request)), HttpStatus.OK);
     }
 
+    @PublicEndpoint
     @PostMapping("/logout")
     ResponseEntity<Void> logout(HttpServletRequest request) {
         auth.logout(cookie(request));
         return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, clearCookie().toString()).build();
     }
 
+    @RequirePermission("BUYER_PROFILE_READ")
     @GetMapping("/me")
     AuthDtos.UserResponse me(@org.springframework.security.core.annotation.AuthenticationPrincipal Jwt jwt) {
         return auth.me(UUID.fromString(jwt.getSubject()));
     }
 
+    @PublicEndpoint
     @PostMapping("/forgot-password")
     AuthDtos.ForgotPasswordResponse forgotPassword(@Valid @RequestBody AuthDtos.ForgotPasswordRequest request) {
         return auth.forgotPassword(request);
     }
 
+    @PublicEndpoint
     @PostMapping("/reset-password")
     ResponseEntity<AuthDtos.MessageResponse> resetPassword(@Valid @RequestBody AuthDtos.ResetPasswordRequest request) {
         auth.resetPassword(request);
         return ResponseEntity.ok(new AuthDtos.MessageResponse("ตั้งรหัสผ่านใหม่สำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง"));
     }
 
+    @RequirePermission("BUYER_PROFILE_UPDATE")
     @PostMapping("/change-password")
     ResponseEntity<AuthDtos.MessageResponse> changePassword(
         @org.springframework.security.core.annotation.AuthenticationPrincipal Jwt jwt,
@@ -73,6 +83,7 @@ public class AuthController {
         return ResponseEntity.ok(new AuthDtos.MessageResponse("เปลี่ยนรหัสผ่านสำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง"));
     }
 
+    @PublicEndpoint
     @PostMapping("/otp/send")
     AuthDtos.SendOtpResponse sendOtp(@Valid @RequestBody AuthDtos.SendOtpRequest request, Authentication authentication) {
         UUID userId = null;
@@ -82,6 +93,7 @@ public class AuthController {
         return auth.sendOtp(request, userId);
     }
 
+    @PublicEndpoint
     @PostMapping("/otp/verify")
     AuthDtos.VerifyOtpResponse verifyOtp(@Valid @RequestBody AuthDtos.VerifyOtpRequest request) {
         return auth.verifyOtp(request);

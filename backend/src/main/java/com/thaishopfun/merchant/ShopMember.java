@@ -18,6 +18,7 @@ public class ShopMember {
     @Column(nullable = false, length = 40) private String role;
     @Column(nullable = false, length = 30) private String status;
     @Column(name = "joined_at", nullable = false) private Instant joinedAt;
+    @Column(name = "removed_at") private Instant removedAt;
     @Column(name = "created_date_time", nullable = false) private Instant createdDateTime;
     @Column(name = "modified_date_time", nullable = false) private Instant modifiedDateTime;
 
@@ -40,4 +41,6 @@ public class ShopMember {
     public UUID getShopId() { return shopId; }
     public UUID getUserId() { return userId; }
     public String getRole() { return role; }
+    public String getStatus() { return status; }
+    public Instant getRemovedAt() { return removedAt; }
 }

@@ -1,5 +1,6 @@
 package com.thaishopfun.auth;
 
+import com.thaishopfun.auth.authz.AuthorizationService;
 import com.thaishopfun.auth.delivery.OtpIssuedEvent;
 import com.thaishopfun.auth.delivery.PasswordResetRequestedEvent;
 import org.slf4j.Logger;
@@ -44,13 +45,14 @@ public class AuthService {
     private final SecurityProperties properties;
     private final LoginAttemptService loginAttempts;
     private final ApplicationEventPublisher events;
+    private final AuthorizationService authorization;
     private final SecureRandom random = new SecureRandom();
 
     public AuthService(UserAccountRepository users, RefreshTokenRepository refreshTokens,
                        PasswordResetTokenRepository passwordResetTokens, OtpVerificationRepository otpVerifications,
                        PasswordEncoder passwords, AuthenticationManager authentication, JwtEncoder jwtEncoder,
                        SecurityProperties properties, LoginAttemptService loginAttempts,
-                       ApplicationEventPublisher events) {
+                       ApplicationEventPublisher events, AuthorizationService authorization) {
         this.users = users;
         this.refreshTokens = refreshTokens;
         this.passwordResetTokens = passwordResetTokens;
@@ -61,6 +63,7 @@ public class AuthService {
         this.properties = properties;
         this.loginAttempts = loginAttempts;
         this.events = events;
+        this.authorization = authorization;
     }
 
     @Transactional
@@ -135,7 +138,7 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public AuthDtos.UserResponse me(UUID id) {
-        return users.findById(id).map(AuthDtos.UserResponse::from)
+        return users.findById(id).map(this::userResponse)
             .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "ไม่พบบัญชีผู้ใช้"));
     }
 
@@ -355,6 +358,7 @@ public class AuthService {
             .issuedAt(now)
             .expiresAt(now.plus(accessDuration))
             .subject(user.getId().toString())
+            // informational only (legacy users.role); permissions are evaluated live from the database
             .claim("roles", List.of(user.getRole().name()))
             .claim("pv", user.getPermissionVersion())
             .build();
@@ -364,8 +368,12 @@ public class AuthService {
         random.nextBytes(bytes);
         var rawRefresh = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         refreshTokens.save(new RefreshToken(user, hash(rawRefresh), now.plus(Duration.ofDays(properties.refreshTokenDays()))));
-        var response = new AuthDtos.AuthResponse(accessToken, accessDuration.toSeconds(), AuthDtos.UserResponse.from(user));
+        var response = new AuthDtos.AuthResponse(accessToken, accessDuration.toSeconds(), userResponse(user));
         return new Session(response, rawRefresh);
+    }
+
+    private AuthDtos.UserResponse userResponse(UserAccount user) {
+        return AuthDtos.UserResponse.from(user, authorization.effectivePermissions(user.getId()));
     }
 
     private String maskDestination(OtpChannel channel, String normalized) {

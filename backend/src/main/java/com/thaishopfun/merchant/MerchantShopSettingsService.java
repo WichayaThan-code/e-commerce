@@ -1,6 +1,7 @@
 package com.thaishopfun.merchant;
 
 import com.thaishopfun.auth.AuthException;
+import com.thaishopfun.auth.authz.AuthorizationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,17 +17,21 @@ public class MerchantShopSettingsService {
     private final MerchantApplicationRepository applications;
     private final MerchantStorageService storage;
     private final ProductCategoryService categories;
+    private final AuthorizationService authorization;
 
-    public MerchantShopSettingsService(ShopRepository shops, MerchantApplicationRepository applications, MerchantStorageService storage, ProductCategoryService categories) {
+    public MerchantShopSettingsService(ShopRepository shops, MerchantApplicationRepository applications, MerchantStorageService storage, ProductCategoryService categories, AuthorizationService authorization) {
         this.shops = shops;
         this.applications = applications;
         this.storage = storage;
         this.categories = categories;
+        this.authorization = authorization;
     }
 
     @Transactional(readOnly = true)
-    public List<MerchantDtos.MerchantShopSummary> list(UUID userId) {
-        return shops.findByUser_IdOrderByShopIdDesc(userId).stream()
+    public List<MerchantDtos.MerchantShopSummary> list(UUID userId, String permission) {
+        var allowed = authorization.shopsWithPermission(userId, permission);
+        return shops.findMemberShops(userId).stream()
+            .filter(shop -> allowed.contains(shop.getId()))
             .map(shop -> new MerchantDtos.MerchantShopSummary(shop.getId(), shop.getName(), shop.getStatus(), shop.getSlug(), shop.getOwner() == null ? null : shop.getOwner().getId()))
             .toList();
     }
@@ -182,8 +187,12 @@ public class MerchantShopSettingsService {
         return get(userId, shop.getId());
     }
 
+    /**
+     * The shop the caller works on: one of their ACTIVE memberships (newest first when shopId is omitted).
+     * AuthorizationInterceptor has already checked the endpoint's permission on this same shop.
+     */
     private Shop ownedShop(UUID userId, Long shopId) {
-        var owned = shops.findByUser_IdOrderByShopIdDesc(userId);
+        var owned = shops.findMemberShops(userId);
         if (owned.isEmpty()) {
             throw new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ยังไม่มีร้านค้าที่สมัครไว้");
         }

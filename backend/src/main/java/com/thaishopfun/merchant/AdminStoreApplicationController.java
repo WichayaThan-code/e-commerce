@@ -1,5 +1,6 @@
 package com.thaishopfun.merchant;
 
+import com.thaishopfun.auth.authz.RequirePermission;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -22,11 +23,13 @@ public class AdminStoreApplicationController {
         this.reviews = reviews;
     }
 
+    @RequirePermission("PLATFORM_APPLICATION_READ")
     @GetMapping
     public List<MerchantDtos.AdminStoreApplicationResponse> list() {
         return reviews.list();
     }
 
+    @RequirePermission("PLATFORM_APPLICATION_READ")
     @GetMapping("/export")
     public ResponseEntity<byte[]> export() {
         return ResponseEntity.ok()
@@ -35,6 +38,7 @@ public class AdminStoreApplicationController {
             .body(reviews.export());
     }
 
+    @RequirePermission("PLATFORM_APPLICATION_READ")
     @GetMapping("/{shopId}/documents/{documentId}")
     public ResponseEntity<Resource> document(@PathVariable Long shopId, @PathVariable UUID documentId) {
         var filename = reviews.documentFilename(shopId, documentId);
@@ -52,41 +56,49 @@ public class AdminStoreApplicationController {
             .body(new FileSystemResource(reviews.documentFile(shopId, documentId)));
     }
 
+    @RequirePermission("PLATFORM_APPLICATION_REVIEW")
     @PostMapping("/bulk/approve")
     public MerchantDtos.BulkShopResponse approveMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request) {
         return reviews.approveMany(request.shopIds());
     }
 
+    @RequirePermission("PLATFORM_APPLICATION_REVIEW")
     @PostMapping("/bulk/reject")
     public MerchantDtos.BulkShopResponse rejectMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request) {
         return reviews.rejectMany(request.shopIds());
     }
 
+    @RequirePermission("PLATFORM_SHOP_SUSPEND")
     @PostMapping("/bulk/suspend")
     public MerchantDtos.BulkShopResponse suspendMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request) {
         return reviews.suspendMany(request.shopIds());
     }
 
+    @RequirePermission("PLATFORM_SHOP_RESTORE")
     @PostMapping("/bulk/reactivate")
     public MerchantDtos.BulkShopResponse reactivateMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request) {
         return reviews.reactivateMany(request.shopIds());
     }
 
+    @RequirePermission("PLATFORM_APPLICATION_REVIEW")
     @PostMapping("/{shopId}/approve")
     public MerchantDtos.AdminStoreApplicationResponse approve(@PathVariable Long shopId) {
         return reviews.approve(shopId);
     }
 
+    @RequirePermission("PLATFORM_APPLICATION_REVIEW")
     @PostMapping("/{shopId}/reject")
     public MerchantDtos.AdminStoreApplicationResponse reject(@PathVariable Long shopId) {
         return reviews.reject(shopId);
     }
 
+    @RequirePermission("PLATFORM_SHOP_SUSPEND")
     @PostMapping("/{shopId}/suspend")
     public MerchantDtos.AdminStoreApplicationResponse suspend(@PathVariable Long shopId) {
         return reviews.suspend(shopId);
     }
 
+    @RequirePermission("PLATFORM_SHOP_RESTORE")
     @PostMapping("/{shopId}/reactivate")
     public MerchantDtos.AdminStoreApplicationResponse reactivate(@PathVariable Long shopId) {
         return reviews.reactivate(shopId);

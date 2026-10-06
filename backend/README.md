@@ -351,6 +351,9 @@ psql -U postgres -d TSF_DB -v ON_ERROR_STOP=1 -c "SELECT set_config('app.admin_e
 | `POST .../{shopId}/approve`, `.../reject`, `.../bulk/approve`, `.../bulk/reject` | แพลตฟอร์ม | `PLATFORM_APPLICATION_REVIEW` |
 | `POST .../{shopId}/suspend`, `.../bulk/suspend` | แพลตฟอร์ม | `PLATFORM_SHOP_SUSPEND` |
 | `POST .../{shopId}/reactivate`, `.../bulk/reactivate` | แพลตฟอร์ม | `PLATFORM_SHOP_RESTORE` |
+| `GET /api/admin/users`, `.../users/stats`, `.../users/filter-options`, `.../users/export`, `.../users/{id}` | แพลตฟอร์ม | `PLATFORM_ACCOUNT_READ` |
+| `GET /api/admin/roles`, `GET /api/admin/roles/{code}` | แพลตฟอร์ม | `PLATFORM_ACCOUNT_READ` |
+| `GET /api/admin/users/{id}/history`, `GET /api/admin/roles/activity` | แพลตฟอร์ม | `PLATFORM_AUDIT_READ` |
 
 `/api/merchant/settings*` ที่ไม่ส่ง `shopId` ใช้ร้านล่าสุด (`shop_no` มากสุด) ที่เป็นสมาชิก (พฤติกรรมเดิม) แล้วตรวจสิทธิ์กับร้านนั้น ; `/api/merchant/reinstatement` ต้องส่ง `shopId`
 
@@ -385,6 +388,20 @@ psql -U postgres -d TSF_DB -v ON_ERROR_STOP=1 -c "SELECT set_config('app.admin_e
 - สิทธิ์ `/api/admin/**` มาจาก `platform_roles` (role `PLATFORM_ADMIN` ที่ยังไม่ `revoked_at`) — `V3__authz_platform_admin_backfill.sql` คัดลอก ADMIN เดิมให้แล้ว และ bootstrap admin (`app.bootstrap-admin.*`) ได้แถวนี้อัตโนมัติ
 - ตั้งให้ user ที่มีอยู่แล้ว: ใช้ seed พร้อม `app.admin_email` (หัวข้อ Seed ด้านบน) ; ถอนสิทธิ์: `UPDATE platform_roles SET revoked_at = now(), revoke_reason = '...' WHERE user_id = '...' AND revoked_at IS NULL;` (มีผลทันที)
 
+### หน้า admin ผู้ใช้งาน / บทบาทและสิทธิ์ (อ่านอย่างเดียว)
+
+ข้อมูลทุกตัวมาจากตารางจริง (`users`, `platform_roles`, `shop_members`, `shops`, `auth_roles`, `auth_permissions`, `auth_role_permissions`, `merchant_applications`, `audit_logs`) ผ่าน `com.thaishopfun.admin`:
+
+- `GET /api/admin/users?q=&role=&status=&from=&to=&sort=&dir=&page=&size=` — แบ่งหน้า/กรอง/เรียงที่ server (`page` เริ่ม 0, `size` สูงสุด 100) ; `q` ค้นชื่อ-นามสกุล อีเมล เบอร์ (มี/ไม่มีขีด) และชื่อร้าน ; `role` = รหัสใน `auth_roles` (context `PLATFORM`/`STORE`) หรือ `GENERAL` (ไม่มีบทบาทแพลตฟอร์ม/ร้าน) ; `status` = `ACTIVE`/`SUSPENDED` ; `from`/`to` = วันที่สมัคร (yyyy-MM-dd, เวลาไทย, รวมวันสุดท้าย) ; `sort` = `createdAt`(ค่าเริ่ม)/`name`/`email`/`lastLoginAt`/`status` ; ค่าผิด → 400 `INVALID_FILTER`
+- บทบาทของผู้ใช้คิดแบบเดียวกับ `AuthorizationService`: แอดมิน = `platform_roles` ที่ยังไม่ `revoked_at`, บทบาทร้าน = `shop_members` ที่ `ACTIVE` และ `removed_at IS NULL` ; บทบาทหลักในตาราง = แพลตฟอร์ม > บทบาทร้านที่ `sort_order` ต่ำสุด > `BUYER` ; บัญชีที่ `deleted_at` ไม่ถูกนับ/แสดง ; `users.role` แสดงเป็นข้อมูลอ้างอิงเท่านั้น
+- `GET /api/admin/users/stats` — ทั้งหมด / แอดมิน / เจ้าของร้าน / ทั่วไป / ใช้งาน / ระงับ / จำนวนบทบาท ; `previous` = ค่า ณ ต้นเดือนนี้ (เวลาไทย) คำนวณจาก `created_date_time`, `granted_at`/`revoked_at`, `joined_at`/`removed_at` ; ถ้าไม่มีข้อมูลก่อนเดือนนี้ `changePercent = null` (หน้าเว็บแสดง `-`)
+- `GET /api/admin/users/{id}` — โปรไฟล์ + บทบาท + สิทธิ์ที่มีผลจริง (`AuthorizationService.effectivePermissions`) แยกระดับบัญชี/รายร้าน ; `/history` — สมัคร/ยืนยัน/เข้าสู่ระบบล่าสุด, ได้รับ-ถอนบทบาท, เข้า-ออกร้าน, ส่งใบสมัคร, `audit_logs`
+- `GET /api/admin/users/export` — CSV (UTF-8 BOM) ตามตัวกรองเดียวกัน สูงสุด 10,000 แถว
+- `GET /api/admin/roles` — ทุกแถวใน `auth_roles` พร้อมจำนวนผู้ใช้จริง (PLATFORM จาก `platform_roles`, STORE จาก `shop_members`, BUYER/APPLICANT = บัญชีที่ใช้งานทั้งหมดเพราะได้โดยปริยาย, GUEST = ไม่ผูกบัญชี → `null`) และจำนวนสิทธิ์ที่ผูก ; `auth_roles` ไม่มีคอลัมน์สถานะ จึงถือว่า "ใช้งาน" เมื่อมีสิทธิ์ active ผูกอยู่อย่างน้อย 1 รายการ (PLATFORM_ADMIN ใช้งานเสมอ)
+- `GET /api/admin/roles/{code}` — สิทธิ์ของบทบาทจัดกลุ่มตาม `auth_permissions.module` ; `GET /api/admin/roles/activity` — ประวัติล่าสุดจาก `platform_roles` / `shop_members` / `audit_logs` ที่เกี่ยวกับบทบาท
+- ทุก query เป็น SQL ที่ใช้ได้ทั้ง PostgreSQL และ H2: COUNT 1 ครั้ง + หน้า 1 ครั้ง + ดึงบทบาท/ร้านของแถวในหน้านั้นแบบ batch (`IN`) 2 ครั้ง (ไม่มี N+1) ; มี index `platform_roles(user_id)`, `shop_members(user_id)`, `audit_logs(actor_id, occurred_at)` อยู่แล้ว ; ยังไม่มี index `users(created_date_time)` และการค้นแบบ `%คำ%` ใช้ btree ไม่ได้ — ถ้าผู้ใช้หลักแสนค่อยเพิ่ม V4 (index + `pg_trgm`)
+- **ยังไม่มีการเขียน**: ส่งอีเมล, รีเซ็ตรหัสผ่าน, ระงับ/ลบผู้ใช้, เพิ่มผู้ใช้, แก้สิทธิ์บทบาท, เพิ่มบทบาท — ปุ่มใน UI ถูกปิดพร้อม tooltip "ยังไม่เปิดใช้งาน" ; การแก้สิทธิ์บทบาทจาก UI จะชนกับ seed ที่ generate (`seed_reference_data.sql` เขียน mapping ทับเมื่อรันใหม่) ต้องออกแบบที่ตัวสร้าง seed ก่อน
+
 ### การทดสอบ
 
 ```powershell
@@ -392,9 +409,11 @@ cd backend
 .\mvnw.cmd test                                   # ทั้งหมด (ห้ามใช้ mvnw clean — target มีไฟล์ของทีม)
 .\mvnw.cmd test "-Dtest=PermissionMatrixIntegrationTests"
 .\mvnw.cmd test "-Dtest=EndpointAccessRuleCoverageTests"
+.\mvnw.cmd test "-Dtest=AdminDirectoryIntegrationTests"
 ```
 
 - เทสใช้ H2 (profile `test`) แต่ **seed สิทธิ์จริง**: `ReferenceSeedTestLoader` อ่านรายการ `VALUES` ของ `auth_roles` / `auth_permissions` / mapping จากไฟล์ `src/main/resources/db/seed/seed_reference_data.sql` ตัวจริงแล้ว insert ลง H2 — แก้ seed แล้วเทสใช้ค่าใหม่ทันที (ไม่มีสำเนาสิทธิ์ในเทส)
 - `PermissionMatrixIntegrationTests` ครอบคลุม: (1) ผู้ใช้ไม่มีสิทธิ์ → 403 (ทั้งระดับแพลตฟอร์ม และสมาชิกร้าน role `STORE_VIEWER`) (2) เข้าร้านของคนอื่น/ร้านที่ไม่มีจริง → 404 ทุก endpoint ร้าน (3) token หมดอายุ/ปลอม/ไม่มี → 401 `TOKEN_EXPIRED` / `TOKEN_INVALID` / `UNAUTHORIZED` และ `pv` เปลี่ยน → `TOKEN_REVOKED` (4) เปลี่ยน role ร้าน/ปิดสมาชิก/ให้-ถอน `PLATFORM_ADMIN` ระหว่าง session → token เดิมได้ผลใหม่ทันที ; รวมถึงแก้ mapping ใน DB แล้วผลการตัดสินเปลี่ยนหลัง reload และ `/me` / login คืนสิทธิ์จริง
+- `AdminDirectoryIntegrationTests` — หน้า admin ผู้ใช้/บทบาท: 401/403/200 ทุก endpoint, แบ่งหน้า+เรียง, ตัวกรองทุกตัว (ข้อความ/เบอร์/ชื่อร้าน/บทบาท/สถานะ/ช่วงวันที่/ค่าผิด → 400/บัญชีที่ลบ), stats เทียบ DB รวม % เทียบเดือนก่อน, จำนวนผู้ใช้/สิทธิ์ของทุกบทบาทเทียบ DB, รายละเอียด/ประวัติ, export CSV
 - `EndpointAccessRuleCoverageTests` — guard: ทุก endpoint ต้องมีกฎ, รหัสต้อง active ใน DB, scope ถูก, มี role ได้สิทธิ์ และ endpoint ที่ไม่มีกฎถูกปฏิเสธจริง
 - บน PostgreSQL (`TSF_DB`) ต้องรัน seed แล้ว (หัวข้อ Seed) — ไม่งั้นทุก endpoint ที่ไม่ใช่ public จะได้ 403

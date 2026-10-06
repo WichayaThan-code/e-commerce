@@ -7,6 +7,11 @@ import {
   Shirt, ShoppingBag, SlidersHorizontal, Sparkles, Store, Tags, TrendingUp,
   Trophy, UserCog, UsersRound, Utensils, WalletCards,
 } from 'lucide-react'
+<<<<<<< HEAD
+=======
+import AdminHeader from '../components/AdminHeader'
+import AdminSidebar from '../components/AdminSidebar'
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import { useAuth } from '../contexts/AuthContext'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-categories.css'
@@ -26,6 +31,7 @@ const categories:CategoryRow[]=[
   {id:10,name:'ของขวัญและงานฝีมือ',description:'ของขวัญ งานฝีมือ สินค้าทำมือ',products:258,stores:76,active:true,created:'10 ก.ค. 2024 15:20',tone:'magenta',icon:Gift},
 ]
 
+<<<<<<< HEAD
 const navGroups=[
   {label:'จัดการร้านค้า',items:[[Store,'ร้านค้า',''],[FileCheck2,'ใบสมัครร้านค้า','18'],[Tags,'หมวดหมู่สินค้า',''],[Megaphone,'โปรโมชั่น/แคมเปญ','']]},
   {label:'จัดการผู้ใช้',items:[[UsersRound,'ผู้ใช้งาน',''],[UserCog,'บทบาทและสิทธิ์','']]},
@@ -38,6 +44,10 @@ function AdminBrand(){return <a className="admin-brand" href="/"><span><Shopping
 
 export default function AdminCategoriesPage(){
   const {user,loading,logout}=useAuth()
+=======
+export default function AdminCategoriesPage(){
+  const {user,loading}=useAuth()
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   const [query,setQuery]=useState('')
   const [status,setStatus]=useState('ทั้งหมด')
   const [sort,setSort]=useState('วันที่สร้าง (ใหม่สุด)')
@@ -48,13 +58,21 @@ export default function AdminCategoriesPage(){
   if(!user){window.location.replace('/login');return null}
   if(user.role!=='ADMIN'){window.location.replace('/dashboard');return null}
   const notify=(message:string)=>{setNotice(message);window.setTimeout(()=>setNotice(''),1900)}
+<<<<<<< HEAD
   const signOut=async()=>{await logout();window.location.replace('/')}
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   const toggle=(id:number)=>setSelected(rows=>rows.includes(id)?rows.filter(row=>row!==id):[...rows,id])
   const reset=()=>{setQuery('');setStatus('ทั้งหมด');setSort('วันที่สร้าง (ใหม่สุด)')}
 
   return <main className="admin-shell category-shell">
+<<<<<<< HEAD
     <header className="admin-topbar"><AdminBrand/><form onSubmit={event=>{event.preventDefault();notify('ค้นหาในระบบแล้ว')}}><button aria-label="ค้นหา"><Search/></button><input aria-label="ค้นหาในระบบ" placeholder="ค้นหาร้านค้า, สินค้า, ผู้ใช้, หรือคำสั่งซื้อ..."/></form><span className="topbar-spacer"/><button className="admin-bell" aria-label="การแจ้งเตือน"><Bell/><i>12</i></button><div className="admin-profile"><span>{user.firstName.charAt(0).toUpperCase()}</span><p><b>{user.email}</b><small>Administrator</small></p><ChevronDown/></div></header>
     <aside className="admin-sidebar category-sidebar"><a href="/admin"><Home/>หน้าแรก</a>{navGroups.map(group=><section key={group.label}><h3>{group.label}</h3>{group.items.map(([Icon,label,badge])=>label==='ร้านค้า'?<a href="/admin/stores" key={label}><Icon/>{label}</a>:label==='ใบสมัครร้านค้า'?<a href="/admin/store-applications" key={label}><Icon/>{label}<i>{badge}</i></a>:label==='หมวดหมู่สินค้า'?<a className="active" href="/admin/categories" key={label}><Icon/>{label}</a>:label==='โปรโมชั่น/แคมเปญ'?<a href="/admin/promotions" key={label}><Icon/>{label}</a>:label==='ผู้ใช้งาน'?<a href="/admin/users" key={label}><Icon/>{label}</a>:label==='บทบาทและสิทธิ์'?<a href="/admin/roles" key={label}><Icon/>{label}</a>:<button key={label} onClick={()=>notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}><Icon/>{label}</button>)}</section>)}<button className="admin-logout" onClick={signOut}><LogOut/>ออกจากระบบ</button></aside>
+=======
+    <AdminHeader user={user} />
+    <AdminSidebar active="categories" className="category-sidebar"/>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 
     <div className="admin-content category-content">
       <section className="category-heading"><div className="category-title"><span><Tags/></span><div><h1>หมวดหมู่สินค้า</h1><p>จัดการหมวดหมู่สินค้า บนแพลตฟอร์ม ThaiShopFun</p><small>“จัดหมวดหมู่ให้เป็นระบบ ค้นหาง่าย เพิ่มโอกาสการขาย”</small></div></div><button className="add-category" onClick={()=>notify('เปิดแบบฟอร์มเพิ่มหมวดหมู่')}><Plus/>เพิ่มหมวดหมู่</button></section>

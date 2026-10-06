@@ -1,0 +1,12 @@
+{
+  "search": "Search shops, owners, email, or phone",
+  "searchAction": "Search",
+  "searchLabel": "Search the admin console",
+  "notify": "Shops waiting for approval",
+  "notifyList": "Notifications",
+  "pendingTitle": "Shops awaiting approval",
+  "shopCount": "shops",
+  "empty": "No shops are waiting",
+  "waiting": "Awaiting approval",
+  "unknownOwner": "Owner not set"
+}

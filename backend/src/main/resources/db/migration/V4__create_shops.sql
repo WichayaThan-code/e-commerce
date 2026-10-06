@@ -1,0 +1,50 @@
+CREATE TABLE shops (
+    id UUID PRIMARY KEY,
+    application_id UUID NOT NULL UNIQUE REFERENCES merchant_applications(id),
+    user_id UUID NOT NULL REFERENCES users(id),
+    name VARCHAR(100) NOT NULL,
+    name_en VARCHAR(100),
+    description VARCHAR(500),
+    category VARCHAR(100) NOT NULL,
+    sale_type VARCHAR(30) NOT NULL,
+    website VARCHAR(500),
+    logo_path VARCHAR(500),
+    address VARCHAR(500) NOT NULL,
+    province VARCHAR(100) NOT NULL,
+    district VARCHAR(100) NOT NULL,
+    subdistrict VARCHAR(100) NOT NULL,
+    postal_code VARCHAR(10) NOT NULL,
+    slug VARCHAR(80) NOT NULL UNIQUE,
+    status VARCHAR(30) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE UNIQUE INDEX uq_shops_name_lower ON shops (lower(name));
+
+CREATE TABLE shop_owners (
+    id UUID PRIMARY KEY,
+    shop_id UUID NOT NULL UNIQUE REFERENCES shops(id) ON DELETE CASCADE,
+    owner_type VARCHAR(30) NOT NULL,
+    title VARCHAR(30) NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    citizen_id_encrypted TEXT NOT NULL,
+    birth_date DATE NOT NULL,
+    nationality VARCHAR(100) NOT NULL,
+    phone VARCHAR(30) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    house_no VARCHAR(50) NOT NULL,
+    village_no VARCHAR(50),
+    building VARCHAR(255),
+    alley VARCHAR(255),
+    road VARCHAR(255),
+    province VARCHAR(100) NOT NULL,
+    district VARCHAR(100) NOT NULL,
+    subdistrict VARCHAR(100) NOT NULL,
+    postal_code VARCHAR(10) NOT NULL,
+    bank_name VARCHAR(100) NOT NULL,
+    bank_account_encrypted TEXT NOT NULL,
+    bank_account_name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL
+);

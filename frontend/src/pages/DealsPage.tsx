@@ -149,6 +149,7 @@ export default function DealsPage() {
   };
   return (
     <main className="deals-page">
+<<<<<<< HEAD
       <header className="deal-header">
         <div className="deal-top deal-width">
           <DealBrand />
@@ -231,6 +232,8 @@ export default function DealsPage() {
           <a href="/help">ช่วยเหลือ</a>
         </nav>
       </header>
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
       <div className="deal-width">
         <p className="breadcrumbs">
           <a href="/">หน้าแรก</a>

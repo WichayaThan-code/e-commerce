@@ -1,12 +1,19 @@
 package com.thaishopfun;
 
 import com.jayway.jsonpath.JsonPath;
+<<<<<<< HEAD
 import com.thaishopfun.auth.OtpVerificationRepository;
 import com.thaishopfun.auth.PasswordResetTokenRepository;
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import com.thaishopfun.auth.RefreshTokenRepository;
 import com.thaishopfun.auth.UserAccountRepository;
 import com.thaishopfun.merchant.MerchantApplicationRepository;
 import com.thaishopfun.merchant.MerchantDocumentRepository;
+<<<<<<< HEAD
+=======
+import jakarta.servlet.http.Cookie;
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,10 +22,15 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+<<<<<<< HEAD
 import org.springframework.test.web.servlet.ResultActions;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.nullValue;
+=======
+
+import static org.hamcrest.Matchers.containsString;
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -29,16 +41,22 @@ class AuthIntegrationTests {
     @Autowired MockMvc mvc;
     @Autowired UserAccountRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
+<<<<<<< HEAD
     @Autowired PasswordResetTokenRepository passwordResetTokens;
     @Autowired OtpVerificationRepository otpVerifications;
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     @Autowired MerchantApplicationRepository merchantApplications;
     @Autowired MerchantDocumentRepository merchantDocuments;
 
     @BeforeEach void clean() {
         merchantDocuments.deleteAll();
         merchantApplications.deleteAll();
+<<<<<<< HEAD
         otpVerifications.deleteAll();
         passwordResetTokens.deleteAll();
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         refreshTokens.deleteAll();
         users.deleteAll();
     }
@@ -49,7 +67,10 @@ class AuthIntegrationTests {
             .andExpect(cookie().httpOnly("tsf_refresh", true))
             .andExpect(jsonPath("$.accessToken").isNotEmpty())
             .andExpect(jsonPath("$.user.role").value("CUSTOMER"))
+<<<<<<< HEAD
             .andExpect(jsonPath("$.user.emailVerified").value(false))
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
             .andReturn();
         String accessToken = JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
 
@@ -84,6 +105,7 @@ class AuthIntegrationTests {
             .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message", containsString("ไม่ถูกต้อง")));
     }
 
+<<<<<<< HEAD
     @Test void loginLockoutAfterRepeatedFailures() throws Exception {
         register("lock@example.com", "0844444444").andExpect(status().isCreated());
         for (int i = 0; i < 4; i++) {
@@ -193,14 +215,25 @@ class AuthIntegrationTests {
     }
 
     private ResultActions register(String email, String phone) throws Exception {
+=======
+    private org.springframework.test.web.servlet.ResultActions register(String email, String phone) throws Exception {
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         return mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
             {"firstName":"สมชาย","lastName":"ใจดี","email":"%s","phone":"%s","password":"Password1"}
             """.formatted(email, phone)));
     }
 
+<<<<<<< HEAD
     private ResultActions login(String identity, String password) throws Exception {
+=======
+    private org.springframework.test.web.servlet.ResultActions login(String identity, String password) throws Exception {
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         return mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
             {"identity":"%s","password":"%s"}
             """.formatted(identity, password)));
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

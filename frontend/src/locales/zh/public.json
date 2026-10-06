@@ -1,0 +1,374 @@
+{
+  "common": {
+    "home": "首页",
+    "all": "全部",
+    "viewAll": "查看全部",
+    "sortBy": "排序",
+    "gridView": "网格视图",
+    "listView": "列表视图",
+    "sold": "已售",
+    "area": "地区",
+    "status": "状态",
+    "noAddress": "未填写地址",
+    "defaultShopBlurb": "ThaiShopFun 上的泰国店铺",
+    "shopPlaceholder": "店铺"
+  },
+  "footer": {
+    "tagline": "泰国人的空间，服务每一家泰国店铺",
+    "rights": "© 2026 ThaiShopFun. 保留所有权利。"
+  },
+  "shops": {
+    "breadcrumb": "推荐店铺",
+    "title": "推荐店铺",
+    "subtitle": "选择泰国店铺并查看店铺详情",
+    "heroAlt": "ThaiShopFun 上的泰国店铺",
+    "filtersTitle": "店铺筛选",
+    "searchTitle": "搜索店铺",
+    "searchPlaceholder": "店铺名称或描述...",
+    "searchAria": "搜索店铺",
+    "provinces": "省份",
+    "noProvinces": "暂无省份数据",
+    "sortLatest": "最新店铺",
+    "sortName": "店铺名称",
+    "sortAria": "店铺排序",
+    "enterShop": "进入店铺",
+    "loading": "正在加载店铺...",
+    "empty": "暂无推荐店铺",
+    "pagePrev": "上一页",
+    "pageNext": "下一页",
+    "pageAria": "店铺分页",
+    "loadError": "加载店铺列表失败",
+    "filterEmpty": "没有符合筛选条件的店铺",
+    "bannerOpenTitle": "在 ThaiShopFun\n开店",
+    "bannerOpenText": "几步即可注册泰国店铺",
+    "bannerOpenCta": "申请开店 →",
+    "bannerProductsTitle": "来自泰国店铺\n的商品",
+    "bannerProductsText": "浏览为你精选的商品",
+    "bannerProductsCta": "查看推荐商品 →"
+  },
+  "shop": {
+    "breadcrumb": "推荐店铺",
+    "defaultDescription": "ThaiShopFun 上的泰国店铺详情",
+    "noDescription": "该店铺尚未填写描述",
+    "loading": "正在打开店铺...",
+    "loadError": "无法打开该店铺",
+    "productsTitle": "店内商品",
+    "productsHint": "示例数据，用于展示该店铺商品列表",
+    "statusApproved": "正常营业",
+    "statusRejected": "未通过审核",
+    "statusSuspended": "已暂停",
+    "statusPending": "审核中",
+    "samples": [
+      "泰式图案帆布包",
+      "多种谷物脆米零食",
+      "天然提取物护肤精华",
+      "泰式手织丝巾",
+      "手工艺礼品套装",
+      "泰式 herbal 茶套装",
+      "盆栽观赏植物",
+      "纯棉 T 恤"
+    ]
+  },
+  "home": {
+    "heroAlt": "轻松购物，支持泰国好货送到家",
+    "shopNow": "立即购买",
+    "shopByCategory": "按分类选购",
+    "recommended": "推荐商品",
+    "addFavorite": "加入收藏",
+    "addedFavorite": "已加入收藏",
+    "addedCart": "已加入购物车",
+    "openStoreTitle": "在我们平台开店",
+    "openStoreSubtitle": "轻松开始线上销售",
+    "openStoreBullets": [
+      "覆盖全国客户",
+      "无月费",
+      "成交仅收 5%",
+      "团队随时协助"
+    ],
+    "openStoreCta": "申请开店",
+    "memberEyebrow": "泰国好物爱好者空间",
+    "memberGreeting": "{{name}}，您好",
+    "memberHello": "今天想买什么？",
+    "memberLead": "来自泰国店铺的好物，为每一天添彩",
+    "memberDeals": "优惠",
+    "memberDealsHint": "发现心仪商品",
+    "memberCart": "我的购物车",
+    "memberCartHint": "继续购物",
+    "memberHelp": "帮助",
+    "memberHelpHint": "我们随时协助",
+    "searchEmpty": "请输入要搜索的商品名称",
+    "searchQuery": "正在搜索“{{q}}”",
+    "logoutOk": "已退出登录",
+    "logoutFail": "退出失败，请重试",
+    "pickCategory": "已选择分类 {{name}}",
+    "promoThaiTitle": "泰国好货\n送到家",
+    "promoThaiText": "支持泰国创业者\n轻松买到好货",
+    "promoThaiBtn": "购买泰国商品",
+    "promoGadgetTitle": "合适数码\n超值价格",
+    "promoGadgetText": "今天升级生活方式",
+    "promoBeautyTitle": "美丽\n由你定义",
+    "promoBeautyText": "来自泰国品牌\n的美妆产品",
+    "promoThaiToast": "正在打开泰国商品",
+    "promoGadgetToast": "正在打开数码商品",
+    "promoBeautyToast": "正在打开美妆商品",
+    "categoryEmojis": [
+      "👕",
+      "🧴",
+      "🛋️",
+      "📱",
+      "🥘",
+      "🏋️",
+      "🧸",
+      "🪑",
+      "🪴",
+      "🎁"
+    ],
+    "categories": [
+      "时尚\n服装",
+      "美容\n健康",
+      "家居\n生活方式",
+      "手机\n电子产品",
+      "食品\n饮料",
+      "运动\n户外",
+      "玩具\n儿童",
+      "家具\n家居",
+      "环保\n产品",
+      "礼品\n手工艺",
+      "其他"
+    ],
+    "benefits": [
+      {
+        "title": "全国配送",
+        "text": "多种物流方式"
+      },
+      {
+        "title": "安全支付",
+        "text": "支持 QR 付款"
+      },
+      {
+        "title": "优质泰国店铺",
+        "text": "为你精选"
+      },
+      {
+        "title": "可退货",
+        "text": "购物更安心"
+      },
+      {
+        "title": "订单支持",
+        "text": "随时为你服务"
+      }
+    ],
+    "productMeta": [
+      {
+        "price": 290,
+        "old": 350,
+        "rating": "4.8",
+        "sold": 120,
+        "emoji": "👜",
+        "bg": "#f3eee8"
+      },
+      {
+        "price": 89,
+        "old": 120,
+        "rating": "4.7",
+        "sold": 320,
+        "emoji": "🍘",
+        "bg": "#fff4dd"
+      },
+      {
+        "price": 590,
+        "old": 790,
+        "rating": "4.9",
+        "sold": 85,
+        "emoji": "🧴",
+        "bg": "#f3f1ef"
+      },
+      {
+        "price": 790,
+        "old": 1090,
+        "rating": "4.6",
+        "sold": 210,
+        "emoji": "🔊",
+        "bg": "#eff1f4"
+      },
+      {
+        "price": 490,
+        "old": 650,
+        "rating": "4.8",
+        "sold": 95,
+        "emoji": "🧸",
+        "bg": "#fff6e7"
+      },
+      {
+        "price": 350,
+        "old": 450,
+        "rating": "4.7",
+        "sold": 180,
+        "emoji": "🪴",
+        "bg": "#eef8ef"
+      }
+    ],
+    "products": [
+      "泰式图案帆布包",
+      "多种谷物脆米零食",
+      "天然提取物精华",
+      "便携蓝牙音箱",
+      "木质益智玩具套装",
+      "龟背竹盆栽"
+    ]
+  },
+  "catalog": {
+    "filters": "商品筛选",
+    "price": "价格区间",
+    "priceRanges": [
+      "低于 ฿100",
+      "฿100 - ฿300",
+      "฿301 - ฿500",
+      "฿501 - ฿1,000",
+      "高于 ฿1,000"
+    ],
+    "rating": "商品评分",
+    "ratingRanges": [
+      "4.5 及以上",
+      "4.0 及以上",
+      "3.5 及以上",
+      "3.0 及以上"
+    ],
+    "brands": "品牌",
+    "brandSearch": "搜索品牌...",
+    "brandTags": [
+      "泰国品牌商品",
+      "OTOP 商品",
+      "环保商品"
+    ],
+    "sortFeatured": "推荐商品",
+    "sortPrice": "价格最低",
+    "sortBest": "销量最高",
+    "sortAria": "商品排序",
+    "favorite": "收藏",
+    "pickCategory": "已选择分类 {{name}}",
+    "logoutOk": "已退出登录"
+  },
+  "recommend": {
+    "breadcrumb": "推荐商品",
+    "title": "推荐商品",
+    "subtitle": "来自泰国店铺的精选好物",
+    "heroAlt": "泰国好货在身边，支持本地店铺",
+    "categories": [
+      "全部",
+      "时尚",
+      "美容",
+      "家居生活",
+      "手机数码",
+      "食品饮料",
+      "运动",
+      "母婴",
+      "礼品",
+      "礼品",
+      "环保",
+      "其他"
+    ],
+    "addToCart": "加入购物车",
+    "viewAllRecommended": "查看全部推荐商品",
+    "loadMore": "正在加载更多推荐商品",
+    "banners": [
+      {
+        "title": "特别礼物\n送给特别的人",
+        "text": "从泰国店铺挑选礼物",
+        "btn": "查看礼物推荐 →",
+        "toast": "正在打开礼物推荐"
+      },
+      {
+        "title": "优质商品\n直送到家",
+        "text": "方便、安全、放心购物",
+        "btn": "查看热销商品 →",
+        "toast": "正在打开热销商品"
+      },
+      {
+        "title": "选购环保商品\n可持续未来",
+        "text": "支持泰国品牌，关爱地球",
+        "btn": "查看环保商品 →",
+        "toast": "正在打开环保商品"
+      }
+    ],
+    "productRows": [
+      {
+        "tagClass": "red",
+        "price": 89,
+        "old": 120,
+        "discount": 26,
+        "rating": "4.8",
+        "reviews": 320,
+        "sold": "1.2K",
+        "crop": "crop-1"
+      },
+      {
+        "tagClass": "green",
+        "price": 259,
+        "old": 399,
+        "discount": 35,
+        "rating": "4.7",
+        "reviews": 210,
+        "sold": "856",
+        "crop": "crop-2"
+      },
+      {
+        "tagClass": "orange",
+        "price": 350,
+        "old": 450,
+        "discount": 22,
+        "rating": "4.9",
+        "reviews": 180,
+        "sold": "412",
+        "crop": "crop-3"
+      },
+      {
+        "tagClass": "red",
+        "price": 890,
+        "old": 1490,
+        "discount": 40,
+        "rating": "4.8",
+        "reviews": 142,
+        "sold": "320",
+        "crop": "crop-4"
+      },
+      {
+        "tagClass": "green",
+        "price": 290,
+        "old": 350,
+        "discount": 17,
+        "rating": "4.7",
+        "reviews": 98,
+        "sold": "564",
+        "crop": "crop-5"
+      }
+    ],
+    "products": [
+      {
+        "tag": "推荐",
+        "name": "多种谷物脆米\n经典配方",
+        "shop": "Mae Chan 米饼店"
+      },
+      {
+        "tag": "热销",
+        "name": "100% 纯棉 T 恤\n舒适透气",
+        "shop": "GoodWear Thailand"
+      },
+      {
+        "tag": "新品",
+        "name": "龟背竹\n极简花盆套装",
+        "shop": "Green Home"
+      },
+      {
+        "tag": "特惠",
+        "name": "天然护肤套装\n草本配方",
+        "shop": "Natura Official"
+      },
+      {
+        "tag": "环保",
+        "name": "帆布托特包\n泰式花纹",
+        "shop": "ThaiCraft"
+      }
+    ]
+  }
+}

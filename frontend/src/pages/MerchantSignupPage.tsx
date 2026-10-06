@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 import { useRef, useState } from "react";
+=======
+import { useEffect, useRef, useState } from "react";
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import {
   ArrowRight,
   BarChart3,
   Camera,
   Check,
+<<<<<<< HEAD
   CheckCircle2,
   FileCheck2,
   Globe2,
@@ -82,10 +87,58 @@ function MerchantBrand() {
       </span>
     </a>
   );
+=======
+  FileCheck2,
+  Globe2,
+  Headphones,
+  Megaphone,
+  PackageCheck,
+  ShieldCheck,
+  Store,
+  TrendingUp,
+  UsersRound,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+import MerchantSocialFields, { type ShopSocialDraft } from "../components/merchant/MerchantSocialFields";
+import { useAuth } from "../contexts/AuthContext";
+import { useLanguage } from "../contexts/LanguageContext";
+import MerchantHeader from "../components/MerchantHeader";
+import SearchableSelect from "../components/SearchableSelect";
+import ThaiAddressFields, { type ThaiAddressValue } from "../components/ThaiAddressFields";
+import { FieldError } from "../components/form/FormField";
+import "../styles/form-fields.css";
+import { readMerchantDraft, writeMerchantDraft } from "../services/merchantDraft";
+import { isShopImage, SHOP_IMAGE_ACCEPT } from "../services/shopImage";
+import { catalogApi, merchantApi, type ProductCategory } from "../services/api";
+import { labelForCategory } from "../services/categories";
+import "../styles/merchant-signup.css";
+
+const benefitIcons = [Store, BarChart3, Megaphone, Headphones, TrendingUp];
+const benefitTones = ["green", "orange", "blue", "red", "purple"];
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
+
+function readSocial(draft: ReturnType<typeof readMerchantDraft>): ShopSocialDraft {
+  return {
+    website: draft.website || "",
+    lineId: draft.lineId || "",
+    facebookUrl: draft.facebookUrl || "",
+    instagramUrl: draft.instagramUrl || "",
+    tiktokUrl: draft.tiktokUrl || "",
+  };
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 }
 
 export default function MerchantSignupPage() {
   const { user } = useAuth();
+<<<<<<< HEAD
   const fileRef = useRef<HTMLInputElement>(null);
   const [logo, setLogo] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -109,11 +162,113 @@ export default function MerchantSignupPage() {
   };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+=======
+  const { locale, onboarding: ob } = useLanguage();
+  const r = ob.register;
+  const navigate = useNavigate();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const savedDraft = readMerchantDraft(user?.id);
+  const [hasShop, setHasShop] = useState<boolean | null>(null);
+
+  const [shopName, setShopName] = useState(savedDraft.shopName || "");
+  const [shopNameEnglish, setShopNameEnglish] = useState(savedDraft.shopNameEnglish || "");
+  const [description, setDescription] = useState(savedDraft.description || "");
+  const [social, setSocial] = useState<ShopSocialDraft>(() => readSocial(savedDraft));
+  const [address, setAddress] = useState(savedDraft.address || "");
+  const [logoBase64, setLogoBase64] = useState<string>(savedDraft.logoBase64 || "");
+  const [saleType, setSaleType] = useState<"owner" | "reseller">(savedDraft.saleType || "owner");
+  const [selectedCategory, setSelectedCategory] = useState(savedDraft.category || "");
+  const [remoteCategories, setRemoteCategories] = useState<ProductCategory[] | null>(null);
+  const [thaiAddress, setThaiAddress] = useState<ThaiAddressValue>({
+    province: savedDraft.province || "",
+    district: savedDraft.district || "",
+    subdistrict: savedDraft.subdistrict || "",
+    postalCode: savedDraft.postalCode || "",
+  });
+  const [message, setMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const categoryChoices = remoteCategories?.length
+    ? remoteCategories.map((category) => ({ value: category.nameTh, label: labelForCategory(category, locale) }))
+    : r.categoryOptions;
+  const categoryLabel = categoryChoices.find((option) => option.value === selectedCategory)?.label || "";
+
+  const reuseOwner = Boolean(savedDraft.ownerId) && hasShop !== false;
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    merchantApi.shops().then((rows) => {
+      if (active) setHasShop(rows.length > 0);
+    }).catch(() => {
+      if (active) setHasShop(false);
+    });
+    return () => { active = false; };
+  }, [user]);
+
+  useEffect(() => {
+    let active = true;
+    catalogApi.categories().then((rows) => {
+      if (!active || rows.length === 0) return;
+      setRemoteCategories(rows);
+      setSelectedCategory((current: string) => (rows.some((row) => row.nameTh === current) ? current : ""));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!user || hasShop !== false) return;
+    const draft = readMerchantDraft(user.id);
+    if (!draft.ownerId) return;
+    writeMerchantDraft(user.id, { ...draft, ownerId: undefined });
+  }, [user, hasShop]);
+
+  useEffect(() => {
+    if (!user) return;
+    writeMerchantDraft(user?.id, {
+      ...readMerchantDraft(user?.id),
+      shopName,
+      shopNameEnglish,
+      description,
+      category: selectedCategory,
+      saleType,
+      ...social,
+      address,
+      province: thaiAddress.province,
+      district: thaiAddress.district,
+      subdistrict: thaiAddress.subdistrict,
+      postalCode: thaiAddress.postalCode,
+      logoBase64,
+    });
+  }, [shopName, shopNameEnglish, description, selectedCategory, saleType, social, address, thaiAddress, logoBase64]);
+
+  const chooseLogo = async (file?: File) => {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage(r.errLogoSize);
+      return;
+    }
+    if (!isShopImage(file)) {
+      setMessage(r.errLogoType);
+      return;
+    }
+    try {
+      setLogoBase64(await fileToBase64(file));
+      setMessage("");
+    } catch {
+      setMessage(r.errLogoRead);
+    }
+  };
+
+  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     event.preventDefault();
     if (!user) {
       window.location.assign("/login?next=/merchant/register");
       return;
     }
+<<<<<<< HEAD
     if (!logoFile) {
       setMessage("กรุณาอัปโหลดโลโก้ร้านค้า");
       return;
@@ -148,10 +303,37 @@ export default function MerchantSignupPage() {
       );
       setSaving(false);
     }
+=======
+    const nextErrors: Record<string, string> = {};
+    if (!shopName) nextErrors.shopName = r.errShopName;
+    if (!logoBase64) nextErrors.logo = r.errLogo;
+    if (!selectedCategory) nextErrors.category = r.errCategory;
+    if (!thaiAddress.province || !thaiAddress.district || !thaiAddress.subdistrict || !thaiAddress.postalCode) nextErrors.address = r.errAddress;
+    setFieldErrors(nextErrors);
+    setMessage("");
+    if (Object.keys(nextErrors).length > 0) return;
+    writeMerchantDraft(user?.id, {
+      ...readMerchantDraft(user?.id),
+      shopName,
+      shopNameEnglish,
+      description,
+      category: selectedCategory,
+      saleType,
+      ...social,
+      address,
+      province: thaiAddress.province,
+      district: thaiAddress.district,
+      subdistrict: thaiAddress.subdistrict,
+      postalCode: thaiAddress.postalCode,
+      logoBase64,
+    });
+    navigate(reuseOwner ? "/merchant/review" : "/merchant/owner-info");
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   };
 
   return (
     <main className="merchant-page">
+<<<<<<< HEAD
       <header className="merchant-header">
         <MerchantBrand />
         <nav>
@@ -179,12 +361,16 @@ export default function MerchantSignupPage() {
           </a>
         </div>
       </header>
+=======
+      <MerchantHeader />
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 
       <div className="merchant-layout">
         <section className="merchant-story">
           <div className="merchant-story-shade" />
           <div className="merchant-copy">
             <h1>
+<<<<<<< HEAD
               เปิดร้านกับ
               <br />
               <span>ThaiShopFun</span>
@@ -212,6 +398,45 @@ export default function MerchantSignupPage() {
               “ ขายของไทย
               <br />
               ให้ไปได้ไกลกว่าเดิม ”<i />
+=======
+              {r.storyTitle}
+              <br />
+              <span>{r.storyBrand}</span>
+            </h1>
+            <h2>{r.storyH2}</h2>
+            <p>
+              {r.storyP.split("\n").map((line, index) => (
+                <span key={index}>
+                  {line}
+                  {index === 0 && <br />}
+                </span>
+              ))}
+            </p>
+            <div className="merchant-benefits">
+              {r.benefits.map(({ title, text }, index) => {
+                const Icon = benefitIcons[index] ?? Store;
+                return (
+                  <div key={title}>
+                    <span className={benefitTones[index]}>
+                      <Icon />
+                    </span>
+                    <p>
+                      <b>{title}</b>
+                      <small>{text}</small>
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+            <blockquote>
+              {r.storyQuote.split("\n").map((line, index) => (
+                <span key={index}>
+                  {line}
+                  {index === 0 && <br />}
+                </span>
+              ))}
+              <i />
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
             </blockquote>
           </div>
           <div className="merchant-stats">
@@ -219,21 +444,34 @@ export default function MerchantSignupPage() {
               <UsersRound />
               <p>
                 <b>100,000+</b>
+<<<<<<< HEAD
                 <span>ลูกค้าที่ไว้วางใจ</span>
+=======
+                <span>{r.statCustomers}</span>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
               </p>
             </div>
             <div>
               <Store />
               <p>
                 <b>5,000+</b>
+<<<<<<< HEAD
                 <span>ร้านค้าไทย</span>
+=======
+                <span>{r.statShops}</span>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
               </p>
             </div>
             <div>
               <Globe2 />
               <p>
+<<<<<<< HEAD
                 <b>ส่งไกลได้</b>
                 <span>ทั่วไทยและต่างประเทศ</span>
+=======
+                <b>{r.statShip}</b>
+                <span>{r.statShipHint}</span>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
               </p>
             </div>
           </div>
@@ -242,6 +480,7 @@ export default function MerchantSignupPage() {
         <section className="merchant-form-side">
           <div className="merchant-card">
             <div className="merchant-card-title">
+<<<<<<< HEAD
               <h2>สมัครเป็นร้านค้า</h2>
               <p>เริ่มต้นขายกับ ThaiShopFun ในไม่กี่ขั้นตอน</p>
             </div>
@@ -286,6 +525,65 @@ export default function MerchantSignupPage() {
                 </label>
                 <label>
                   โลโก้ร้านค้า <em>*</em>
+=======
+              <h2>{r.cardTitle}</h2>
+              <p>{r.cardLead}</p>
+              {reuseOwner && <p className="merchant-reuse-note">{r.reuseNote}</p>}
+            </div>
+            <div className="merchant-steps">
+              {ob.steps.map((step, index) => (
+                <div className={index === 0 ? "active" : ""} key={step.title}>
+                  <span>{index + 1}</span>
+                  <small>{step.title}</small>
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={submit} noValidate>
+              <h3>{r.sectionShop}</h3>
+
+              <div className="merchant-two">
+                <label>
+                  {r.shopName} <em>{ob.common.required}</em>
+                  <input
+                    name="shopName"
+                    maxLength={100}
+                    placeholder={r.shopNamePh}
+                    value={shopName}
+                    aria-invalid={Boolean(fieldErrors.shopName)}
+                    aria-describedby={fieldErrors.shopName ? "shop-name-error" : undefined}
+                    onChange={(e) => setShopName(e.target.value)}
+                  />
+                  <FieldError id="shop-name-error" text={fieldErrors.shopName} />
+                  <small>{shopName.length}/100</small>
+                </label>
+                <label>
+                  {r.shopNameEn}
+                  <input
+                    name="shopNameEnglish"
+                    maxLength={100}
+                    placeholder={r.shopNameEnPh}
+                    value={shopNameEnglish}
+                    onChange={(e) => setShopNameEnglish(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="merchant-two detail-logo">
+                <label>
+                  {r.description}
+                  <textarea
+                    name="description"
+                    maxLength={500}
+                    placeholder={r.descriptionPh}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                  <small>{description.length}/500</small>
+                </label>
+                <label>
+                  {r.logo} <em>{ob.common.required}</em>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
                   <button
                     className="logo-drop"
                     type="button"
@@ -293,6 +591,7 @@ export default function MerchantSignupPage() {
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
                       e.preventDefault();
+<<<<<<< HEAD
                       chooseLogo(e.dataTransfer.files[0]);
                     }}
                   >
@@ -306,6 +605,24 @@ export default function MerchantSignupPage() {
                           ขนาดไฟล์ไม่เกิน 2 MB
                           <br />
                           (ไฟล์ JPG, PNG)
+=======
+                      if (e.dataTransfer.files[0]) void chooseLogo(e.dataTransfer.files[0]);
+                    }}
+                  >
+                    {logoBase64 ? (
+                      <img src={logoBase64} alt={r.logoAlt} />
+                    ) : (
+                      <>
+                        <Camera />
+                        <span>{r.logoDrop}</span>
+                        <small>
+                          {r.logoHint.split("\n").map((line, index) => (
+                            <span key={index}>
+                              {line}
+                              {index === 0 && <br />}
+                            </span>
+                          ))}
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
                         </small>
                       </>
                     )}
@@ -314,6 +631,7 @@ export default function MerchantSignupPage() {
                     ref={fileRef}
                     className="file-input"
                     type="file"
+<<<<<<< HEAD
                     accept="image/jpeg,image/png"
                     onChange={(e) => chooseLogo(e.target.files?.[0])}
                   />
@@ -344,6 +662,37 @@ export default function MerchantSignupPage() {
               <fieldset>
                 <legend>
                   ประเภทการขาย <em>*</em>
+=======
+                    accept={SHOP_IMAGE_ACCEPT}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) void chooseLogo(e.target.files[0]);
+                    }}
+                  />
+                  <FieldError text={fieldErrors.logo} />
+                </label>
+              </div>
+
+              <div className="merchant-two compact-row">
+                <SearchableSelect
+                  label={r.category}
+                  required
+                  placeholder={r.categoryPh}
+                  options={categoryChoices.map((option) => option.label)}
+                  value={categoryLabel}
+                  onChange={(label) => {
+                    const match = categoryChoices.find((option) => option.label === label);
+                    setSelectedCategory(match?.value || "");
+                  }}
+                />
+                <FieldError text={fieldErrors.category} />
+              </div>
+
+              <MerchantSocialFields copy={ob.social} value={social} onChange={setSocial} />
+
+              <fieldset>
+                <legend>
+                  {r.saleType} <em>{ob.common.required}</em>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
                 </legend>
                 <div className="sale-types">
                   <button
@@ -354,8 +703,13 @@ export default function MerchantSignupPage() {
                     <i>{saleType === "owner" ? <Check /> : null}</i>
                     <PackageCheck />
                     <span>
+<<<<<<< HEAD
                       <b>ขายสินค้าของตัวเอง</b>
                       <small>(เจ้าของสินค้า / แบรนด์ของตนเอง)</small>
+=======
+                      <b>{r.saleOwner}</b>
+                      <small>{r.saleOwnerHint}</small>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
                     </span>
                   </button>
                   <button
@@ -366,12 +720,18 @@ export default function MerchantSignupPage() {
                     <i>{saleType === "reseller" ? <Check /> : null}</i>
                     <UsersRound />
                     <span>
+<<<<<<< HEAD
                       <b>ตัวแทนจำหน่าย / รีเซลเลอร์</b>
                       <small>(จำหน่ายสินค้าจากแบรนด์อื่น)</small>
+=======
+                      <b>{r.saleReseller}</b>
+                      <small>{r.saleResellerHint}</small>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
                     </span>
                   </button>
                 </div>
               </fieldset>
+<<<<<<< HEAD
               <label>
                 ที่อยู่ร้านค้า
                 <input
@@ -427,36 +787,81 @@ export default function MerchantSignupPage() {
               <button className="merchant-next" type="submit" disabled={saving}>
                 {saving ? "กำลังบันทึก..." : "ถัดไป"} <ArrowRight />
               </button>
+=======
+
+              <label>
+                {r.address}
+                <input
+                  name="address"
+                  placeholder={r.addressPh}
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                />
+              </label>
+
+              <ThaiAddressFields value={thaiAddress} onChange={setThaiAddress} />
+              <FieldError text={fieldErrors.address} />
+
+              <button className="login-submit merchant-next" type="submit">
+                {ob.common.next} <ArrowRight />
+              </button>
+
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
               {message && (
                 <p className="merchant-message" role="status">
                   {message}
                 </p>
               )}
+<<<<<<< HEAD
               <p className="merchant-login">
                 มีบัญชีร้านค้าอยู่แล้ว? <a href="/login">เข้าสู่ระบบ</a>
               </p>
             </form>
           </div>
+=======
+
+              <p className="merchant-login">
+                {ob.common.hasAccount} <a href="/login">{ob.common.login}</a>
+              </p>
+            </form>
+          </div>
+
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
           <footer className="merchant-trust">
             <div>
               <ShieldCheck />
               <p>
+<<<<<<< HEAD
                 <b>ข้อมูลปลอดภัย</b>
                 <span>มาตรฐานการเข้ารหัสระดับสากล</span>
+=======
+                <b>{r.trustSecure}</b>
+                <span>{r.trustSecureHint}</span>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
               </p>
             </div>
             <div>
               <FileCheck2 />
               <p>
+<<<<<<< HEAD
                 <b>สมัครฟรี</b>
                 <span>ไม่มีค่าใช้จ่ายในการสมัคร</span>
+=======
+                <b>{r.trustFree}</b>
+                <span>{r.trustFreeHint}</span>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
               </p>
             </div>
             <div>
               <Headphones />
               <p>
+<<<<<<< HEAD
                 <b>ทีมงานดูแลใกล้ชิด</b>
                 <span>พร้อมให้คำปรึกษา</span>
+=======
+                <b>{r.trustSupport}</b>
+                <span>{r.trustSupportHint}</span>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
               </p>
             </div>
           </footer>

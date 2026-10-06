@@ -1,6 +1,6 @@
 # Backend — API และฐานข้อมูล
 
-ต้องมี Java 17 และ PostgreSQL พร้อมฐานข้อมูล `thaishopfun`
+ต้องมี Java 17 และ PostgreSQL ที่เปิดรับการเชื่อมต่อ ถ้ายังไม่มีฐานข้อมูล `thaishopfun` การสตาร์ตจะสร้างให้เองเมื่อผู้ใช้มีสิทธิ์ ถ้าสร้างไม่ได้ให้รัน `setup-postgres.ps1` หมวดหมู่สินค้าและบัญชีแอดมินเริ่มต้นถูกใส่เฉพาะเมื่อยังไม่มีแถวนั้น
 เปิด Terminal แยกจาก frontend และเข้า `ThaiShopFun/backend` ก่อนรันคำสั่งด้านล่าง
 
 ## เครื่อง macOS นี้ (ตั้งค่าแล้ว)
@@ -26,8 +26,13 @@
 
 ```sh
 export DB_URL='jdbc:postgresql://127.0.0.1:5432/thaishopfun'
+<<<<<<< HEAD
 export DB_USERNAME='postgresql'
 printf 'PostgreSQL password: '
+=======
+export DB_USERNAME='thaishopfun_user'
+printf 'PostgreSQL password: Pg@ThaiShopFun2026!'
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 read -r -s DB_PASSWORD
 printf '\n'
 export DB_PASSWORD
@@ -43,8 +48,12 @@ bash ./mvnw spring-boot:run
 .\run-local.ps1
 ```
 
+<<<<<<< HEAD
 ค่าเริ่มต้น: ฐานข้อมูล `TSF_DB` ที่ `localhost:5432` ผู้ใช้ `postgres` รหัสผ่าน `1234`
 `setup-postgres.ps1` สร้างฐานข้อมูล `TSF_DB` ให้หากยังไม่มี และเปลี่ยนค่าได้ด้วย `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`
+=======
+สคริปต์ถามรหัสผ่านแบบซ่อนและใช้ผู้ใช้ฐานข้อมูล `postgresql`
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 
 ## การตั้งค่าและการทดสอบ
 
@@ -52,6 +61,10 @@ bash ./mvnw spring-boot:run
 - Frontend ที่อนุญาต: http://localhost:5173 (เปลี่ยนด้วย `FRONTEND_URL`)
 - การตั้งค่า: `src/main/resources/application.yml`
 - Flyway migrations: `src/main/resources/db/migration/`
+<<<<<<< HEAD
+=======
+- เจ้าของร้านอยู่ตาราง `owners` (หนึ่งตัวตนต่อหนึ่งแถว ตาม `citizen_id_hash`) และร้านชี้ด้วย `shops.owner_id` เจ้าของหนึ่งคนมีได้หลายร้าน ร้านหนึ่งมีเจ้าของได้คนเดียว
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 - ไฟล์อัปโหลด: `uploads/` เมื่อรันจากโฟลเดอร์นี้
 - ระบบ backend อ่าน environment variables; ไม่ได้โหลด `.env` ของ frontend
 
@@ -67,6 +80,7 @@ Windows:
 .\mvnw.cmd test
 ```
 
+<<<<<<< HEAD
 ## Database schema (Flyway) — สำหรับทีมสร้าง DB ว่าง
 
 Schema ทั้งหมดอยู่ใน **ไฟล์เดียว**: `src/main/resources/db/migration/V1__init_schema.sql`
@@ -180,3 +194,12 @@ psql -U postgres -d TSF_DB -v ON_ERROR_STOP=1 -c "SELECT set_config('app.admin_e
 ### Response shapes (summary)
 - Auth session: `{ "accessToken", "expiresIn", "user": { id, firstName, lastName, email, phone, role, emailVerified, phoneVerified } }` + Set-Cookie `tsf_refresh`
 - Errors: `{ "code", "message" }`
+=======
+## API authentication
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/refresh`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

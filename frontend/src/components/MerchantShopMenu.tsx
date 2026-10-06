@@ -1,0 +1,82 @@
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, Plus } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { useActiveShop } from "../contexts/ActiveShopContext";
+import { ApiError, merchantApi, type StoreAccess } from "../services/api";
+import { writeMerchantDraft } from "../services/merchantDraft";
+
+const STATUS_LABEL: Record<NonNullable<StoreAccess["status"]>, string> = {
+  APPROVED: "ใช้งาน",
+  PENDING_REVIEW: "รออนุมัติ",
+  REJECTED: "ปฏิเสธ",
+  SUSPENDED: "ถูกระงับ",
+};
+
+export default function MerchantShopMenu() {
+  const { user } = useAuth();
+  const { shops, shopId, setShopId, ready } = useActiveShop();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const current = shops.find((shop) => shop.shopId === shopId);
+
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [open]);
+
+  const addShop = async () => {
+    const ownerId = current?.ownerId;
+    if (!ownerId || busy) return;
+    setBusy(true);
+    try {
+      await merchantApi.openAnotherShop(ownerId);
+      writeMerchantDraft(user?.id, { ownerId, documentsConfirmed: true });
+      window.location.assign("/merchant/register");
+    } catch (error) {
+      setBusy(false);
+      window.alert(error instanceof ApiError ? error.message : "เปิดแบบฟอร์มร้านใหม่ไม่สำเร็จ");
+    }
+  };
+
+  return (
+    <div className="merchant-shop-menu" ref={root}>
+      <button className="merchant-profile" type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+        <span>🏪</span>
+        <p>
+          <b>{ready ? current?.shopName || "ร้านค้า" : "..."}</b>
+          <small>{current ? STATUS_LABEL[current.status] : "เจ้าของร้าน"}</small>
+        </p>
+        <ChevronDown />
+      </button>
+      {open && (
+        <div className="merchant-shop-menu-panel" role="listbox" aria-label="เลือกร้านค้า">
+          {shops.map((shop) => (
+            <button
+              type="button"
+              role="option"
+              aria-selected={shop.shopId === shopId}
+              className={shop.shopId === shopId ? "active" : ""}
+              key={shop.shopId}
+              onClick={() => {
+                setShopId(shop.shopId);
+                setOpen(false);
+              }}
+            >
+              <b>{shop.shopName}</b>
+              <small>{STATUS_LABEL[shop.status]}</small>
+            </button>
+          ))}
+          <button type="button" className="add" disabled={busy || !current?.ownerId} onClick={() => void addShop()}>
+            <Plus />
+            {busy ? "กำลังเตรียมร้านใหม่..." : "เพิ่มร้านค้า"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

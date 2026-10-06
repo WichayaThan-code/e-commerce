@@ -42,7 +42,11 @@ public class SecurityConfig {
             return User.withUsername(account.getId().toString())
                 .password(account.getPasswordHash())
                 .roles(account.getRole().name())
+<<<<<<< HEAD
                 .disabled(account.getStatus() != UserStatus.ACTIVE || account.isDeleted())
+=======
+                .disabled(account.getStatus() != UserStatus.ACTIVE)
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
                 .build();
         };
     }
@@ -82,6 +86,7 @@ public class SecurityConfig {
             .cors(cors -> {})
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+<<<<<<< HEAD
                 .requestMatchers(HttpMethod.POST,
                     "/api/auth/register",
                     "/api/auth/login",
@@ -93,6 +98,13 @@ public class SecurityConfig {
                     "/api/auth/otp/verify"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+=======
+                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/shops", "/api/shops/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/categories").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(converter)))
             .build();
@@ -108,4 +120,9 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
+<<<<<<< HEAD
 }
+=======
+}
+
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

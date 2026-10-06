@@ -1,0 +1,73 @@
+package com.thaishopfun.merchant;
+
+import com.thaishopfun.auth.AuthException;
+import com.thaishopfun.auth.UserAccountRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
+
+@Service
+public class ShopReinstatementService {
+    private final ShopRepository shops;
+    private final ShopReinstatementRequestRepository requests;
+    private final UserAccountRepository users;
+
+    public ShopReinstatementService(ShopRepository shops, ShopReinstatementRequestRepository requests, UserAccountRepository users) {
+        this.shops = shops;
+        this.requests = requests;
+        this.users = users;
+    }
+
+    @Transactional(readOnly = true)
+    public MerchantDtos.ReinstatementResponse current(UUID userId, Long shopId) {
+        var shop = ownedSuspended(userId, shopId);
+        return response(shop.getId(), requests.findFirstByShop_IdOrderByCreatedAtDesc(shop.getId()).orElse(null));
+    }
+
+    @Transactional
+    public MerchantDtos.ReinstatementResponse submit(UUID userId, Long shopId, String message) {
+        var shop = ownedSuspended(userId, shopId);
+        var text = message == null ? "" : message.trim();
+        if (text.length() < 10) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "กรุณาอธิบายเหตุผลอย่างน้อย 10 ตัวอักษร");
+        }
+        var pending = requests.findFirstByShop_IdAndStatusOrderByCreatedAtDesc(shop.getId(), ReinstatementStatus.PENDING).orElse(null);
+        if (pending != null) {
+            pending.revise(text);
+            return response(shop.getId(), requests.save(pending));
+        }
+        var user = users.findById(userId).orElseThrow(() -> new AuthException(HttpStatus.UNAUTHORIZED, "USER_NOT_FOUND", "ไม่พบบัญชีผู้ใช้"));
+        return response(shop.getId(), requests.save(new ShopReinstatementRequest(shop, user, text)));
+    }
+
+    public String pendingMessage(Long shopId) {
+        return requests.findFirstByShop_IdAndStatusOrderByCreatedAtDesc(shopId, ReinstatementStatus.PENDING)
+            .map(ShopReinstatementRequest::getMessage)
+            .orElse(null);
+    }
+
+    @Transactional
+    public void approvePending(Long shopId) {
+        for (var request : requests.findByShop_IdAndStatus(shopId, ReinstatementStatus.PENDING)) {
+            request.approve();
+        }
+    }
+
+    private Shop ownedSuspended(UUID userId, Long shopId) {
+        var shop = shops.findById(shopId).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า"));
+        if (shop.getUser() == null || !userId.equals(shop.getUser().getId())) {
+            throw new AuthException(HttpStatus.FORBIDDEN, "SHOP_FORBIDDEN", "ไม่มีสิทธิ์ใช้ร้านนี้");
+        }
+        if (shop.getStatus() != ShopStatus.SUSPENDED) {
+            throw new AuthException(HttpStatus.CONFLICT, "SHOP_NOT_SUSPENDED", "ยื่นคำร้องได้เฉพาะร้านที่ถูกระงับ");
+        }
+        return shop;
+    }
+
+    private static MerchantDtos.ReinstatementResponse response(Long shopId, ShopReinstatementRequest request) {
+        if (request == null) return new MerchantDtos.ReinstatementResponse(shopId, null, null, null);
+        return new MerchantDtos.ReinstatementResponse(shopId, request.getStatus().name(), request.getMessage(), request.getCreatedAt());
+    }
+}

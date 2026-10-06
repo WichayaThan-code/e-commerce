@@ -3,7 +3,10 @@ package com.thaishopfun.auth;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+<<<<<<< HEAD
 import org.springframework.security.authentication.DisabledException;
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -21,11 +24,14 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthDtos.ApiError("INVALID_CREDENTIALS", "อีเมล เบอร์โทรศัพท์ หรือรหัสผ่านไม่ถูกต้อง"));
     }
 
+<<<<<<< HEAD
     @ExceptionHandler(DisabledException.class)
     ResponseEntity<AuthDtos.ApiError> disabled() {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new AuthDtos.ApiError("ACCOUNT_DISABLED", "บัญชีถูกระงับการใช้งาน"));
     }
 
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<AuthDtos.ApiError> validation(MethodArgumentNotValidException exception) {
         var error = exception.getBindingResult().getFieldErrors().stream().findFirst();
@@ -37,4 +43,8 @@ public class ApiExceptionHandler {
     ResponseEntity<AuthDtos.ApiError> uploadSize() {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new AuthDtos.ApiError("FILE_TOO_LARGE", "ไฟล์ต้องมีขนาดไม่เกิน 5 MB"));
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

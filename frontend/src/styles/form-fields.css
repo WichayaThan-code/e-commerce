@@ -1,0 +1,173 @@
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 14px;
+}
+
+.form-field {
+  display: block;
+  margin-bottom: 17px;
+  color: #132b50;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form-label {
+  display: block;
+  margin: 0 0 8px;
+}
+
+.form-control,
+.signup-input {
+  display: flex;
+  align-items: center;
+  height: 51px;
+  padding: 0 14px;
+  border: 1px solid #dce2eb;
+  border-radius: 10px;
+  background: #fff;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.signup-input { margin-top: 8px; }
+
+.form-control > svg,
+.signup-input > svg {
+  width: 19px;
+  flex-shrink: 0;
+  color: #8593a5;
+}
+
+.form-control input,
+.form-control select,
+.form-control textarea,
+.signup-input input,
+.form-field > input,
+.form-field > select,
+.form-field > textarea {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 51px;
+  border: 1px solid #dce2eb;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0 14px;
+  color: #132b50;
+  font-size: 14px;
+}
+
+.form-control input,
+.form-control select,
+.signup-input input {
+  height: 100%;
+  border: 0;
+  padding: 0 11px;
+  background: transparent;
+}
+
+.form-control textarea,
+.form-field > textarea {
+  height: auto;
+  min-height: 96px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.form-control:focus-within,
+.signup-input:focus-within,
+.form-field > input:focus,
+.form-field > select:focus,
+.form-field > textarea:focus {
+  outline: none;
+  border-color: #1671de;
+  box-shadow: 0 0 3px #1671de16;
+}
+
+.form-control input:focus,
+.form-control select:focus,
+.form-control textarea:focus,
+.signup-input input:focus {
+  outline: none;
+}
+
+.form-control input::placeholder,
+.form-control textarea::placeholder,
+.signup-input input::placeholder,
+.form-field > input::placeholder,
+.form-field > textarea::placeholder {
+  color: #8793a3;
+}
+
+.form-control input:is(:-webkit-autofill, :autofill),
+.signup-input input:is(:-webkit-autofill, :autofill),
+.form-field > input:is(:-webkit-autofill, :autofill) {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset;
+  box-shadow: 0 0 0 1000px #fff inset;
+  -webkit-text-fill-color: #132b50;
+  caret-color: #132b50;
+}
+
+.form-field-error,
+.signup-field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  color: #a4471b;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.7;
+}
+
+.form-field-error svg,
+.signup-field-error svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #d46b2e;
+}
+
+.form-control:has([aria-invalid="true"]),
+.signup-input:has(input[aria-invalid="true"]),
+.form-field > input[aria-invalid="true"],
+.form-field > select[aria-invalid="true"],
+.form-field > textarea[aria-invalid="true"] {
+  border-color: #e8a477;
+  background: #fffcf9;
+}
+
+.login-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  height: 53px;
+  border: 0;
+  border-radius: 10px;
+  background: #1268d7;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 6px 16px #1268d726;
+}
+
+.login-submit:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+.login-spinner {
+  animation: login-spin 1s linear infinite;
+}
+
+@keyframes login-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 760px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .form-control input,
+  .form-field > input,
+  .signup-input input { font-size: 16px; }
+}

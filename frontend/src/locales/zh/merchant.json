@@ -1,0 +1,328 @@
+{
+  "common": {
+    "backHome": "返回首页",
+    "applyTitle": "申请开店",
+    "applyLead": "在 ThaiShopFun 上\n几步即可创建店铺",
+    "helpTitle": "需要帮助？",
+    "helpText": "团队随时为您服务",
+    "contact": "联系团队",
+    "quote": "泰国店铺\n共同成长",
+    "quoteEn": "Good Shops\nBrighter Thailand",
+    "next": "下一步",
+    "back": "返回",
+    "required": "*",
+    "hasAccount": "已有店铺账号？",
+    "login": "登录"
+  },
+  "steps": [
+    {
+      "title": "店铺信息",
+      "text": "店名、品类、联系方式"
+    },
+    {
+      "title": "店主信息",
+      "text": "个人或公司资料"
+    },
+    {
+      "title": "验证文件",
+      "text": "身份与营业证明"
+    },
+    {
+      "title": "核对并提交",
+      "text": "提交前请核对"
+    }
+  ],
+  "register": {
+    "cardTitle": "申请开店",
+    "cardLead": "几步开始在 ThaiShopFun 销售",
+    "sectionShop": "店铺信息",
+    "shopName": "店铺名称",
+    "shopNamePh": "输入店铺名称",
+    "shopNameEn": "店铺名称（英文）",
+    "shopNameEnPh": "Shop name (English)",
+    "description": "店铺简介",
+    "descriptionPh": "介绍店铺、商品与特色…",
+    "logo": "店铺 Logo",
+    "logoDrop": "Drag & drop or click to upload",
+    "logoHint": "Max 2 MB\n(JPG, PNG)",
+    "logoAlt": "Shop logo preview",
+    "category": "商品分类",
+    "categoryPh": "选择分类",
+    "categoryOptions": [
+      {
+        "value": "แฟชั่นและเสื้อผ้า",
+        "label": "时尚服装"
+      },
+      {
+        "value": "อาหารและเครื่องดื่ม",
+        "label": "食品饮料"
+      },
+      {
+        "value": "ความงามและสุขภาพ",
+        "label": "美容健康"
+      },
+      {
+        "value": "บ้านและไลฟ์สไตล์",
+        "label": "家居生活"
+      },
+      {
+        "value": "สินค้าและงานฝีมือไทย",
+        "label": "泰国手工艺"
+      }
+    ],
+    "saleType": "销售类型",
+    "saleOwner": "自营商品",
+    "saleOwnerHint": "（品牌主 / 自有商品）",
+    "saleReseller": "经销商 / 代售",
+    "saleResellerHint": "（销售其他品牌）",
+    "address": "店铺地址",
+    "addressPh": "联系或发货地址",
+    "storyTitle": "在",
+    "storyBrand": "ThaiShopFun",
+    "storyH2": "轻松开店，走得更远",
+    "storyP": "泰国在线市场\n支持本地卖家",
+    "storyQuote": "“ Thai goods\ncan go further ”",
+    "statCustomers": "Trusted customers",
+    "statShops": "Thai shops",
+    "statShip": "Ship far & wide",
+    "statShipHint": "Across Thailand and abroad",
+    "benefits": [
+      {
+        "title": "Start selling fast",
+        "text": "Easy signup, quick review"
+      },
+      {
+        "title": "Clear fees",
+        "text": "Only 5% when you sell"
+      },
+      {
+        "title": "Reach more buyers",
+        "text": "Nationwide and international"
+      },
+      {
+        "title": "Dedicated support",
+        "text": "Advice throughout your journey"
+      },
+      {
+        "title": "Full toolkit",
+        "text": "Manage shop and analytics"
+      }
+    ],
+    "trustSecure": "Your data is secure",
+    "trustSecureHint": "Industry-standard encryption",
+    "trustFree": "Free to apply",
+    "trustFreeHint": "No signup fee",
+    "trustSupport": "Hands-on support",
+    "trustSupportHint": "We are ready to help",
+    "errLogin": "Please log in before applying",
+    "errShopName": "请填写店铺名称",
+    "errLogo": "请上传店铺 Logo",
+    "errCategory": "请选择分类",
+    "errAddress": "请填写完整地址",
+    "errLogoSize": "Logo must be 2 MB or smaller",
+    "errLogoType": "Only JPG or PNG files are supported",
+    "errLogoRead": "Could not read the image file"
+  },
+  "social": {
+    "sectionTitle": "店铺联系渠道（选填）",
+    "sectionHint": "最多 5 个链接 — 管理员审核时会看到",
+    "website": "网站",
+    "websitePh": "https://yourshop.com",
+    "line": "LINE",
+    "linePh": "@myshop 或 https://line.me/...",
+    "facebook": "Facebook",
+    "facebookPh": "https://facebook.com/yourpage",
+    "instagram": "Instagram",
+    "instagramPh": "https://instagram.com/yourpage",
+    "tiktok": "TikTok",
+    "tiktokPh": "https://tiktok.com/@yourshop"
+  },
+  "owner": {
+    "pageTitle": "店主信息",
+    "pageLead": "请完整填写店主信息以便验证身份与联系",
+    "ownerType": "Owner type",
+    "person": "个人",
+    "personHint": "Sole proprietor",
+    "company": "法人",
+    "companyHint": "Company / partnership / other",
+    "personal": "Personal information",
+    "title": "Title",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "citizenId": "National ID",
+    "citizenPh": "1 2345 67890 12 3",
+    "birthDate": "Date of birth",
+    "nationality": "Nationality",
+    "phone": "Phone",
+    "email": "Email",
+    "idAddress": "Address on ID card",
+    "sameShopAddress": "Same as shop address",
+    "houseNo": "House no.",
+    "villageNo": "Moo",
+    "building": "Village / building",
+    "alley": "Soi",
+    "road": "Road",
+    "payout": "Payout details",
+    "bank": "Bank",
+    "bankPh": "Select bank",
+    "accountNo": "Account number",
+    "accountNoPh": "123-4-56789-0",
+    "accountName": "Account name",
+    "accountNamePh": "Account holder name",
+    "docsSection": "Identity documents",
+    "docsHint": "Upload ID documents (JPG, PNG, PDF up to 5 MB)",
+    "idCard": "ID card",
+    "portrait": "Photo holding ID card",
+    "uploadDrop": "Drag & drop or click to upload",
+    "uploadTypes": "JPG, PNG, PDF up to 5 MB",
+    "uploadPick": "Choose file",
+    "uploadChange": "Change file",
+    "uploading": "Uploading",
+    "uploadFail": "Upload failed",
+    "safeTitle": "Your information stays safe",
+    "safeBullets": [
+      "Encrypted (SSL)",
+      "Used only for verification",
+      "Not shared publicly",
+      "PDPA compliant"
+    ],
+    "tipsTitle": "Tips",
+    "tipsBullets": [
+      "Match official documents",
+      "Use clear, readable images",
+      "Max 5 MB per file",
+      "JPG, PNG, PDF supported"
+    ],
+    "questionTitle": "Questions?",
+    "questionLead": "We can help you\nat every step",
+    "errPersonal": "请完整填写个人信息",
+    "errCitizen": "Please enter a valid national ID",
+    "errAddress": "Please complete the address",
+    "errBank": "请完整填写收款信息",
+    "titles": [
+      "Mr.",
+      "Mrs.",
+      "Ms."
+    ],
+    "nationalities": [
+      "Thai",
+      "Other"
+    ],
+    "banks": [
+      "KBANK - Kasikornbank",
+      "SCB - Siam Commercial Bank",
+      "KTB - Krung Thai Bank"
+    ]
+  },
+  "documents": {
+    "pageTitle": "验证文件",
+    "pageLead": "上传文件以验证身份与店铺可信度",
+    "confirmTitle": "Document accuracy",
+    "confirmText": "I confirm all documents are genuine and valid",
+    "next": "Next",
+    "errSize": "File exceeds 5 MB",
+    "errUpload": "Upload failed",
+    "rows": [
+      {
+        "kind": "id",
+        "title": "Copy of ID card",
+        "description": "Full, clear details visible",
+        "uploadText": "Upload ID copy",
+        "exampleTitle": "ID sample"
+      },
+      {
+        "kind": "home",
+        "title": "Shop / house registration proof",
+        "description": "Confirms shop or registered address",
+        "uploadText": "Upload address proof",
+        "exampleTitle": "House reg. sample"
+      },
+      {
+        "kind": "business",
+        "title": "Company certificate (if any)",
+        "description": "For legal entities — optional for individuals",
+        "uploadText": "Upload certificate",
+        "exampleTitle": "Certificate sample"
+      }
+    ]
+  },
+  "review": {
+    "pageTitle": "核对并提交",
+    "pageLead": "Check all details before submitting for faster approval",
+    "complete": "Complete",
+    "uploaded": "All uploaded",
+    "incomplete": "Incomplete",
+    "uploadedOk": "Uploaded",
+    "edit": "Edit",
+    "locked": "Submitted",
+    "sectionShop": "Shop information",
+    "sectionOwner": "Owner information",
+    "sectionDocs": "Verification documents",
+    "sectionAddress": "Shop address",
+    "sectionPayout": "Payout details",
+    "sectionSocial": "联系渠道",
+    "shopNameTh": "Shop name (Thai)",
+    "shopNameEn": "Shop name (English)",
+    "saleType": "Selling type",
+    "category": "Category",
+    "description": "Description",
+    "logo": "Shop logo",
+    "logoAlt": "Shop logo",
+    "ownerName": "Full name",
+    "ownerPhone": "Phone",
+    "ownerEmail": "Email",
+    "ownerIdAddress": "ID card address",
+    "idDoc": "ID card",
+    "homeDoc": "House registration",
+    "businessDoc": "Company certificate",
+    "bank": "Bank",
+    "accountNo": "Account number",
+    "accountName": "Account name",
+    "saleOwner": "Own products (brand owner)",
+    "saleReseller": "Reseller / distributor",
+    "confirmTitle": "I confirm all information is true and correct",
+    "confirmBody": "I accept ThaiShopFun seller terms, privacy policy, and service conditions, and agree to verification of my data and documents.",
+    "submit": "提交开店申请",
+    "submitting": "Submitting...",
+    "submitted": "Application sent",
+    "loading": "Loading application...",
+    "loadFail": "Could not load application",
+    "success": "申请提交成功",
+    "successRedirect": "Redirecting to home",
+    "errIncomplete": "Complete shop and owner details before submitting",
+    "errSubmit": "Submission failed",
+    "errShopExists": "This shop name is already taken",
+    "afterTitle": "After you submit",
+    "afterSteps": [
+      {
+        "title": "Team reviews your data",
+        "hint": "(within 1–3 business days)"
+      },
+      {
+        "title": "Approval result",
+        "hint": "Via email and SMS"
+      },
+      {
+        "title": "Start using your shop",
+        "hint": "Right away"
+      }
+    ],
+    "tipsTitle": "Tips for faster approval",
+    "tipsBullets": [
+      "Match official documents",
+      "Clear, not blurry",
+      "Files under 5 MB",
+      "Complete every field",
+      "Working phone and email"
+    ],
+    "dialogTitle": "Confirm shop application",
+    "dialogBody": "Once confirmed, your application is sent and cannot be edited",
+    "dialogCancel": "Cancel",
+    "dialogConfirm": "Confirm",
+    "dialogSending": "Submitting application",
+    "dialogSendingHint": "Please wait while we save your shop data",
+    "dialogFail": "Application failed",
+    "dialogClose": "Close",
+    "empty": "—"
+  }
+}

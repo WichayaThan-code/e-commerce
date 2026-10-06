@@ -1,0 +1,328 @@
+{
+  "common": {
+    "backHome": "Back to home",
+    "applyTitle": "Apply to open a shop",
+    "applyLead": "Create your shop on ThaiShopFun\nin just a few steps",
+    "helpTitle": "Need help?",
+    "helpText": "Our team is here for you",
+    "contact": "Contact support",
+    "quote": "Thai shops\ngrowing together",
+    "quoteEn": "Good Shops\nBrighter Thailand",
+    "next": "Next",
+    "back": "Back",
+    "required": "*",
+    "hasAccount": "Already have a shop account?",
+    "login": "Log in"
+  },
+  "steps": [
+    {
+      "title": "Shop details",
+      "text": "Name, category, contact"
+    },
+    {
+      "title": "Owner details",
+      "text": "Personal or company info"
+    },
+    {
+      "title": "Verification docs",
+      "text": "Identity and business papers"
+    },
+    {
+      "title": "Review & submit",
+      "text": "Check everything before sending"
+    }
+  ],
+  "register": {
+    "cardTitle": "Apply to open a shop",
+    "cardLead": "Start selling on ThaiShopFun in a few steps",
+    "sectionShop": "Shop information",
+    "shopName": "Shop name",
+    "shopNamePh": "Enter shop name",
+    "shopNameEn": "Shop name (English)",
+    "shopNameEnPh": "Shop name (English)",
+    "description": "Shop description",
+    "descriptionPh": "Introduce your shop, products, highlights…",
+    "logo": "Shop logo",
+    "logoDrop": "Drag & drop or click to upload",
+    "logoHint": "Max 2 MB\n(JPG, PNG)",
+    "logoAlt": "Shop logo preview",
+    "category": "Product category",
+    "categoryPh": "Select category",
+    "categoryOptions": [
+      {
+        "value": "แฟชั่นและเสื้อผ้า",
+        "label": "Fashion & apparel"
+      },
+      {
+        "value": "อาหารและเครื่องดื่ม",
+        "label": "Food & beverages"
+      },
+      {
+        "value": "ความงามและสุขภาพ",
+        "label": "Beauty & wellness"
+      },
+      {
+        "value": "บ้านและไลฟ์สไตล์",
+        "label": "Home & lifestyle"
+      },
+      {
+        "value": "สินค้าและงานฝีมือไทย",
+        "label": "Thai crafts & goods"
+      }
+    ],
+    "saleType": "Selling type",
+    "saleOwner": "Own products",
+    "saleOwnerHint": "(Brand owner / your own goods)",
+    "saleReseller": "Reseller / distributor",
+    "saleResellerHint": "(Selling other brands)",
+    "address": "Shop address",
+    "addressPh": "Contact or shipping address",
+    "storyTitle": "Open a shop with",
+    "storyBrand": "ThaiShopFun",
+    "storyH2": "Sell easily, grow further",
+    "storyP": "A Thai online marketplace\nbuilt to support local sellers",
+    "storyQuote": "“ Thai goods\ncan go further ”",
+    "statCustomers": "Trusted customers",
+    "statShops": "Thai shops",
+    "statShip": "Ship far & wide",
+    "statShipHint": "Across Thailand and abroad",
+    "benefits": [
+      {
+        "title": "Start selling fast",
+        "text": "Easy signup, quick review"
+      },
+      {
+        "title": "Clear fees",
+        "text": "Only 5% when you sell"
+      },
+      {
+        "title": "Reach more buyers",
+        "text": "Nationwide and international"
+      },
+      {
+        "title": "Dedicated support",
+        "text": "Advice throughout your journey"
+      },
+      {
+        "title": "Full toolkit",
+        "text": "Manage shop and analytics"
+      }
+    ],
+    "trustSecure": "Your data is secure",
+    "trustSecureHint": "Industry-standard encryption",
+    "trustFree": "Free to apply",
+    "trustFreeHint": "No signup fee",
+    "trustSupport": "Hands-on support",
+    "trustSupportHint": "We are ready to help",
+    "errLogin": "Please log in before applying",
+    "errShopName": "Please enter a shop name",
+    "errLogo": "Please upload a shop logo",
+    "errCategory": "Please select a category",
+    "errAddress": "Please complete the address",
+    "errLogoSize": "Logo must be 2 MB or smaller",
+    "errLogoType": "Only JPG or PNG files are supported",
+    "errLogoRead": "Could not read the image file"
+  },
+  "social": {
+    "sectionTitle": "Shop contact channels (optional)",
+    "sectionHint": "Up to 5 links — shown to admins when reviewing your shop",
+    "website": "Website",
+    "websitePh": "https://yourshop.com",
+    "line": "LINE",
+    "linePh": "@myshop or https://line.me/...",
+    "facebook": "Facebook",
+    "facebookPh": "https://facebook.com/yourpage",
+    "instagram": "Instagram",
+    "instagramPh": "https://instagram.com/yourpage",
+    "tiktok": "TikTok",
+    "tiktokPh": "https://tiktok.com/@yourshop"
+  },
+  "owner": {
+    "pageTitle": "Shop owner details",
+    "pageLead": "Complete owner information for identity verification and contact",
+    "ownerType": "Owner type",
+    "person": "Individual",
+    "personHint": "Sole proprietor",
+    "company": "Legal entity",
+    "companyHint": "Company / partnership / other",
+    "personal": "Personal information",
+    "title": "Title",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "citizenId": "National ID",
+    "citizenPh": "1 2345 67890 12 3",
+    "birthDate": "Date of birth",
+    "nationality": "Nationality",
+    "phone": "Phone",
+    "email": "Email",
+    "idAddress": "Address on ID card",
+    "sameShopAddress": "Same as shop address",
+    "houseNo": "House no.",
+    "villageNo": "Moo",
+    "building": "Village / building",
+    "alley": "Soi",
+    "road": "Road",
+    "payout": "Payout details",
+    "bank": "Bank",
+    "bankPh": "Select bank",
+    "accountNo": "Account number",
+    "accountNoPh": "123-4-56789-0",
+    "accountName": "Account name",
+    "accountNamePh": "Account holder name",
+    "docsSection": "Identity documents",
+    "docsHint": "Upload ID documents (JPG, PNG, PDF up to 5 MB)",
+    "idCard": "ID card",
+    "portrait": "Photo holding ID card",
+    "uploadDrop": "Drag & drop or click to upload",
+    "uploadTypes": "JPG, PNG, PDF up to 5 MB",
+    "uploadPick": "Choose file",
+    "uploadChange": "Change file",
+    "uploading": "Uploading",
+    "uploadFail": "Upload failed",
+    "safeTitle": "Your information stays safe",
+    "safeBullets": [
+      "Encrypted (SSL)",
+      "Used only for verification",
+      "Not shared publicly",
+      "PDPA compliant"
+    ],
+    "tipsTitle": "Tips",
+    "tipsBullets": [
+      "Match official documents",
+      "Use clear, readable images",
+      "Max 5 MB per file",
+      "JPG, PNG, PDF supported"
+    ],
+    "questionTitle": "Questions?",
+    "questionLead": "We can help you\nat every step",
+    "errPersonal": "Please complete personal information",
+    "errCitizen": "Please enter a valid national ID",
+    "errAddress": "Please complete the address",
+    "errBank": "Please complete payout information",
+    "titles": [
+      "Mr.",
+      "Mrs.",
+      "Ms."
+    ],
+    "nationalities": [
+      "Thai",
+      "Other"
+    ],
+    "banks": [
+      "KBANK - Kasikornbank",
+      "SCB - Siam Commercial Bank",
+      "KTB - Krung Thai Bank"
+    ]
+  },
+  "documents": {
+    "pageTitle": "Verification documents",
+    "pageLead": "Upload documents to verify identity and shop credibility",
+    "confirmTitle": "Document accuracy",
+    "confirmText": "I confirm all documents are genuine and valid",
+    "next": "Next",
+    "errSize": "File exceeds 5 MB",
+    "errUpload": "Upload failed",
+    "rows": [
+      {
+        "kind": "id",
+        "title": "Copy of ID card",
+        "description": "Full, clear details visible",
+        "uploadText": "Upload ID copy",
+        "exampleTitle": "ID sample"
+      },
+      {
+        "kind": "home",
+        "title": "Shop / house registration proof",
+        "description": "Confirms shop or registered address",
+        "uploadText": "Upload address proof",
+        "exampleTitle": "House reg. sample"
+      },
+      {
+        "kind": "business",
+        "title": "Company certificate (if any)",
+        "description": "For legal entities — optional for individuals",
+        "uploadText": "Upload certificate",
+        "exampleTitle": "Certificate sample"
+      }
+    ]
+  },
+  "review": {
+    "pageTitle": "Review and submit",
+    "pageLead": "Check all details before submitting for faster approval",
+    "complete": "Complete",
+    "uploaded": "All uploaded",
+    "incomplete": "Incomplete",
+    "uploadedOk": "Uploaded",
+    "edit": "Edit",
+    "locked": "Submitted",
+    "sectionShop": "Shop information",
+    "sectionOwner": "Owner information",
+    "sectionDocs": "Verification documents",
+    "sectionAddress": "Shop address",
+    "sectionPayout": "Payout details",
+    "sectionSocial": "Contact channels",
+    "shopNameTh": "Shop name (Thai)",
+    "shopNameEn": "Shop name (English)",
+    "saleType": "Selling type",
+    "category": "Category",
+    "description": "Description",
+    "logo": "Shop logo",
+    "logoAlt": "Shop logo",
+    "ownerName": "Full name",
+    "ownerPhone": "Phone",
+    "ownerEmail": "Email",
+    "ownerIdAddress": "ID card address",
+    "idDoc": "ID card",
+    "homeDoc": "House registration",
+    "businessDoc": "Company certificate",
+    "bank": "Bank",
+    "accountNo": "Account number",
+    "accountName": "Account name",
+    "saleOwner": "Own products (brand owner)",
+    "saleReseller": "Reseller / distributor",
+    "confirmTitle": "I confirm all information is true and correct",
+    "confirmBody": "I accept ThaiShopFun seller terms, privacy policy, and service conditions, and agree to verification of my data and documents.",
+    "submit": "Submit application",
+    "submitting": "Submitting...",
+    "submitted": "Application sent",
+    "loading": "Loading application...",
+    "loadFail": "Could not load application",
+    "success": "Application submitted",
+    "successRedirect": "Redirecting to home",
+    "errIncomplete": "Complete shop and owner details before submitting",
+    "errSubmit": "Submission failed",
+    "errShopExists": "This shop name is already taken",
+    "afterTitle": "After you submit",
+    "afterSteps": [
+      {
+        "title": "Team reviews your data",
+        "hint": "(within 1–3 business days)"
+      },
+      {
+        "title": "Approval result",
+        "hint": "Via email and SMS"
+      },
+      {
+        "title": "Start using your shop",
+        "hint": "Right away"
+      }
+    ],
+    "tipsTitle": "Tips for faster approval",
+    "tipsBullets": [
+      "Match official documents",
+      "Clear, not blurry",
+      "Files under 5 MB",
+      "Complete every field",
+      "Working phone and email"
+    ],
+    "dialogTitle": "Confirm shop application",
+    "dialogBody": "Once confirmed, your application is sent and cannot be edited",
+    "dialogCancel": "Cancel",
+    "dialogConfirm": "Confirm",
+    "dialogSending": "Submitting application",
+    "dialogSendingHint": "Please wait while we save your shop data",
+    "dialogFail": "Application failed",
+    "dialogClose": "Close",
+    "empty": "—"
+  }
+}

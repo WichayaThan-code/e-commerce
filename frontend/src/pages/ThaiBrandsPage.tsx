@@ -189,6 +189,7 @@ export default function ThaiBrandsPage() {
   );
   return (
     <main className="thai-brand-page best-seller-page recommend-page">
+<<<<<<< HEAD
       <header className="recommend-header">
         <div className="recommend-top recommend-width">
           <Brand />
@@ -270,6 +271,9 @@ export default function ThaiBrandsPage() {
           <a href="/help">ช่วยเหลือ</a>
         </nav>
       </header>
+=======
+
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
       <section className="thai-hero">
         <img
           src={thaiBrandReference}

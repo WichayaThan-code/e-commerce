@@ -5,6 +5,11 @@ import {
   MapPin, MoreHorizontal, Package, Plus, Printer, Search, Settings, ShoppingBag,
   Store, TicketPercent, Truck, WalletCards, XCircle,
 } from "lucide-react";
+<<<<<<< HEAD
+=======
+import LanguageSwitcher from "../components/LanguageSwitcher";
+import MerchantShopMenu from "../components/MerchantShopMenu";
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import { useAuth } from "../contexts/AuthContext";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
@@ -55,7 +60,11 @@ export default function ShippingPage(){
   const visible=shipments.filter(x=>(tab==="ทั้งหมด"||x.status===tab)&&(status==="ทั้งหมด"||x.status===status)&&(carrier==="ทั้งหมด"||x.carrier===carrier)&&(`${x.tracking} ${x.order} ${x.customer}`.toLowerCase().includes(query.toLowerCase())));
   const reset=()=>{setTab("ทั้งหมด");setQuery("");setCarrier("ทั้งหมด");setStatus("ทั้งหมด");notify("รีเซ็ตตัวกรองแล้ว")};
   return <main className="merchant-shell pm-shell shipping-shell">
+<<<<<<< HEAD
     <header className="merchant-topbar"><Brand/><form onSubmit={e=>{e.preventDefault();notify("ค้นหาข้อมูลร้านค้าแล้ว")}}><Search/><input aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..."/></form><button className="merchant-bell" aria-label="การแจ้งเตือน"><Bell/><i>3</i></button><div className="merchant-profile"><span>🏪</span><p><b>{shopName}</b><small>เจ้าของร้าน</small></p><ChevronDown/></div></header>
+=======
+    <header className="merchant-topbar"><Brand/><form onSubmit={e=>{e.preventDefault();notify("ค้นหาข้อมูลร้านค้าแล้ว")}}><Search/><input aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..."/></form><LanguageSwitcher /> <button className="merchant-bell" aria-label="การแจ้งเตือน"><Bell/><i>3</i></button><MerchantShopMenu /></header>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     <aside className="merchant-sidebar pm-sidebar"><nav>{menu.map(([Icon,label,href,badge])=><a className={label==="การจัดส่ง"?"active":""} href={href} key={label} onClick={e=>{if((href as string)==="#"){e.preventDefault();notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}}}><Icon/>{label}{badge&&<i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button></div></aside>
     <section className="pm-content shipping-content">
       <header className="pm-heading shipping-heading"><div><h1><Truck/>การจัดส่ง</h1><p>จัดการการจัดส่งพัสดุ เชื่อมต่อบริษัทขนส่ง ติดตามสถานะได้ง่ายในที่เดียว</p></div><div className="pm-actions"><button onClick={()=>notify("พร้อมพิมพ์ใบปะหน้าสำหรับรายการที่เลือก")}><Printer/>พิมพ์ใบปะหน้า<ChevronDown/></button><button className="primary" onClick={()=>notify("เปิดหน้าต่างเชื่อมต่อบริษัทขนส่ง")}><Plus/>เชื่อมต่อขนส่งเพิ่ม</button></div></header>

@@ -5,6 +5,7 @@ import {
   Package, ReceiptText, Search, Settings, ShieldCheck, ShoppingBag, Store,
   Tags, TrendingUp, UserCog, UsersRound, WalletCards,
 } from 'lucide-react'
+<<<<<<< HEAD
 import { useAuth } from '../contexts/AuthContext'
 import '../styles/admin-dashboard.css'
 
@@ -16,6 +17,13 @@ const navGroups=[
   {label:'ระบบ',items:[[Settings,'ตั้งค่า'],[ClipboardList,'จัดการเนื้อหา'],[Bell,'แจ้งเตือน'],[FileCheck2,'บันทึกการใช้งาน']]},
 ] as const
 
+=======
+import AdminHeader from '../components/AdminHeader'
+import AdminSidebar from '../components/AdminSidebar'
+import { useAuth } from '../contexts/AuthContext'
+import '../styles/admin-dashboard.css'
+
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 const applications=[
   ['#REG20260912001','บ้านขนมไทย','คุณสมหญิง ใจดี','12 ก.ย. 2026 10:15','รออนุมัติ'],
   ['#REG20260912002','Green Farm','คุณอนุชา เกษตร','12 ก.ย. 2026 09:42','รออนุมัติ'],
@@ -27,20 +35,33 @@ const stores=[['🥇','MaeSomchai Official','฿82,430','12%'],['🥈','Healthy 
 const chartBars=[68,56,73,88,94,72,91,102,86,108,132,101]
 const linePoints='20,78 80,88 140,70 200,50 260,41 320,62 380,38 440,29 500,49 560,29 620,9 680,26'
 
+<<<<<<< HEAD
 function AdminBrand(){return <a className="admin-brand" href="/"><span><ShoppingBag/><i>✓</i></span><div><b>ThaiShop<span>Fun</span></b><small>Shop Local · Support Thai · Smile Together</small></div></a>}
 function Panel({title,action,children,className=''}:{title:string;action?:string;children:React.ReactNode;className?:string}){return <section className={`admin-panel ${className}`}><header><h2>{title}</h2>{action&&<button>{action} →</button>}</header>{children}</section>}
 
 export default function AdminDashboardPage(){
   const {user,loading,logout}=useAuth()
+=======
+function Panel({title,action,children,className=''}:{title:string;action?:string;children:React.ReactNode;className?:string}){return <section className={`admin-panel ${className}`}><header><h2>{title}</h2>{action&&<button>{action} →</button>}</header>{children}</section>}
+
+export default function AdminDashboardPage(){
+  const {user,loading}=useAuth()
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   const [notice,setNotice]=useState('')
   if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
   if(!user){window.location.replace('/login');return null}
   if(user.role!=='ADMIN'){window.location.replace('/dashboard');return null}
   const notify=(text:string)=>{setNotice(text);window.setTimeout(()=>setNotice(''),1800)}
+<<<<<<< HEAD
   const signOut=async()=>{await logout();window.location.replace('/')}
   return <main className="admin-shell">
     <header className="admin-topbar"><AdminBrand/><form onSubmit={e=>{e.preventDefault();notify('กำลังค้นหาในระบบ')}}><input aria-label="ค้นหา" placeholder="ค้นหาร้านค้า ผู้ใช้ ใบสมัคร หรือคำสั่งซื้อ..."/><button aria-label="ค้นหา"><Search/></button></form><button className="admin-bell" aria-label="การแจ้งเตือน"><Bell/><i>12</i></button><div className="admin-profile"><span>{user.firstName.charAt(0).toUpperCase()}</span><p><b>{user.email}</b><small>Administrator</small></p><ChevronDown/></div></header>
     <aside className="admin-sidebar"><a className="active" href="/admin"><Home/>หน้าแรก</a>{navGroups.map(group=><section key={group.label}><h3>{group.label}</h3>{group.items.map(([Icon,label,badge])=>label==='ร้านค้า'?<a href="/admin/stores" key={label}><Icon/>{label}</a>:label==='ใบสมัครร้านค้า'?<a href="/admin/store-applications" key={label}><Icon/>{label}{badge&&<i>{badge}</i>}</a>:label==='หมวดหมู่สินค้า'?<a href="/admin/categories" key={label}><Icon/>{label}</a>:label==='โปรโมชั่น/แคมเปญ'?<a href="/admin/promotions" key={label}><Icon/>{label}</a>:label==='ผู้ใช้งาน'?<a href="/admin/users" key={label}><Icon/>{label}</a>:label==='บทบาทและสิทธิ์'?<a href="/admin/roles" key={label}><Icon/>{label}</a>:<button key={label} onClick={()=>notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}><Icon/>{label}{badge&&<i>{badge}</i>}</button>)}</section>)}<button className="admin-help"><Headphones/>ศูนย์ช่วยเหลือ</button><button className="admin-logout" onClick={signOut}><LogOut/>ออกจากระบบ</button></aside>
+=======
+  return <main className="admin-shell">
+    <AdminHeader user={user} />
+    <AdminSidebar active="home" showHelp extended/>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     <div className="admin-content"><section className="admin-welcome"><div><span>👋</span><div><h1>สวัสดีครับ, {user.email}</h1><p>ภาพรวมการใช้งานแพลตฟอร์ม ThaiShopFun</p><small>“สนับสนุนร้านค้าไทย เพื่อธุรกิจไทยเติบโตไปด้วยกัน”</small></div></div><button><CalendarDays/>ช่วงวันที่ <b>1 ก.ย. 2026 - 12 ก.ย. 2026</b><ChevronDown/></button></section>
       <section className="admin-kpis">
         <article className="blue"><span><Store/></span><div><small>ร้านค้าทั้งหมด</small><b>1,245 <i>↑ 12%</i></b><em>จากเดือนก่อน</em></div></article>

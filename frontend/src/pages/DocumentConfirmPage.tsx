@@ -1,25 +1,47 @@
+<<<<<<< HEAD
 import { useState } from "react";
+=======
+import { useEffect, useState } from "react";
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import {
   ArrowLeft,
   ArrowRight,
   Building2,
   Check,
   CheckCircle2,
+<<<<<<< HEAD
   FileText,
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   Headphones,
   Home,
   IdCard,
   Lightbulb,
+<<<<<<< HEAD
   Search,
   ShieldCheck,
   ShoppingBag,
+=======
+  ShieldCheck,
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   Store,
   UploadCloud,
   UserRound,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+<<<<<<< HEAD
 import { ApiError, merchantApi, type DocumentType } from "../services/api";
 import "../styles/doc-confirm.css";
+=======
+import { useLanguage } from "../contexts/LanguageContext";
+import MerchantOnboardingSidebar from "../components/merchant/MerchantOnboardingSidebar";
+import MerchantHeader from "../components/MerchantHeader";
+import { ApiError, merchantApi, type DocumentType } from "../services/api";
+import { SHOP_IMAGE_ACCEPT } from "../services/shopImage";
+import { readMerchantDraft, rememberDocumentName, writeMerchantDraft } from "../services/merchantDraft";
+import "../styles/doc-confirm.css";
+import "../styles/form-fields.css";
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 
 const docFlow = [
   {
@@ -55,6 +77,7 @@ const topSteps = [
   ["4", "ตรวจสอบและส่ง", ""],
 ];
 
+<<<<<<< HEAD
 function DocBrand() {
   return (
     <a className="brand doc-brand" href="/">
@@ -72,6 +95,8 @@ function DocBrand() {
   );
 }
 
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 type DocRowProps = {
   kind: "id" | "home" | "business";
   type: DocumentType;
@@ -79,6 +104,10 @@ type DocRowProps = {
   description: string;
   uploadText: string;
   exampleTitle: string;
+<<<<<<< HEAD
+=======
+  existingName?: string;
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 };
 function DocumentRow({
   kind,
@@ -87,10 +116,22 @@ function DocumentRow({
   description,
   uploadText,
   exampleTitle,
+<<<<<<< HEAD
 }: DocRowProps) {
   const Icon = kind === "id" ? IdCard : kind === "home" ? Home : Building2;
   const [file, setFile] = useState("");
   const [uploading, setUploading] = useState(false);
+=======
+  existingName,
+}: DocRowProps) {
+  const { user } = useAuth();
+  const Icon = kind === "id" ? IdCard : kind === "home" ? Home : Building2;
+  const [file, setFile] = useState(existingName || readMerchantDraft(user?.id).documentNames?.[type] || "");
+  const [uploading, setUploading] = useState(false);
+  useEffect(() => {
+    if (existingName) setFile(existingName);
+  }, [existingName]);
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   const select = async (selected?: File) => {
     if (!selected) return;
     if (selected.size > 5 * 1024 * 1024) {
@@ -102,6 +143,10 @@ function DocumentRow({
     try {
       await merchantApi.uploadDocument(type, selected);
       setFile(selected.name);
+<<<<<<< HEAD
+=======
+      rememberDocumentName(user?.id, type, selected.name);
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     } catch (error) {
       setFile(
         error instanceof ApiError ? error.message : "อัปโหลดไฟล์ไม่สำเร็จ",
@@ -130,14 +175,22 @@ function DocumentRow({
         >
           <UploadCloud />
           <b>{file || uploadText}</b>
+<<<<<<< HEAD
           <span>ไฟล์ JPG, PNG, PDF ขนาดไม่เกิน 5 MB</span>
+=======
+          <span>{existingName ? "ใช้เอกสารที่มีอยู่ในระบบแล้ว ไม่ต้องอัปโหลดใหม่" : "ไฟล์ JPG, PNG, WEBP หรือ PDF ขนาดไม่เกิน 5 MB"}</span>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
           <i>
             {uploading ? "กำลังอัปโหลด" : file ? "เปลี่ยนไฟล์" : "เลือกไฟล์"}
           </i>
           <input
             disabled={uploading}
             type="file"
+<<<<<<< HEAD
             accept="image/jpeg,image/png,application/pdf"
+=======
+            accept={`${SHOP_IMAGE_ACCEPT},application/pdf`}
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
             onChange={(e) => void select(e.target.files?.[0])}
           />
         </label>
@@ -177,8 +230,35 @@ function DocumentRow({
 
 export default function DocumentConfirmPage() {
   const { user } = useAuth();
+<<<<<<< HEAD
   const [confirmed, setConfirmed] = useState(true);
   const [message, setMessage] = useState("");
+=======
+  const { onboarding: ob } = useLanguage();
+  const d = ob.documents;
+  const o = ob.owner;
+  const [confirmed, setConfirmed] = useState(() => readMerchantDraft(user?.id).documentsConfirmed ?? true);
+  const [message, setMessage] = useState("");
+  const [existingDocs, setExistingDocs] = useState<Partial<Record<DocumentType, string>>>({});
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    merchantApi.getDraft().then((draft) => {
+      if (!active) return;
+      const names: Partial<Record<DocumentType, string>> = {};
+      for (const doc of draft.documents) {
+        names[doc.type] = doc.originalFilename;
+        rememberDocumentName(user.id, doc.type, doc.originalFilename);
+      }
+      setExistingDocs(names);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [user]);
+  useEffect(() => {
+    if (!user) return;
+    writeMerchantDraft(user.id, { ...readMerchantDraft(user.id), documentsConfirmed: confirmed });
+  }, [confirmed]);
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   const next = async () => {
     if (!user) {
       window.location.assign("/login?next=/merchant/documents");
@@ -205,6 +285,7 @@ export default function DocumentConfirmPage() {
   };
   return (
     <main className="doc-page">
+<<<<<<< HEAD
       <header className="doc-header">
         <DocBrand />
         <nav>
@@ -313,6 +394,32 @@ export default function DocumentConfirmPage() {
               uploadText="อัปโหลดหนังสือรับรองบริษัท"
               exampleTitle="ตัวอย่างหนังสือรับรองบริษัท"
             />
+=======
+      <MerchantHeader />
+      <div className="doc-layout">
+        <MerchantOnboardingSidebar copy={ob} activeStep={2} />
+        <section className="doc-center">
+          <div className="doc-card">
+            <div className="doc-title">
+              <h1>{d.pageTitle}</h1>
+              <p>{d.pageLead}</p>
+            </div>
+            <div className="doc-top-steps">
+              {ob.steps.map((step, index) => {
+                const state = index < 2 ? "done" : index === 2 ? "active" : "";
+                const number = index < 2 ? "✓" : String(index + 1);
+                return (
+                  <div className={state} key={step.title}>
+                    <span>{number}</span>
+                    <small>{step.title}</small>
+                  </div>
+                );
+              })}
+            </div>
+            <DocumentRow type="IDENTITY" kind={d.rows[0].kind} title={d.rows[0].title} description={d.rows[0].description} uploadText={d.rows[0].uploadText} exampleTitle={d.rows[0].exampleTitle} existingName={existingDocs.IDENTITY} />
+            <DocumentRow type="ADDRESS" kind={d.rows[1].kind} title={d.rows[1].title} description={d.rows[1].description} uploadText={d.rows[1].uploadText} exampleTitle={d.rows[1].exampleTitle} existingName={existingDocs.ADDRESS} />
+            <DocumentRow type="BUSINESS" kind={d.rows[2].kind} title={d.rows[2].title} description={d.rows[2].description} uploadText={d.rows[2].uploadText} exampleTitle={d.rows[2].exampleTitle} existingName={existingDocs.BUSINESS} />
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
             <label className="doc-confirm-check">
               <input
                 type="checkbox"
@@ -323,19 +430,30 @@ export default function DocumentConfirmPage() {
                 <Check />
               </span>
               <p>
+<<<<<<< HEAD
                 ข้าพเจ้าขอรับรองว่า เอกสารทั้งหมดเป็นข้อมูลจริง และยินยอมให้
                 ThaiShopFun ตรวจสอบข้อมูล
                 <br />
                 เพื่อใช้ในการยืนยันตัวตนและเปิดร้านค้า
+=======
+                {d.confirmText}
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
               </p>
             </label>
             <div className="doc-form-actions">
               <a href="/merchant/owner-info">
                 <ArrowLeft />
+<<<<<<< HEAD
                 ย้อนกลับ
               </a>
               <button type="button" onClick={() => void next()}>
                 ถัดไป <ArrowRight />
+=======
+                {ob.common.back}
+              </a>
+              <button className="login-submit" type="button" onClick={() => void next()}>
+                {d.next} <ArrowRight />
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
               </button>
             </div>
             {message && <p className="doc-message">{message}</p>}
@@ -347,6 +465,7 @@ export default function DocumentConfirmPage() {
               <ShieldCheck />
               <CheckCircle2 />
             </div>
+<<<<<<< HEAD
             <h3>ข้อมูลของคุณปลอดภัย</h3>
             <ul>
               <li>เข้ารหัสข้อมูล (SSL)</li>
@@ -354,6 +473,10 @@ export default function DocumentConfirmPage() {
               <li>ไม่มีเปิดเผยข้อมูลต่อสาธารณะ</li>
               <li>เป็นไปตาม PDPA</li>
             </ul>
+=======
+            <h3>{o.safeTitle}</h3>
+            <ul>{o.safeBullets.map((line) => <li key={line}>{line}</li>)}</ul>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
           </section>
           <section className="doc-tips">
             <h3>
@@ -378,16 +501,24 @@ export default function DocumentConfirmPage() {
                 ทุกขั้นตอน
               </p>
             </div>
+<<<<<<< HEAD
             <a href="#contact">ติดต่อทีมงาน</a>
+=======
+            <a href="#contact">{ob.common.contact}</a>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
           </section>
           <div className="doc-shop-art">
             <span>🏪</span>
             <i>🪴</i>
+<<<<<<< HEAD
             <b>
               Good Shops
               <br />
               Brighter Thailand
             </b>
+=======
+            <b>{ob.common.quoteEn.split("\n").map((line, i) => <span key={i}>{line}{i === 0 && <br />}</span>)}</b>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
           </div>
         </aside>
       </div>

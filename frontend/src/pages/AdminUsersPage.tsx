@@ -6,6 +6,11 @@ import {
   Search, Settings, ShieldCheck, ShoppingBag, SlidersHorizontal, Store,
   Tags, Trash2, TrendingUp, UserCog, UserRound, UsersRound, WalletCards, X,
 } from 'lucide-react'
+<<<<<<< HEAD
+=======
+import AdminHeader from '../components/AdminHeader'
+import AdminSidebar from '../components/AdminSidebar'
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import { useAuth } from '../contexts/AuthContext'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-users.css'
@@ -25,6 +30,7 @@ const users:UserRow[]=[
   {id:9,avatar:'👩🏻',tone:'peach',name:'ธีรพงษ์ นาคทอง',email:'teerapong@gmail.com',role:'แอดมิน',shop:'-',phone:'062-334-5566',registered:'3 ก.ย. 2026 08:41',lastLogin:'6 ก.ย. 2026 11:30',status:'ใช้งาน'},
   {id:10,avatar:'👨🏻',tone:'sky',name:'อรทัย นิลมณี',email:'ornthai@gmail.com',role:'ผู้ใช้งานทั่วไป',shop:'-',phone:'099-123-4567',registered:'2 ก.ย. 2026 16:20',lastLogin:'5 ก.ย. 2026 10:05',status:'ใช้งาน'},
 ]
+<<<<<<< HEAD
 const navGroups=[
   {label:'จัดการร้านค้า',items:[[Store,'ร้านค้า',''],[FileCheck2,'ใบสมัครร้านค้า','18'],[Tags,'หมวดหมู่สินค้า',''],[Megaphone,'โปรโมชั่น/แคมเปญ','']]},
   {label:'จัดการผู้ใช้',items:[[UsersRound,'ผู้ใช้งาน',''],[UserCog,'บทบาทและสิทธิ์','']]},
@@ -42,6 +48,16 @@ export default function AdminUsersPage(){
   return <main className="admin-shell users-shell">
     <header className="admin-topbar"><AdminBrand/><form onSubmit={event=>{event.preventDefault();notify('ค้นหาในระบบแล้ว')}}><button aria-label="ค้นหา"><Search/></button><input aria-label="ค้นหาในระบบ" placeholder="ค้นหาร้านค้า, สินค้า, ผู้ใช้, หรือคำสั่งซื้อ..."/></form><span className="topbar-spacer"/><button className="admin-bell" aria-label="การแจ้งเตือน"><Bell/><i>12</i></button><div className="admin-profile"><span>{user.firstName.charAt(0).toUpperCase()}</span><p><b>{user.email}</b><small>Administrator</small></p><ChevronDown/></div></header>
     <aside className="admin-sidebar users-sidebar"><a href="/admin"><Home/>หน้าแรก</a>{navGroups.map(group=><section key={group.label}><h3>{group.label}</h3>{group.items.map(([Icon,label,badge])=>label==='ร้านค้า'?<a href="/admin/stores" key={label}><Icon/>{label}</a>:label==='ใบสมัครร้านค้า'?<a href="/admin/store-applications" key={label}><Icon/>{label}<i>{badge}</i></a>:label==='หมวดหมู่สินค้า'?<a href="/admin/categories" key={label}><Icon/>{label}</a>:label==='โปรโมชั่น/แคมเปญ'?<a href="/admin/promotions" key={label}><Icon/>{label}</a>:label==='ผู้ใช้งาน'?<a className="active" href="/admin/users" key={label}><Icon/>{label}</a>:label==='บทบาทและสิทธิ์'?<a href="/admin/roles" key={label}><Icon/>{label}</a>:<button key={label} onClick={()=>notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}><Icon/>{label}</button>)}</section>)}<button className="admin-logout" onClick={signOut}><LogOut/>ออกจากระบบ</button></aside>
+=======
+export default function AdminUsersPage(){
+  const {user,loading}=useAuth();const [query,setQuery]=useState('');const [role,setRole]=useState('ทั้งหมด');const [status,setStatus]=useState('ทั้งหมด');const [selectedId,setSelectedId]=useState(1);const [selectedRows,setSelectedRows]=useState<number[]>([]);const [tab,setTab]=useState<'ข้อมูลผู้ใช้'|'สิทธิ์การใช้งาน'|'ประวัติ'>('ข้อมูลผู้ใช้');const [notice,setNotice]=useState('')
+  const filtered=useMemo(()=>users.filter(item=>`${item.name} ${item.email} ${item.phone} ${item.shop}`.toLowerCase().includes(query.trim().toLowerCase())&&(role==='ทั้งหมด'||item.role===role)&&(status==='ทั้งหมด'||item.status===status)),[query,role,status]);const selected=users.find(item=>item.id===selectedId)??users[0]
+  if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>;if(!user){window.location.replace('/login');return null};if(user.role!=='ADMIN'){window.location.replace('/dashboard');return null}
+  const notify=(message:string)=>{setNotice(message);window.setTimeout(()=>setNotice(''),1900)};const reset=()=>{setQuery('');setRole('ทั้งหมด');setStatus('ทั้งหมด')};const toggle=(id:number)=>setSelectedRows(rows=>rows.includes(id)?rows.filter(row=>row!==id):[...rows,id])
+  return <main className="admin-shell users-shell">
+    <AdminHeader user={user} />
+    <AdminSidebar active="users" className="users-sidebar"/>
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     <div className="admin-content users-content"><section className="users-heading"><div className="users-title"><span><UserRound/></span><div><h1>ผู้ใช้งาน</h1><p>จัดการผู้ใช้งานทั้งหมดในระบบ ThaiShopFun</p><small>“เพิ่ม แก้ไข และกำหนดสิทธิ์ผู้ใช้งาน เพื่อความปลอดภัยและประสิทธิภาพในการทำงาน”</small></div></div><button className="add-user" onClick={()=>notify('เปิดแบบฟอร์มเพิ่มผู้ใช้งาน')}><Plus/>เพิ่มผู้ใช้งาน</button></section>
       <section className="user-kpis"><article className="all"><span><UsersRound/></span><div><b>ผู้ใช้งานทั้งหมด</b><strong>3,892 <em>↑ 15%</em></strong><small>จากเดือนก่อน</small></div></article><article className="admins"><span><UserRound/></span><div><b>ผู้ใช้แอดมิน</b><strong>12 <em>-</em></strong><small>คิดเป็น 0.3%</small></div></article><article className="owners"><span><Store/></span><div><b>เจ้าของร้าน</b><strong>3,621 <em>↑ 15%</em></strong><small>คิดเป็น 93.0%</small></div></article><article className="general"><span><UsersRound/></span><div><b>ผู้ใช้งานทั่วไป</b><strong>259 <em>↑ 8%</em></strong><small>คิดเป็น 6.7%</small></div></article></section>
       <section className="user-filters"><label className="user-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="ค้นหาผู้ใช้ (ชื่อ-นามสกุล, อีเมล, เบอร์โทร...)" aria-label="ค้นหาผู้ใช้งาน"/></label><label><span>บทบาท</span><select value={role} onChange={event=>setRole(event.target.value)}><option>ทั้งหมด</option><option>แอดมิน</option><option>เจ้าของร้าน</option><option>ผู้ใช้งานทั่วไป</option></select></label><label><span>สถานะ</span><select value={status} onChange={event=>setStatus(event.target.value)}><option>ทั้งหมด</option><option>ใช้งาน</option><option>ระงับ</option></select></label><label className="user-date"><span>วันที่สมัคร</span><button onClick={()=>notify('เปิดปฏิทินเลือกช่วงวันที่')}><CalendarDays/>เลือกช่วงวันที่</button></label><button className="user-find" onClick={()=>notify(`พบ ${filtered.length} ผู้ใช้งาน`)}>ค้นหา</button><button className="user-reset" onClick={reset}>รีเซ็ต</button></section>

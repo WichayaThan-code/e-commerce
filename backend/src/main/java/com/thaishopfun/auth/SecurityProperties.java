@@ -8,6 +8,7 @@ public record SecurityProperties(
     long accessTokenMinutes,
     long refreshTokenDays,
     boolean secureCookies,
+<<<<<<< HEAD
     String allowedOrigin,
     long otpTtlMinutes,
     int otpMaxAttempts,
@@ -18,3 +19,8 @@ public record SecurityProperties(
     long passwordResetTtlMinutes,
     boolean otpExposeCode
 ) {}
+=======
+    String allowedOrigin
+) {}
+
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

@@ -1,10 +1,15 @@
 package com.thaishopfun.auth;
 
+<<<<<<< HEAD
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+=======
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -26,19 +31,26 @@ import java.util.UUID;
 
 @Service
 public class AuthService {
+<<<<<<< HEAD
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final String FORGOT_MESSAGE = "หากอีเมลนี้มีในระบบ คุณจะได้รับลิงก์รีเซ็ตรหัสผ่านในไม่ช้า";
 
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     public record Session(AuthDtos.AuthResponse response, String refreshToken) {}
 
     private final UserAccountRepository users;
     private final RefreshTokenRepository refreshTokens;
+<<<<<<< HEAD
     private final PasswordResetTokenRepository passwordResetTokens;
     private final OtpVerificationRepository otpVerifications;
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     private final PasswordEncoder passwords;
     private final AuthenticationManager authentication;
     private final JwtEncoder jwtEncoder;
     private final SecurityProperties properties;
+<<<<<<< HEAD
     private final LoginAttemptService loginAttempts;
     private final SecureRandom random = new SecureRandom();
 
@@ -50,11 +62,22 @@ public class AuthService {
         this.refreshTokens = refreshTokens;
         this.passwordResetTokens = passwordResetTokens;
         this.otpVerifications = otpVerifications;
+=======
+    private final SecureRandom random = new SecureRandom();
+
+    public AuthService(UserAccountRepository users, RefreshTokenRepository refreshTokens, PasswordEncoder passwords,
+                       AuthenticationManager authentication, JwtEncoder jwtEncoder, SecurityProperties properties) {
+        this.users = users;
+        this.refreshTokens = refreshTokens;
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         this.passwords = passwords;
         this.authentication = authentication;
         this.jwtEncoder = jwtEncoder;
         this.properties = properties;
+<<<<<<< HEAD
         this.loginAttempts = loginAttempts;
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     }
 
     @Transactional
@@ -71,6 +94,7 @@ public class AuthService {
     public Session login(AuthDtos.LoginRequest request) {
         var identity = request.identity().trim();
         var lookup = identity.contains("@") ? identity.toLowerCase() : normalizePhone(identity);
+<<<<<<< HEAD
         loginAttempts.assertNotLocked(lookup);
         try {
             authentication.authenticate(new UsernamePasswordAuthenticationToken(lookup, request.password()));
@@ -85,6 +109,11 @@ public class AuthService {
             throw new AuthException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "ข้อมูลเข้าสู่ระบบไม่ถูกต้อง");
         }
         user.touchLastLogin();
+=======
+        authentication.authenticate(new UsernamePasswordAuthenticationToken(lookup, request.password()));
+        var user = users.findByEmailIgnoreCaseOrPhone(lookup, lookup)
+            .orElseThrow(() -> new AuthException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "ข้อมูลเข้าสู่ระบบไม่ถูกต้อง"));
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         return createSession(user);
     }
 
@@ -109,6 +138,7 @@ public class AuthService {
             .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "ไม่พบบัญชีผู้ใช้"));
     }
 
+<<<<<<< HEAD
     @Transactional
     public AuthDtos.ForgotPasswordResponse forgotPassword(AuthDtos.ForgotPasswordRequest request) {
         var email = request.email().trim().toLowerCase();
@@ -292,6 +322,8 @@ public class AuthService {
         otpVerifications.findRecent(destinationHash, purpose, OtpStatus.PENDING).forEach(OtpVerification::markExpired);
     }
 
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     private Session createSession(UserAccount user) {
         var now = Instant.now();
         var accessDuration = Duration.ofMinutes(properties.accessTokenMinutes());
@@ -301,7 +333,10 @@ public class AuthService {
             .expiresAt(now.plus(accessDuration))
             .subject(user.getId().toString())
             .claim("roles", List.of(user.getRole().name()))
+<<<<<<< HEAD
             .claim("pv", user.getPermissionVersion())
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
             .build();
         var accessToken = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
 
@@ -313,6 +348,7 @@ public class AuthService {
         return new Session(response, rawRefresh);
     }
 
+<<<<<<< HEAD
     private String maskDestination(OtpChannel channel, String normalized) {
         if (channel == OtpChannel.EMAIL) {
             var at = normalized.indexOf('@');
@@ -329,6 +365,8 @@ public class AuthService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
+=======
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     private String normalizePhone(String value) { return value.replaceAll("[ -]", ""); }
     private AuthException invalidRefresh() { return new AuthException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN", "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่"); }
     private String hash(String value) {
@@ -338,4 +376,9 @@ public class AuthService {
             throw new IllegalStateException(exception);
         }
     }
+<<<<<<< HEAD
 }
+=======
+}
+
+>>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

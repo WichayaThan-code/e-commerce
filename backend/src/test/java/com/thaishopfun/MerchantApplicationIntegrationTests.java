@@ -7,6 +7,8 @@ import com.thaishopfun.auth.RefreshTokenRepository;
 import com.thaishopfun.auth.UserAccount;
 import com.thaishopfun.auth.UserAccountRepository;
 import com.thaishopfun.auth.UserRole;
+import com.thaishopfun.auth.authz.PlatformRole;
+import com.thaishopfun.auth.authz.PlatformRoleRepository;
 import com.thaishopfun.merchant.MerchantApplicationRepository;
 import com.thaishopfun.merchant.MerchantDocumentRepository;
 import com.thaishopfun.merchant.OwnerAuditLogRepository;
@@ -47,8 +49,9 @@ class MerchantApplicationIntegrationTests {
     @Autowired OtpVerificationRepository otpVerifications;
     @Autowired UserAccountRepository users;
     @Autowired PasswordEncoder passwords;
+    @Autowired PlatformRoleRepository platformRoles;
 
-    @BeforeEach void clean(){reinstatements.deleteAll();shopMembers.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();otpVerifications.deleteAll();passwordResetTokens.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
+    @BeforeEach void clean(){platformRoles.deleteAll();reinstatements.deleteAll();shopMembers.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();otpVerifications.deleteAll();passwordResetTokens.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
 
     @Test void savesUploadsAndSubmitsRealApplication() throws Exception {
         var registered=mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
@@ -163,7 +166,9 @@ class MerchantApplicationIntegrationTests {
           .andExpect(status().isOk()).andExpect(jsonPath("$.approved").value(false)).andExpect(jsonPath("$.hasShop").value(true)).andExpect(jsonPath("$.status").value("PENDING_REVIEW"));
         mvc.perform(get("/api/admin/store-applications").header("Authorization", "Bearer " + merchant)).andExpect(status().isForbidden());
 
-        users.save(UserAccount.admin("review-admin@example.com", passwords.encode("Password1")));
+        var reviewer = users.save(UserAccount.admin("review-admin@example.com", passwords.encode("Password1")));
+        // platform permissions come from platform_roles (users.role ADMIN alone grants nothing any more)
+        platformRoles.save(PlatformRole.grant(reviewer.getId(), PlatformRole.PLATFORM_ADMIN, null, "test"));
         var adminLogin = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
           {"identity":"review-admin@example.com","password":"Password1"}
           """)).andExpect(status().isOk()).andReturn();
@@ -244,7 +249,8 @@ class MerchantApplicationIntegrationTests {
           .andExpect(status().isOk()).andReturn();
         String firstId = JsonPath.read(submitted.getResponse().getContentAsString(), "$.id");
 
-        users.save(UserAccount.admin("reject-admin@example.com", passwords.encode("Password1")));
+        var rejecter = users.save(UserAccount.admin("reject-admin@example.com", passwords.encode("Password1")));
+        platformRoles.save(PlatformRole.grant(rejecter.getId(), PlatformRole.PLATFORM_ADMIN, null, "test"));
         var adminLogin = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
           {"identity":"reject-admin@example.com","password":"Password1"}
           """)).andExpect(status().isOk()).andReturn();

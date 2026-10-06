@@ -1,11 +1,20 @@
 export type UserRole = 'CUSTOMER' | 'MERCHANT' | 'ADMIN'
-export type AuthUser = { id:string; firstName:string; lastName:string; email:string; phone:string; role:UserRole }
+/** Effective store permissions in one shop (shop_members role → auth_role_permissions). */
+export type ShopPermissionGrant = { shopId:number; role:string; permissions:string[] }
+/**
+ * `role` is the legacy account role kept for routing. `roleCodes`, `permissions` (account + platform level) and
+ * `shopPermissions` are the effective permissions resolved from the database on every login/refresh/me call.
+ */
+export type AuthUser = { id:string; firstName:string; lastName:string; email:string; phone:string; role:UserRole; roleCodes?:string[]; permissions?:string[]; shopPermissions?:ShopPermissionGrant[] }
 type AuthResponse = { accessToken:string; expiresIn:number; user:AuthUser }
 export type RegisterPayload = { firstName:string; lastName:string; email:string; phone:string; password:string }
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8081').replace(/\/$/, '')
 let accessToken: string | null = null
 let refreshInFlight: Promise<AuthResponse> | null = null
+
+/** Fired when the backend denies an action (403 / shop no longer reachable) so the UI re-reads its permissions. */
+export const PERMISSIONS_STALE_EVENT = 'tsf:permissions-stale'
 
 export class ApiError extends Error {
   constructor(public code:string, message:string, public status:number) { super(message) }
@@ -30,6 +39,9 @@ async function request<T>(path:string, init:RequestInit = {}, authenticate = fal
   }
   if (!response.ok) {
     const error = await response.json().catch(() => ({code:'REQUEST_FAILED', message:'เกิดข้อผิดพลาด กรุณาลองใหม่'}))
+    if (authenticate && !path.startsWith('/api/auth/') && (response.status === 403 || error.code === 'SHOP_NOT_FOUND')) {
+      window.dispatchEvent(new Event(PERMISSIONS_STALE_EVENT))
+    }
     throw new ApiError(error.code || 'REQUEST_FAILED', error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status)
   }
   return response.status === 204 ? undefined as T : response.json()

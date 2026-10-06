@@ -29,6 +29,7 @@ import {
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
+import { usePermissions } from "../hooks/usePermissions";
 import productManageImage from "../assets/images/references/merchant/product-manage.png";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
@@ -177,6 +178,11 @@ function ProductThumb({ product }: { product: Product }) {
 
 export default function ProductManagementPage() {
   const { user, loading } = useAuth();
+  const { canInShop, canSeeMenuItem, deniedTitle } = usePermissions();
+  const canImport = canInShop("PRODUCT_IMPORT");
+  const canCreate = canInShop("PRODUCT_CREATE");
+  const canUpdate = canInShop("PRODUCT_UPDATE");
+  const canArchive = canInShop("PRODUCT_ARCHIVE");
   const [products, setProducts] = useState(initialProducts);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("ทั้งหมด");
@@ -274,7 +280,7 @@ export default function ProductManagementPage() {
 
       <aside className="merchant-sidebar pm-sidebar">
         <nav>
-          {menu.map(([Icon, label, href, badge]) => (
+          {menu.filter(canSeeMenuItem).map(([Icon, label, href, badge]) => (
             <a
               className={label === "จัดการสินค้า" ? "active" : ""}
               href={href}
@@ -323,7 +329,7 @@ export default function ProductManagementPage() {
             <p>เพิ่ม แก้ไข จัดหมวดหมู่ และดูสินค้าทั้งหมดในร้านของคุณ</p>
           </div>
           <div className="pm-actions">
-            <button onClick={() => notify("เปิดหน้าต่างนำเข้าสินค้า")}>
+            <button disabled={!canImport} title={deniedTitle(canImport)} onClick={() => notify("เปิดหน้าต่างนำเข้าสินค้า")}>
               <Upload />
               นำเข้าสินค้า
             </button>
@@ -331,7 +337,7 @@ export default function ProductManagementPage() {
               <Download />
               ส่งออก (Excel)
             </button>
-            <button
+            <button disabled={!canCreate} title={deniedTitle(canCreate)}
               className="primary"
               onClick={() => notify("เปิดแบบฟอร์มเพิ่มสินค้าใหม่")}
             >
@@ -549,19 +555,19 @@ export default function ProductManagementPage() {
                     </td>
                     <td>
                       <div className="pm-row-actions">
-                        <button
+                        <button disabled={!canUpdate} title={deniedTitle(canUpdate)}
                           aria-label={`แก้ไข ${product.name}`}
                           onClick={() => notify(`กำลังแก้ไข ${product.name}`)}
                         >
                           <Pencil />
                         </button>
-                        <button
+                        <button disabled={!canCreate} title={deniedTitle(canCreate)}
                           aria-label={`ทำสำเนา ${product.name}`}
                           onClick={() => duplicate(product)}
                         >
                           <Copy />
                         </button>
-                        <button
+                        <button disabled={!canArchive} title={deniedTitle(canArchive)}
                           className="delete"
                           aria-label={`ลบ ${product.name}`}
                           onClick={() => remove(product)}

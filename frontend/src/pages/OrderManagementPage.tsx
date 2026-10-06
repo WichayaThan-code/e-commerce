@@ -26,6 +26,7 @@ import {
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
+import { usePermissions } from "../hooks/usePermissions";
 import productManageImage from "../assets/images/references/merchant/product-manage.png";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
@@ -171,6 +172,9 @@ function Thumb({ order }: { order: Order }) {
 
 export default function OrderManagementPage() {
   const { user, loading } = useAuth();
+  const { canInShop, canSeeMenuItem, deniedTitle } = usePermissions();
+  const canExport = canInShop("ORDER_EXPORT");
+  const canPack = canInShop("SHIPMENT_PACK");
   const [query, setQuery] = useState("");
   const [payment, setPayment] = useState("ทั้งหมด");
   const [delivery, setDelivery] = useState("ทั้งหมด");
@@ -241,7 +245,7 @@ export default function OrderManagementPage() {
       </header>
       <aside className="merchant-sidebar pm-sidebar om-sidebar">
         <nav>
-          {menu.map(([Icon, label, href, badge]) => (
+          {menu.filter(canSeeMenuItem).map(([Icon, label, href, badge]) => (
             <a
               className={label === "คำสั่งซื้อ" ? "active" : ""}
               href={href}
@@ -289,13 +293,13 @@ export default function OrderManagementPage() {
             <p>ติดตามและจัดการคำสั่งซื้อทั้งหมดของร้านคุณ</p>
           </div>
           <div className="pm-actions">
-            <button
+            <button disabled={!canExport} title={deniedTitle(canExport)}
               onClick={() => notify("ส่งออกข้อมูลคำสั่งซื้อเป็น Excel แล้ว")}
             >
               <Download />
               ส่งออก (Excel)
             </button>
-            <button
+            <button disabled={!canPack} title={deniedTitle(canPack)}
               className="primary"
               onClick={() =>
                 notify(
@@ -525,7 +529,7 @@ export default function OrderManagementPage() {
                         >
                           <Eye />
                         </button>
-                        <button
+                        <button disabled={!canPack} title={deniedTitle(canPack)}
                           aria-label={`พิมพ์ ${o.id}`}
                           onClick={() => notify(`พิมพ์ใบปะหน้า ${o.id}`)}
                         >

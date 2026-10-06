@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { authApi, type AuthUser, type RegisterPayload } from '../services/api'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { authApi, PERMISSIONS_STALE_EVENT, type AuthUser, type RegisterPayload } from '../services/api'
+import { permissionFingerprint } from '../services/permissions'
 
 type AuthContextValue = {
   user: AuthUser | null
@@ -15,9 +16,34 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({children}:{children:React.ReactNode}) {
   const [user,setUser] = useState<AuthUser|null>(null)
   const [loading,setLoading] = useState(true)
+  const signedIn = useRef(false)
+  signedIn.current = user !== null
 
   useEffect(() => {
     authApi.refresh().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false))
+  }, [])
+
+  // Roles can change while the user is signed in (the backend applies them on the very next request).
+  // Re-read the effective permissions after a denial and when the tab regains focus, keeping the same
+  // object when nothing changed so pages do not re-render or reload their data.
+  useEffect(() => {
+    let lastSync = 0
+    const sync = (minGapMs:number) => {
+      const now = Date.now()
+      if (!signedIn.current || now - lastSync < minGapMs) return
+      lastSync = now
+      authApi.me().then(next => setUser(current => current && permissionFingerprint(current) !== permissionFingerprint(next) ? next : current)).catch(() => {})
+    }
+    const onStale = () => sync(3000)
+    const onVisible = () => { if (document.visibilityState === 'visible') sync(30000) }
+    window.addEventListener(PERMISSIONS_STALE_EVENT, onStale)
+    window.addEventListener('focus', onVisible)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener(PERMISSIONS_STALE_EVENT, onStale)
+      window.removeEventListener('focus', onVisible)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [])
 
   const reload = useCallback(async () => {

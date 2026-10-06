@@ -22,7 +22,7 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   '/admin/categories': { permission: 'PLATFORM_SETTING_UPDATE', scope: 'platform' }, // interim
   '/admin/promotions': { permission: 'PLATFORM_SETTING_UPDATE', scope: 'platform' }, // interim
   '/admin/users': { permission: 'PLATFORM_ACCOUNT_READ', scope: 'platform' },
-  '/admin/roles': { permission: 'PLATFORM_ACCOUNT_READ', scope: 'platform' }, // interim
+  '/admin/roles': { permission: 'PLATFORM_ACCOUNT_READ', scope: 'platform' }, // role catalog read (GET /api/admin/roles)
   '/merchant/dashboard': { permission: 'SHOP_READ', scope: 'shop' },
   '/merchant/products': { permission: 'PRODUCT_READ', scope: 'shop' },
   '/merchant/orders': { permission: 'ORDER_READ', scope: 'shop' },

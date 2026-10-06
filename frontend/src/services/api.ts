@@ -183,6 +183,43 @@ export const adminApplicationApi = {
   downloadDocument: (shopId:number, documentId:string, filename:string) => downloadFile(`/api/admin/store-applications/${shopId}/documents/${documentId}`, filename),
 }
 
+// ---- admin directory (users / roles & permissions) — read-only views over users, platform_roles, shop_members, auth_* and audit_logs
+export type AdminRoleRef = { code:string; nameTh:string|null; context:string|null }
+export type AdminShopRef = { shopId:number; shopName:string; shopStatus:string; role:string; roleNameTh:string|null }
+export type AdminUserStatus = 'ACTIVE'|'SUSPENDED'
+export type AdminUserRow = { id:string; firstName:string; lastName:string; email:string; phone:string; status:AdminUserStatus; accountRole:string; primaryRole:AdminRoleRef; roleCodes:string[]; shops:AdminShopRef[]; superAdmin:boolean; createdAt:string; lastLoginAt:string|null }
+export type AdminUserPage = { items:AdminUserRow[]; page:number; size:number; totalItems:number; totalPages:number }
+export type AdminMetric = { value:number; previous:number|null; changePercent:number|null }
+export type AdminUserStats = { total:AdminMetric; admins:AdminMetric; storeOwners:AdminMetric; generalUsers:AdminMetric; active:number; suspended:number; roleCount:number; previousPeriodEnd:string; generatedAt:string }
+export type AdminFilterOption = { value:string; label:string; count:number }
+export type AdminUserFilterOptions = { roles:AdminFilterOption[]; statuses:AdminFilterOption[] }
+export type AdminPermissionInfo = { code:string; module:string|null; scope:string|null; descriptionTh:string|null; active:boolean }
+export type AdminShopAccess = { shopId:number; shopName:string; shopStatus:string; role:string; roleNameTh:string|null; joinedAt:string|null; permissions:AdminPermissionInfo[] }
+export type AdminUserDetail = { id:string; firstName:string; lastName:string; email:string; phone:string; status:AdminUserStatus; accountRole:string; superAdmin:boolean; createdAt:string; lastLoginAt:string|null; emailVerifiedAt:string|null; phoneVerifiedAt:string|null; primaryRole:AdminRoleRef; roles:AdminRoleRef[]; accountPermissions:AdminPermissionInfo[]; shops:AdminShopAccess[] }
+export type AdminActivityEvent = { at:string; type:string; title:string; subjectName:string|null; actorName:string|null; roleCode:string|null; roleNameTh:string|null; shopName:string|null; source:string }
+export type AdminRoleSummary = { code:string; nameTh:string|null; descriptionTh:string|null; context:string; assignable:boolean; sortOrder:number; policyVersion:string; assignment:'PLATFORM_ROLES'|'SHOP_MEMBERS'|'IMPLICIT'|'PUBLIC'; userCount:number|null; permissionCount:number; active:boolean; superAdmin:boolean }
+export type AdminRoleDetail = { role:AdminRoleSummary; groups:{ module:string; permissions:AdminPermissionInfo[] }[]; catalogPermissionCount:number }
+export type AdminUserQuery = { q?:string; role?:string; status?:string; from?:string; to?:string; sort?:string; dir?:'asc'|'desc'; page?:number; size?:number }
+
+function queryString(params:Record<string, string|number|undefined>) {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => { if (value !== undefined && value !== '') search.set(key, String(value)) })
+  const text = search.toString()
+  return text ? `?${text}` : ''
+}
+
+export const adminDirectoryApi = {
+  users: (query:AdminUserQuery) => request<AdminUserPage>(`/api/admin/users${queryString(query)}`, {}, true),
+  userStats: () => request<AdminUserStats>('/api/admin/users/stats', {}, true),
+  userFilterOptions: () => request<AdminUserFilterOptions>('/api/admin/users/filter-options', {}, true),
+  user: (id:string) => request<AdminUserDetail>(`/api/admin/users/${id}`, {}, true),
+  userHistory: (id:string, limit = 50) => request<AdminActivityEvent[]>(`/api/admin/users/${id}/history?limit=${limit}`, {}, true),
+  exportUsers: ({page:_page, size:_size, ...query}:AdminUserQuery) => downloadFile(`/api/admin/users/export${queryString(query)}`, 'users.csv'),
+  roles: () => request<AdminRoleSummary[]>('/api/admin/roles', {}, true),
+  role: (code:string) => request<AdminRoleDetail>(`/api/admin/roles/${encodeURIComponent(code)}`, {}, true),
+  roleActivity: (limit = 20) => request<AdminActivityEvent[]>(`/api/admin/roles/activity?limit=${limit}`, {}, true),
+}
+
 export type ProductCategory = { id:number; nameTh:string; nameEn:string; nameZh:string }
 
 export const catalogApi = {

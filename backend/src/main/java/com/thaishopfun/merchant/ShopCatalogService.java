@@ -13,10 +13,12 @@ import java.util.UUID;
 @Service
 public class ShopCatalogService {
     private final ShopRepository shops;
+    private final ShopMemberRepository members;
     private final MerchantStorageService storage;
 
-    public ShopCatalogService(ShopRepository shops, MerchantStorageService storage) {
+    public ShopCatalogService(ShopRepository shops, ShopMemberRepository members, MerchantStorageService storage) {
         this.shops = shops;
+        this.members = members;
         this.storage = storage;
     }
 
@@ -26,6 +28,8 @@ public class ShopCatalogService {
         var owner = application.getLinkedOwner();
         if (owner == null) throw new AuthException(HttpStatus.BAD_REQUEST, "OWNER_REQUIRED", "กรุณาระบุเจ้าของร้านก่อนเปิดร้าน");
         var shop = shops.saveAndFlush(new Shop(application, "tmp-" + UUID.randomUUID().toString().substring(0, 12), owner));
+        // V1 invariant (deferred trigger): a non-closed shop needs exactly one ACTIVE STORE_OWNER member.
+        members.save(ShopMember.storeOwner(shop.getUuid(), shop.getUser().getId()));
         shop.assignSlug(uniqueSlug(ShopSlugs.base(application.getShopNameEn(), application.getShopName(), shop.getId())));
     }
 

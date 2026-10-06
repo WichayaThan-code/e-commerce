@@ -34,8 +34,8 @@ public class Owner {
     @Column(name = "bank_account_encrypted", nullable = false, columnDefinition = "text") private String bankAccountEncrypted;
     @Column(name = "bank_account_name", nullable = false) private String bankAccountName;
     @Column(name = "sensitive_review", nullable = false, length = 30) private String sensitiveReview;
-    @Column(name = "created_at", nullable = false) private Instant createdAt;
-    @Column(name = "updated_at", nullable = false) private Instant updatedAt;
+    @Column(name = "created_date_time", nullable = false) private Instant createdAt;
+    @Column(name = "modified_date_time", nullable = false) private Instant updatedAt;
 
     protected Owner() {}
 
@@ -45,6 +45,7 @@ public class Owner {
         this.user = user;
         this.sensitiveReview = "NONE";
         this.createdAt = now;
+        this.updatedAt = now;
         apply(request, citizenEncrypted, citizenHash, bankEncrypted, false);
     }
 

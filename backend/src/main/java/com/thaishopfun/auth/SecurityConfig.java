@@ -1,5 +1,6 @@
 package com.thaishopfun.auth;
 
+import jakarta.servlet.DispatcherType;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -14,7 +15,13 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -28,6 +35,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 
 @Configuration
 @EnableConfigurationProperties(SecurityProperties.class)
@@ -42,11 +50,7 @@ public class SecurityConfig {
             return User.withUsername(account.getId().toString())
                 .password(account.getPasswordHash())
                 .roles(account.getRole().name())
-<<<<<<< HEAD
                 .disabled(account.getStatus() != UserStatus.ACTIVE || account.isDeleted())
-=======
-                .disabled(account.getStatus() != UserStatus.ACTIVE)
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
                 .build();
         };
     }
@@ -66,9 +70,34 @@ public class SecurityConfig {
         return NimbusJwtEncoder.withSecretKey(key).algorithm(MacAlgorithm.HS256).build();
     }
 
-    @Bean JwtDecoder jwtDecoder(SecurityProperties properties) {
+    @Bean JwtDecoder jwtDecoder(SecurityProperties properties, UserAccountRepository users) {
         var key = new SecretKeySpec(properties.jwtSecret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-        return NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+        var decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefault(), permissionVersionValidator(users)));
+        return decoder;
+    }
+
+    /**
+     * Access tokens carry the user's permission_version as "pv". Password reset/change (and any future
+     * revoke/suspend) bumps users.permission_version, so older access tokens stop working immediately.
+     * Cost: one primary-key lookup per authenticated request. Suspended/deleted users are rejected too.
+     */
+    static OAuth2TokenValidator<Jwt> permissionVersionValidator(UserAccountRepository users) {
+        var invalid = OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Access token is no longer valid", null));
+        return jwt -> {
+            UUID userId;
+            try {
+                userId = UUID.fromString(jwt.getSubject());
+            } catch (RuntimeException exception) {
+                return invalid;
+            }
+            Object claim = jwt.getClaims().get("pv");
+            if (!(claim instanceof Number tokenVersion)) return invalid;
+            return users.findActivePermissionVersion(userId)
+                .filter(current -> current == tokenVersion.intValue())
+                .map(current -> OAuth2TokenValidatorResult.success())
+                .orElse(invalid);
+        };
     }
 
     @Bean JwtAuthenticationConverter jwtAuthenticationConverter() {
@@ -86,7 +115,8 @@ public class SecurityConfig {
             .cors(cors -> {})
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-<<<<<<< HEAD
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                .requestMatchers("/error").permitAll()
                 .requestMatchers(HttpMethod.POST,
                     "/api/auth/register",
                     "/api/auth/login",
@@ -98,13 +128,9 @@ public class SecurityConfig {
                     "/api/auth/otp/verify"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
-=======
-                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/shops", "/api/shops/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/categories").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(converter)))
             .build();
@@ -120,9 +146,4 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
-<<<<<<< HEAD
 }
-=======
-}
-
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

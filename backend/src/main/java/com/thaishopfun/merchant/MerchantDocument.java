@@ -5,11 +5,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-<<<<<<< HEAD
 @Table(name="merchant_documents",uniqueConstraints=@UniqueConstraint(name="uq_merchant_documents_application_id_document_type",columnNames={"application_id","document_type"}))
-=======
-@Table(name="merchant_documents",uniqueConstraints=@UniqueConstraint(name="uq_merchant_document_type",columnNames={"application_id","document_type"}))
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 public class MerchantDocument {
     @Id private UUID id;
     @ManyToOne(fetch=FetchType.LAZY,optional=false) @JoinColumn(name="application_id") private MerchantApplication application;
@@ -23,9 +19,5 @@ public class MerchantDocument {
     @Column(name="uploaded_at",nullable=false) private Instant uploadedAt;
     protected MerchantDocument(){}
     public MerchantDocument(MerchantApplication app,DocumentType type,String original,String stored,String path,String contentType,long size,String sha256){id=UUID.randomUUID();application=app;this.type=type;originalFilename=original;storedFilename=stored;storagePath=path;this.contentType=contentType;fileSize=size;this.sha256=sha256;uploadedAt=Instant.now();}
-<<<<<<< HEAD
-    public UUID getId(){return id;} public DocumentType getType(){return type;} public String getOriginalFilename(){return originalFilename;} public String getStoredFilename(){return storedFilename;} public String getStoragePath(){return storagePath;} public String getContentType(){return contentType;} public long getFileSize(){return fileSize;} public String getSha256(){return sha256;} public Instant getUploadedAt(){return uploadedAt;}
-=======
     public UUID getId(){return id;} public MerchantApplication getApplication(){return application;} public DocumentType getType(){return type;} public String getOriginalFilename(){return originalFilename;} public String getStoredFilename(){return storedFilename;} public String getStoragePath(){return storagePath;} public String getContentType(){return contentType;} public long getFileSize(){return fileSize;} public String getSha256(){return sha256;} public Instant getUploadedAt(){return uploadedAt;}
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 }

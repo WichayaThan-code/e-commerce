@@ -15,13 +15,10 @@ public final class MerchantDtos {
         @NotBlank @Size(max=100) String category,
         @NotNull SaleType saleType,
         @Size(max=500) String website,
-<<<<<<< HEAD
-=======
         @Size(max=500) String lineId,
         @Size(max=500) String facebookUrl,
         @Size(max=500) String instagramUrl,
         @Size(max=500) String tiktokUrl,
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         @NotBlank @Size(max=500) String address,
         @NotBlank @Size(max=100) String province,
         @NotBlank @Size(max=100) String district,
@@ -49,14 +46,6 @@ public final class MerchantDtos {
     public record DocumentResponse(UUID id,DocumentType type,String originalFilename,String contentType,long fileSize,String sha256,Instant uploadedAt){static DocumentResponse from(MerchantDocument d){return new DocumentResponse(d.getId(),d.getType(),d.getOriginalFilename(),d.getContentType(),d.getFileSize(),d.getSha256(),d.getUploadedAt());}}
     public record ApplicationResponse(
         UUID id,ApplicationStatus status,String referenceNo,
-<<<<<<< HEAD
-        String shopName,String shopNameEn,String description,String category,SaleType saleType,String website,String logoPath,
-        String shopAddress,String shopProvince,String shopDistrict,String shopSubdistrict,String shopPostalCode,
-        OwnerType ownerType,String title,String firstName,String lastName,String citizenIdMasked,LocalDate birthDate,String nationality,String phone,String email,
-        String houseNo,String villageNo,String building,String alley,String road,String province,String district,String subdistrict,String postalCode,
-        String bankName,String bankAccountMasked,String bankAccountName,List<DocumentResponse> documents,Instant submittedAt
-    ){}
-=======
         String shopName,String shopNameEn,String description,String category,SaleType saleType,String website,String lineId,String facebookUrl,String instagramUrl,String tiktokUrl,String logoPath,
         String shopAddress,String shopProvince,String shopDistrict,String shopSubdistrict,String shopPostalCode,
         OwnerType ownerType,String title,String firstName,String lastName,String citizenIdMasked,LocalDate birthDate,String nationality,String phone,String email,
@@ -123,6 +112,5 @@ public final class MerchantDtos {
     ) {}
     public record BulkShopRequest(@NotEmpty List<Long> shopIds){}
     public record BulkShopResponse(int updated,int skipped,List<AdminStoreApplicationResponse> applications){}
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 }
 

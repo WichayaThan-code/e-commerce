@@ -1,36 +1,31 @@
 package com.thaishopfun;
 
 import com.jayway.jsonpath.JsonPath;
-<<<<<<< HEAD
+import com.thaishopfun.auth.LoginAttemptService;
 import com.thaishopfun.auth.OtpVerificationRepository;
 import com.thaishopfun.auth.PasswordResetTokenRepository;
-=======
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import com.thaishopfun.auth.RefreshTokenRepository;
 import com.thaishopfun.auth.UserAccountRepository;
 import com.thaishopfun.merchant.MerchantApplicationRepository;
 import com.thaishopfun.merchant.MerchantDocumentRepository;
-<<<<<<< HEAD
-=======
-import jakarta.servlet.http.Cookie;
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
+import com.thaishopfun.merchant.OwnerAuditLogRepository;
+import com.thaishopfun.merchant.OwnerRepository;
+import com.thaishopfun.merchant.ShopMemberRepository;
+import com.thaishopfun.merchant.ShopReinstatementRequestRepository;
+import com.thaishopfun.merchant.ShopRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-<<<<<<< HEAD
 import org.springframework.test.web.servlet.ResultActions;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.nullValue;
-=======
-
-import static org.hamcrest.Matchers.containsString;
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -41,22 +36,28 @@ class AuthIntegrationTests {
     @Autowired MockMvc mvc;
     @Autowired UserAccountRepository users;
     @Autowired RefreshTokenRepository refreshTokens;
-<<<<<<< HEAD
     @Autowired PasswordResetTokenRepository passwordResetTokens;
     @Autowired OtpVerificationRepository otpVerifications;
-=======
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     @Autowired MerchantApplicationRepository merchantApplications;
     @Autowired MerchantDocumentRepository merchantDocuments;
+    @Autowired ShopReinstatementRequestRepository reinstatements;
+    @Autowired ShopMemberRepository shopMembers;
+    @Autowired ShopRepository shops;
+    @Autowired OwnerAuditLogRepository ownerAudits;
+    @Autowired OwnerRepository owners;
+    @Autowired LoginAttemptService loginAttempts;
+    @Autowired JdbcTemplate jdbc;
 
     @BeforeEach void clean() {
+        reinstatements.deleteAll();
+        shopMembers.deleteAll();
+        shops.deleteAll();
         merchantDocuments.deleteAll();
         merchantApplications.deleteAll();
-<<<<<<< HEAD
+        ownerAudits.deleteAll();
+        owners.deleteAll();
         otpVerifications.deleteAll();
         passwordResetTokens.deleteAll();
-=======
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         refreshTokens.deleteAll();
         users.deleteAll();
     }
@@ -67,10 +68,7 @@ class AuthIntegrationTests {
             .andExpect(cookie().httpOnly("tsf_refresh", true))
             .andExpect(jsonPath("$.accessToken").isNotEmpty())
             .andExpect(jsonPath("$.user.role").value("CUSTOMER"))
-<<<<<<< HEAD
             .andExpect(jsonPath("$.user.emailVerified").value(false))
-=======
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
             .andReturn();
         String accessToken = JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
 
@@ -105,7 +103,6 @@ class AuthIntegrationTests {
             .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message", containsString("ไม่ถูกต้อง")));
     }
 
-<<<<<<< HEAD
     @Test void loginLockoutAfterRepeatedFailures() throws Exception {
         register("lock@example.com", "0844444444").andExpect(status().isCreated());
         for (int i = 0; i < 4; i++) {
@@ -214,26 +211,122 @@ class AuthIntegrationTests {
             .andExpect(jsonPath("$.resetToken", nullValue()));
     }
 
+    @Test void lockoutCounterIsSharedBetweenEmailAndPhoneIdentifiers() throws Exception {
+        register("shared-lock@example.com", "0811112222").andExpect(status().isCreated());
+        login("shared-lock@example.com", "wrong-password").andExpect(status().isUnauthorized());
+        login("0811112222", "wrong-password").andExpect(status().isUnauthorized());
+        login("SHARED-LOCK@example.com", "wrong-password").andExpect(status().isUnauthorized());
+        login("081-111-2222", "wrong-password").andExpect(status().isUnauthorized());
+        login("shared-lock@example.com", "wrong-password")
+            .andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.code").value("ACCOUNT_LOCKED"));
+        login("0811112222", "Password1")
+            .andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.code").value("ACCOUNT_LOCKED"));
+    }
+
+    @Test void unknownIdentifierFailuresAreBoundedAndStillReturnInvalidCredentials() throws Exception {
+        for (int i = 0; i < 4; i++) {
+            login("ghost@example.com", "wrong-password")
+                .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+        }
+        login("ghost@example.com", "wrong-password").andExpect(status().isTooManyRequests());
+        org.junit.jupiter.api.Assertions.assertTrue(loginAttempts.size() <= 50_000);
+    }
+
+    @Test void malformedOrMistypedJsonReturns400ValidationError() throws Exception {
+        mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("{\"firstName\": "))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("not json"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        mvc.perform(post("/api/auth/otp/send").contentType(MediaType.APPLICATION_JSON).content("""
+            {"destination":"a@example.com","purpose":"NOT_A_PURPOSE"}
+            """)).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        mvc.perform(post("/api/auth/otp/verify").contentType(MediaType.APPLICATION_JSON).content("""
+            {"otpId":"not-a-uuid","code":"123456"}
+            """)).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test void changePasswordInvalidatesExistingAccessTokens() throws Exception {
+        var registered = register("pv@example.com", "0812223333").andReturn();
+        String oldToken = JsonPath.read(registered.getResponse().getContentAsString(), "$.accessToken");
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + oldToken)).andExpect(status().isOk());
+        mvc.perform(post("/api/auth/change-password").header("Authorization", "Bearer " + oldToken)
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                    {"currentPassword":"Password1","newPassword":"Password9"}
+                    """)).andExpect(status().isOk());
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + oldToken)).andExpect(status().isUnauthorized());
+        var relogin = login("pv@example.com", "Password9").andExpect(status().isOk()).andReturn();
+        String newToken = JsonPath.read(relogin.getResponse().getContentAsString(), "$.accessToken");
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + newToken)).andExpect(status().isOk());
+    }
+
+    @Test void resetPasswordInvalidatesExistingAccessTokens() throws Exception {
+        var registered = register("pv-reset@example.com", "0813334444").andReturn();
+        String oldToken = JsonPath.read(registered.getResponse().getContentAsString(), "$.accessToken");
+        var forgot = mvc.perform(post("/api/auth/forgot-password").contentType(MediaType.APPLICATION_JSON).content("""
+            {"email":"pv-reset@example.com"}
+            """)).andExpect(status().isOk()).andReturn();
+        String token = JsonPath.read(forgot.getResponse().getContentAsString(), "$.resetToken");
+        mvc.perform(post("/api/auth/reset-password").contentType(MediaType.APPLICATION_JSON).content("""
+            {"token":"%s","newPassword":"Password2"}
+            """.formatted(token))).andExpect(status().isOk());
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + oldToken)).andExpect(status().isUnauthorized());
+    }
+
+    @Test void refreshTokenReuseRevokesTheWholeFamily() throws Exception {
+        var registered = register("reuse@example.com", "0814445555").andReturn();
+        var original = registered.getResponse().getCookie("tsf_refresh");
+        var rotated = mvc.perform(post("/api/auth/refresh").cookie(original))
+            .andExpect(status().isOk()).andReturn().getResponse().getCookie("tsf_refresh");
+        // replaying the already-rotated token is treated as theft ...
+        mvc.perform(post("/api/auth/refresh").cookie(original)).andExpect(status().isUnauthorized());
+        // ... so the legitimately rotated token is revoked too
+        mvc.perform(post("/api/auth/refresh").cookie(rotated)).andExpect(status().isUnauthorized());
+        org.junit.jupiter.api.Assertions.assertTrue(refreshTokens.findAll().stream().allMatch(t -> t.isRevoked()));
+    }
+
+    @Test void refreshRejectsSuspendedOrDeletedUsers() throws Exception {
+        var registered = register("suspended@example.com", "0815556666").andReturn();
+        var refresh = registered.getResponse().getCookie("tsf_refresh");
+        jdbc.update("UPDATE users SET status = 'SUSPENDED' WHERE email = ?", "suspended@example.com");
+        mvc.perform(post("/api/auth/refresh").cookie(refresh)).andExpect(status().isUnauthorized());
+
+        var other = register("deleted@example.com", "0816667777").andReturn();
+        var refresh2 = other.getResponse().getCookie("tsf_refresh");
+        String access2 = JsonPath.read(other.getResponse().getContentAsString(), "$.accessToken");
+        jdbc.update("UPDATE users SET deleted_at = CURRENT_TIMESTAMP WHERE email = ?", "deleted@example.com");
+        mvc.perform(post("/api/auth/refresh").cookie(refresh2)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + access2)).andExpect(status().isUnauthorized());
+    }
+
+    @Test void verifyOtpForUnknownDestinationReturnsGenericResponseAndSendsNothing() throws Exception {
+        mvc.perform(post("/api/auth/otp/send").contentType(MediaType.APPLICATION_JSON).content("""
+            {"destination":"nobody@example.com","purpose":"EMAIL_VERIFY"}
+            """)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.otpId").isNotEmpty())
+            .andExpect(jsonPath("$.channel").value("EMAIL"));
+        mvc.perform(post("/api/auth/otp/send").contentType(MediaType.APPLICATION_JSON).content("""
+            {"destination":"0899990000","purpose":"PHONE_VERIFY"}
+            """)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.otpId").isNotEmpty());
+        org.junit.jupiter.api.Assertions.assertEquals(0, otpVerifications.count());
+    }
+
+    @Test void unauthenticatedRequestsGet401AndErrorDispatchIsPermitted() throws Exception {
+        mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer not-a-jwt")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/error").with(r -> { r.setDispatcherType(jakarta.servlet.DispatcherType.ERROR); return r; }))
+            .andExpect(result -> org.junit.jupiter.api.Assertions.assertNotEquals(401, result.getResponse().getStatus()));
+    }
+
     private ResultActions register(String email, String phone) throws Exception {
-=======
-    private org.springframework.test.web.servlet.ResultActions register(String email, String phone) throws Exception {
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         return mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
             {"firstName":"สมชาย","lastName":"ใจดี","email":"%s","phone":"%s","password":"Password1"}
             """.formatted(email, phone)));
     }
 
-<<<<<<< HEAD
     private ResultActions login(String identity, String password) throws Exception {
-=======
-    private org.springframework.test.web.servlet.ResultActions login(String identity, String password) throws Exception {
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         return mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
             {"identity":"%s","password":"%s"}
             """.formatted(identity, password)));
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

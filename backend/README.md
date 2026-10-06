@@ -26,13 +26,8 @@
 
 ```sh
 export DB_URL='jdbc:postgresql://127.0.0.1:5432/thaishopfun'
-<<<<<<< HEAD
 export DB_USERNAME='postgresql'
 printf 'PostgreSQL password: '
-=======
-export DB_USERNAME='thaishopfun_user'
-printf 'PostgreSQL password: Pg@ThaiShopFun2026!'
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 read -r -s DB_PASSWORD
 printf '\n'
 export DB_PASSWORD
@@ -48,12 +43,8 @@ bash ./mvnw spring-boot:run
 .\run-local.ps1
 ```
 
-<<<<<<< HEAD
 ค่าเริ่มต้น: ฐานข้อมูล `TSF_DB` ที่ `localhost:5432` ผู้ใช้ `postgres` รหัสผ่าน `1234`
 `setup-postgres.ps1` สร้างฐานข้อมูล `TSF_DB` ให้หากยังไม่มี และเปลี่ยนค่าได้ด้วย `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`
-=======
-สคริปต์ถามรหัสผ่านแบบซ่อนและใช้ผู้ใช้ฐานข้อมูล `postgresql`
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 
 ## การตั้งค่าและการทดสอบ
 
@@ -61,10 +52,7 @@ bash ./mvnw spring-boot:run
 - Frontend ที่อนุญาต: http://localhost:5173 (เปลี่ยนด้วย `FRONTEND_URL`)
 - การตั้งค่า: `src/main/resources/application.yml`
 - Flyway migrations: `src/main/resources/db/migration/`
-<<<<<<< HEAD
-=======
 - เจ้าของร้านอยู่ตาราง `owners` (หนึ่งตัวตนต่อหนึ่งแถว ตาม `citizen_id_hash`) และร้านชี้ด้วย `shops.owner_id` เจ้าของหนึ่งคนมีได้หลายร้าน ร้านหนึ่งมีเจ้าของได้คนเดียว
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 - ไฟล์อัปโหลด: `uploads/` เมื่อรันจากโฟลเดอร์นี้
 - ระบบ backend อ่าน environment variables; ไม่ได้โหลด `.env` ของ frontend
 
@@ -80,7 +68,6 @@ Windows:
 .\mvnw.cmd test
 ```
 
-<<<<<<< HEAD
 ## Database schema (Flyway) — สำหรับทีมสร้าง DB ว่าง
 
 Schema ทั้งหมดอยู่ใน **ไฟล์เดียว**: `src/main/resources/db/migration/V1__init_schema.sql`
@@ -89,8 +76,10 @@ Schema ทั้งหมดอยู่ใน **ไฟล์เดียว**: 
 | ไฟล์ | หน้าที่ |
 |------|---------|
 | `V1__init_schema.sql` | สร้าง schema ทั้งหมด (รวม V1+V2+V3 เดิมเป็นไฟล์เดียว) — **ไม่มี** ข้อมูลอ้างอิง (ดู Seed ด้านล่าง) |
+| `V2__shop_onboarding_owners_categories_reinstatement.sql` | ส่วนต่อจาก branch ร้านค้า (7f730e8): ตาราง `owners`, `shop_reinstatement_requests`, คอลัมน์ร้าน/ใบสมัคร (`shop_no`, `owner_id`, social links, `opening_hours`, `citizen_id_hash`), `hub_categories.category_no`/`name_zh`, สถานะร้าน `PENDING_REVIEW/ACTIVE/REJECTED/SUSPENDED/CLOSED` — เขียนแบบ defensive (`IF NOT EXISTS`) |
 
 ไฟล์เดิม (`V1__create_auth_tables.sql`, `V2__create_merchant_applications.sql`, `V3__ecommerce_schema_v3.sql`) ย้ายไปเก็บที่ `backend/db-archive/` (อยู่นอก `resources` — Flyway จะไม่โหลด) เก็บไว้อ้างอิงเท่านั้น ห้ามย้ายกลับ
+migration ชุด V1..V13 ของ branch 7f730e8 ย้ายไปไว้ที่ `backend/db-archive/from-7f730e8/` และรวมส่วนที่ยังไม่มีใน V1 เป็น `V2__shop_onboarding_owners_categories_reinstatement.sql` แล้ว
 
 ### สร้าง schema บนฐานข้อมูลว่าง (ทีมใหม่ / เครื่องใหม่)
 
@@ -140,8 +129,8 @@ COMMIT;
 
 ### กติกาการแก้ schema ต่อจากนี้
 
-- **ห้ามแก้ `V1__init_schema.sql`** (แม้แต่ช่องว่าง/คอมเมนต์ — checksum เปลี่ยนแล้ว DB ที่รันไปแล้ว validate fail)
-- การเปลี่ยนแปลงใหม่ทุกครั้ง → สร้างไฟล์ใหม่ `V2__<คำอธิบาย>.sql`, `V3__...` ตามลำดับ ใน `src/main/resources/db/migration/`
+- **ห้ามแก้ `V1__init_schema.sql` และ `V2__...` ที่ deploy แล้ว** (แม้แต่ช่องว่าง/คอมเมนต์ — checksum เปลี่ยนแล้ว DB ที่รันไปแล้ว validate fail)
+- การเปลี่ยนแปลงใหม่ทุกครั้ง → สร้างไฟล์ใหม่ `V3__<คำอธิบาย>.sql`, `V4__...` ตามลำดับ ใน `src/main/resources/db/migration/`
 - ถ้าเพิ่ม/แก้คอลัมน์ที่ entity ใช้ ต้องแก้ JPA entity ให้ตรงด้วย (`ddl-auto: validate`)
 - ถ้าเคยรัน backend มาก่อนแล้วเห็น migration เก่าโผล่ ให้ลบ `target/classes/db/migration/` เก่า (หรือ `mvnw clean`) — Maven ไม่ลบไฟล์ที่ถูกลบจาก `src` ออกจาก `target` ให้เอง
 
@@ -182,24 +171,27 @@ psql -U postgres -d TSF_DB -v ON_ERROR_STOP=1 -c "SELECT set_config('app.admin_e
 
 ### Added (auth deliverable)
 - `POST /api/auth/forgot-password` body `{ "email" }` → always generic Thai message; when `OTP_EXPOSE_CODE=true` also returns `resetToken` (local/testing only)
-- `POST /api/auth/reset-password` body `{ "token", "newPassword" }` → sets password and revokes all refresh tokens
-- `POST /api/auth/change-password` (auth required) body `{ "currentPassword", "newPassword" }` → revokes all refresh tokens
-- `POST /api/auth/otp/send` body `{ "destination", "purpose" }` — purposes: `EMAIL_VERIFY`, `PHONE_VERIFY`, `PASSWORD_RESET`, `SIGNUP` (returns `code` only if `OTP_EXPOSE_CODE=true`)
+- `POST /api/auth/reset-password` body `{ "token", "newPassword" }` → sets password, bumps `users.permission_version` (old access tokens stop working) and revokes all refresh tokens
+- `POST /api/auth/change-password` (auth required) body `{ "currentPassword", "newPassword" }` → bumps `permission_version` and revokes all refresh tokens
+- `POST /api/auth/otp/send` body `{ "destination", "purpose" }` — purposes: `EMAIL_VERIFY`, `PHONE_VERIFY`, `PASSWORD_RESET`, `SIGNUP` (returns `code` only if `OTP_EXPOSE_CODE=true`). Verify purposes for an unknown destination answer with the same generic 200 shape and send nothing.
 - `POST /api/auth/otp/verify` body `{ "otpId", "code" }` — marks verified; for `PASSWORD_RESET` returns one-time `resetToken`
 
+### Token rules
+- Access token carries `pv`; every request checks it against `users.permission_version` and that the user is still `ACTIVE` and not deleted.
+- Refresh rotation is single-use (conditional update). Re-using an already rotated/revoked refresh token revokes **all** of that user's refresh tokens. Suspended/deleted users cannot refresh.
+
 ### Lockout / rate limit
-- Wrong password: in-memory lock after `app.security.max-login-attempts` (default 5) for `login-lockout-minutes` (default 15). No `failed_attempts` column on `users`.
+- Wrong password: in-memory lock after `app.security.max-login-attempts` (default 5) for `login-lockout-minutes` (default 15), keyed by the resolved user id (so email and phone share one counter; unknown identifiers are counted separately). Memory is bounded (expired entries purged, hard cap 50k). No `failed_attempts` column on `users`.
 - OTP: uses `otp_verifications.attempts` / `max_attempts`; send cooldown + hourly cap by `destination_hash`.
 
 ### Response shapes (summary)
 - Auth session: `{ "accessToken", "expiresIn", "user": { id, firstName, lastName, email, phone, role, emailVerified, phoneVerified } }` + Set-Cookie `tsf_refresh`
-- Errors: `{ "code", "message" }`
-=======
-## API authentication
+- Errors: `{ "code", "message" }` — malformed JSON / wrong parameter types → 400 `VALIDATION_ERROR`; unique-constraint races → 409 `CONFLICT`
 
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-- `POST /api/auth/logout`
-- `GET /api/auth/me`
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
+## Merchant / shop API (from branch 7f730e8)
+
+- `GET /api/merchant-applications/draft`, `PUT .../draft/shop`, `PUT .../draft/owner`, `POST .../draft/owner/{ownerId}`, `POST .../draft/documents/{type}`, `POST .../draft/submit` — one open DRAFT per user; a new application can be started after the previous one is submitted, rejected or withdrawn (multi-shop)
+- `GET /api/merchant/owners`, `PUT /api/merchant/owners/{id}`, `GET|POST /api/merchant/shops`, `GET /api/merchant/store-access`, `GET|PUT /api/merchant/settings`, `PUT /api/merchant/settings/hours`, `POST /api/merchant/settings/logo|cover`, `GET|POST /api/merchant/reinstatement?shopId=`
+- `GET /api/admin/store-applications`, `POST .../{shopId}/approve|reject|suspend|reactivate`, `POST .../bulk/{action}`, `GET .../export`, `GET .../{shopId}/documents/{documentId}` (role ADMIN)
+- Public: `GET /api/categories`, `GET /api/shops`, `GET /api/shops/{slug}` (+ `/logo`, `/cover`)
+- `shopId` in these APIs is the running number `shops.shop_no`; the table primary key stays UUID (V1 convention). Shop status `APPROVED` in the API is stored as `ACTIVE` in `shops.status`.

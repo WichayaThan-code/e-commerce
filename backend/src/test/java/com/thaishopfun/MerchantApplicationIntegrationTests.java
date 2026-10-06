@@ -1,14 +1,8 @@
 package com.thaishopfun;
 
 import com.jayway.jsonpath.JsonPath;
-<<<<<<< HEAD
 import com.thaishopfun.auth.OtpVerificationRepository;
 import com.thaishopfun.auth.PasswordResetTokenRepository;
-import com.thaishopfun.auth.RefreshTokenRepository;
-import com.thaishopfun.auth.UserAccountRepository;
-import com.thaishopfun.merchant.MerchantApplicationRepository;
-import com.thaishopfun.merchant.MerchantDocumentRepository;
-=======
 import com.thaishopfun.auth.RefreshTokenRepository;
 import com.thaishopfun.auth.UserAccount;
 import com.thaishopfun.auth.UserAccountRepository;
@@ -17,28 +11,22 @@ import com.thaishopfun.merchant.MerchantApplicationRepository;
 import com.thaishopfun.merchant.MerchantDocumentRepository;
 import com.thaishopfun.merchant.OwnerAuditLogRepository;
 import com.thaishopfun.merchant.OwnerRepository;
+import com.thaishopfun.merchant.ShopMemberRepository;
 import com.thaishopfun.merchant.ShopReinstatementRequestRepository;
 import com.thaishopfun.merchant.ShopRepository;
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-<<<<<<< HEAD
-=======
 import org.springframework.security.crypto.password.PasswordEncoder;
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-<<<<<<< HEAD
-=======
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.matchesPattern;
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -49,24 +37,18 @@ class MerchantApplicationIntegrationTests {
     @Autowired MockMvc mvc;
     @Autowired MerchantDocumentRepository documents;
     @Autowired MerchantApplicationRepository applications;
-<<<<<<< HEAD
-    @Autowired RefreshTokenRepository refreshTokens;
-    @Autowired PasswordResetTokenRepository passwordResetTokens;
-    @Autowired OtpVerificationRepository otpVerifications;
-    @Autowired UserAccountRepository users;
-
-    @BeforeEach void clean(){documents.deleteAll();applications.deleteAll();otpVerifications.deleteAll();passwordResetTokens.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
-=======
     @Autowired ShopRepository shops;
     @Autowired ShopReinstatementRequestRepository reinstatements;
     @Autowired OwnerRepository owners;
     @Autowired OwnerAuditLogRepository ownerAudits;
+    @Autowired ShopMemberRepository shopMembers;
     @Autowired RefreshTokenRepository refreshTokens;
+    @Autowired PasswordResetTokenRepository passwordResetTokens;
+    @Autowired OtpVerificationRepository otpVerifications;
     @Autowired UserAccountRepository users;
     @Autowired PasswordEncoder passwords;
 
-    @BeforeEach void clean(){reinstatements.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
+    @BeforeEach void clean(){reinstatements.deleteAll();shopMembers.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();otpVerifications.deleteAll();passwordResetTokens.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
 
     @Test void savesUploadsAndSubmitsRealApplication() throws Exception {
         var registered=mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
@@ -75,11 +57,7 @@ class MerchantApplicationIntegrationTests {
         String token=JsonPath.read(registered.getResponse().getContentAsString(),"$.accessToken");
 
         mvc.perform(put("/api/merchant-applications/draft/shop").header("Authorization","Bearer "+token).contentType(MediaType.APPLICATION_JSON).content("""
-<<<<<<< HEAD
-          {"shopName":"ร้านทดสอบ","shopNameEn":"Test Shop","description":"สินค้าคุณภาพ","category":"สินค้าไทย","saleType":"OWNER","website":"https://example.com","address":"88 Silom Rd.","province":"กรุงเทพมหานคร","district":"บางรัก","subdistrict":"สีลม","postalCode":"10500"}
-=======
           {"shopName":"ร้านทดสอบ","shopNameEn":"Test Shop","description":"สินค้าคุณภาพ","category":"อาหารและเครื่องดื่ม","saleType":"OWNER","website":"https://example.com","address":"88 Silom Rd.","province":"กรุงเทพมหานคร","district":"บางรัก","subdistrict":"สีลม","postalCode":"10500"}
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
           """)).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT"));
 
         mvc.perform(put("/api/merchant-applications/draft/owner").header("Authorization","Bearer "+token).contentType(MediaType.APPLICATION_JSON).content("""
@@ -87,15 +65,6 @@ class MerchantApplicationIntegrationTests {
           """)).andExpect(status().isOk()).andExpect(jsonPath("$.citizenIdMasked").value("*********0123"));
 
         upload(token,"IDENTITY","identity.png");
-<<<<<<< HEAD
-        upload(token,"ADDRESS","address.png");
-
-        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization","Bearer "+token))
-          .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SUBMITTED"))
-          .andExpect(jsonPath("$.referenceNo").isNotEmpty()).andExpect(jsonPath("$.documents.length()").value(2));
-        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization","Bearer "+token))
-          .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("APPLICATION_ALREADY_SUBMITTED"));
-=======
         upload(token,"IDENTITY","identity-replaced.png");
         upload(token,"ADDRESS","address.png");
         upload(token,"LOGO","logo.png");
@@ -251,6 +220,65 @@ class MerchantApplicationIntegrationTests {
           .andExpect(status().isOk()).andExpect(jsonPath("$.shopName").value("ร้านรออนุมัติ"));
     }
 
+    @Test void submittedShopCreatesStoreOwnerMembershipAndNumericShopId() throws Exception {
+        String token = tokenFor("member@example.com", "0877777777");
+        saveShop(token, "ร้านสมาชิก", "Member Shop").andExpect(status().isOk());
+        saveOwner(token, "5555555555555").andExpect(status().isOk());
+        upload(token, "IDENTITY", "identity.png");
+        upload(token, "ADDRESS", "address.png");
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+        mvc.perform(get("/api/merchant/shops").header("Authorization", "Bearer " + token))
+          .andExpect(status().isOk()).andExpect(jsonPath("$[0].shopId").isNumber()).andExpect(jsonPath("$[0].status").value("PENDING_REVIEW"));
+        var shop = shops.findAll().get(0);
+        org.junit.jupiter.api.Assertions.assertNotNull(shop.getId(), "shop_no running number must be generated");
+        org.junit.jupiter.api.Assertions.assertTrue(shopMembers.existsByShopIdAndUserIdAndRole(shop.getUuid(), shop.getUser().getId(), "STORE_OWNER"));
+    }
+
+    @Test void rejectedApplicantCanStartANewApplication() throws Exception {
+        String merchant = tokenFor("retry@example.com", "0888888888");
+        saveShop(merchant, "ร้านโดนปฏิเสธ", "Rejected Shop").andExpect(status().isOk());
+        saveOwner(merchant, "6666666666666").andExpect(status().isOk());
+        upload(merchant, "IDENTITY", "identity.png");
+        upload(merchant, "ADDRESS", "address.png");
+        var submitted = mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + merchant))
+          .andExpect(status().isOk()).andReturn();
+        String firstId = JsonPath.read(submitted.getResponse().getContentAsString(), "$.id");
+
+        users.save(UserAccount.admin("reject-admin@example.com", passwords.encode("Password1")));
+        var adminLogin = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
+          {"identity":"reject-admin@example.com","password":"Password1"}
+          """)).andExpect(status().isOk()).andReturn();
+        String admin = JsonPath.read(adminLogin.getResponse().getContentAsString(), "$.accessToken");
+        var shopId = shops.findAll().get(0).getId();
+        mvc.perform(post("/api/admin/store-applications/" + shopId + "/reject").header("Authorization", "Bearer " + admin))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("REJECTED"));
+        org.junit.jupiter.api.Assertions.assertEquals(com.thaishopfun.merchant.ApplicationStatus.REJECTED,
+            applications.findById(java.util.UUID.fromString(firstId)).orElseThrow().getStatus());
+
+        var draft = mvc.perform(get("/api/merchant-applications/draft").header("Authorization", "Bearer " + merchant))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("DRAFT")).andReturn();
+        String draftId = JsonPath.read(draft.getResponse().getContentAsString(), "$.id");
+        org.junit.jupiter.api.Assertions.assertNotEquals(firstId, draftId);
+        saveShop(merchant, "ร้านใหม่หลังปฏิเสธ", "Second Try").andExpect(status().isOk()).andExpect(jsonPath("$.id").value(draftId));
+        mvc.perform(get("/api/merchant-applications/draft").header("Authorization", "Bearer " + merchant))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(draftId));
+    }
+
+    @Test void badPathAndQueryParametersReturn400NotServerError() throws Exception {
+        String token = tokenFor("params@example.com", "0899999990");
+        var file = new MockMultipartFile("file", "x.png", "image/png", new byte[]{(byte)137,80,78,71,13,10,26,10});
+        mvc.perform(multipart("/api/merchant-applications/draft/documents/NOT_A_TYPE").file(file).header("Authorization", "Bearer " + token))
+          .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        mvc.perform(get("/api/merchant/settings?shopId=abc").header("Authorization", "Bearer " + token))
+          .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        mvc.perform(post("/api/merchant-applications/draft/owner/not-a-uuid").header("Authorization", "Bearer " + token))
+          .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        mvc.perform(get("/api/merchant/reinstatement").header("Authorization", "Bearer " + token))
+          .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        mvc.perform(get("/api/merchant/shops")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/categories")).andExpect(status().isOk()).andExpect(jsonPath("$[0].id").isNumber()).andExpect(jsonPath("$[0].nameZh").isNotEmpty());
+    }
+
     private String tokenFor(String email, String phone) throws Exception {
         var registered = mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
           {"firstName":"สมหญิง","lastName":"ใจดี","email":"%s","phone":"%s","password":"Password1"}
@@ -276,18 +304,13 @@ class MerchantApplicationIntegrationTests {
         return mvc.perform(put("/api/merchant-applications/draft/owner").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content("""
           {"ownerType":"PERSON","title":"นาง","firstName":"สมหญิง","lastName":"ใจดี","citizenId":"%s","birthDate":"1980-08-15","nationality":"ไทย","phone":"0822222222","email":"second@example.com","houseNo":"1","province":"กรุงเทพมหานคร","district":"บางรัก","subdistrict":"สีลม","postalCode":"10500","bankName":"KBANK","bankAccountNumber":"1234567890","bankAccountName":"สมหญิง ใจดี"}
           """.formatted(citizenId)));
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     }
 
     private void upload(String token,String type,String filename) throws Exception {
         var file=new MockMultipartFile("file",filename,"image/png",new byte[]{(byte)137,80,78,71,13,10,26,10});
         mvc.perform(multipart("/api/merchant-applications/draft/documents/"+type).file(file).header("Authorization","Bearer "+token))
-<<<<<<< HEAD
-          .andExpect(status().isOk()).andExpect(jsonPath("$.documents[0].originalFilename").isNotEmpty());
-=======
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.documents[?(@.type == '" + type + "')]").isNotEmpty())
           .andExpect(jsonPath("$.documents[?(@.type == '" + type + "')].originalFilename", everyItem(matchesPattern("Doc_\\(" + type + "\\)_[A-F0-9]{10}\\.png"))));
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     }
 }

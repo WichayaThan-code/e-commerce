@@ -17,7 +17,9 @@ public class ProductCategoryService {
     public List<MerchantDtos.ProductCategoryResponse> listActive() {
         return categories.findByActiveTrueOrderBySortOrderAsc().stream()
             .map(category -> new MerchantDtos.ProductCategoryResponse(
-                category.getId(), category.getNameTh(), category.getNameEn(), category.getNameZh()))
+                category.getId(), category.getNameTh(),
+                category.getNameEn() == null ? category.getNameTh() : category.getNameEn(),
+                category.getNameZh() == null ? (category.getNameEn() == null ? category.getNameTh() : category.getNameEn()) : category.getNameZh()))
             .toList();
     }
 

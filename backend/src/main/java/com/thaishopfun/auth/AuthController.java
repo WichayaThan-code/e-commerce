@@ -7,10 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
-<<<<<<< HEAD
 import org.springframework.security.core.Authentication;
-=======
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
@@ -56,7 +53,6 @@ public class AuthController {
         return auth.me(UUID.fromString(jwt.getSubject()));
     }
 
-<<<<<<< HEAD
     @PostMapping("/forgot-password")
     AuthDtos.ForgotPasswordResponse forgotPassword(@Valid @RequestBody AuthDtos.ForgotPasswordRequest request) {
         return auth.forgotPassword(request);
@@ -91,8 +87,6 @@ public class AuthController {
         return auth.verifyOtp(request);
     }
 
-=======
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     private ResponseEntity<AuthDtos.AuthResponse> session(AuthService.Session session, HttpStatus status) {
         return ResponseEntity.status(status)
             .header(HttpHeaders.SET_COOKIE, refreshCookie(session.refreshToken()).toString())
@@ -113,9 +107,4 @@ public class AuthController {
         return ResponseCookie.from(REFRESH_COOKIE, "").httpOnly(true).secure(properties.secureCookies())
             .sameSite("Lax").path("/api/auth").maxAge(Duration.ZERO).build();
     }
-<<<<<<< HEAD
 }
-=======
-}
-
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

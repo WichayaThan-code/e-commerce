@@ -2,30 +2,19 @@ spring:
   application:
     name: thaishopfun-backend
   datasource:
-<<<<<<< HEAD
     url: ${DB_URL:jdbc:postgresql://localhost:5432/TSF_DB}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:1234}
-=======
-    url: ${DB_URL:jdbc:postgresql://127.0.0.1:5432/thaishopfun}
-    username: ${DB_USERNAME:postgresql}
-    password: ${DB_PASSWORD:}
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
   flyway:
     enabled: true
-<<<<<<< HEAD
-    baseline-on-migrate: true
-    baseline-version: 1
-=======
     locations: classpath:db/migration
     baseline-on-migrate: true
-    baseline-version: 0
+    baseline-version: 1
     validate-on-migrate: true
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   servlet:
     multipart:
       max-file-size: 5MB
@@ -44,7 +33,6 @@ app:
     refresh-token-days: 30
     secure-cookies: ${COOKIE_SECURE:false}
     allowed-origin: ${FRONTEND_URL:http://localhost:5173}
-<<<<<<< HEAD
     otp-ttl-minutes: 5
     otp-max-attempts: 5
     otp-resend-cooldown-seconds: 60
@@ -53,5 +41,3 @@ app:
     login-lockout-minutes: 15
     password-reset-ttl-minutes: 30
     otp-expose-code: ${OTP_EXPOSE_CODE:false}
-=======
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

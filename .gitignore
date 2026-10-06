@@ -17,3 +17,6 @@ backend/uploads/
 .env.*
 !.env.example
 *.log
+
+# local database dumps (contain real data)
+backend/db-archive/*.dump

@@ -23,7 +23,7 @@ public class ShopReinstatementService {
     @Transactional(readOnly = true)
     public MerchantDtos.ReinstatementResponse current(UUID userId, Long shopId) {
         var shop = ownedSuspended(userId, shopId);
-        return response(shop.getId(), requests.findFirstByShop_IdOrderByCreatedAtDesc(shop.getId()).orElse(null));
+        return response(shop.getId(), requests.findFirstByShop_ShopIdOrderByCreatedAtDesc(shop.getId()).orElse(null));
     }
 
     @Transactional
@@ -33,7 +33,7 @@ public class ShopReinstatementService {
         if (text.length() < 10) {
             throw new AuthException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "กรุณาอธิบายเหตุผลอย่างน้อย 10 ตัวอักษร");
         }
-        var pending = requests.findFirstByShop_IdAndStatusOrderByCreatedAtDesc(shop.getId(), ReinstatementStatus.PENDING).orElse(null);
+        var pending = requests.findFirstByShop_ShopIdAndStatusOrderByCreatedAtDesc(shop.getId(), ReinstatementStatus.PENDING).orElse(null);
         if (pending != null) {
             pending.revise(text);
             return response(shop.getId(), requests.save(pending));
@@ -43,20 +43,20 @@ public class ShopReinstatementService {
     }
 
     public String pendingMessage(Long shopId) {
-        return requests.findFirstByShop_IdAndStatusOrderByCreatedAtDesc(shopId, ReinstatementStatus.PENDING)
+        return requests.findFirstByShop_ShopIdAndStatusOrderByCreatedAtDesc(shopId, ReinstatementStatus.PENDING)
             .map(ShopReinstatementRequest::getMessage)
             .orElse(null);
     }
 
     @Transactional
     public void approvePending(Long shopId) {
-        for (var request : requests.findByShop_IdAndStatus(shopId, ReinstatementStatus.PENDING)) {
+        for (var request : requests.findByShop_ShopIdAndStatus(shopId, ReinstatementStatus.PENDING)) {
             request.approve();
         }
     }
 
     private Shop ownedSuspended(UUID userId, Long shopId) {
-        var shop = shops.findById(shopId).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า"));
+        var shop = shops.findByShopId(shopId).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า"));
         if (shop.getUser() == null || !userId.equals(shop.getUser().getId())) {
             throw new AuthException(HttpStatus.FORBIDDEN, "SHOP_FORBIDDEN", "ไม่มีสิทธิ์ใช้ร้านนี้");
         }

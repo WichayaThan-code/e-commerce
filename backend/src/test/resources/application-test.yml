@@ -20,7 +20,6 @@ app:
     refresh-token-days: 30
     secure-cookies: false
     allowed-origin: http://localhost:5173
-<<<<<<< HEAD
     otp-ttl-minutes: 5
     otp-max-attempts: 5
     otp-resend-cooldown-seconds: 1
@@ -29,5 +28,3 @@ app:
     login-lockout-minutes: 15
     password-reset-ttl-minutes: 30
     otp-expose-code: true
-=======
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

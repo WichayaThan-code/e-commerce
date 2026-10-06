@@ -111,7 +111,7 @@ public class StoreReviewService {
         var updated = new java.util.ArrayList<MerchantDtos.AdminStoreApplicationResponse>();
         var skipped = 0;
         for (var shopId : shopIds.stream().distinct().toList()) {
-            var shop = shops.findById(shopId).orElse(null);
+            var shop = shops.findByShopId(shopId).orElse(null);
             if (shop == null || shop.getStatus() != required) {
                 skipped++;
                 continue;
@@ -155,7 +155,7 @@ public class StoreReviewService {
     }
 
     private Shop shop(Long shopId) {
-        return shops.findById(shopId).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบใบสมัครร้านค้า"));
+        return shops.findByShopId(shopId).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบใบสมัครร้านค้า"));
     }
 
     private MerchantDtos.AdminStoreApplicationResponse toAdmin(Shop shop) {

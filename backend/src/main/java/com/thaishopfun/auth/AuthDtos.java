@@ -15,7 +15,6 @@ public final class AuthDtos {
     ) {}
 
     public record LoginRequest(@NotBlank String identity, @NotBlank String password) {}
-<<<<<<< HEAD
 
     public record ForgotPasswordRequest(@NotBlank @Email @Size(max = 255) String email) {}
 
@@ -63,14 +62,3 @@ public final class AuthDtos {
 
     public record ApiError(String code, String message) {}
 }
-=======
-    public record UserResponse(UUID id, String firstName, String lastName, String email, String phone, UserRole role) {
-        public static UserResponse from(UserAccount user) {
-            return new UserResponse(user.getId(), user.getFirstName(), user.getLastName(), user.getEmail(), user.getPhone(), user.getRole());
-        }
-    }
-    public record AuthResponse(String accessToken, long expiresIn, UserResponse user) {}
-    public record ApiError(String code, String message) {}
-}
-
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

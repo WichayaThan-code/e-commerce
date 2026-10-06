@@ -40,7 +40,7 @@ app:
     max-login-attempts: 5
     login-lockout-minutes: 15
     password-reset-ttl-minutes: 30
-    otp-expose-code: ${OTP_EXPOSE_CODE:false}
+    otp-expose-code: ${OTP_EXPOSE_CODE:true} 
   notification:
     # smtp | log. Blank = smtp when MAIL_HOST is set, otherwise log (only logs, sends nothing).
     email-provider: ${NOTIFICATION_EMAIL_PROVIDER:}

@@ -26,11 +26,8 @@ import {
   Upload,
   WalletCards,
 } from "lucide-react";
-<<<<<<< HEAD
-=======
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import { useAuth } from "../contexts/AuthContext";
 import productManageImage from "../assets/images/references/merchant/product-manage.png";
 import "../styles/merchant-dashboard.css";
@@ -268,26 +265,11 @@ export default function ProductManagementPage() {
             placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..."
           />
         </form>
-<<<<<<< HEAD
-        <button className="merchant-bell" aria-label="การแจ้งเตือน">
-          <Bell />
-          <i>3</i>
-        </button>
-        <div className="merchant-profile">
-          <span>🏪</span>
-          <p>
-            <b>{shopName}</b>
-            <small>เจ้าของร้าน</small>
-          </p>
-          <ChevronDown />
-        </div>
-=======
         <LanguageSwitcher /> <button className="merchant-bell" aria-label="การแจ้งเตือน">
           <Bell />
           <i>3</i>
         </button>
         <MerchantShopMenu />
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
       </header>
 
       <aside className="merchant-sidebar pm-sidebar">

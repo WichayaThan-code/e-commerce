@@ -7,11 +7,8 @@ import {
   TicketPercent, TrendingUp, Truck, UserCog, UserRound, UsersRound,
   WalletCards, Zap,
 } from 'lucide-react'
-<<<<<<< HEAD
-=======
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import { useAuth } from '../contexts/AuthContext'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-promotions.css'
@@ -31,26 +28,10 @@ const promos:Promo[]=[
   {id:8,name:'Summer Hot Deal',code:'#PROMO008',art:'🥘',artTone:'summer',type:'Flash Sale',shop:'Pet Lover',shopArt:'🐻',from:'1 เม.ย. 2026',to:'30 เม.ย. 2026',benefit:'ลดสูงสุด 35%',status:'สิ้นสุดแล้ว',joined:58},
 ]
 
-<<<<<<< HEAD
-const navGroups=[
-  {label:'จัดการร้านค้า',items:[[Store,'ร้านค้า',''],[FileCheck2,'ใบสมัครร้านค้า','18'],[Tags,'หมวดหมู่สินค้า',''],[Megaphone,'โปรโมชั่น/แคมเปญ','']]},
-  {label:'จัดการผู้ใช้',items:[[UsersRound,'ผู้ใช้งาน',''],[UserCog,'บทบาทและสิทธิ์','']]},
-  {label:'การเงิน',items:[[CircleDollarSign,'รายได้/ค่าธรรมเนียม',''],[WalletCards,'การชำระเงิน',''],[ReceiptText,'ใบแจ้งหนี้','']]},
-  {label:'รายงาน',items:[[BarChart3,'รายงานภาพรวม',''],[TrendingUp,'รายงานการขาย',''],[FileText,'รายงานการเงิน','']]},
-  {label:'ระบบ',items:[[Settings,'ตั้งค่า','']]},
-] as const
-const types=[['ทั้งหมด (24)',Grid2X2],['Flash Sale (6)',Zap],['ส่วนลด (8)',Tags],['คูปอง (5)',TicketPercent],['ส่งฟรี (3)',Truck],['ซื้อครบรับของแถม (2)',Gift],['อื่น ๆ (0)',MoreHorizontal]] as const
-
-function AdminBrand(){return <a className="admin-brand" href="/"><span><ShoppingBag/><i>✓</i></span><div><b>ThaiShop<span>Fun</span></b><small>Shop Local · Support Thai · Smile Together</small></div></a>}
-
-export default function AdminPromotionsPage(){
-  const {user,loading,logout}=useAuth()
-=======
 const types=[['ทั้งหมด (24)',Grid2X2],['Flash Sale (6)',Zap],['ส่วนลด (8)',Tags],['คูปอง (5)',TicketPercent],['ส่งฟรี (3)',Truck],['ซื้อครบรับของแถม (2)',Gift],['อื่น ๆ (0)',MoreHorizontal]] as const
 
 export default function AdminPromotionsPage(){
   const {user,loading}=useAuth()
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   const [query,setQuery]=useState('')
   const [status,setStatus]=useState('ทั้งหมด')
   const [type,setType]=useState('ทั้งหมด')
@@ -62,21 +43,12 @@ export default function AdminPromotionsPage(){
   if(!user){window.location.replace('/login');return null}
   if(user.role!=='ADMIN'){window.location.replace('/dashboard');return null}
   const notify=(message:string)=>{setNotice(message);window.setTimeout(()=>setNotice(''),1900)}
-<<<<<<< HEAD
-  const signOut=async()=>{await logout();window.location.replace('/')}
-=======
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   const reset=()=>{setQuery('');setStatus('ทั้งหมด');setType('ทั้งหมด');setActiveType('ทั้งหมด (24)')}
   const toggle=(id:number)=>setSelected(rows=>rows.includes(id)?rows.filter(row=>row!==id):[...rows,id])
 
   return <main className="admin-shell promotions-shell">
-<<<<<<< HEAD
-    <header className="admin-topbar"><AdminBrand/><form onSubmit={event=>{event.preventDefault();notify('ค้นหาในระบบแล้ว')}}><button aria-label="ค้นหา"><Search/></button><input aria-label="ค้นหาในระบบ" placeholder="ค้นหาร้านค้า, สินค้า, ผู้ใช้, หรือคำสั่งซื้อ..."/></form><span className="topbar-spacer"/><button className="admin-bell" aria-label="การแจ้งเตือน"><Bell/><i>12</i></button><div className="admin-profile"><span>{user.firstName.charAt(0).toUpperCase()}</span><p><b>{user.email}</b><small>Administrator</small></p><ChevronDown/></div></header>
-    <aside className="admin-sidebar promotions-sidebar"><a href="/admin"><Home/>หน้าแรก</a>{navGroups.map(group=><section key={group.label}><h3>{group.label}</h3>{group.items.map(([Icon,label,badge])=>label==='ร้านค้า'?<a href="/admin/stores" key={label}><Icon/>{label}</a>:label==='ใบสมัครร้านค้า'?<a href="/admin/store-applications" key={label}><Icon/>{label}<i>{badge}</i></a>:label==='หมวดหมู่สินค้า'?<a href="/admin/categories" key={label}><Icon/>{label}</a>:label==='โปรโมชั่น/แคมเปญ'?<a className="active" href="/admin/promotions" key={label}><Icon/>{label}</a>:label==='ผู้ใช้งาน'?<a href="/admin/users" key={label}><Icon/>{label}</a>:label==='บทบาทและสิทธิ์'?<a href="/admin/roles" key={label}><Icon/>{label}</a>:<button key={label} onClick={()=>notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}><Icon/>{label}</button>)}</section>)}<button className="admin-logout" onClick={signOut}><LogOut/>ออกจากระบบ</button></aside>
-=======
     <AdminHeader user={user} />
     <AdminSidebar active="promotions" className="promotions-sidebar"/>
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 
     <div className="admin-content promotions-content">
       <section className="promotions-heading"><div className="promotions-title"><span><Megaphone/></span><div><h1>โปรโมชั่น/แคมเปญ</h1><p>สร้างและจัดการโปรโมชั่น เพื่อเพิ่มยอดขายให้ร้านค้าในแพลตฟอร์ม ThaiShopFun</p><small>“ส่งเสริมร้านค้าไทย ให้เติบโตไปด้วยกัน”</small></div></div><button className="create-promo" onClick={()=>notify('เปิดแบบฟอร์มสร้างโปรโมชั่นใหม่')}><Plus/>สร้างโปรโมชั่นใหม่</button></section>

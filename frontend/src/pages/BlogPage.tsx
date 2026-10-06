@@ -1,39 +1,17 @@
-<<<<<<< HEAD
-=======
 // src/pages/BlogPage.tsx
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import { useState } from "react";
 import {
   BarChart3,
   CalendarDays,
-<<<<<<< HEAD
-  ChevronDown,
-  CircleUserRound,
-=======
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   Coffee,
   Eye,
   Grid2X2,
   Lightbulb,
-<<<<<<< HEAD
-  LogOut,
-  Mail,
-  Megaphone,
-  Menu,
-  MessageSquare,
-  Search,
-  ShoppingBag,
-  ShoppingCart,
-  Store,
-} from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
-=======
   Mail,
   Megaphone,
   MessageSquare,
   Store,
 } from "lucide-react";
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import blogReference from "../assets/images/references/storefront/blog.png";
 import "../styles/recommended-products.css";
 import "../styles/best-seller.css";
@@ -48,10 +26,7 @@ const categories = [
   [Coffee, "ไลฟ์สไตล์"],
   [CalendarDays, "ข่าวสารและกิจกรรม"],
 ] as const;
-<<<<<<< HEAD
-=======
 
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 const articles = [
   {
     tag: "แนะนำ",
@@ -129,10 +104,7 @@ const articles = [
     h: 134,
   },
 ];
-<<<<<<< HEAD
-=======
 
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 const popular = [
   "10 สินค้าไทยที่ขายดี\nในปี 2026",
   "เทคนิคแพ็กสินค้า\nให้ลูกค้าประทับใจ",
@@ -141,60 +113,16 @@ const popular = [
   "เทรนด์ผู้บริโภคไทย\nที่น่าจับตามองในปีหน้า",
 ];
 
-<<<<<<< HEAD
-function Brand() {
-  return (
-    <a className="recommend-brand" href="/" aria-label="ThaiShopFun หน้าแรก">
-      <span className="recommend-mark">
-        <ShoppingBag />
-        <i>✓</i>
-      </span>
-      <span>
-        <b>
-          ThaiShop<span>Fun</span>
-        </b>
-        <small>Shop Local · Support Thai · Smile Together</small>
-      </span>
-    </a>
-  );
-}
-
-export default function BlogPage() {
-  const { user, loading, logout } = useAuth();
-  const [activeCategory, setActiveCategory] = useState(0);
-  const [cart, setCart] = useState(0);
-  const [notice, setNotice] = useState("");
-  const [email, setEmail] = useState("");
-  const [accountOpen, setAccountOpen] = useState(false);
-=======
 export default function BlogPage() {
   const [activeCategory, setActiveCategory] = useState(0);
   const [notice, setNotice] = useState("");
   const [email, setEmail] = useState("");
 
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   const notify = (message: string) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 2000);
   };
-<<<<<<< HEAD
-  const accountName = user
-    ? `${user.firstName} ${user.lastName}`.trim() || user.email
-    : "";
-  const dashboard =
-    user?.role === "ADMIN"
-      ? "/admin"
-      : user?.role === "MERCHANT"
-        ? "/merchant/dashboard"
-        : "/";
-  const signOut = async () => {
-    await logout();
-    setAccountOpen(false);
-    notify("ออกจากระบบแล้ว");
-  };
-=======
 
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   const subscribe = (e: React.FormEvent) => {
     e.preventDefault();
     if (!/^\S+@\S+\.\S+$/.test(email)) {
@@ -204,109 +132,18 @@ export default function BlogPage() {
     notify("สมัครรับข่าวสารเรียบร้อยแล้ว");
     setEmail("");
   };
-<<<<<<< HEAD
-  return (
-    <main className="blog-page best-seller-page recommend-page">
-      <header className="recommend-header">
-        <div className="recommend-top blog-width">
-          <Brand />
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              notify("กำลังค้นหาบทความ");
-            }}
-          >
-            <input
-              aria-label="ค้นหาบทความ"
-              placeholder="ค้นหาบทความ เช่น เทคนิคขายออนไลน์, ไอเดียธุรกิจ..."
-            />
-            <button aria-label="ค้นหา">
-              <Search />
-            </button>
-          </form>
-          <div className="recommend-account">
-            {loading ? (
-              <span className="recommend-loading" />
-            ) : user ? (
-              <div className="recommend-user">
-                <button onClick={() => setAccountOpen((v) => !v)}>
-                  <CircleUserRound />
-                  <span>
-                    <b>{accountName}</b>
-                    <small>
-                      {user.role === "CUSTOMER"
-                        ? "ลูกค้า"
-                        : user.role === "MERCHANT"
-                          ? "เจ้าของร้าน"
-                          : "ผู้ดูแลระบบ"}
-                    </small>
-                  </span>
-                  <ChevronDown />
-                </button>
-                {accountOpen && (
-                  <div>
-                    <a href={dashboard}>บัญชีของฉัน</a>
-                    <button onClick={() => void signOut()}>
-                      <LogOut />
-                      ออกจากระบบ
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <a href="/login">
-                  <CircleUserRound />
-                  เข้าสู่ระบบ
-                </a>
-                <a className="recommend-signup" href="/signup">
-                  สมัครสมาชิก
-                </a>
-              </>
-            )}
-            <button
-              className="recommend-cart"
-              onClick={() => notify(`มีสินค้า ${cart} ชิ้นในตะกร้า`)}
-            >
-              <ShoppingCart />
-              <i>{cart}</i>
-            </button>
-          </div>
-        </div>
-        <nav className="recommend-nav blog-width">
-          <a href="/">
-            <Menu />
-            หมวดหมู่สินค้า
-          </a>
-          <a href="/deals">ดีลพิเศษ</a>
-          <a href="/recommendations">สินค้าแนะนำ</a>
-          <a href="/best-sellers">สินค้าขายดี</a>
-          <a href="/thai-brands">แบรนด์ไทย</a>
-          <a className="active" href="/articles">
-            บทความ
-          </a>
-          <a href="/help">ช่วยเหลือ</a>
-        </nav>
-      </header>
-      <section className="blog-hero blog-width">
-=======
 
   return (
     <div className="blog-page best-seller-page recommend-page">
       {/* เปลี่ยนจาก blog-width เป็น page-width */}
       <section className="blog-hero page-width">
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         <img
           src={blogReference}
           alt="แรงบันดาลใจเพื่อคนไทย บทความที่คัดสรรเพื่อผู้ประกอบการไทย"
         />
       </section>
-<<<<<<< HEAD
-      <section className="blog-categories blog-width">
-=======
 
       <section className="blog-categories page-width">
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         {categories.map(([Icon, label], i) => (
           <button
             className={activeCategory === i ? "active" : ""}
@@ -321,12 +158,8 @@ export default function BlogPage() {
           </button>
         ))}
       </section>
-<<<<<<< HEAD
-      <section className="blog-layout blog-width">
-=======
 
       <section className="blog-layout page-width">
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         <div className="blog-main">
           <div className="blog-title">
             <div>
@@ -340,26 +173,18 @@ export default function BlogPage() {
           <div className="article-grid">
             {[articles.slice(0, 3), articles.slice(3)].map((row, rowIndex) => (
               <div
-<<<<<<< HEAD
-                className={`article-row ${rowIndex === 0 ? "article-row-top" : "article-row-bottom"}`}
-=======
                 className={`article-row ${
                   rowIndex === 0 ? "article-row-top" : "article-row-bottom"
                 }`}
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
                 key={rowIndex}
               >
                 {row.map((a, rowItemIndex) => {
                   const i = rowIndex * 3 + rowItemIndex;
                   return (
                     <button
-<<<<<<< HEAD
-                      className={`article-card article-${i + 1} ${a.large ? "large" : ""}`}
-=======
                       className={`article-card article-${i + 1} ${
                         a.large ? "large" : ""
                       }`}
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
                       key={a.title}
                       onClick={() =>
                         notify(`เปิดบทความ ${a.title.replace("\n", " ")}`)
@@ -417,10 +242,7 @@ export default function BlogPage() {
             ))}
           </div>
         </div>
-<<<<<<< HEAD
-=======
 
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         <aside className="blog-sidebar">
           <section className="popular">
             <h2>🔥 บทความยอดนิยม</h2>
@@ -447,10 +269,7 @@ export default function BlogPage() {
               </button>
             ))}
           </section>
-<<<<<<< HEAD
-=======
 
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
           <form className="newsletter" onSubmit={subscribe}>
             <h2>
               <Mail /> รับบทความดี ๆ ก่อนใคร
@@ -470,14 +289,9 @@ export default function BlogPage() {
           </form>
         </aside>
       </section>
-<<<<<<< HEAD
-      <button
-        className="blog-bottom blog-width"
-=======
 
       <button
         className="blog-bottom page-width"
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
         onClick={() => notify("เปิดเรื่องราวดี ๆ จากคนไทย")}
         aria-label="เรื่องราวดี ๆ จากคนไทย"
       >
@@ -488,21 +302,12 @@ export default function BlogPage() {
           />
         </span>
       </button>
-<<<<<<< HEAD
-=======
 
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
       {notice && (
         <div className="recommend-toast" role="status">
           {notice}
         </div>
       )}
-<<<<<<< HEAD
-    </main>
-  );
-}
-=======
     </div>
   );
 }
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

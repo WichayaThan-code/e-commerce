@@ -52,8 +52,6 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #ffb3
 @media (max-width:720px){.account-profile{padding:3px!important}.account-profile p,.account-profile>svg{display:none}.account-profile>span{width:34px;height:34px}.account-menu{right:-43px}.account-loading{width:40px;height:40px}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 .seller-card a.primary{text-decoration:none}
-<<<<<<< HEAD
-=======
 .route-progress{position:fixed;inset:0;z-index:120;pointer-events:none}
 .route-progress-bar{position:fixed;top:0;left:0;height:3px;width:100%;transform-origin:left;background:linear-gradient(90deg,#0869ef,#ff7900);animation:routeBar .52s ease-out}
 .route-progress p{position:fixed;top:16px;left:50%;transform:translateX(-50%);margin:0;display:flex;align-items:center;gap:8px;background:#061d52;color:#fff;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;box-shadow:0 10px 24px #061d5240}
@@ -86,4 +84,3 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #ffb3
 .reinstatement-card button:disabled{opacity:.55;cursor:default}
 .reinstatement-status{margin-top:12px;padding:10px 12px;border-radius:8px;background:#fff7e8;color:#8a5a12}
 .merchant-reuse-note{margin:8px 0 0;color:#0c6b4d;background:#e8f7ef;border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.45}
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb

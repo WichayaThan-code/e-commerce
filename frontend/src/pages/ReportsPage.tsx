@@ -24,11 +24,8 @@ import {
   UsersRound,
   WalletCards,
 } from "lucide-react";
-<<<<<<< HEAD
-=======
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 import { useAuth } from "../contexts/AuthContext";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
@@ -83,11 +80,7 @@ export default function ReportsPage() {
   };
 
   return <main className="merchant-shell pm-shell report-shell">
-<<<<<<< HEAD
-    <header className="merchant-topbar"><Brand /><form onSubmit={(event) => { event.preventDefault(); notify("ค้นหาข้อมูลร้านค้าแล้ว"); }}><Search /><input aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..." /></form><button className="merchant-bell" aria-label="การแจ้งเตือน"><Bell /><i>3</i></button><div className="merchant-profile"><span>🏪</span><p><b>{shopName}</b><small>เจ้าของร้าน</small></p><ChevronDown /></div></header>
-=======
     <header className="merchant-topbar"><Brand /><form onSubmit={(event) => { event.preventDefault(); notify("ค้นหาข้อมูลร้านค้าแล้ว"); }}><Search /><input aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..." /></form><LanguageSwitcher /> <button className="merchant-bell" aria-label="การแจ้งเตือน"><Bell /><i>3</i></button><MerchantShopMenu /></header>
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
     <aside className="merchant-sidebar pm-sidebar report-sidebar"><nav>{menu.map(([Icon, label, href, badge]) => <a className={label === "รายงาน" ? "active" : ""} href={href} key={label} onClick={(event) => { if ((href as string) === "#") { event.preventDefault(); notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`); } }}><Icon />{label}{badge && <i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown /><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br />ได้มากกว่าเดิม</p><button onClick={() => notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp />ศูนย์ช่วยเหลือ</a><button onClick={() => notify("กำลังติดต่อทีมงาน")}><Headphones />ติดต่อทีมงาน</button></div></aside>
 
     <section className="pm-content report-content">

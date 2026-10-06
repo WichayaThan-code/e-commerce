@@ -54,20 +54,11 @@ export type DocumentType = 'LOGO'|'IDENTITY'|'PORTRAIT'|'ADDRESS'|'BUSINESS'
 export type MerchantDocument = {id:string;type:DocumentType;originalFilename:string;contentType:string;fileSize:number;sha256:string;uploadedAt:string}
 export type MerchantApplication = {
   id:string;status:ApplicationStatus;referenceNo?:string
-<<<<<<< HEAD
-  shopName?:string;shopNameEn?:string;description?:string;category?:string;saleType?:'OWNER'|'RESELLER';website?:string;logoPath?:string
-=======
   shopName?:string;shopNameEn?:string;description?:string;category?:string;saleType?:'OWNER'|'RESELLER';website?:string;lineId?:string;facebookUrl?:string;instagramUrl?:string;tiktokUrl?:string;logoPath?:string
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
   shopAddress?:string;shopProvince?:string;shopDistrict?:string;shopSubdistrict?:string;shopPostalCode?:string
   ownerType?:'PERSON'|'COMPANY';title?:string;firstName?:string;lastName?:string;citizenIdMasked?:string;birthDate?:string;nationality?:string;phone?:string;email?:string
   houseNo?:string;villageNo?:string;building?:string;alley?:string;road?:string;province?:string;district?:string;subdistrict?:string;postalCode?:string
   bankName?:string;bankAccountMasked?:string;bankAccountName?:string;documents:MerchantDocument[];submittedAt?:string
-<<<<<<< HEAD
-}
-export type MerchantShopPayload = {shopName:string;shopNameEn:string;description:string;category:string;saleType:'OWNER'|'RESELLER';website:string;address:string;province:string;district:string;subdistrict:string;postalCode:string}
-export type MerchantOwnerPayload = {ownerType:'PERSON'|'COMPANY';title:string;firstName:string;lastName:string;citizenId:string;birthDate:string;nationality:string;phone:string;email:string;houseNo:string;villageNo:string;building:string;alley:string;road:string;province:string;district:string;subdistrict:string;postalCode:string;bankName:string;bankAccountNumber:string;bankAccountName:string}
-=======
   shopPath?:string|null; ownerId?:string|null
 }
 export type MerchantOwner = {
@@ -119,16 +110,11 @@ function withShop(path:string, shopId?:number|null) {
   if (shopId == null) return path
   return `${path}${path.includes('?') ? '&' : '?'}shopId=${shopId}`
 }
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 
 export const merchantApi = {
   getDraft: () => request<MerchantApplication>('/api/merchant-applications/draft', {}, true),
   saveShop: (payload:MerchantShopPayload) => request<MerchantApplication>('/api/merchant-applications/draft/shop', {method:'PUT',body:JSON.stringify(payload)}, true),
   saveOwner: (payload:MerchantOwnerPayload) => request<MerchantApplication>('/api/merchant-applications/draft/owner', {method:'PUT',body:JSON.stringify(payload)}, true),
-<<<<<<< HEAD
-  uploadDocument: (type:DocumentType,file:File) => {const body=new FormData();body.append('file',file);return request<MerchantApplication>(`/api/merchant-applications/draft/documents/${type}`,{method:'POST',body},true)},
-  submit: () => request<MerchantApplication>('/api/merchant-applications/draft/submit',{method:'POST'},true),
-=======
   owners: () => request<MerchantOwner[]>('/api/merchant/owners', {}, true),
   updateOwner: (id:string, payload:MerchantOwnerPayload) => request<MerchantOwner>(`/api/merchant/owners/${id}`, {method:'PUT', body:JSON.stringify(payload)}, true),
   attachOwner: (ownerId:string) => request<MerchantApplication>(`/api/merchant-applications/draft/owner/${ownerId}`, {method:'POST'}, true),
@@ -193,5 +179,4 @@ export const catalogApi = {
 export const shopApi = {
   list: () => request<PublicShop[]>('/api/shops'),
   getBySlug: (slug:string) => request<PublicShop>(`/api/shops/${encodeURIComponent(slug)}`),
->>>>>>> 7f730e801d054ab68a85e68be85ba07ef123a2eb
 }

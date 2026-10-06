@@ -68,6 +68,110 @@ Windows:
 .\mvnw.cmd test
 ```
 
+## การส่ง OTP และลิงก์รีเซ็ตรหัสผ่าน (อีเมล / SMS)
+
+backend ส่งรหัส OTP และลิงก์รีเซ็ตรหัสผ่านจริงผ่านอีเมล (SMTP) ส่วน SMS ตอนนี้มีแค่ตัว log (ยังไม่ต่อผู้ให้บริการจริง)
+
+- โค้ด: `com.thaishopfun.common.notification` (`EmailSender`, `SmsSender`, `SmtpEmailSender`, `LoggingEmailSender`, `LoggingSmsSender`, `NotificationConfig`) และ `com.thaishopfun.auth.delivery` (event, template ภาษาไทย, listener)
+- ส่ง **หลัง transaction commit แล้วเท่านั้น** (`@TransactionalEventListener(AFTER_COMMIT)`) และส่งแบบ async บน thread pool ขนาดเล็ก (`notify-*`, core 2 / max 4 / queue 200) — API ตอบกลับทันที ถ้า transaction rollback จะไม่ส่งอะไรเลย
+- ถ้าส่งไม่สำเร็จ จะ log ระดับ ERROR (อีเมล/เบอร์ถูก mask) — response ของ API ไม่เปลี่ยน (ตาราง `otp_verifications` ไม่มีคอลัมน์สถานะการส่ง จึงไม่ได้บันทึกลง DB)
+- ปลายทางที่ไม่มีในระบบ (EMAIL_VERIFY / PHONE_VERIFY / forgot-password) ยังตอบ 200 แบบเดียวกันและ **ไม่ส่งอะไร**
+- ไม่ log รหัส OTP / โทเคนเต็มที่ระดับ INFO (เนื้อหาอีเมล/SMS log เฉพาะระดับ DEBUG ในโหมด `log`)
+- response ของ API ไม่เปลี่ยน; `OTP_EXPOSE_CODE=true` ยังคืน `code` / `resetToken` ใน response สำหรับทดสอบ local (ค่าเริ่มต้น `false`)
+
+| ช่องทาง | ใช้เมื่อ | เนื้อหา |
+|---|---|---|
+| อีเมล OTP | `otp/send` ที่ปลายทางเป็นอีเมล (`EMAIL_VERIFY`, `SIGNUP`, `PASSWORD_RESET`) | หัวเรื่อง `[ThaiShopFun] รหัส OTP สำหรับ...` + รหัส 6 หลัก + อายุ (นาที) |
+| อีเมลรีเซ็ตรหัสผ่าน | `forgot-password` | ลิงก์ `APP_FRONTEND_URL` + `APP_RESET_PASSWORD_PATH?token=...` + โทเคนสำหรับคัดลอก |
+| SMS | `otp/send` ที่ปลายทางเป็นเบอร์ (`PHONE_VERIFY`, `SIGNUP`, `PASSWORD_RESET`) | `ThaiShopFun: รหัส OTP ของคุณคือ ...` |
+
+อีเมลเป็น UTF-8 แบบ multipart (plain text + HTML)
+
+> หมายเหตุ: frontend ยังไม่มีหน้า `/reset-password` — ลิงก์ในอีเมลจะใช้ได้เมื่อ frontend เพิ่มหน้านี้ (อ่าน `token` จาก query string แล้วเรียก `POST /api/auth/reset-password`)
+
+### Environment variables
+
+| ตัวแปร | ค่าเริ่มต้น | ความหมาย |
+|---|---|---|
+| `NOTIFICATION_EMAIL_PROVIDER` | (ว่าง) | `smtp` หรือ `log` — ว่าง = `smtp` ถ้าตั้ง `MAIL_HOST` ไว้, ไม่งั้น `log` |
+| `MAIL_HOST` | (ว่าง) | SMTP host; ว่าง = ไม่ส่งอีเมลจริง (แอปสตาร์ทได้ปกติ) |
+| `MAIL_PORT` | `587` | SMTP port |
+| `MAIL_USERNAME` | (ว่าง) | ว่าง = ไม่ใช้ SMTP AUTH |
+| `MAIL_PASSWORD` | (ว่าง) | รหัสผ่าน / app password / API key |
+| `MAIL_FROM` | (ว่าง) | ผู้ส่ง; ว่าง = ใช้ `MAIL_USERNAME` ถ้าเป็นอีเมล, ไม่งั้น `no-reply@thaishopfun.local` |
+| `MAIL_FROM_NAME` | `ThaiShopFun` | ชื่อผู้ส่ง |
+| `MAIL_STARTTLS` | `true` | เปิด/บังคับ STARTTLS (port 587) |
+| `MAIL_SSL` | `false` | SMTP over SSL (port 465 — ตั้ง `MAIL_STARTTLS=false` คู่กัน) |
+| `APP_FRONTEND_URL` | `FRONTEND_URL` หรือ `http://localhost:5173` | ฐานของลิงก์รีเซ็ตรหัสผ่าน |
+| `APP_RESET_PASSWORD_PATH` | `/reset-password` | path ของหน้ารีเซ็ตรหัสผ่านฝั่ง frontend |
+| `SMS_PROVIDER` | `log` | ตอนนี้รองรับแค่ `log` (ค่าอื่นทำให้แอปสตาร์ทไม่ขึ้น) |
+| `OTP_EXPOSE_CODE` | `false` | `true` = คืน `code` / `resetToken` ใน response (ทดสอบ local เท่านั้น) |
+
+`NOTIFICATION_EMAIL_PROVIDER=smtp` แต่ไม่มี `MAIL_HOST` หรือใส่ค่าที่ไม่รู้จัก แอปจะหยุดตอนสตาร์ทพร้อมข้อความบอกสาเหตุ
+SMTP ตั้งค่าผ่าน `app.notification.mail.*` (ไม่ใช่ `spring.mail.*`) จึงไม่มี mail health check / การทดสอบเชื่อมต่อตอนสตาร์ท
+
+ใส่ค่าจริงใน `backend/.env` (ไม่เข้า Git — อย่า commit รหัสผ่าน) ดูตัวอย่างใน `.env.example`
+หมายเหตุ: `run-local.ps1` โหลด `.env` และ **ทับ** ตัวแปรที่ตั้งไว้ใน PowerShell — ถ้าจะ override ชั่วคราวด้วย `$env:MAIL_HOST=...` อย่าใส่บรรทัดนั้นใน `.env`
+
+### ตัวอย่างการตั้งค่า SMTP
+
+**Gmail (app password)** — เปิด 2-Step Verification ที่บัญชี Google แล้วสร้าง App password ที่ https://myaccount.google.com/apppasswords (ใช้รหัสผ่านปกติไม่ได้)
+
+```dotenv
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=yourname@gmail.com
+MAIL_PASSWORD=xxxxxxxxxxxxxxxx
+MAIL_FROM=yourname@gmail.com
+MAIL_STARTTLS=true
+```
+
+Gmail ส่งได้จำกัดต่อวัน เหมาะกับทดสอบ/ทีมเล็ก
+
+**SendGrid (SMTP relay)** — username คือคำว่า `apikey` ตรง ๆ, password คือ API key (สิทธิ์ Mail Send) และ `MAIL_FROM` ต้องเป็น Sender ที่ verify แล้ว
+
+```dotenv
+MAIL_HOST=smtp.sendgrid.net
+MAIL_PORT=587
+MAIL_USERNAME=apikey
+MAIL_PASSWORD=SG.xxxxxxxx
+MAIL_FROM=no-reply@yourdomain.co.th
+MAIL_STARTTLS=true
+```
+
+**SMTP ของบริษัท** — ขอ host/port/บัญชีจากทีม IT
+
+```dotenv
+MAIL_HOST=smtp.yourcompany.co.th
+MAIL_PORT=587
+MAIL_USERNAME=no-reply@yourcompany.co.th
+MAIL_PASSWORD=********
+MAIL_FROM=no-reply@yourcompany.co.th
+# ถ้าเซิร์ฟเวอร์ใช้ port 465 (SSL ตรง):
+# MAIL_PORT=465
+# MAIL_SSL=true
+# MAIL_STARTTLS=false
+```
+
+### SMS
+
+ค่าเริ่มต้น `SMS_PROVIDER=log` — ไม่ส่ง SMS จริง แค่ log ว่า "SMS would be sent" พร้อมเบอร์ที่ mask แล้ว (เช่น `081****78`)
+การเพิ่มผู้ให้บริการจริง (เช่น ThaiBulkSMS, Twilio): สร้างคลาสที่ implement `SmsSender` (เมธอด `send(SmsMessage)` — ส่งไม่สำเร็จให้ throw `NotificationException`) แล้วเพิ่ม `case` ใน `NotificationConfig#smsSender` พร้อม env ของ credentials ของผู้ให้บริการนั้น (ยังไม่มี credentials ใด ๆ ใน repo)
+
+### ทดสอบบนเครื่อง (ไม่ต้องมี SMTP จริง)
+
+1. ไม่ตั้ง `MAIL_HOST` → provider เป็น `log` อีเมลจะแสดงแค่ใน log; ตั้ง `OTP_EXPOSE_CODE=true` เพื่อดูรหัสใน response
+2. ทดสอบส่งอีเมลจริงกับ SMTP ปลอม: รัน fake SMTP ที่ port 1025 เช่น [Mailpit](https://github.com/axllent/mailpit) (`mailpit.exe` แล้วเปิด http://localhost:8025) หรือ Python `pip install aiosmtpd` แล้ว `python -m aiosmtpd -n -l localhost:1025`
+3. สตาร์ท backend โดย override env ชั่วคราว (ไม่ต้องแก้ `.env`):
+
+```powershell
+$env:MAIL_HOST='localhost'; $env:MAIL_PORT='1025'; $env:MAIL_STARTTLS='false'
+.\run-local.ps1
+```
+
+4. สมัครสมาชิก แล้วเรียก `POST /api/auth/otp/send` (`EMAIL_VERIFY`) และ `POST /api/auth/forgot-password` — อีเมลภาษาไทยจะไปโผล่ที่ fake SMTP นำรหัสจากอีเมลไปเรียก `POST /api/auth/otp/verify`
+5. Unit/integration tests ใช้ `EmailSender` / `SmsSender` แบบ mock (`NotificationDeliveryIntegrationTests`, `SmtpEmailSenderTests`) ไม่ต้องมีเซิร์ฟเวอร์อีเมล
+
 ## Database schema (Flyway) — สำหรับทีมสร้าง DB ว่าง
 
 Schema ทั้งหมดอยู่ใน **ไฟล์เดียว**: `src/main/resources/db/migration/V1__init_schema.sql`
@@ -170,10 +274,10 @@ psql -U postgres -d TSF_DB -v ON_ERROR_STOP=1 -c "SELECT set_config('app.admin_e
 - `GET /api/auth/me` — current user (Bearer access token)
 
 ### Added (auth deliverable)
-- `POST /api/auth/forgot-password` body `{ "email" }` → always generic Thai message; when `OTP_EXPOSE_CODE=true` also returns `resetToken` (local/testing only)
+- `POST /api/auth/forgot-password` body `{ "email" }` → always generic Thai message; e-mails a reset link (after commit) when the account exists; when `OTP_EXPOSE_CODE=true` also returns `resetToken` (local/testing only)
 - `POST /api/auth/reset-password` body `{ "token", "newPassword" }` → sets password, bumps `users.permission_version` (old access tokens stop working) and revokes all refresh tokens
 - `POST /api/auth/change-password` (auth required) body `{ "currentPassword", "newPassword" }` → bumps `permission_version` and revokes all refresh tokens
-- `POST /api/auth/otp/send` body `{ "destination", "purpose" }` — purposes: `EMAIL_VERIFY`, `PHONE_VERIFY`, `PASSWORD_RESET`, `SIGNUP` (returns `code` only if `OTP_EXPOSE_CODE=true`). Verify purposes for an unknown destination answer with the same generic 200 shape and send nothing.
+- `POST /api/auth/otp/send` body `{ "destination", "purpose" }` — purposes: `EMAIL_VERIFY`, `PHONE_VERIFY`, `PASSWORD_RESET`, `SIGNUP` — the code is delivered by e-mail (SMTP) or SMS (`SmsSender`, log-only by default) after commit; returns `code` only if `OTP_EXPOSE_CODE=true`. Verify purposes for an unknown destination answer with the same generic 200 shape and send nothing.
 - `POST /api/auth/otp/verify` body `{ "otpId", "code" }` — marks verified; for `PASSWORD_RESET` returns one-time `resetToken`
 
 ### Token rules

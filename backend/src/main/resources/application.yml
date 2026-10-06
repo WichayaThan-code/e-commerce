@@ -41,3 +41,27 @@ app:
     login-lockout-minutes: 15
     password-reset-ttl-minutes: 30
     otp-expose-code: ${OTP_EXPOSE_CODE:false}
+  notification:
+    # smtp | log. Blank = smtp when MAIL_HOST is set, otherwise log (only logs, sends nothing).
+    email-provider: ${NOTIFICATION_EMAIL_PROVIDER:}
+    # log (default, sends nothing). Add real gateways in NotificationConfig#smsSender.
+    sms-provider: ${SMS_PROVIDER:log}
+    # Base URL used to build the reset-password link in e-mails.
+    frontend-url: ${APP_FRONTEND_URL:${FRONTEND_URL:http://localhost:5173}}
+    reset-password-path: ${APP_RESET_PASSWORD_PATH:/reset-password}
+    mail:
+      host: ${MAIL_HOST:}
+      port: ${MAIL_PORT:587}
+      username: ${MAIL_USERNAME:}
+      password: ${MAIL_PASSWORD:}
+      from: ${MAIL_FROM:}
+      from-name: ${MAIL_FROM_NAME:ThaiShopFun}
+      starttls: ${MAIL_STARTTLS:true}
+      ssl: ${MAIL_SSL:false}
+
+# SMTP is configured by app.notification.mail (not spring.mail), so Boot's mail auto-config never
+# runs; keep the actuator mail health check off in case actuator is added later.
+management:
+  health:
+    mail:
+      enabled: false

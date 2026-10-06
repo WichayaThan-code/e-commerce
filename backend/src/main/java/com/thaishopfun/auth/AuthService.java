@@ -1,7 +1,10 @@
 package com.thaishopfun.auth;
 
+import com.thaishopfun.auth.delivery.OtpIssuedEvent;
+import com.thaishopfun.auth.delivery.PasswordResetRequestedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -40,12 +43,14 @@ public class AuthService {
     private final JwtEncoder jwtEncoder;
     private final SecurityProperties properties;
     private final LoginAttemptService loginAttempts;
+    private final ApplicationEventPublisher events;
     private final SecureRandom random = new SecureRandom();
 
     public AuthService(UserAccountRepository users, RefreshTokenRepository refreshTokens,
                        PasswordResetTokenRepository passwordResetTokens, OtpVerificationRepository otpVerifications,
                        PasswordEncoder passwords, AuthenticationManager authentication, JwtEncoder jwtEncoder,
-                       SecurityProperties properties, LoginAttemptService loginAttempts) {
+                       SecurityProperties properties, LoginAttemptService loginAttempts,
+                       ApplicationEventPublisher events) {
         this.users = users;
         this.refreshTokens = refreshTokens;
         this.passwordResetTokens = passwordResetTokens;
@@ -55,6 +60,7 @@ public class AuthService {
         this.jwtEncoder = jwtEncoder;
         this.properties = properties;
         this.loginAttempts = loginAttempts;
+        this.events = events;
     }
 
     @Transactional
@@ -146,7 +152,10 @@ public class AuthService {
         passwordResetTokens.save(new PasswordResetTokenEntity(
             user.getId(), hash(rawToken), Instant.now().plus(Duration.ofMinutes(properties.passwordResetTtlMinutes()))
         ));
-        log.info("Password reset token issued for userId={} (dev delivery)", user.getId());
+        log.info("Password reset token issued for userId={}; e-mail queued for delivery after commit", user.getId());
+        // Delivered by AuthNotificationListener only after this transaction commits.
+        events.publishEvent(new PasswordResetRequestedEvent(
+            user.getId(), user.getEmail(), user.getFirstName(), rawToken, properties.passwordResetTtlMinutes()));
         var exposed = properties.otpExposeCode() ? rawToken : null;
         return new AuthDtos.ForgotPasswordResponse(FORGOT_MESSAGE, exposed);
     }
@@ -193,6 +202,7 @@ public class AuthService {
         var destinationHash = hash(normalized);
 
         UUID userId = authenticatedUserId;
+        String recipientName = null;
         if (purpose == OtpPurpose.EMAIL_VERIFY || purpose == OtpPurpose.PHONE_VERIFY) {
             var user = resolveUserForVerify(channel, normalized, authenticatedUserId);
             if (user == null) {
@@ -209,10 +219,13 @@ public class AuthService {
             }
             enforceOtpSendLimits(destinationHash, purpose);
             userId = user.getId();
+            recipientName = user.getFirstName();
         } else {
             enforceOtpSendLimits(destinationHash, purpose);
             if (purpose == OtpPurpose.PASSWORD_RESET || purpose == OtpPurpose.SIGNUP) {
-                userId = users.findByEmailIgnoreCaseOrPhone(normalized, normalized).map(UserAccount::getId).orElse(null);
+                var existing = users.findByEmailIgnoreCaseOrPhone(normalized, normalized);
+                userId = existing.map(UserAccount::getId).orElse(null);
+                recipientName = existing.map(UserAccount::getFirstName).orElse(null);
             }
         }
 
@@ -224,6 +237,9 @@ public class AuthService {
             passwords.encode(code), expiresAt, properties.otpMaxAttempts()
         ));
         log.info("OTP issued id={} purpose={} channel={} destination={}", otp.getId(), purpose, channel, maskDestination(channel, normalized));
+        // Delivered (email or SMS) by AuthNotificationListener only after this transaction commits.
+        events.publishEvent(new OtpIssuedEvent(
+            otp.getId(), channel, purpose, normalized, recipientName, code, properties.otpTtlMinutes()));
         return new AuthDtos.SendOtpResponse(
             otp.getId(),
             Duration.ofMinutes(properties.otpTtlMinutes()).toSeconds(),

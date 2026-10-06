@@ -1,0 +1,11 @@
+﻿id uuid NOT NULL DEFAULT gen_random_uuid()
+user_id uuid NOT NULL
+token_hash character varying(64) NOT NULL
+expires_at timestamp with time zone NOT NULL
+revoked_at timestamp with time zone
+user_agent character varying(500)
+ip_address inet
+created_date_time timestamp with time zone NOT NULL DEFAULT now()
+created_by uuid
+modified_date_time timestamp with time zone NOT NULL DEFAULT now()
+modified_by uuid

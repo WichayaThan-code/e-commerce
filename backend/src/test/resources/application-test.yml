@@ -1,0 +1,30 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:thaishopfun;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+
+app:
+  merchant:
+    storage-root: ./target/test-uploads
+    data-encryption-secret: integration-test-data-encryption-secret
+  security:
+    jwt-secret: integration-test-secret-with-at-least-thirty-two-characters
+    access-token-minutes: 15
+    refresh-token-days: 30
+    secure-cookies: false
+    allowed-origin: http://localhost:5173
+    otp-ttl-minutes: 5
+    otp-max-attempts: 5
+    otp-resend-cooldown-seconds: 1
+    otp-max-per-hour: 20
+    max-login-attempts: 5
+    login-lockout-minutes: 15
+    password-reset-ttl-minutes: 30
+    otp-expose-code: true

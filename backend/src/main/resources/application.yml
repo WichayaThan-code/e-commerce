@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: thaishopfun-backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/TSF_DB}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:1234}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+server:
+  port: ${SERVER_PORT:8081}
+
+app:
+  merchant:
+    storage-root: ${STORAGE_ROOT:./uploads}
+    data-encryption-secret: ${DATA_ENCRYPTION_SECRET:thaishopfun-local-data-encryption-secret-change-before-production}
+  security:
+    jwt-secret: ${JWT_SECRET:thaishopfun-local-development-secret-change-before-production}
+    access-token-minutes: 15
+    refresh-token-days: 30
+    secure-cookies: ${COOKIE_SECURE:false}
+    allowed-origin: ${FRONTEND_URL:http://localhost:5173}
+    otp-ttl-minutes: 5
+    otp-max-attempts: 5
+    otp-resend-cooldown-seconds: 60
+    otp-max-per-hour: 5
+    max-login-attempts: 5
+    login-lockout-minutes: 15
+    password-reset-ttl-minutes: 30
+    otp-expose-code: ${OTP_EXPOSE_CODE:false}

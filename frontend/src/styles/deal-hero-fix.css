@@ -1,0 +1,13 @@
+.deal-hero{
+  height:auto;
+  aspect-ratio:968 / 212;
+}
+
+.deal-hero img{
+  width:105.785%;
+  left:-2.893%;
+  top:-61.32%;
+}
+
+@media(max-width:1100px){.deal-hero{height:auto}}
+@media(max-width:720px){.deal-hero{height:auto}}

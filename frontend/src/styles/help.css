@@ -1,0 +1,460 @@
+.help-page {
+  min-height: 100vh;
+  background: #fff;
+  color: #09255e;
+}
+.help-head-width {
+  width: min(1360px, calc(100% - 176px));
+  margin-inline: auto;
+}
+.help-width {
+  width: min(1444px, calc(100% - 92px));
+  margin-inline: auto;
+}
+.help-hero {
+  width: min(1536px, 100%);
+  aspect-ratio: 1536/305;
+  margin-inline: auto;
+  position: relative;
+  overflow: hidden;
+  background: #eef7ff;
+}
+.help-hero > img {
+  position: absolute;
+  width: 100%;
+  max-width: none;
+  left: 0;
+  top: -33.44%;
+}
+.help-hero > form {
+  position: absolute;
+  left: 5.8%;
+  top: 58%;
+  width: 53.4%;
+  height: 16%;
+  display: flex;
+}
+.help-hero > form input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  outline: 0;
+  padding: 0 55px 0 18px;
+  color: #24466f;
+  font:
+    16px "Noto Sans Thai",
+    sans-serif;
+}
+.help-hero > form button {
+  width: 15%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.help-topics {
+  padding-top: 9px;
+}
+.help-topics h1 {
+  font-size: 25px;
+  margin: 0 0 10px;
+}
+.help-topics > div {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 12px;
+}
+.help-topics > div > button {
+  height: 143px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: #fff0ed;
+  color: #09255e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  cursor: pointer;
+}
+.help-topics > div > button.active {
+  border-color: #ff7b61;
+  box-shadow: 0 3px 12px #09255e10;
+}
+.help-topics button.blue {
+  background: #ebf6ff;
+}
+.help-topics button.green {
+  background: #eaf9f3;
+}
+.help-topics button.violet {
+  background: #eef1ff;
+}
+.help-topics button.amber {
+  background: #fff6df;
+}
+.help-topics button.pink {
+  background: #fff0f6;
+}
+.help-topics button.mint {
+  background: #eaf9f5;
+}
+.help-topics button.purple {
+  background: #f4ecff;
+}
+.help-topics svg {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 9px;
+  color: #ff775a;
+}
+.help-topics .blue svg {
+  color: #5faef1;
+}
+.help-topics .green svg,
+.help-topics .mint svg {
+  color: #20c79a;
+}
+.help-topics .violet svg {
+  color: #5868ed;
+}
+.help-topics .amber svg {
+  color: #f5a000;
+}
+.help-topics .pink svg {
+  color: #ef4e88;
+}
+.help-topics .purple svg {
+  color: #9360e9;
+}
+.help-topics b {
+  font-size: 15px;
+  line-height: 1.25;
+}
+.help-topics b span,
+.help-topics small span {
+  display: block;
+}
+.help-topics small {
+  font-size: 11px;
+  color: #5d7698;
+  line-height: 1.45;
+  margin-top: 5px;
+}
+.help-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.04fr;
+  gap: 18px;
+  margin-top: 18px;
+  padding-bottom: 38px;
+}
+.help-columns > section {
+  min-width: 0;
+}
+.help-columns > section + section {
+  border-left: 1px solid #dde8f3;
+  padding-left: 18px;
+}
+.help-section-title {
+  height: 39px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.help-section-title h2 {
+  font-size: 23px;
+  line-height: 1;
+  margin: 0;
+}
+.help-section-title p {
+  font-size: 12px;
+  color: #637b9a;
+  margin: 5px 0;
+}
+.help-section-title button {
+  border: 0;
+  background: none;
+  color: #0879f6;
+  font-size: 12px;
+  font-weight: 600;
+  padding-top: 5px;
+}
+.faq-list {
+  border: 1px solid #dfe8f2;
+  border-radius: 9px;
+  overflow: hidden;
+}
+.faq-list article + article {
+  border-top: 1px solid #e4ebf3;
+}
+.faq-list article > button {
+  width: 100%;
+  min-height: 39px;
+  border: 0;
+  background: #fff;
+  color: #09255e;
+  display: grid;
+  grid-template-columns: 32px 1fr 22px;
+  align-items: center;
+  text-align: left;
+  padding: 0 10px;
+  cursor: pointer;
+}
+.faq-list article > button i {
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #0879f6;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-weight: 700;
+}
+.faq-list article > button span {
+  font-size: 12px;
+  font-weight: 600;
+}
+.faq-list article > button svg {
+  width: 17px;
+  transition: transform 0.18s;
+}
+.faq-list article > button[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.faq-list article > p {
+  font-size: 11px;
+  color: #56708f;
+  background: #f7fbff;
+  margin: 0;
+  padding: 9px 18px 12px 52px;
+  line-height: 1.5;
+}
+.empty-faq {
+  padding: 25px;
+  color: #667f9f;
+  text-align: center;
+}
+.guide-panel {
+  border: 1px solid #dfe8f2;
+  border-radius: 9px;
+  padding: 13px;
+}
+.guide-panel .help-section-title {
+  height: 35px;
+}
+.guide-item {
+  width: 100%;
+  height: 100px;
+  border: 0;
+  border-top: 1px solid #e5edf5;
+  background: #fff;
+  color: #09255e;
+  display: grid;
+  grid-template-columns: 137px 1fr 27px;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  padding: 9px 0;
+  cursor: pointer;
+}
+.guide-item:first-of-type {
+  border-top: 0;
+}
+.guide-photo {
+  width: 137px;
+  height: 76px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 5px;
+}
+.guide-photo img {
+  position: absolute;
+  width: 1536px;
+  max-width: none;
+  left: -560px;
+}
+.guide-one img {
+  top: -675px;
+}
+.guide-two img {
+  top: -775px;
+}
+.guide-three img {
+  top: -884px;
+}
+.guide-item b {
+  font-size: 15px;
+}
+.guide-item small {
+  display: block;
+  color: #61799a;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+.guide-item small span {
+  display: block;
+}
+.guide-item > svg {
+  color: #0879f6;
+  width: 27px;
+}
+.contact-panel {
+  border: 0 !important;
+}
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 7px;
+}
+.contact-grid article {
+  min-height: 130px;
+  border: 1px solid #dfe8f2;
+  border-radius: 9px;
+  padding: 17px 14px;
+  display: flex;
+  gap: 11px;
+}
+.contact-grid article > svg,
+.line-logo {
+  width: 43px;
+  height: 43px;
+  flex: none;
+  border-radius: 8px;
+  background: #0879f6;
+  color: #fff;
+  padding: 9px;
+  box-sizing: border-box;
+}
+.line-logo {
+  display: grid;
+  place-items: center;
+  background: #08b833;
+  font-size: 9px;
+  padding: 0;
+}
+.contact-grid article > div {
+  flex: 1;
+}
+.contact-grid article b {
+  font-size: 14px;
+}
+.contact-grid article small {
+  display: block;
+  color: #496789;
+  font-size: 10px;
+  line-height: 1.45;
+  margin-top: 3px;
+  min-height: 35px;
+}
+.contact-grid article button,
+.contact-grid article a {
+  height: 37px;
+  border: 1px solid #0879f6;
+  border-radius: 7px;
+  background: #0879f6;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 6px;
+  width: 100%;
+}
+.contact-grid article.line button {
+  background: #09b956;
+  border-color: #09b956;
+}
+.contact-grid article:nth-child(n + 3) a {
+  background: #fff;
+  color: #0879f6;
+}
+@media (max-width: 1100px) {
+  .help-head-width,
+  .help-width {
+    width: calc(100% - 32px);
+  }
+  .help-topics > div {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .help-columns {
+    grid-template-columns: 1fr 1fr;
+  }
+  .contact-panel {
+    grid-column: 1/-1;
+  }
+  .help-columns > section:nth-child(3) {
+    border-left: 0;
+    padding-left: 0;
+  }
+  .help-hero {
+    margin-top: 0;
+  }
+}
+@media (max-width: 720px) {
+  .help-head-width,
+  .help-width {
+    width: calc(100% - 24px);
+  }
+  .help-hero {
+    margin-top: 52px;
+    aspect-ratio: auto;
+    height: 220px;
+    background: linear-gradient(120deg, #eaf6ff, #fff);
+  }
+  .help-hero > img {
+    display: none;
+  }
+  .help-hero:before {
+    content: "ศูนย์ช่วยเหลือ ThaiShopFun";
+    position: absolute;
+    left: 18px;
+    top: 35px;
+    font-size: 29px;
+    font-weight: 800;
+  }
+  .help-hero > form {
+    left: 18px;
+    right: 18px;
+    top: 110px;
+    width: auto;
+    height: 49px;
+    background: #fff;
+    border: 1px solid #c9daec;
+    border-radius: 25px;
+  }
+  .help-hero > form input {
+    padding-left: 18px;
+  }
+  .help-topics > div {
+    display: flex;
+    overflow-x: auto;
+  }
+  .help-topics > div > button {
+    min-width: 150px;
+  }
+  .help-columns {
+    display: block;
+  }
+  .help-columns > section {
+    margin-bottom: 16px;
+  }
+  .help-columns > section + section {
+    border-left: 0;
+    padding-left: 0;
+  }
+  .guide-item {
+    grid-template-columns: 100px 1fr 20px;
+  }
+  .guide-photo {
+    width: 100px;
+  }
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+  .help-section-title h2 {
+    font-size: 20px;
+  }
+}

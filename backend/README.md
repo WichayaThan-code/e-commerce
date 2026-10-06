@@ -180,6 +180,7 @@ Schema ทั้งหมดอยู่ใน **ไฟล์เดียว**: 
 | ไฟล์ | หน้าที่ |
 |------|---------|
 | `V1__init_schema.sql` | สร้าง schema ทั้งหมด (รวม V1+V2+V3 เดิมเป็นไฟล์เดียว) — **ไม่มี** ข้อมูลอ้างอิง (ดู Seed ด้านล่าง) |
+| `V3__authz_platform_admin_backfill.sql` | สิทธิ์ผู้ดูแลระบบย้ายไปอ่านจาก `platform_roles`: คัดลอก user ที่ `users.role = 'ADMIN'` (ยังไม่ถูกลบ และยังไม่มีแถว active) เป็น `PLATFORM_ADMIN` — idempotent, INSERT อย่างเดียว ไม่ลบ/แก้ข้อมูลเดิม |
 | `V2__shop_onboarding_owners_categories_reinstatement.sql` | ส่วนต่อจาก branch ร้านค้า (7f730e8): ตาราง `owners`, `shop_reinstatement_requests`, คอลัมน์ร้าน/ใบสมัคร (`shop_no`, `owner_id`, social links, `opening_hours`, `citizen_id_hash`), `hub_categories.category_no`/`name_zh`, สถานะร้าน `PENDING_REVIEW/ACTIVE/REJECTED/SUSPENDED/CLOSED` — เขียนแบบ defensive (`IF NOT EXISTS`) |
 
 ไฟล์เดิม (`V1__create_auth_tables.sql`, `V2__create_merchant_applications.sql`, `V3__ecommerce_schema_v3.sql`) ย้ายไปเก็บที่ `backend/db-archive/` (อยู่นอก `resources` — Flyway จะไม่โหลด) เก็บไว้อ้างอิงเท่านั้น ห้ามย้ายกลับ
@@ -289,13 +290,105 @@ psql -U postgres -d TSF_DB -v ON_ERROR_STOP=1 -c "SELECT set_config('app.admin_e
 - OTP: uses `otp_verifications.attempts` / `max_attempts`; send cooldown + hourly cap by `destination_hash`.
 
 ### Response shapes (summary)
-- Auth session: `{ "accessToken", "expiresIn", "user": { id, firstName, lastName, email, phone, role, emailVerified, phoneVerified } }` + Set-Cookie `tsf_refresh`
+- Auth session: `{ "accessToken", "expiresIn", "user": { id, firstName, lastName, email, phone, role, emailVerified, phoneVerified, roleCodes, permissions, shopPermissions } }` + Set-Cookie `tsf_refresh` (ฟิลด์สิทธิ์ 3 ตัวท้ายเป็นฟิลด์ใหม่ ดูหัวข้อ "ระบบสิทธิ์" — ฟิลด์เดิมไม่เปลี่ยน)
 - Errors: `{ "code", "message" }` — malformed JSON / wrong parameter types → 400 `VALIDATION_ERROR`; unique-constraint races → 409 `CONFLICT`
 
 ## Merchant / shop API (from branch 7f730e8)
 
 - `GET /api/merchant-applications/draft`, `PUT .../draft/shop`, `PUT .../draft/owner`, `POST .../draft/owner/{ownerId}`, `POST .../draft/documents/{type}`, `POST .../draft/submit` — one open DRAFT per user; a new application can be started after the previous one is submitted, rejected or withdrawn (multi-shop)
 - `GET /api/merchant/owners`, `PUT /api/merchant/owners/{id}`, `GET|POST /api/merchant/shops`, `GET /api/merchant/store-access`, `GET|PUT /api/merchant/settings`, `PUT /api/merchant/settings/hours`, `POST /api/merchant/settings/logo|cover`, `GET|POST /api/merchant/reinstatement?shopId=`
-- `GET /api/admin/store-applications`, `POST .../{shopId}/approve|reject|suspend|reactivate`, `POST .../bulk/{action}`, `GET .../export`, `GET .../{shopId}/documents/{documentId}` (role ADMIN)
+- `GET /api/admin/store-applications`, `POST .../{shopId}/approve|reject|suspend|reactivate`, `POST .../bulk/{action}`, `GET .../export`, `GET .../{shopId}/documents/{documentId}` (ต้องมีสิทธิ์ `PLATFORM_*` — ดูตารางในหัวข้อ "ระบบสิทธิ์")
 - Public: `GET /api/categories`, `GET /api/shops`, `GET /api/shops/{slug}` (+ `/logo`, `/cover`)
 - `shopId` in these APIs is the running number `shops.shop_no`; the table primary key stays UUID (V1 convention). Shop status `APPROVED` in the API is stored as `ACTIVE` in `shops.status`.
+
+## ระบบสิทธิ์ (Permission Matrix / Authorization)
+
+### หลักการ
+
+- **Deny by default**: ทุก endpoint ใน `com.thaishopfun` ต้องประกาศกฎ 1 อย่างเท่านั้น — `@PublicEndpoint`, `@RequirePermission("CODE")` (สิทธิ์ระดับบัญชี/แพลตฟอร์ม), `@RequireShopPermission("CODE")` (สิทธิ์ในร้านที่ระบุด้วย `shopId`) หรือ `@FilterByShopPermission("CODE")` (รายการที่กรองเฉพาะร้านที่มีสิทธิ์) — endpoint ที่ไม่มีกฎจะถูกปฏิเสธ 403 `ACCESS_RULE_MISSING` และเทส `EndpointAccessRuleCoverageTests` จะ fail
+- **สิทธิ์มาจากฐานข้อมูล** ไม่ hard-code role: `auth_roles` / `auth_permissions` / `auth_role_permissions` (seed) + `platform_roles` (ผู้ดูแลแพลตฟอร์ม) + `shop_members` (บทบาทในแต่ละร้าน) — `users.role` เลิกใช้ตัดสินสิทธิ์แล้ว (ยังเก็บไว้ให้ frontend ใช้เลือกหน้า) และ claim `roles` ใน JWT เป็นข้อมูลประกอบเท่านั้น
+- ผู้ใช้ที่ login แล้วได้สิทธิ์ของ role ในบริบท `ACCOUNT` / `APPLICANT` (`BUYER`, `APPLICANT`) โดยอัตโนมัติ
+- โค้ดหลักอยู่ที่ `src/main/java/com/thaishopfun/auth/authz/` — `AuthorizationInterceptor` (ตรวจทุก request), `AuthorizationService` (อ่านบทบาทของผู้ใช้), `PermissionMatrix` (cache role → permission), `PublicEndpointRegistry` (ส่งรายการ public ให้ `SecurityConfig` จาก annotation), `JsonSecurityErrorHandlers` (รูปแบบ 401/403)
+
+### ประสิทธิภาพและการเปลี่ยนบทบาทระหว่าง session
+
+- ตาราง role → permission (ข้อมูลอ้างอิง ~10 role / 62 permission) cache ในหน่วยความจำ หมดอายุตาม `app.security.permission-cache-seconds` (ค่าเริ่มต้น 60 วินาที) — แก้ seed/mapping ใน DB แล้วมีผลภายในเวลานี้ (หรือรีสตาร์ต) ; ถ้าโหลดแล้วว่างจะไม่ cache และ log ERROR ตอนสตาร์ต (แปลว่ายังไม่ได้รัน seed → ทุก endpoint ที่ไม่ใช่ public จะถูกปฏิเสธ)
+- บทบาทของผู้ใช้ (`platform_roles` + `shop_members` ที่ `ACTIVE` และยังไม่ถูกนำออก) อ่านสด **1 query ต่อ request** (UNION, ไม่มี N+1) แล้วเก็บไว้ใน request — จึง **มีผลทันทีกับ access token เดิม** เมื่อเปลี่ยน role / ปิดสมาชิก / ถอน `PLATFORM_ADMIN` โดยไม่ต้อง login ใหม่
+- การเพิกถอน token ทั้งหมดยังทำได้ด้วยการเพิ่ม `users.permission_version` (เช่น เปลี่ยน/รีเซ็ตรหัสผ่าน) → 401 `TOKEN_REVOKED`
+
+### รูปแบบ error
+
+| สถานการณ์ | HTTP | `code` |
+|---|---|---|
+| ไม่ส่ง token | 401 | `UNAUTHORIZED` |
+| token หมดอายุ | 401 | `TOKEN_EXPIRED` |
+| token ถูกเพิกถอน (`pv` ไม่ตรง / บัญชีถูกระงับหรือลบ) | 401 | `TOKEN_REVOKED` |
+| token ปลอม/เสีย/ลายเซ็นไม่ถูก | 401 | `TOKEN_INVALID` |
+| login แล้วแต่ไม่มีสิทธิ์ (รวมสมาชิกร้านที่ role ไม่มีสิทธิ์นั้น) | 403 | `PERMISSION_DENIED` (ข้อความระบุรหัสสิทธิ์) |
+| endpoint ไม่ได้ประกาศกฎ | 403 | `ACCESS_RULE_MISSING` |
+| ร้านที่ไม่ได้เป็นสมาชิก หรือไม่มีอยู่จริง | **404** | `SHOP_NOT_FOUND` |
+| `shopId` ไม่ใช่ตัวเลข / ไม่ส่งเมื่อจำเป็น | 400 | `VALIDATION_ERROR` |
+
+**การตัดสินใจ:** เข้าถึงร้านของคนอื่นตอบ **404 เสมอ** (ไม่ใช่ 403) เพื่อไม่ให้เดาได้ว่ามีร้านหมายเลขนั้นอยู่ — ร้านของผู้อื่นกับร้านที่ไม่มีจริงตอบเหมือนกันทุกประการ (ผู้ดูแลแพลตฟอร์มจัดการร้านผ่าน `/api/admin/**` เท่านั้น) ; 403 ใช้เฉพาะเมื่อเป็นสมาชิกร้านนั้นแต่ role ไม่มีสิทธิ์
+
+### ตาราง endpoint → permission
+
+| Endpoint | กฎ | Permission |
+|---|---|---|
+| `GET /api/health`, `GET /api/categories`, `GET /api/shops`, `GET /api/shops/{slug}` (+`/logo`, `/cover`) | public | — |
+| `POST /api/auth/register`, `login`, `refresh`, `logout`, `forgot-password`, `reset-password`, `otp/send`, `otp/verify` | public | — |
+| `GET /api/auth/me` | บัญชี | `BUYER_PROFILE_READ` |
+| `POST /api/auth/change-password` | บัญชี | `BUYER_PROFILE_UPDATE` |
+| `GET /api/merchant-applications/draft`, `GET /api/merchant/owners` | บัญชี | `SHOP_APPLICATION_READ` |
+| `PUT .../draft/shop`, `PUT .../draft/owner`, `POST .../draft/owner/{ownerId}`, `PUT /api/merchant/owners/{id}` | บัญชี | `SHOP_APPLICATION_UPDATE` |
+| `POST .../draft/documents/{type}` | บัญชี | `SHOP_APPLICATION_FILE_UPLOAD` |
+| `POST .../draft/submit` | บัญชี | `SHOP_APPLICATION_SUBMIT` |
+| `POST /api/merchant/shops` | บัญชี | `SHOP_APPLICATION_CREATE` |
+| `GET /api/merchant/shops`, `GET /api/merchant/store-access` | กรองตามร้าน | `SHOP_READ` |
+| `GET /api/merchant/settings`, `GET /api/merchant/reinstatement` | ร้าน (`shopId`) | `SHOP_READ` |
+| `PUT /api/merchant/settings`, `PUT .../settings/hours`, `POST .../settings/logo`, `POST .../settings/cover`, `POST /api/merchant/reinstatement` | ร้าน (`shopId`) | `SHOP_UPDATE` |
+| `GET /api/admin/store-applications`, `GET .../export`, `GET .../{shopId}/documents/{documentId}` | แพลตฟอร์ม | `PLATFORM_APPLICATION_READ` |
+| `POST .../{shopId}/approve`, `.../reject`, `.../bulk/approve`, `.../bulk/reject` | แพลตฟอร์ม | `PLATFORM_APPLICATION_REVIEW` |
+| `POST .../{shopId}/suspend`, `.../bulk/suspend` | แพลตฟอร์ม | `PLATFORM_SHOP_SUSPEND` |
+| `POST .../{shopId}/reactivate`, `.../bulk/reactivate` | แพลตฟอร์ม | `PLATFORM_SHOP_RESTORE` |
+
+`/api/merchant/settings*` ที่ไม่ส่ง `shopId` ใช้ร้านล่าสุด (`shop_no` มากสุด) ที่เป็นสมาชิก (พฤติกรรมเดิม) แล้วตรวจสิทธิ์กับร้านนั้น ; `/api/merchant/reinstatement` ต้องส่ง `shopId`
+
+### สิทธิ์ที่ frontend ได้รับ
+
+`GET /api/auth/me`, login, register และ refresh คืนฟิลด์เพิ่ม (ฟิลด์เดิมไม่เปลี่ยน):
+
+```json
+{ "roleCodes": ["APPLICANT", "BUYER"], "permissions": ["BUYER_PROFILE_READ", "SHOP_APPLICATION_CREATE", "..."],
+  "shopPermissions": [{ "shopId": 12, "role": "STORE_OWNER", "permissions": ["SHOP_READ", "SHOP_UPDATE", "..."] }] }
+```
+
+`permissions` = สิทธิ์ระดับบัญชี + แพลตฟอร์ม, `shopPermissions` = สิทธิ์แยกรายร้าน — frontend ใช้ `usePermissions()` (`frontend/src/hooks/usePermissions.ts`) ซ่อนเมนู/ปิดปุ่ม/กันหน้า แต่ backend ตรวจซ้ำทุกครั้งเสมอ ; frontend อ่านสิทธิ์ใหม่เมื่อโดน 403/404 ร้าน และเมื่อกลับมาที่แท็บ
+
+### เพิ่ม endpoint ใหม่
+
+1. ใส่ annotation กฎบน method (หรือ class) ของ controller
+2. ใช้รหัสที่มีอยู่ใน `auth_permissions` เท่านั้น และ scope ต้องตรง (`@RequireShopPermission` ใช้รหัส scope `STORE`, `@RequirePermission` ใช้รหัสที่ไม่ใช่ `STORE`) ต้องมีอย่างน้อย 1 role ที่ได้สิทธิ์นั้น
+3. รหัสใหม่ต้องเพิ่มที่ตัวสร้าง seed (ไฟล์ seed เป็นไฟล์ generate — ห้ามแก้มือ และการรัน seed ซ้ำจะปิดรหัสที่ไม่รู้จัก) แล้วรัน seed ใหม่
+4. `EndpointAccessRuleCoverageTests` จะตรวจข้อ 1–2 ให้อัตโนมัติ (พิมพ์ตาราง endpoint → กฎ ออกมาใน log ของเทสด้วย)
+
+**รหัสที่ยังไม่มีใน seed** (ใช้รหัสใกล้เคียงชั่วคราว ต้องเพิ่มที่ตัวสร้าง seed): `ORDER_CONFIRM` (ใช้ `ORDER_UPDATE`), `PROMOTION_*` (ใช้ `SHOP_READ` / `SHOP_UPDATE`), สิทธิ์การเงินร้าน (ใช้ `REPORT_READ` / `REPORT_EXPORT`), หมวดหมู่/โปรโมชั่น/บทบาทฝั่งแพลตฟอร์ม (ใช้ `PLATFORM_SETTING_UPDATE` / `PLATFORM_ACCOUNT_READ`) — ตอนนี้ยังไม่มี API ส่วนนี้ ใช้แค่ซ่อน/ปิดปุ่มใน frontend
+
+### ผู้ดูแลระบบ (PLATFORM_ADMIN)
+
+- สิทธิ์ `/api/admin/**` มาจาก `platform_roles` (role `PLATFORM_ADMIN` ที่ยังไม่ `revoked_at`) — `V3__authz_platform_admin_backfill.sql` คัดลอก ADMIN เดิมให้แล้ว และ bootstrap admin (`app.bootstrap-admin.*`) ได้แถวนี้อัตโนมัติ
+- ตั้งให้ user ที่มีอยู่แล้ว: ใช้ seed พร้อม `app.admin_email` (หัวข้อ Seed ด้านบน) ; ถอนสิทธิ์: `UPDATE platform_roles SET revoked_at = now(), revoke_reason = '...' WHERE user_id = '...' AND revoked_at IS NULL;` (มีผลทันที)
+
+### การทดสอบ
+
+```powershell
+cd backend
+.\mvnw.cmd test                                   # ทั้งหมด (ห้ามใช้ mvnw clean — target มีไฟล์ของทีม)
+.\mvnw.cmd test "-Dtest=PermissionMatrixIntegrationTests"
+.\mvnw.cmd test "-Dtest=EndpointAccessRuleCoverageTests"
+```
+
+- เทสใช้ H2 (profile `test`) แต่ **seed สิทธิ์จริง**: `ReferenceSeedTestLoader` อ่านรายการ `VALUES` ของ `auth_roles` / `auth_permissions` / mapping จากไฟล์ `src/main/resources/db/seed/seed_reference_data.sql` ตัวจริงแล้ว insert ลง H2 — แก้ seed แล้วเทสใช้ค่าใหม่ทันที (ไม่มีสำเนาสิทธิ์ในเทส)
+- `PermissionMatrixIntegrationTests` ครอบคลุม: (1) ผู้ใช้ไม่มีสิทธิ์ → 403 (ทั้งระดับแพลตฟอร์ม และสมาชิกร้าน role `STORE_VIEWER`) (2) เข้าร้านของคนอื่น/ร้านที่ไม่มีจริง → 404 ทุก endpoint ร้าน (3) token หมดอายุ/ปลอม/ไม่มี → 401 `TOKEN_EXPIRED` / `TOKEN_INVALID` / `UNAUTHORIZED` และ `pv` เปลี่ยน → `TOKEN_REVOKED` (4) เปลี่ยน role ร้าน/ปิดสมาชิก/ให้-ถอน `PLATFORM_ADMIN` ระหว่าง session → token เดิมได้ผลใหม่ทันที ; รวมถึงแก้ mapping ใน DB แล้วผลการตัดสินเปลี่ยนหลัง reload และ `/me` / login คืนสิทธิ์จริง
+- `EndpointAccessRuleCoverageTests` — guard: ทุก endpoint ต้องมีกฎ, รหัสต้อง active ใน DB, scope ถูก, มี role ได้สิทธิ์ และ endpoint ที่ไม่มีกฎถูกปฏิเสธจริง
+- บน PostgreSQL (`TSF_DB`) ต้องรัน seed แล้ว (หัวข้อ Seed) — ไม่งั้นทุก endpoint ที่ไม่ใช่ public จะได้ 403

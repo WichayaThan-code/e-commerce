@@ -1,0 +1,96 @@
+﻿                                                                                                                                                                                                 Table "public.users"
+       Column        |           Type           | Collation | Nullable |            Default            | Storage  | Compression | Stats target |                                                                                                                              Description                                                                                                                              
+---------------------+--------------------------+-----------+----------+-------------------------------+----------+-------------+--------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ id                  | uuid                     |           | not null | gen_random_uuid()             | plain    |             |              | Primary key ΓÇö UUID α╕¬α╕▓α╕ÿα╕▓α╕úα╕ôα╕░
+ first_name          | character varying(100)   |           | not null |                               | extended |             |              | α╕èα╕╖α╣êα╕¡
+ last_name           | character varying(100)   |           | not null |                               | extended |             |              | α╕Öα╕▓α╕íα╕¬α╕üα╕╕α╕Ñ
+ email               | character varying(255)   |           | not null |                               | extended |             |              | α╕¡α╕╡α╣Çα╕íα╕Ñ login (unique)
+ phone               | character varying(30)    |           | not null |                               | extended |             |              | α╣Çα╕Üα╕¡α╕úα╣îα╣éα╕ùα╕ú (unique)
+ password_hash       | character varying(255)   |           | not null |                               | extended |             |              | BCrypt/Argon2 hash ΓÇö α╕½α╣ëα╕▓α╕í log
+ role                | character varying(30)    |           | not null | 'CUSTOMER'::character varying | extended |             |              | CUSTOMER|MERCHANT|ADMIN ΓÇö DEPRECATED (legacy V1, authz 2026-10-04): α╕½α╣ëα╕▓α╕íα╣âα╕èα╣ëα╣âα╕Öα╕üα╕▓α╕ú authorize; α╣âα╕èα╣ë platform_roles / shop_members + permission_version. Flyway V3 α╕äα╕▒α╕öα╕Ñα╕¡α╕ü ADMIN ΓåÆ platform_roles (step 1); DROP α╣âα╕Öα╕éα╕▒α╣ëα╕Öα╕ûα╕▒α╕öα╣äα╕¢α╕½α╕Ñα╕▒α╕çα╣üα╕üα╣ë JPA UserAccount [CHECK enum: user_role (legacy)]
+ status              | character varying(30)    |           | not null | 'ACTIVE'::character varying   | extended |             |              | ACTIVE|SUSPENDED [CHECK enum: user_status]
+ email_verified_at   | timestamp with time zone |           |          |                               | plain    |             |              | α╣Çα╕ºα╕Ñα╕▓α╕óα╕╖α╕Öα╕óα╕▒α╕Öα╕¡α╕╡α╣Çα╕íα╕Ñ
+ phone_verified_at   | timestamp with time zone |           |          |                               | plain    |             |              | α╣Çα╕ºα╕Ñα╕▓α╕óα╕╖α╕Öα╕óα╕▒α╕Öα╣Çα╕Üα╕¡α╕úα╣î
+ last_login_at       | timestamp with time zone |           |          |                               | plain    |             |              | α╣Çα╕éα╣ëα╕▓α╕¬α╕╣α╣êα╕úα╕░α╕Üα╕Üα╕Ñα╣êα╕▓α╕¬α╕╕α╕ö
+ permission_version  | integer                  |           | not null | 0                             | plain    |             |              | bump α╣Çα╕íα╕╖α╣êα╕¡α╕ûα╕¡α╕Öα╕¬α╕┤α╕ùα╕ÿα╕┤α╣î/α╕úα╕░α╕çα╕▒α╕Ü α╣Çα╕₧α╕╖α╣êα╕¡ invalidate cache
+ deleted_at          | timestamp with time zone |           |          |                               | plain    |             |              | soft delete
+ suspended_at        | timestamp with time zone |           |          |                               | plain    |             |              | authz: α╣Çα╕ºα╕Ñα╕▓α╕úα╕░α╕çα╕▒α╕Üα╕Üα╕▒α╕ìα╕èα╕╡ (PLATFORM_ACCOUNT_SUSPEND) ΓÇö α╕ùα╕│α╕₧α╕úα╣ëα╕¡α╕í revoke refresh_tokens + bump permission_version
+ suspended_by        | uuid                     |           |          |                               | plain    |             |              | authz: Platform Admin α╕£α╕╣α╣ëα╕úα╕░α╕çα╕▒α╕Ü (business actor)
+ suspend_reason_code | character varying(50)    |           |          |                               | extended |             |              | authz: α╕úα╕½α╕▒α╕¬α╣Çα╕½α╕òα╕╕α╕£α╕Ñα╕üα╕▓α╕úα╕úα╕░α╕çα╕▒α╕Ü (α╕½α╣ëα╕▓α╕íα╣Çα╕üα╣çα╕Ü PII; α╕úα╕▓α╕óα╕Ñα╕░α╣Çα╕¡α╕╡α╕óα╕öα╣âα╕Ö audit_logs)
+ created_date_time   | timestamp with time zone |           | not null | now()                         | plain    |             |              | audit: α╣Çα╕ºα╕Ñα╕▓α╕¬α╕úα╣ëα╕▓α╕çα╣üα╕ûα╕º (α╕íα╕▓α╕òα╕úα╕Éα╕▓α╕Ö audit α╕ùα╕╕α╕üα╕òα╕▓α╕úα╕▓α╕ç)
+ created_by          | uuid                     |           |          |                               | plain    |             |              | audit: α╕£α╕╣α╣ëα╕¬α╕úα╣ëα╕▓α╕ç ΓÇö logical ref users.id (α╣äα╕íα╣êα╕íα╕╡ FK); NULL = system/job/webhook
+ modified_date_time  | timestamp with time zone |           | not null | now()                         | plain    |             |              | audit: α╣üα╕üα╣ëα╣äα╕éα╕Ñα╣êα╕▓α╕¬α╕╕α╕ö ΓÇö trigger set_modified_date_time() α╕òα╕▒α╣ëα╕ç now() α╕ùα╕╕α╕ü UPDATE
+ modified_by         | uuid                     |           |          |                               | plain    |             |              | audit: α╕£α╕╣α╣ëα╣üα╕üα╣ëα╣äα╕éα╕Ñα╣êα╕▓α╕¬α╕╕α╕ö ΓÇö logical ref users.id (α╣äα╕íα╣êα╕íα╕╡ FK); α╣üα╕¡α╕¢α╣Çα╕¢α╣çα╕Öα╕£α╕╣α╣ëα╕òα╕▒α╣ëα╕çα╕äα╣êα╕▓; NULL = system/job/webhook
+Indexes:
+    "pk_users" PRIMARY KEY, btree (id)
+    "ix_users_suspended_by" btree (suspended_by)
+    "uq_users_email" UNIQUE CONSTRAINT, btree (email)
+    "uq_users_phone" UNIQUE CONSTRAINT, btree (phone)
+Check constraints:
+    "ck_users_role" CHECK (role::text = ANY (ARRAY['CUSTOMER'::character varying, 'MERCHANT'::character varying, 'ADMIN'::character varying]::text[]))
+    "ck_users_status" CHECK (status::text = ANY (ARRAY['ACTIVE'::character varying, 'SUSPENDED'::character varying]::text[]))
+Foreign-key constraints:
+    "fk_users_suspended_by" FOREIGN KEY (suspended_by) REFERENCES users(id) ON DELETE SET NULL
+Referenced by:
+    TABLE "background_jobs" CONSTRAINT "fk_background_jobs_requested_by_user_id" FOREIGN KEY (requested_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "blog_posts" CONSTRAINT "fk_blog_posts_author_id" FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "buyer_addresses" CONSTRAINT "fk_buyer_addresses_buyer_user_id" FOREIGN KEY (buyer_user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "carts" CONSTRAINT "fk_carts_buyer_user_id" FOREIGN KEY (buyer_user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "checkouts" CONSTRAINT "fk_checkouts_buyer_user_id" FOREIGN KEY (buyer_user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "inventory_ledger" CONSTRAINT "fk_inventory_ledger_actor_id" FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "media_files" CONSTRAINT "fk_media_files_uploader_id" FOREIGN KEY (uploader_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "merchant_application_reviews" CONSTRAINT "fk_merchant_application_reviews_reviewer_id" FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE RESTRICT
+    TABLE "merchant_applications" CONSTRAINT "fk_merchant_applications_reviewer_id" FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "merchant_applications" CONSTRAINT "fk_merchant_applications_user_id" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "merchant_order_confirmations" CONSTRAINT "fk_merchant_order_confirmations_confirmed_by_user_id" FOREIGN KEY (confirmed_by_user_id) REFERENCES users(id) ON DELETE RESTRICT
+    TABLE "notifications" CONSTRAINT "fk_notifications_user_id" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "order_cancellations" CONSTRAINT "fk_order_cancellations_processed_by" FOREIGN KEY (processed_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "order_cancellations" CONSTRAINT "fk_order_cancellations_requested_by" FOREIGN KEY (requested_by) REFERENCES users(id) ON DELETE RESTRICT
+    TABLE "order_item_reveal_logs" CONSTRAINT "fk_order_item_reveal_logs_revealed_by_user_id" FOREIGN KEY (revealed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "order_status_history" CONSTRAINT "fk_order_status_history_changed_by" FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "orders" CONSTRAINT "fk_orders_buyer_user_id" FOREIGN KEY (buyer_user_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "otp_verifications" CONSTRAINT "fk_otp_verifications_user_id" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "password_reset_tokens" CONSTRAINT "fk_password_reset_tokens_user_id" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "payment_proofs" CONSTRAINT "fk_payment_proofs_uploaded_by_user_id" FOREIGN KEY (uploaded_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "payment_proofs" CONSTRAINT "fk_payment_proofs_verified_by" FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "platform_roles" CONSTRAINT "fk_platform_roles_granted_by" FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "platform_roles" CONSTRAINT "fk_platform_roles_revoked_by" FOREIGN KEY (revoked_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "platform_roles" CONSTRAINT "fk_platform_roles_user_id" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "product_reviews" CONSTRAINT "fk_product_reviews_buyer_user_id" FOREIGN KEY (buyer_user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "promotion_usages" CONSTRAINT "fk_promotion_usages_buyer_user_id" FOREIGN KEY (buyer_user_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "refresh_tokens" CONSTRAINT "fk_refresh_tokens_user_id" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "refunds" CONSTRAINT "fk_refunds_initiated_by" FOREIGN KEY (initiated_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "return_requests" CONSTRAINT "fk_return_requests_buyer_user_id" FOREIGN KEY (buyer_user_id) REFERENCES users(id) ON DELETE RESTRICT
+    TABLE "shipment_media" CONSTRAINT "fk_shipment_media_uploaded_by" FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "shipments" CONSTRAINT "fk_shipments_dispatched_by" FOREIGN KEY (dispatched_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "shipments" CONSTRAINT "fk_shipments_packed_by" FOREIGN KEY (packed_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "shop_customers" CONSTRAINT "fk_shop_customers_user_id" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "shop_invitations" CONSTRAINT "fk_shop_invitations_accepted_user_id" FOREIGN KEY (accepted_user_id) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "shop_invitations" CONSTRAINT "fk_shop_invitations_invited_by" FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE RESTRICT
+    TABLE "shop_invitations" CONSTRAINT "fk_shop_invitations_revoked_by" FOREIGN KEY (revoked_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "shop_members" CONSTRAINT "fk_shop_members_invited_by" FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "shop_members" CONSTRAINT "fk_shop_members_removed_by" FOREIGN KEY (removed_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "shop_members" CONSTRAINT "fk_shop_members_user_id" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    TABLE "shop_ownership_transfers" CONSTRAINT "fk_shop_ownership_transfers_from_user_id" FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE RESTRICT
+    TABLE "shop_ownership_transfers" CONSTRAINT "fk_shop_ownership_transfers_to_user_id" FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE RESTRICT
+    TABLE "shops" CONSTRAINT "fk_shops_closed_by" FOREIGN KEY (closed_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "shops" CONSTRAINT "fk_shops_owner_user_id" FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE RESTRICT
+    TABLE "shops" CONSTRAINT "fk_shops_restored_by" FOREIGN KEY (restored_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "shops" CONSTRAINT "fk_shops_suspended_by" FOREIGN KEY (suspended_by) REFERENCES users(id) ON DELETE SET NULL
+    TABLE "users" CONSTRAINT "fk_users_suspended_by" FOREIGN KEY (suspended_by) REFERENCES users(id) ON DELETE SET NULL
+Not-null constraints:
+    "users_id_not_null" NOT NULL "id"
+    "users_first_name_not_null" NOT NULL "first_name"
+    "users_last_name_not_null" NOT NULL "last_name"
+    "users_email_not_null" NOT NULL "email"
+    "users_phone_not_null" NOT NULL "phone"
+    "users_password_hash_not_null" NOT NULL "password_hash"
+    "users_role_not_null" NOT NULL "role"
+    "users_status_not_null" NOT NULL "status"
+    "users_permission_version_not_null" NOT NULL "permission_version"
+    "users_created_date_time_not_null" NOT NULL "created_date_time"
+    "users_modified_date_time_not_null" NOT NULL "modified_date_time"
+Triggers:
+    trg_users_modified_date_time BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION set_modified_date_time()
+Access method: heap
+

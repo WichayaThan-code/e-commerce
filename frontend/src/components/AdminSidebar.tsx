@@ -5,6 +5,7 @@ import {
   TrendingUp, UserCog, UsersRound, WalletCards,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { usePermissions } from '../hooks/usePermissions'
 import { adminApplicationApi } from '../services/api'
 
 export const STORE_APPLICATIONS_CHANGED = 'store-applications-changed'
@@ -43,10 +44,13 @@ type AdminSidebarProps = {
 
 export default function AdminSidebar({ active, className = '', showHelp = false, extended = false }: AdminSidebarProps) {
   const { logout } = useAuth()
+  const { can, canVisit } = usePermissions()
+  const canReadApplications = can('PLATFORM_APPLICATION_READ')
   const [pending, setPending] = useState(0)
   const [notice, setNotice] = useState('')
 
   useEffect(() => {
+    if (!canReadApplications) return
     let activeRequest = true
     const load = () => {
       adminApplicationApi.list()
@@ -63,7 +67,7 @@ export default function AdminSidebar({ active, className = '', showHelp = false,
       window.removeEventListener(STORE_APPLICATIONS_CHANGED, load)
       window.removeEventListener('focus', load)
     }
-  }, [])
+  }, [canReadApplications])
 
   const unavailable = (label: string) => {
     setNotice(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)
@@ -77,11 +81,11 @@ export default function AdminSidebar({ active, className = '', showHelp = false,
 
   return (
     <aside className={`admin-sidebar ${className}`.trim()}>
-      <a className={active === 'home' ? 'active' : ''} href="/admin"><Home />หน้าแรก</a>
-      {groups.map(group => (
+      {canVisit('/admin') && <a className={active === 'home' ? 'active' : ''} href="/admin"><Home />หน้าแรก</a>}
+      {groups.filter(group => group.keys.some(key => canVisit(item(key).href))).map(group => (
         <section key={group.label}>
           <h3>{group.label}</h3>
-          {group.keys.map(key => {
+          {group.keys.filter(key => canVisit(item(key).href)).map(key => {
             const link = item(key)
             const Icon = link.icon
             return (

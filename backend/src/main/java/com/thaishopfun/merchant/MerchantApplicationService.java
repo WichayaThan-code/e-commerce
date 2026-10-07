@@ -21,12 +21,13 @@ public class MerchantApplicationService {
     private final ShopCatalogService shops;
     private final OwnerAccountService ownerAccounts;
     private final ProductCategoryService categories;
+    private final MerchantDraftFactory drafts;
 
     public MerchantApplicationService(MerchantApplicationRepository applications, MerchantDocumentRepository documents,
                                       UserAccountRepository users, SensitiveDataCipher cipher, MerchantStorageService storage,
                                       ShopCatalogService shops, OwnerAccountService ownerAccounts,
-                                      ProductCategoryService categories) {
-        this.applications=applications; this.documents=documents; this.users=users; this.cipher=cipher; this.storage=storage; this.shops=shops; this.ownerAccounts=ownerAccounts; this.categories=categories;
+                                      ProductCategoryService categories, MerchantDraftFactory drafts) {
+        this.applications=applications; this.documents=documents; this.users=users; this.cipher=cipher; this.storage=storage; this.shops=shops; this.ownerAccounts=ownerAccounts; this.categories=categories; this.drafts=drafts;
     }
 
     @Transactional
@@ -114,10 +115,27 @@ public class MerchantApplicationService {
         return response(saved);
     }
 
+    /**
+     * The user's current DRAFT (latest one), or a new DRAFT. A user may hold several submitted/approved/rejected
+     * applications (one per shop) but only one DRAFT at a time, so a new application can always be started
+     * after REJECTED/WITHDRAWN. Concurrent first requests (e.g. two GET /draft) cannot create two drafts or 500:
+     * the loser of the insert race re-reads the winner's draft.
+     */
     private MerchantApplication getOrCreate(UUID userId) {
-        return applications.findFirstByUser_IdAndStatusOrderByUpdatedAtDesc(userId, ApplicationStatus.DRAFT)
-            .orElseGet(() -> applications.save(new MerchantApplication(
-                users.findById(userId).orElseThrow(() -> new AuthException(HttpStatus.UNAUTHORIZED,"USER_NOT_FOUND","ไม่พบบัญชีผู้ใช้")))));
+        var existing = findDraft(userId);
+        if (existing != null) return existing;
+        try {
+            drafts.createDraft(userId);
+        } catch (org.springframework.dao.DataIntegrityViolationException raced) {
+            // another request created the draft first; fall through and read it
+        }
+        var draft = findDraft(userId);
+        if (draft == null) throw new AuthException(HttpStatus.CONFLICT, "DRAFT_CONFLICT", "กำลังสร้างใบสมัคร กรุณาลองใหม่อีกครั้ง");
+        return draft;
+    }
+
+    private MerchantApplication findDraft(UUID userId) {
+        return applications.findFirstByUser_IdAndStatusOrderByUpdatedAtDesc(userId, ApplicationStatus.DRAFT).orElse(null);
     }
 
     private void validateComplete(MerchantApplication a) {

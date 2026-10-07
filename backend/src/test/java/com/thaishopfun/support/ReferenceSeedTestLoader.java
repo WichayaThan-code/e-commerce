@@ -1,0 +1,78 @@
+package com.thaishopfun.support;
+
+import com.thaishopfun.auth.authz.PermissionMatrix;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.UUID;
+
+/**
+ * Test profile only: loads the authz catalog from the real seed_reference_data.sql into the H2 test database
+ * when the context starts (H2 tables are created by Hibernate from the authz entities). Idempotent: skipped when
+ * auth_roles already has rows (several test contexts share one in-memory database).
+ */
+@Component
+@Profile("test")
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class ReferenceSeedTestLoader implements ApplicationRunner {
+    private final JdbcTemplate jdbc;
+    private final PermissionMatrix matrix;
+
+    public ReferenceSeedTestLoader(JdbcTemplate jdbc, PermissionMatrix matrix) {
+        this.jdbc = jdbc;
+        this.matrix = matrix;
+    }
+
+    @Override
+    public void run(ApplicationArguments args) {
+        seed(jdbc);
+        matrix.invalidate();
+    }
+
+    public static synchronized void seed(JdbcTemplate jdbc) {
+        var existing = jdbc.queryForObject("SELECT COUNT(*) FROM auth_roles", Integer.class);
+        if (existing != null && existing > 0) return;
+        var catalog = ReferenceSeedSql.load();
+        var now = Timestamp.from(Instant.now());
+        var roleIds = new HashMap<String, UUID>();
+        var permissionIds = new HashMap<String, UUID>();
+        insert(jdbc, "auth_roles", catalog.roles(), roleIds, now);
+        insert(jdbc, "auth_permissions", catalog.permissions(), permissionIds, now);
+        var batch = new ArrayList<Object[]>();
+        for (var mapping : catalog.mappings()) {
+            var roleId = roleIds.get((String) mapping.get(0));
+            var permissionId = permissionIds.get((String) mapping.get(1));
+            if (roleId == null || permissionId == null) throw new IllegalStateException("Seed mapping references unknown code: " + mapping);
+            batch.add(new Object[]{UUID.randomUUID(), roleId, permissionId, "1.0", now, now});
+        }
+        jdbc.batchUpdate("INSERT INTO auth_role_permissions (id, role_id, permission_id, policy_version, created_date_time, modified_date_time) VALUES (?, ?, ?, ?, ?, ?)", batch);
+    }
+
+    private static void insert(JdbcTemplate jdbc, String table, ReferenceSeedSql.Table rows, HashMap<String, UUID> ids, Timestamp now) {
+        var columns = String.join(", ", rows.columns());
+        var placeholders = "?, ".repeat(rows.columns().size());
+        var sql = "INSERT INTO " + table + " (id, " + columns + ", created_date_time, modified_date_time) VALUES (?, " + placeholders + "?, ?)";
+        var codeIndex = rows.columns().indexOf("code");
+        var batch = new ArrayList<Object[]>();
+        for (var row : rows.rows()) {
+            var id = UUID.randomUUID();
+            ids.put((String) row.get(codeIndex), id);
+            var values = new ArrayList<Object>();
+            values.add(id);
+            values.addAll(row);
+            values.add(now);
+            values.add(now);
+            batch.add(values.toArray());
+        }
+        jdbc.batchUpdate(sql, batch);
+    }
+}

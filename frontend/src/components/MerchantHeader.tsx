@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { accountKind } from "../services/permissions";
 import { useLanguage } from "../contexts/LanguageContext";
 import LanguageSwitcher from "./LanguageSwitcher";
 import "../styles/merchant-signup.css";
@@ -65,9 +66,9 @@ export default function MerchantHeader() {
   };
 
   const dashboardPath =
-    user?.role === "ADMIN"
+    accountKind(user) === "ADMIN"
       ? "/admin"
-      : user?.role === "MERCHANT"
+      : accountKind(user) === "MERCHANT"
       ? "/merchant/dashboard"
       : "/";
   const accountName = user
@@ -110,9 +111,9 @@ export default function MerchantHeader() {
                 <p>
                   <b>{accountName}</b>
                   <small>
-                    {user.role === "CUSTOMER"
+                    {accountKind(user) === "CUSTOMER"
                       ? t('role.customer')
-                      : user.role === "MERCHANT"
+                      : accountKind(user) === "MERCHANT"
                       ? t('role.merchant')
                       : t('role.admin')}
                   </small>
@@ -125,10 +126,10 @@ export default function MerchantHeader() {
                     <b>{accountName}</b>
                     <span>{user.email}</span>
                   </div>
-                  {user.role !== "CUSTOMER" && (
+                  {accountKind(user) !== "CUSTOMER" && (
                     <Link to={dashboardPath}>
                       <Store />{" "}
-                      {user.role === "ADMIN" ? t('account.admin') : t('account.store')}{" "}
+                      {accountKind(user) === "ADMIN" ? t('account.admin') : t('account.store')}{" "}
                       <ChevronRight />
                     </Link>
                   )}

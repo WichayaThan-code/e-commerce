@@ -27,6 +27,8 @@ import {
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
+import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
+import { usePermissions } from "../hooks/usePermissions";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/reports.css";
@@ -62,13 +64,15 @@ function Brand() {
 
 export default function ReportsPage() {
   const { user, loading } = useAuth();
+  const { canInShop, canSeeMenuItem, deniedTitle } = usePermissions();
+  const canExport = canInShop("REPORT_EXPORT");
   const [activeTab, setActiveTab] = useState("ภาพรวม");
   const [range, setRange] = useState("1 ก.ย. 2026 - 12 ก.ย. 2026");
   const [notice, setNotice] = useState("");
   if (loading) return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
   if (!user) { window.location.replace("/login?next=/merchant/reports"); return null; }
-  if (user.role === "ADMIN") { window.location.replace("/admin"); return null; }
-  if (user.role !== "MERCHANT") { window.location.replace("/"); return null; }
+  if ((hasPlatformAccess(user) && !hasMerchantAccess(user))) { window.location.replace("/admin"); return null; }
+  if (!hasMerchantAccess(user)) { window.location.replace("/"); return null; }
 
   const shopName = (user.firstName || "MaeSomchai").toLowerCase() === "merchant" ? "MaeSomchai Official" : `${user.firstName || "MaeSomchai"} Official`;
   const notify = (message: string) => { setNotice(message); window.setTimeout(() => setNotice(""), 1900); };
@@ -81,10 +85,10 @@ export default function ReportsPage() {
 
   return <main className="merchant-shell pm-shell report-shell">
     <header className="merchant-topbar"><Brand /><form onSubmit={(event) => { event.preventDefault(); notify("ค้นหาข้อมูลร้านค้าแล้ว"); }}><Search /><input aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..." /></form><LanguageSwitcher /> <button className="merchant-bell" aria-label="การแจ้งเตือน"><Bell /><i>3</i></button><MerchantShopMenu /></header>
-    <aside className="merchant-sidebar pm-sidebar report-sidebar"><nav>{menu.map(([Icon, label, href, badge]) => <a className={label === "รายงาน" ? "active" : ""} href={href} key={label} onClick={(event) => { if ((href as string) === "#") { event.preventDefault(); notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`); } }}><Icon />{label}{badge && <i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown /><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br />ได้มากกว่าเดิม</p><button onClick={() => notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp />ศูนย์ช่วยเหลือ</a><button onClick={() => notify("กำลังติดต่อทีมงาน")}><Headphones />ติดต่อทีมงาน</button></div></aside>
+    <aside className="merchant-sidebar pm-sidebar report-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon, label, href, badge]) => <a className={label === "รายงาน" ? "active" : ""} href={href} key={label} onClick={(event) => { if ((href as string) === "#") { event.preventDefault(); notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`); } }}><Icon />{label}{badge && <i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown /><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br />ได้มากกว่าเดิม</p><button onClick={() => notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp />ศูนย์ช่วยเหลือ</a><button onClick={() => notify("กำลังติดต่อทีมงาน")}><Headphones />ติดต่อทีมงาน</button></div></aside>
 
     <section className="pm-content report-content">
-      <header className="pm-heading report-heading"><div><h1><BarChart3 />รายงาน</h1><p>ดูภาพรวมธุรกิจของคุณ วิเคราะห์ยอดขาย และติดตามการเติบโต</p></div><div className="report-actions"><button onClick={() => { const next = range.startsWith("1 ") ? "1 ส.ค. 2026 - 31 ส.ค. 2026" : "1 ก.ย. 2026 - 12 ก.ย. 2026"; setRange(next); notify(`เปลี่ยนช่วงวันที่เป็น ${next}`); }}><CalendarDays /><span>{range}</span><ChevronDown /></button><button className="primary" onClick={download}><Download />ดาวน์โหลดรายงาน</button></div></header>
+      <header className="pm-heading report-heading"><div><h1><BarChart3 />รายงาน</h1><p>ดูภาพรวมธุรกิจของคุณ วิเคราะห์ยอดขาย และติดตามการเติบโต</p></div><div className="report-actions"><button onClick={() => { const next = range.startsWith("1 ") ? "1 ส.ค. 2026 - 31 ส.ค. 2026" : "1 ก.ย. 2026 - 12 ก.ย. 2026"; setRange(next); notify(`เปลี่ยนช่วงวันที่เป็น ${next}`); }}><CalendarDays /><span>{range}</span><ChevronDown /></button><button disabled={!canExport} title={deniedTitle(canExport)} className="primary" onClick={download}><Download />ดาวน์โหลดรายงาน</button></div></header>
 
       <nav className="report-tabs" aria-label="ประเภทรายงาน">{["ภาพรวม", "ยอดขาย", "สินค้า", "คำสั่งซื้อ", "ลูกค้า", "โปรโมชั่น / คูปอง", "ค่าธรรมเนียม", "การจัดส่ง"].map((tab) => <button key={tab} className={activeTab === tab ? "active" : ""} onClick={() => { setActiveTab(tab); notify(`แสดงรายงาน${tab}`); }}>{tab}</button>)}</nav>
 

@@ -39,6 +39,7 @@ public class ProductCategorySeeder implements ApplicationRunner {
     }
 
     private static ProductCategory row(String nameTh, String nameEn, String nameZh, int sortOrder) {
-        return new ProductCategory(nameTh, nameEn, nameZh, sortOrder);
+        var slug = nameEn.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
+        return new ProductCategory(slug, nameTh, nameEn, nameZh, sortOrder);
     }
 }

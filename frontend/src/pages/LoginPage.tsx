@@ -6,6 +6,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import '../styles/login.css'
 import { useAuth } from '../contexts/AuthContext'
+import { homePath } from '../services/permissions'
 import LanguageSwitcher from '../components/LanguageSwitcher'
 
 function LoginBrand({ ariaLabel, tagline }: { ariaLabel: string; tagline: string }) {
@@ -44,7 +45,7 @@ export default function LoginPage() {
     try {
       const authenticated = await login(identity, password)
       const next = new URLSearchParams(window.location.search).get('next')
-      const roleDestination = authenticated.role === 'ADMIN' ? '/admin' : authenticated.role === 'MERCHANT' ? '/merchant/dashboard' : '/'
+      const roleDestination = homePath(authenticated)
       const destination = next?.startsWith('/') && !next.startsWith('//') ? next : roleDestination
       window.location.replace(destination)
     } catch (error) {

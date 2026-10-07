@@ -23,6 +23,7 @@ import {
   Wine,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { accountKind } from "../services/permissions";
 import thaiBrandReference from "../assets/images/references/storefront/thai-brand.png";
 import "../styles/recommended-products.css";
 import "../styles/best-seller.css";
@@ -170,9 +171,9 @@ export default function ThaiBrandsPage() {
     ? `${user.firstName} ${user.lastName}`.trim() || user.email
     : "";
   const dashboard =
-    user?.role === "ADMIN"
+    accountKind(user) === "ADMIN"
       ? "/admin"
-      : user?.role === "MERCHANT"
+      : accountKind(user) === "MERCHANT"
         ? "/merchant/dashboard"
         : "/";
   const signOut = async () => {

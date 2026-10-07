@@ -1,7 +1,11 @@
 package com.thaishopfun.merchant;
 
 import com.thaishopfun.auth.AuthException;
+<<<<<<< HEAD
 import com.thaishopfun.translation.ContentTranslationBridge;
+=======
+import com.thaishopfun.auth.authz.AuthorizationService;
+>>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +21,7 @@ public class MerchantShopSettingsService {
     private final MerchantApplicationRepository applications;
     private final MerchantStorageService storage;
     private final ProductCategoryService categories;
+<<<<<<< HEAD
     private final ContentTranslationBridge translationBridge;
 
     public MerchantShopSettingsService(
@@ -26,16 +31,27 @@ public class MerchantShopSettingsService {
         ProductCategoryService categories,
         ContentTranslationBridge translationBridge
     ) {
+=======
+    private final AuthorizationService authorization;
+
+    public MerchantShopSettingsService(ShopRepository shops, MerchantApplicationRepository applications, MerchantStorageService storage, ProductCategoryService categories, AuthorizationService authorization) {
+>>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
         this.shops = shops;
         this.applications = applications;
         this.storage = storage;
         this.categories = categories;
+<<<<<<< HEAD
         this.translationBridge = translationBridge;
+=======
+        this.authorization = authorization;
+>>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
     }
 
     @Transactional(readOnly = true)
-    public List<MerchantDtos.MerchantShopSummary> list(UUID userId) {
-        return shops.findByUser_IdOrderByShopIdDesc(userId).stream()
+    public List<MerchantDtos.MerchantShopSummary> list(UUID userId, String permission) {
+        var allowed = authorization.shopsWithPermission(userId, permission);
+        return shops.findMemberShops(userId).stream()
+            .filter(shop -> allowed.contains(shop.getId()))
             .map(shop -> new MerchantDtos.MerchantShopSummary(shop.getId(), shop.getName(), shop.getStatus(), shop.getSlug(), shop.getOwner() == null ? null : shop.getOwner().getId()))
             .toList();
     }
@@ -192,8 +208,17 @@ public class MerchantShopSettingsService {
         return get(userId, shop.getId());
     }
 
+    /**
+     * The shop the caller works on: one of their ACTIVE memberships (newest first when shopId is omitted), or any
+     * existing shop for a super admin (PLATFORM_ADMIN) that names it by shopId.
+     * AuthorizationInterceptor has already checked the endpoint's permission on this same shop.
+     */
     private Shop ownedShop(UUID userId, Long shopId) {
-        var owned = shops.findByUser_IdOrderByShopIdDesc(userId);
+        if (shopId != null && authorization.isSuperAdmin(userId)) {
+            return shops.findByShopId(shopId)
+                .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้านี้"));
+        }
+        var owned = shops.findMemberShops(userId);
         if (owned.isEmpty()) {
             throw new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ยังไม่มีร้านค้าที่สมัครไว้");
         }

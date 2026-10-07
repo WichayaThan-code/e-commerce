@@ -26,6 +26,8 @@ import {
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
+import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
+import { usePermissions } from "../hooks/usePermissions";
 import "../styles/merchant-dashboard.css";
 
 const menu = [
@@ -109,6 +111,7 @@ function MerchantPanel({
 
 export default function MerchantDashboardPage() {
   const { user, loading, logout } = useAuth();
+  const { canSeeMenuItem } = usePermissions();
   const [notice, setNotice] = useState("");
   if (loading)
     return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
@@ -116,11 +119,11 @@ export default function MerchantDashboardPage() {
     window.location.replace("/login");
     return null;
   }
-  if (user.role === "ADMIN") {
+  if ((hasPlatformAccess(user) && !hasMerchantAccess(user))) {
     window.location.replace("/admin");
     return null;
   }
-  if (user.role !== "MERCHANT") {
+  if (!hasMerchantAccess(user)) {
     window.location.replace("/dashboard");
     return null;
   }
@@ -161,7 +164,7 @@ export default function MerchantDashboardPage() {
       </header>
       <aside className="merchant-sidebar">
         <nav>
-          {menu.map(([Icon, label, badge], index) => (
+          {menu.filter(canSeeMenuItem).map(([Icon, label, badge], index) => (
             <button
               className={index === 0 ? "active" : ""}
               key={label}

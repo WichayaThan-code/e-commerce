@@ -21,6 +21,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { accountKind } from "../services/permissions";
 import "../styles/deals.css";
 import "../styles/deal-hero-fix.css";
 
@@ -137,9 +138,9 @@ export default function DealsPage() {
     ? `${user.firstName} ${user.lastName}`.trim() || user.email
     : "";
   const dashboard =
-    user?.role === "ADMIN"
+    accountKind(user) === "ADMIN"
       ? "/admin"
-      : user?.role === "MERCHANT"
+      : accountKind(user) === "MERCHANT"
         ? "/merchant/dashboard"
         : "/";
   const signOut = async () => {

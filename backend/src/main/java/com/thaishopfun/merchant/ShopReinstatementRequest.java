@@ -3,14 +3,13 @@ package com.thaishopfun.merchant;
 import com.thaishopfun.auth.UserAccount;
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "shop_reinstatement_requests")
 public class ShopReinstatementRequest {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "request_id")
-    private Long id;
+    private UUID id;
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "shop_id")
     private Shop shop;
@@ -22,15 +21,16 @@ public class ShopReinstatementRequest {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ReinstatementStatus status;
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_date_time", nullable = false)
     private Instant createdAt;
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "modified_date_time", nullable = false)
     private Instant updatedAt;
 
     protected ShopReinstatementRequest() {}
 
     public ShopReinstatementRequest(Shop shop, UserAccount user, String message) {
         var now = Instant.now();
+        this.id = UUID.randomUUID();
         this.shop = shop;
         this.user = user;
         this.message = message;
@@ -49,7 +49,7 @@ public class ShopReinstatementRequest {
         this.updatedAt = Instant.now();
     }
 
-    public Long getId() { return id; }
+    public UUID getId() { return id; }
     public Shop getShop() { return shop; }
     public String getMessage() { return message; }
     public ReinstatementStatus getStatus() { return status; }

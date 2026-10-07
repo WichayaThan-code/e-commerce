@@ -10,6 +10,8 @@ import {
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
+import { hasPlatformAccess } from '../services/permissions'
+import { usePermissions } from '../hooks/usePermissions'
 import { adminApplicationApi, ApiError, mediaUrl, type AdminStoreApplication } from '../services/api'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-stores.css'
@@ -79,6 +81,9 @@ function mapStore(item: AdminStoreApplication): StoreRecord {
 
 export default function AdminStoresPage(){
   const {user,loading}=useAuth()
+  const {can,deniedTitle}=usePermissions()
+  // pending/rejected stores open the application review; active stores are suspended, suspended ones restored
+  const canManage=(store:StoreRecord)=>store.status==='รออนุมัติ'||store.status==='ปฏิเสธ'?can('PLATFORM_APPLICATION_READ'):can(store.status==='ถูกระงับ'?'PLATFORM_SHOP_RESTORE':'PLATFORM_SHOP_SUSPEND')
   const navigate=useNavigate()
   const [rows,setRows]=useState<StoreRecord[]>([])
   const [loaded,setLoaded]=useState(false)
@@ -93,7 +98,7 @@ export default function AdminStoresPage(){
   const [pageSize,setPageSize]=useState(10)
 
   useEffect(() => {
-    if (!user || user.role !== 'ADMIN') return
+    if (!user || !hasPlatformAccess(user)) return
     let active = true
     adminApplicationApi.list().then(data => {
       if (active) setRows(data.map(mapStore))
@@ -122,9 +127,9 @@ export default function AdminStoresPage(){
   useEffect(() => { setPage(1) }, [query, status, category, province, pageSize])
   useEffect(() => { if (page > pageCount) setPage(pageCount) }, [page, pageCount])
 
-  if(loading||(user?.role==='ADMIN'&&!loaded))return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
+  if(loading||(hasPlatformAccess(user)&&!loaded))return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
   if(!user){window.location.replace('/login');return null}
-  if(user.role!=='ADMIN'){window.location.replace('/dashboard');return null}
+  if(!hasPlatformAccess(user)){window.location.replace('/dashboard');return null}
 
   const notify=(text:string)=>{setNotice(text);window.setTimeout(()=>setNotice(''),1900)}
   const reset=()=>{setQuery('');setStatus('ทั้งหมด');setCategory('ทั้งหมด');setProvince('ทั้งหมด')}
@@ -197,7 +202,7 @@ export default function AdminStoresPage(){
             <span><i className={`status-pill ${store.status==='ใช้งาน'?'active':store.status==='รออนุมัติ'?'waiting':'blocked'}`}><small/>{store.status}</i></span>
             <span className="registered">{store.registeredAt}</span>
             <span className="sales"><b>฿{store.sales.toLocaleString()}</b>{store.trend!==null&&<em className={store.trend<0?'down':''}>{store.trend>0?'↑':'↓'} {Math.abs(store.trend)}%</em>}</span>
-            <button className="manage" disabled={busyId===store.id} onClick={()=>void manage(store)}>{store.status==='รออนุมัติ'||store.status==='ปฏิเสธ'?'ตรวจสอบ':'จัดการ'}</button>
+            <button className="manage" disabled={busyId===store.id||!canManage(store)} title={deniedTitle(canManage(store))} onClick={()=>void manage(store)}>{store.status==='รออนุมัติ'||store.status==='ปฏิเสธ'?'ตรวจสอบ':'จัดการ'}</button>
             <button className="more" aria-label={`เมนู ${store.name}`} onClick={()=>notify(`เมนูเพิ่มเติม: ${store.name}`)}><MoreVertical/></button>
           </div>)}
           {filtered.length===0&&<div className="stores-empty">ไม่พบร้านค้าที่ตรงกับตัวกรอง กรุณาลองเปลี่ยนคำค้นหา</div>}

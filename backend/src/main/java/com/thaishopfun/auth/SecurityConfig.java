@@ -1,10 +1,13 @@
 package com.thaishopfun.auth;
 
+import com.thaishopfun.auth.authz.AuthorizationInterceptor;
+import com.thaishopfun.auth.authz.JsonSecurityErrorHandlers;
+import com.thaishopfun.auth.authz.PublicEndpointRegistry;
+import jakarta.servlet.DispatcherType;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -14,7 +17,13 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -28,6 +37,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 
 @Configuration
 @EnableConfigurationProperties(SecurityProperties.class)
@@ -42,7 +52,7 @@ public class SecurityConfig {
             return User.withUsername(account.getId().toString())
                 .password(account.getPasswordHash())
                 .roles(account.getRole().name())
-                .disabled(account.getStatus() != UserStatus.ACTIVE)
+                .disabled(account.getStatus() != UserStatus.ACTIVE || account.isDeleted())
                 .build();
         };
     }
@@ -62,9 +72,34 @@ public class SecurityConfig {
         return NimbusJwtEncoder.withSecretKey(key).algorithm(MacAlgorithm.HS256).build();
     }
 
-    @Bean JwtDecoder jwtDecoder(SecurityProperties properties) {
+    @Bean JwtDecoder jwtDecoder(SecurityProperties properties, UserAccountRepository users) {
         var key = new SecretKeySpec(properties.jwtSecret().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-        return NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+        var decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefault(), permissionVersionValidator(users)));
+        return decoder;
+    }
+
+    /**
+     * Access tokens carry the user's permission_version as "pv". Password reset/change (and any future
+     * revoke/suspend) bumps users.permission_version, so older access tokens stop working immediately.
+     * Cost: one primary-key lookup per authenticated request. Suspended/deleted users are rejected too.
+     */
+    static OAuth2TokenValidator<Jwt> permissionVersionValidator(UserAccountRepository users) {
+        var invalid = OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Access token is no longer valid", null));
+        return jwt -> {
+            UUID userId;
+            try {
+                userId = UUID.fromString(jwt.getSubject());
+            } catch (RuntimeException exception) {
+                return invalid;
+            }
+            Object claim = jwt.getClaims().get("pv");
+            if (!(claim instanceof Number tokenVersion)) return invalid;
+            return users.findActivePermissionVersion(userId)
+                .filter(current -> current == tokenVersion.intValue())
+                .map(current -> OAuth2TokenValidatorResult.success())
+                .orElse(invalid);
+        };
     }
 
     @Bean JwtAuthenticationConverter jwtAuthenticationConverter() {
@@ -76,19 +111,29 @@ public class SecurityConfig {
         return converter;
     }
 
-    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter converter) throws Exception {
+    /**
+     * Layer 1 (this filter chain): endpoints annotated {@code @PublicEndpoint} are permitAll, every other request
+     * needs a valid access token (401 JSON otherwise). Layer 2 ({@link AuthorizationInterceptor}): the permission
+     * declared on the endpoint is checked against the role/permission matrix in the database (403 / 404).
+     * The legacy "roles" claim (users.role) is no longer used for authorization.
+     */
+    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter converter, PublicEndpointRegistry publicEndpoints) throws Exception {
+        var entryPoint = JsonSecurityErrorHandlers.authenticationEntryPoint();
+        var accessDenied = JsonSecurityErrorHandlers.accessDeniedHandler();
         return http
             .csrf(csrf -> csrf.disable())
             .cors(cors -> {})
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/shops", "/api/shops/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/categories").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                .requestMatchers("/error").permitAll()
+                .requestMatchers(publicEndpoints).permitAll()
                 .anyRequest().authenticated())
-            .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(converter)))
+            .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint).accessDeniedHandler(accessDenied))
+            .oauth2ResourceServer(oauth -> oauth
+                .jwt(jwt -> jwt.jwtAuthenticationConverter(converter))
+                .authenticationEntryPoint(entryPoint)
+                .accessDeniedHandler(accessDenied))
             .build();
     }
 
@@ -103,4 +148,3 @@ public class SecurityConfig {
         return source;
     }
 }
-

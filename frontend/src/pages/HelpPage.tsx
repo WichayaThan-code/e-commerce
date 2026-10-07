@@ -23,6 +23,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { accountKind } from "../services/permissions";
 import helpReference from "../assets/images/references/help/help.png";
 import "../styles/recommended-products.css";
 import "../styles/best-seller.css";
@@ -164,9 +165,9 @@ export default function HelpPage() {
     ? `${user.firstName} ${user.lastName}`.trim() || user.email
     : "";
   const dashboard =
-    user?.role === "ADMIN"
+    accountKind(user) === "ADMIN"
       ? "/admin"
-      : user?.role === "MERCHANT"
+      : accountKind(user) === "MERCHANT"
         ? "/merchant/dashboard"
         : "/";
   const visibleFaqs = useMemo(() => {
@@ -217,9 +218,9 @@ export default function HelpPage() {
                   <span>
                     <b>{accountName}</b>
                     <small>
-                      {user.role === "CUSTOMER"
+                      {accountKind(user) === "CUSTOMER"
                         ? "ลูกค้า"
-                        : user.role === "MERCHANT"
+                        : accountKind(user) === "MERCHANT"
                           ? "เจ้าของร้าน"
                           : "ผู้ดูแลระบบ"}
                     </small>

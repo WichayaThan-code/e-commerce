@@ -53,8 +53,8 @@ public class MerchantApplication {
     @Column(name="bank_account_encrypted",columnDefinition="text") private String bankAccountEncrypted;
     @Column(name="bank_account_name") private String bankAccountName;
     @Column(name="submitted_at") private Instant submittedAt;
-    @Column(name="created_at", nullable=false) private Instant createdAt;
-    @Column(name="updated_at", nullable=false) private Instant updatedAt;
+    @Column(name="created_date_time", nullable=false) private Instant createdAt;
+    @Column(name="modified_date_time", nullable=false) private Instant updatedAt;
 
     protected MerchantApplication() {}
     public MerchantApplication(UserAccount user) { var now=Instant.now(); this.id=UUID.randomUUID(); this.user=user; this.status=ApplicationStatus.DRAFT; this.createdAt=now; this.updatedAt=now; }

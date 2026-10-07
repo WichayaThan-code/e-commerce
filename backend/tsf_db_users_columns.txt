@@ -1,0 +1,20 @@
+﻿id uuid NOT NULL DEFAULT gen_random_uuid()
+first_name character varying(100) NOT NULL
+last_name character varying(100) NOT NULL
+email character varying(255) NOT NULL
+phone character varying(30) NOT NULL
+password_hash character varying(255) NOT NULL
+role character varying(30) NOT NULL DEFAULT 'CUSTOMER'::character varying
+status character varying(30) NOT NULL DEFAULT 'ACTIVE'::character varying
+email_verified_at timestamp with time zone
+phone_verified_at timestamp with time zone
+last_login_at timestamp with time zone
+permission_version integer NOT NULL DEFAULT 0
+deleted_at timestamp with time zone
+suspended_at timestamp with time zone
+suspended_by uuid
+suspend_reason_code character varying(50)
+created_date_time timestamp with time zone NOT NULL DEFAULT now()
+created_by uuid
+modified_date_time timestamp with time zone NOT NULL DEFAULT now()
+modified_by uuid

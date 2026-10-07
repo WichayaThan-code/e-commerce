@@ -3,11 +3,14 @@ import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useActiveShop } from "../contexts/ActiveShopContext";
+import { usePermissions } from "../hooks/usePermissions";
 import { ApiError, merchantApi, type ReinstatementRequest } from "../services/api";
 import "../styles/styles.css";
 
 export default function ReinstatementPage() {
   const { shopId, shops, ready } = useActiveShop();
+  const { canInShop, deniedTitle } = usePermissions();
+  const canSubmit = canInShop("SHOP_UPDATE");
   const shop = shops.find((item) => item.shopId === shopId);
   const [current, setCurrent] = useState<ReinstatementRequest | null>(null);
   const [message, setMessage] = useState("");
@@ -71,7 +74,7 @@ export default function ReinstatementPage() {
             </label>
             <small>{message.trim().length}/1000</small>
             <div>
-              <button type="submit" disabled={busy || message.trim().length < 10}>{busy ? "กำลังส่ง..." : pending ? "อัปเดตคำร้อง" : "ส่งคำร้อง"}</button>
+              <button type="submit" disabled={busy || !canSubmit || message.trim().length < 10} title={deniedTitle(canSubmit)}>{busy ? "กำลังส่ง..." : pending ? "อัปเดตคำร้อง" : "ส่งคำร้อง"}</button>
               <Link className="quiet" to="/merchant/store">กลับไปข้อมูลร้าน</Link>
             </div>
           </form>

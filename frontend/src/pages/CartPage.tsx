@@ -18,6 +18,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { accountKind } from "../services/permissions";
 import cartReference from "../assets/images/references/storefront/customer-shopping.png";
 import "../styles/cart.css";
 
@@ -100,7 +101,7 @@ export default function CartPage() {
         <CartBrand/>
         <form onSubmit={event => { event.preventDefault(); notify("กำลังค้นหาสินค้า"); }}><input aria-label="ค้นหาสินค้า" placeholder="ค้นหาสินค้า แบรนด์ หรือร้านค้า..."/><button aria-label="ค้นหา"><Search/></button></form>
         <div className="cart-account">
-          {user ? <a href={user.role === "ADMIN" ? "/admin" : user.role === "MERCHANT" ? "/merchant/dashboard" : "/"}><UserRound/><span><b>{accountName}</b><small>{user.role === "CUSTOMER" ? "ลูกค้า" : "บัญชีของฉัน"}</small></span></a> : <><a href="/login"><UserRound/>เข้าสู่ระบบ</a><a className="cart-signup" href="/signup">สมัครสมาชิก</a></>}
+          {user ? <a href={accountKind(user) === "ADMIN" ? "/admin" : accountKind(user) === "MERCHANT" ? "/merchant/dashboard" : "/"}><UserRound/><span><b>{accountName}</b><small>{accountKind(user) === "CUSTOMER" ? "ลูกค้า" : "บัญชีของฉัน"}</small></span></a> : <><a href="/login"><UserRound/>เข้าสู่ระบบ</a><a className="cart-signup" href="/signup">สมัครสมาชิก</a></>}
           <a className="cart-icon" href="/cart" aria-label="ตะกร้าสินค้า"><ShoppingCart/><i>{items.length}</i></a>
         </div>
       </div>

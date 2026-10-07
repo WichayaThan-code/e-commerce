@@ -34,6 +34,8 @@ import {
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
+import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
+import { usePermissions } from "../hooks/usePermissions";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/customer-management.css";
@@ -217,6 +219,11 @@ function Channel({ name }: { name: string }) {
 
 export default function CustomerManagementPage() {
   const { user, loading } = useAuth();
+  const { canInShop, canSeeMenuItem, deniedTitle } = usePermissions();
+  const canCreate = canInShop("CUSTOMER_CREATE");
+  const canUpdate = canInShop("CUSTOMER_UPDATE");
+  const canReadPii = canInShop("CUSTOMER_PII_READ");
+  const canReadOrders = canInShop("ORDER_READ");
   const [query, setQuery] = useState("");
   const [channel, setChannel] = useState("ทั้งหมด");
   const [status, setStatus] = useState("ทั้งหมด");
@@ -230,11 +237,11 @@ export default function CustomerManagementPage() {
     window.location.replace("/login?next=/merchant/customers");
     return null;
   }
-  if (user.role === "ADMIN") {
+  if ((hasPlatformAccess(user) && !hasMerchantAccess(user))) {
     window.location.replace("/admin");
     return null;
   }
-  if (user.role !== "MERCHANT") {
+  if (!hasMerchantAccess(user)) {
     window.location.replace("/");
     return null;
   }
@@ -285,7 +292,7 @@ export default function CustomerManagementPage() {
       </header>
       <aside className="merchant-sidebar pm-sidebar cm-sidebar">
         <nav>
-          {menu.map(([Icon, label, href, badge]) => (
+          {menu.filter(canSeeMenuItem).map(([Icon, label, href, badge]) => (
             <a
               className={label === "ลูกค้า" ? "active" : ""}
               href={href}
@@ -336,14 +343,14 @@ export default function CustomerManagementPage() {
             <p>ดูแลลูกค้าของคุณ สร้างความสัมพันธ์ และเพิ่มยอดขายอย่างยั่งยืน</p>
           </div>
           <div className="pm-actions">
-            <button
+            <button disabled={!canCreate} title={deniedTitle(canCreate)}
               className="primary"
               onClick={() => notify("เปิดแบบฟอร์มเพิ่มลูกค้า")}
             >
               <UserPlus />
               เพิ่มลูกค้า <ChevronDown />
             </button>
-            <button onClick={() => notify("ส่งออกข้อมูลลูกค้าเป็น Excel แล้ว")}>
+            <button disabled={!canReadPii} title={deniedTitle(canReadPii)} onClick={() => notify("ส่งออกข้อมูลลูกค้าเป็น Excel แล้ว")}>
               <Download />
               ส่งออก (Excel)
             </button>
@@ -609,7 +616,7 @@ export default function CustomerManagementPage() {
                 <h2>{selected.name}</h2>
                 <span>♛ VIP</span>
               </div>
-              <button onClick={() => notify(`แก้ไขข้อมูล ${selected.name}`)}>
+              <button disabled={!canUpdate} title={deniedTitle(canUpdate)} onClick={() => notify(`แก้ไขข้อมูล ${selected.name}`)}>
                 <Pencil />
                 แก้ไข
               </button>
@@ -673,7 +680,7 @@ export default function CustomerManagementPage() {
             <section className="cm-note">
               <h3>
                 หมายเหตุ{" "}
-                <button onClick={() => notify("เปิดแก้ไขหมายเหตุ")}>
+                <button disabled={!canUpdate} title={deniedTitle(canUpdate)} onClick={() => notify("เปิดแก้ไขหมายเหตุ")}>
                   <Pencil />
                   แก้ไข
                 </button>
@@ -685,13 +692,13 @@ export default function CustomerManagementPage() {
               </p>
             </section>
             <div className="cm-detail-actions">
-              <button
+              <button disabled={!canReadPii} title={deniedTitle(canReadPii)}
                 onClick={() => notify(`กำลังส่งข้อความถึง ${selected.name}`)}
               >
                 <Mail />
                 ส่งข้อความ
               </button>
-              <button
+              <button disabled={!canReadOrders} title={deniedTitle(canReadOrders)}
                 className="primary"
                 onClick={() =>
                   notify(`เปิดประวัติการสั่งซื้อของ ${selected.name}`)

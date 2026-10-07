@@ -22,3 +22,16 @@ app:
     refresh-token-days: 30
     secure-cookies: false
     allowed-origin: http://localhost:5173
+    otp-ttl-minutes: 5
+    otp-max-attempts: 5
+    otp-resend-cooldown-seconds: 1
+    otp-max-per-hour: 20
+    max-login-attempts: 5
+    login-lockout-minutes: 15
+    password-reset-ttl-minutes: 30
+    otp-expose-code: true
+  notification:
+    email-provider: log
+    sms-provider: log
+    frontend-url: http://localhost:5173
+    reset-password-path: /reset-password

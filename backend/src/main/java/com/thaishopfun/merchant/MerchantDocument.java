@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name="merchant_documents",uniqueConstraints=@UniqueConstraint(name="uq_merchant_document_type",columnNames={"application_id","document_type"}))
+@Table(name="merchant_documents",uniqueConstraints=@UniqueConstraint(name="uq_merchant_documents_application_id_document_type",columnNames={"application_id","document_type"}))
 public class MerchantDocument {
     @Id private UUID id;
     @ManyToOne(fetch=FetchType.LAZY,optional=false) @JoinColumn(name="application_id") private MerchantApplication application;

@@ -10,6 +10,7 @@ import {
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
+import { hasPlatformAccess } from '../services/permissions'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-promotions.css'
 
@@ -41,7 +42,7 @@ export default function AdminPromotionsPage(){
   const filtered=useMemo(()=>promos.filter(item=>`${item.name} ${item.code} ${item.shop}`.toLowerCase().includes(query.trim().toLowerCase())&&(status==='ทั้งหมด'||item.status===status)&&(type==='ทั้งหมด'||item.type===type)&&(activeType.startsWith('ทั้งหมด')||item.type===activeType.split(' (')[0])),[query,status,type,activeType])
   if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
   if(!user){window.location.replace('/login');return null}
-  if(user.role!=='ADMIN'){window.location.replace('/dashboard');return null}
+  if(!hasPlatformAccess(user)){window.location.replace('/dashboard');return null}
   const notify=(message:string)=>{setNotice(message);window.setTimeout(()=>setNotice(''),1900)}
   const reset=()=>{setQuery('');setStatus('ทั้งหมด');setType('ทั้งหมด');setActiveType('ทั้งหมด (24)')}
   const toggle=(id:number)=>setSelected(rows=>rows.includes(id)?rows.filter(row=>row!==id):[...rows,id])

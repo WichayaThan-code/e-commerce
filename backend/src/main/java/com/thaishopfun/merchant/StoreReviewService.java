@@ -1,6 +1,7 @@
 package com.thaishopfun.merchant;
 
 import com.thaishopfun.auth.AuthException;
+import com.thaishopfun.auth.authz.AuthorizationService;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -17,12 +18,14 @@ public class StoreReviewService {
     private final MerchantDocumentRepository documents;
     private final MerchantStorageService storage;
     private final ShopReinstatementService reinstatements;
+    private final AuthorizationService authorization;
 
-    public StoreReviewService(ShopRepository shops, MerchantDocumentRepository documents, MerchantStorageService storage, ShopReinstatementService reinstatements) {
+    public StoreReviewService(ShopRepository shops, MerchantDocumentRepository documents, MerchantStorageService storage, ShopReinstatementService reinstatements, AuthorizationService authorization) {
         this.shops = shops;
         this.documents = documents;
         this.storage = storage;
         this.reinstatements = reinstatements;
+        this.authorization = authorization;
     }
 
     @Transactional(readOnly = true)
@@ -111,7 +114,7 @@ public class StoreReviewService {
         var updated = new java.util.ArrayList<MerchantDtos.AdminStoreApplicationResponse>();
         var skipped = 0;
         for (var shopId : shopIds.stream().distinct().toList()) {
-            var shop = shops.findById(shopId).orElse(null);
+            var shop = shops.findByShopId(shopId).orElse(null);
             if (shop == null || shop.getStatus() != required) {
                 skipped++;
                 continue;
@@ -141,8 +144,13 @@ public class StoreReviewService {
     }
 
     @Transactional(readOnly = true)
-    public MerchantDtos.StoreAccessResponse access(UUID userId, Long shopId) {
-        var owned = shops.findByUser_IdOrderByShopIdDesc(userId);
+    public MerchantDtos.StoreAccessResponse access(UUID userId, Long shopId, String permission) {
+        if (shopId != null && authorization.isSuperAdmin(userId)) {
+            var shop = shop(shopId);
+            return new MerchantDtos.StoreAccessResponse(shop.getStatus() == ShopStatus.APPROVED, true, shop.getStatus(), shop.getName(), shop.getSlug(), shop.getId());
+        }
+        var allowed = authorization.shopsWithPermission(userId, permission);
+        var owned = shops.findMemberShops(userId).stream().filter(shop -> allowed.contains(shop.getId())).toList();
         if (owned.isEmpty()) return new MerchantDtos.StoreAccessResponse(false, false, null, null, null, null);
         Shop shop;
         if (shopId == null) {
@@ -155,7 +163,7 @@ public class StoreReviewService {
     }
 
     private Shop shop(Long shopId) {
-        return shops.findById(shopId).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบใบสมัครร้านค้า"));
+        return shops.findByShopId(shopId).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบใบสมัครร้านค้า"));
     }
 
     private MerchantDtos.AdminStoreApplicationResponse toAdmin(Shop shop) {

@@ -32,6 +32,8 @@ import {
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
+import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
+import { usePermissions } from "../hooks/usePermissions";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/promotion-management.css";
@@ -87,6 +89,9 @@ function PromoIcon({ kind }: { kind: Promotion["icon"] }) {
 
 export default function PromotionManagementPage() {
   const { user, loading } = useAuth();
+  // interim: no PROMOTION_* permission in the seed yet, promotions are shop settings
+  const { canInShop, canSeeMenuItem, deniedTitle } = usePermissions();
+  const canManage = canInShop("SHOP_UPDATE");
   const [promotions] = useState(initialPromotions);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ทั้งหมด");
@@ -98,8 +103,8 @@ export default function PromotionManagementPage() {
 
   if (loading) return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
   if (!user) { window.location.replace("/login?next=/merchant/promotions"); return null; }
-  if (user.role === "ADMIN") { window.location.replace("/admin"); return null; }
-  if (user.role !== "MERCHANT") { window.location.replace("/"); return null; }
+  if ((hasPlatformAccess(user) && !hasMerchantAccess(user))) { window.location.replace("/admin"); return null; }
+  if (!hasMerchantAccess(user)) { window.location.replace("/"); return null; }
 
   const shopName = (user.firstName || "MaeSomchai").toLowerCase() === "merchant" ? "MaeSomchai Official" : `${user.firstName || "MaeSomchai"} Official`;
   const notify = (message: string) => {
@@ -128,7 +133,7 @@ export default function PromotionManagementPage() {
       </header>
 
       <aside className="merchant-sidebar pm-sidebar promo-sidebar">
-        <nav>{menu.map(([Icon, label, href, badge]) => (
+        <nav>{menu.filter(canSeeMenuItem).map(([Icon, label, href, badge]) => (
           <a className={label === "โปรโมชั่น/คูปอง" ? "active" : ""} href={href} key={label} onClick={(event) => { if ((href as string) === "#") { event.preventDefault(); notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`); } }}>
             <Icon />{label}{badge && <i>{badge}</i>}
           </a>
@@ -140,7 +145,7 @@ export default function PromotionManagementPage() {
       <section className="pm-content promo-content">
         <header className="pm-heading promo-heading">
           <div><h1><Tag />โปรโมชั่น / คูปอง</h1><p>สร้างและจัดการโปรโมชั่น เพื่อกระตุ้นยอดขายให้ร้านของคุณ</p></div>
-          <div className="pm-actions"><button onClick={() => notify("เปิดประวัติการใช้คูปอง")}><TicketPercent />ดูประวัติการใช้คูปอง</button><button className="primary" onClick={() => notify("เปิดแบบฟอร์มสร้างโปรโมชั่น / คูปอง")}><Plus />สร้างโปรโมชั่น / คูปอง</button></div>
+          <div className="pm-actions"><button onClick={() => notify("เปิดประวัติการใช้คูปอง")}><TicketPercent />ดูประวัติการใช้คูปอง</button><button disabled={!canManage} title={deniedTitle(canManage)} className="primary" onClick={() => notify("เปิดแบบฟอร์มสร้างโปรโมชั่น / คูปอง")}><Plus />สร้างโปรโมชั่น / คูปอง</button></div>
         </header>
 
         <section className="pm-kpis promo-kpis">
@@ -176,7 +181,7 @@ export default function PromotionManagementPage() {
                     <td>{promotion.period.split("\n").map((line) => <span key={line}>{line}</span>)}</td>
                     <td><b>{promotion.used.toLocaleString()} / {promotion.limit.toLocaleString()} ครั้ง</b><div className="promo-progress"><i style={{ width: `${percent}%` }} /></div><small>{percent}%</small></td>
                     <td><span className={`promo-status ${promotion.status === "ใช้งานอยู่" ? "on" : promotion.status === "หมดอายุ" ? "expired" : "ending"}`}>{promotion.status}</span></td>
-                    <td><div className="promo-row-actions"><button aria-label={`แก้ไข ${promotion.code}`} onClick={() => notify(`กำลังแก้ไข ${promotion.code}`)}><Pencil /></button><button aria-label={`ทำสำเนา ${promotion.code}`} onClick={() => notify(`ทำสำเนา ${promotion.code} แล้ว`)}><Copy /></button><button aria-label={`ตัวเลือก ${promotion.code}`} onClick={() => notify(`เปิดตัวเลือกของ ${promotion.code}`)}><Ellipsis /></button></div></td>
+                    <td><div className="promo-row-actions"><button disabled={!canManage} title={deniedTitle(canManage)} aria-label={`แก้ไข ${promotion.code}`} onClick={() => notify(`กำลังแก้ไข ${promotion.code}`)}><Pencil /></button><button disabled={!canManage} title={deniedTitle(canManage)} aria-label={`ทำสำเนา ${promotion.code}`} onClick={() => notify(`ทำสำเนา ${promotion.code} แล้ว`)}><Copy /></button><button disabled={!canManage} title={deniedTitle(canManage)} aria-label={`ตัวเลือก ${promotion.code}`} onClick={() => notify(`เปิดตัวเลือกของ ${promotion.code}`)}><Ellipsis /></button></div></td>
                   </tr>;
                 })}</tbody>
               </table>
@@ -188,7 +193,7 @@ export default function PromotionManagementPage() {
           <aside className="promo-aside">
             <section className="promo-guide"><h2><Megaphone />สร้างโปรโมชั่นง่ายๆ</h2>{["เลือกประเภทโปรโมชั่น", "ตั้งค่าส่วนลดและเงื่อนไข", "กำหนดช่วงเวลา", "เลือกสินค้าที่ร่วมรายการ (ถ้ามี)", "เผยแพร่ และเริ่มใช้งานได้ทันที"].map((text) => <p key={text}><b>✓</b>{text}</p>)}</section>
             <section className="promo-ideas"><h2><Lightbulb />ไอเดียโปรโมชั่น</h2>{["ส่วนลดต้อนรับลูกค้าใหม่", "คูปองวันเกิด", "ส่งฟรีเมื่อซื้อครบตามกำหนด", "ซื้อครบ X ลด Y", "แฟลชเซลล์ช่วงเทศกาล", "โปรเฉพาะสมาชิก"].map((text) => <button key={text} onClick={() => notify(`เลือกไอเดีย: ${text}`)}><span>♨</span>{text}<ChevronRight /></button>)}</section>
-            <section className="promo-cta"><Gift /><h2>โปรโมชั่นดี ๆ<br />เพิ่มยอดขายให้ร้าน</h2><button onClick={() => notify("เปิดแบบฟอร์มสร้างโปรโมชั่น / คูปอง")}>เริ่มสร้างเลยวันนี้!</button></section>
+            <section className="promo-cta"><Gift /><h2>โปรโมชั่นดี ๆ<br />เพิ่มยอดขายให้ร้าน</h2><button disabled={!canManage} title={deniedTitle(canManage)} onClick={() => notify("เปิดแบบฟอร์มสร้างโปรโมชั่น / คูปอง")}>เริ่มสร้างเลยวันนี้!</button></section>
           </aside>
         </div>
       </section>

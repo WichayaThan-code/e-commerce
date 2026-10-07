@@ -61,6 +61,11 @@ export default function ActiveShopProvider() {
   );
 }
 
+/** Same as useActiveShop but returns null outside the merchant area (used by usePermissions). */
+export function useOptionalActiveShop() {
+  return useContext(ActiveShopContext);
+}
+
 export function useActiveShop() {
   const value = useContext(ActiveShopContext);
   if (!value) throw new Error("useActiveShop must be used inside ActiveShopProvider");

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Archive, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Download, Eye, LoaderCircle, Pencil, Plus, RotateCcw, Search, Upload } from "lucide-react";
@@ -11,6 +12,44 @@ import { labelForCategory } from "../services/categories";
 import { catalogMessage, formatMoney, formatWhen } from "../services/catalogText";
 import { ApiError, catalogApi, productApi, type Product, type ProductCategory, type ProductSort, type ProductStatus, type StockFilter } from "../services/api";
 import type { Locale } from "../i18n";
+=======
+import { useState } from "react";
+import {
+  BarChart3,
+  Bell,
+  Box,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  CircleUserRound,
+  Copy,
+  Crown,
+  Download,
+  Headphones,
+  Home,
+  Package,
+  Pencil,
+  Plus,
+  Search,
+  Settings,
+  ShoppingBag,
+  Store,
+  TicketPercent,
+  Trash2,
+  Truck,
+  Upload,
+  WalletCards,
+} from "lucide-react";
+import LanguageSwitcher from "../components/LanguageSwitcher";
+import MerchantShopMenu from "../components/MerchantShopMenu";
+import { useAuth } from "../contexts/AuthContext";
+import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
+import { usePermissions } from "../hooks/usePermissions";
+import productManageImage from "../assets/images/references/merchant/product-manage.png";
+import "../styles/merchant-dashboard.css";
+import "../styles/product-management.css";
+>>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
 
 const tabs = [
   ["", "all"],
@@ -28,6 +67,7 @@ function stockBadge(product: Product) {
 }
 
 export default function ProductManagementPage() {
+<<<<<<< HEAD
   const { t, i18n } = useTranslation("merchant");
   const locale = (i18n.language || "th") as Locale;
   const { shopId } = useActiveShop();
@@ -58,6 +98,35 @@ export default function ProductManagementPage() {
   const [importJobId, setImportJobId] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
+=======
+  const { user, loading } = useAuth();
+  const { canInShop, canSeeMenuItem, deniedTitle } = usePermissions();
+  const canImport = canInShop("PRODUCT_IMPORT");
+  const canCreate = canInShop("PRODUCT_CREATE");
+  const canUpdate = canInShop("PRODUCT_UPDATE");
+  const canArchive = canInShop("PRODUCT_ARCHIVE");
+  const [products, setProducts] = useState(initialProducts);
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("ทั้งหมด");
+  const [status, setStatus] = useState("ทั้งหมด");
+  const [stock, setStock] = useState("ทั้งหมด");
+  const [notice, setNotice] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  if (loading)
+    return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
+  if (!user) {
+    window.location.replace("/login?next=/merchant/products");
+    return null;
+  }
+  if ((hasPlatformAccess(user) && !hasMerchantAccess(user))) {
+    window.location.replace("/admin");
+    return null;
+  }
+  if (!hasMerchantAccess(user)) {
+    window.location.replace("/");
+    return null;
+  }
+>>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
 
   useEffect(() => { setQuery(q); }, [q]);
   useEffect(() => {
@@ -303,6 +372,7 @@ export default function ProductManagementPage() {
             onChange={(picked) => patch({ sort: sortChoices.find(([, label]) => label === picked)?.[0] || "newest" })}
           />
         </form>
+<<<<<<< HEAD
         {selected.length > 0 && (
           <div className="pm-bulk">
             <span>{t("catalog.selected", { count: selected.length })}</span>
@@ -340,6 +410,313 @@ export default function ProductManagementPage() {
                     <th>{t("catalog.columns.status")}</th>
                     <th>{t("catalog.columns.updated")}</th>
                     <th>{t("catalog.columns.actions")}</th>
+=======
+        <LanguageSwitcher /> <button className="merchant-bell" aria-label="การแจ้งเตือน">
+          <Bell />
+          <i>3</i>
+        </button>
+        <MerchantShopMenu />
+      </header>
+
+      <aside className="merchant-sidebar pm-sidebar">
+        <nav>
+          {menu.filter(canSeeMenuItem).map(([Icon, label, href, badge]) => (
+            <a
+              className={label === "จัดการสินค้า" ? "active" : ""}
+              href={href}
+              key={label}
+              onClick={(event) => {
+                if ((href as string) === "#") {
+                  event.preventDefault();
+                  notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`);
+                }
+              }}
+            >
+              <Icon />
+              {label}
+              {badge && <i>{badge}</i>}
+            </a>
+          ))}
+        </nav>
+        <section className="upgrade-card">
+          <Crown />
+          <h3>ยกระดับร้านค้าของคุณ</h3>
+          <p>
+            ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย
+            <br />
+            ได้มากกว่าเดิม
+          </p>
+          <button onClick={() => notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>
+            ดูแพ็กเกจ
+          </button>
+        </section>
+        <div className="merchant-support">
+          <a href="/help">
+            <CircleHelp />
+            ศูนย์ช่วยเหลือ
+          </a>
+          <button onClick={() => notify("กำลังติดต่อทีมงาน")}>
+            <Headphones />
+            ติดต่อทีมงาน
+          </button>
+        </div>
+      </aside>
+
+      <section className="pm-content">
+        <header className="pm-heading">
+          <div>
+            <h1>จัดการสินค้า</h1>
+            <p>เพิ่ม แก้ไข จัดหมวดหมู่ และดูสินค้าทั้งหมดในร้านของคุณ</p>
+          </div>
+          <div className="pm-actions">
+            <button disabled={!canImport} title={deniedTitle(canImport)} onClick={() => notify("เปิดหน้าต่างนำเข้าสินค้า")}>
+              <Upload />
+              นำเข้าสินค้า
+            </button>
+            <button onClick={() => notify("ส่งออกข้อมูลสินค้าเป็น Excel แล้ว")}>
+              <Download />
+              ส่งออก (Excel)
+            </button>
+            <button disabled={!canCreate} title={deniedTitle(canCreate)}
+              className="primary"
+              onClick={() => notify("เปิดแบบฟอร์มเพิ่มสินค้าใหม่")}
+            >
+              <Plus />
+              เพิ่มสินค้าใหม่
+            </button>
+          </div>
+        </header>
+
+        <section className="pm-kpis">
+          <article className="all">
+            <span>
+              <Package />
+            </span>
+            <div>
+              <small>สินค้าทั้งหมด</small>
+              <b>
+                {products.length === 8 ? "156" : 148 + products.length}
+                <i>↑ 12%</i>
+              </b>
+              <em>จากเดือนก่อน</em>
+            </div>
+          </article>
+          <article className="ready">
+            <span />
+            <div>
+              <small>สินค้าพร้อมขาย</small>
+              <b>
+                142<i>91%</i>
+              </b>
+              <em>แสดงบนร้านค้า</em>
+            </div>
+          </article>
+          <article className="low">
+            <span />
+            <div>
+              <small>สินค้าสต็อกต่ำ</small>
+              <b>
+                8<i>5%</i>
+              </b>
+              <em>ต่ำกว่า 10 ชิ้น</em>
+            </div>
+          </article>
+          <article className="empty">
+            <span />
+            <div>
+              <small>สินค้าหมดสต็อก</small>
+              <b>
+                {products.filter((p) => p.stock === 0).length + 4}
+                <i>4%</i>
+              </b>
+              <em>ไม่แสดงบนร้านค้า</em>
+            </div>
+          </article>
+        </section>
+
+        <section className="pm-table-card">
+          <form
+            className="pm-filters"
+            onSubmit={(event) => {
+              event.preventDefault();
+              notify(`พบสินค้า ${visible.length} รายการ`);
+            }}
+          >
+            <label className="pm-search">
+              <Search />
+              <input
+                aria-label="ค้นหาสินค้า"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="ค้นหาชื่อสินค้า, SKU, หมวดหมู่..."
+              />
+            </label>
+            <label>
+              หมวดหมู่
+              <select
+                aria-label="หมวดหมู่"
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+              >
+                <option>ทั้งหมด</option>
+                {[...new Set(products.map((p) => p.category))].map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              สถานะ
+              <select
+                aria-label="สถานะ"
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+              >
+                <option>ทั้งหมด</option>
+                <option>พร้อมขาย</option>
+                <option>หมดสต็อก</option>
+              </select>
+            </label>
+            <label>
+              สต็อก
+              <select
+                aria-label="สต็อก"
+                value={stock}
+                onChange={(event) => setStock(event.target.value)}
+              >
+                <option>ทั้งหมด</option>
+                <option>ต่ำกว่า 10</option>
+                <option>หมดสต็อก</option>
+              </select>
+            </label>
+            <label>
+              ช่วงราคา
+              <select aria-label="ช่วงราคา">
+                <option>ทั้งหมด</option>
+                <option>ต่ำกว่า ฿200</option>
+                <option>฿200 - ฿500</option>
+              </select>
+            </label>
+            <div>
+              <button type="button" onClick={reset}>
+                รีเซ็ต
+              </button>
+              <button className="primary">ค้นหา</button>
+            </div>
+          </form>
+          <div className="pm-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>
+                    <input
+                      aria-label="เลือกสินค้าทั้งหมด"
+                      type="checkbox"
+                      checked={
+                        visible.length > 0 && selected.length === visible.length
+                      }
+                      onChange={toggleAll}
+                    />
+                  </th>
+                  <th>สินค้า</th>
+                  <th>SKU</th>
+                  <th>หมวดหมู่</th>
+                  <th>ราคา</th>
+                  <th>สต็อก</th>
+                  <th>สถานะ</th>
+                  <th>ยอดขาย (30 วัน)</th>
+                  <th>วันที่อัปเดต</th>
+                  <th>จัดการ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((product) => (
+                  <tr key={product.sku}>
+                    <td>
+                      <input
+                        aria-label={`เลือก ${product.name}`}
+                        type="checkbox"
+                        checked={selected.includes(product.sku)}
+                        onChange={() =>
+                          setSelected((items) =>
+                            items.includes(product.sku)
+                              ? items.filter((sku) => sku !== product.sku)
+                              : [...items, product.sku],
+                          )
+                        }
+                      />
+                    </td>
+                    <td>
+                      <div className="pm-product">
+                        <ProductThumb product={product} />
+                        <p>
+                          <b>{product.name}</b>
+                          <small>{product.detail}</small>
+                        </p>
+                      </div>
+                    </td>
+                    <td>{product.sku}</td>
+                    <td>{product.category}</td>
+                    <td>
+                      <b>฿ {product.price}</b>
+                    </td>
+                    <td
+                      className={
+                        product.stock === 0
+                          ? "stock-zero"
+                          : product.stock < 10
+                            ? "stock-low"
+                            : "stock-ok"
+                      }
+                    >
+                      {product.stock}
+                    </td>
+                    <td>
+                      <span
+                        className={
+                          product.stock === 0
+                            ? "pm-status empty"
+                            : product.stock < 10
+                              ? "pm-status low"
+                              : "pm-status ready"
+                        }
+                      >
+                        {product.stock === 0
+                          ? "หมดสต็อก"
+                          : product.stock < 10
+                            ? "สต็อกต่ำ"
+                            : "พร้อมขาย"}
+                      </span>
+                    </td>
+                    <td>{product.sales}</td>
+                    <td>
+                      {product.updated.split("\n").map((part) => (
+                        <span key={part}>{part}</span>
+                      ))}
+                    </td>
+                    <td>
+                      <div className="pm-row-actions">
+                        <button disabled={!canUpdate} title={deniedTitle(canUpdate)}
+                          aria-label={`แก้ไข ${product.name}`}
+                          onClick={() => notify(`กำลังแก้ไข ${product.name}`)}
+                        >
+                          <Pencil />
+                        </button>
+                        <button disabled={!canCreate} title={deniedTitle(canCreate)}
+                          aria-label={`ทำสำเนา ${product.name}`}
+                          onClick={() => duplicate(product)}
+                        >
+                          <Copy />
+                        </button>
+                        <button disabled={!canArchive} title={deniedTitle(canArchive)}
+                          className="delete"
+                          aria-label={`ลบ ${product.name}`}
+                          onClick={() => remove(product)}
+                        >
+                          <Trash2 />
+                        </button>
+                      </div>
+                    </td>
+>>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
                   </tr>
                 </thead>
                 <tbody>

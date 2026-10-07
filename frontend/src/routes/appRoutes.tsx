@@ -1,10 +1,13 @@
 // src/routes/appRoutes.ts
+import type { ReactElement } from "react";
 import { RouteObject } from "react-router-dom";
 import PublicLayout from "../layouts/PublicLayout";
 import RouteProgress from "../components/RouteProgress";
 import MerchantSignupGuard from "../components/MerchantSignupGuard";
 import MerchantStoreGuard from "../components/MerchantStoreGuard";
 import ActiveShopProvider from "../contexts/ActiveShopContext";
+import PermissionRoute from "../components/PermissionRoute";
+import { ROUTE_PERMISSIONS } from "../services/permissions";
 
 import MarketplacePage from "../pages/MarketplacePage";
 import LoginPage from "../pages/LoginPage";
@@ -49,6 +52,13 @@ import ShopPage from "../pages/ShopPage";
 import ShopProductPage from "../pages/ShopProductPage";
 import ShopsPage from "../pages/ShopsPage";
 
+/** Wraps a page with the permission declared for its path in services/permissions.ts. */
+function guarded(path: string, page: ReactElement) {
+  const rule = ROUTE_PERMISSIONS[path];
+  if (!rule) throw new Error(`No permission declared for route ${path}`);
+  return <PermissionRoute permission={rule.permission} scope={rule.scope}>{page}</PermissionRoute>;
+}
+
 export const routes: RouteObject[] = [
   {
     element: <RouteProgress />,
@@ -77,13 +87,13 @@ export const routes: RouteObject[] = [
   { path: "/dashboard", element: <DashboardPage /> },
 
   // 3. กลุ่มหน้า Admin
-  { path: "/admin", element: <AdminDashboardPage /> },
-  { path: "/admin/stores", element: <AdminStoresPage /> },
-  { path: "/admin/store-applications", element: <AdminApplicationsPage /> },
-  { path: "/admin/categories", element: <AdminCategoriesPage /> },
-  { path: "/admin/promotions", element: <AdminPromotionsPage /> },
-  { path: "/admin/users", element: <AdminUsersPage /> },
-  { path: "/admin/roles", element: <AdminRolesPage /> },
+  { path: "/admin", element: guarded("/admin", <AdminDashboardPage />) },
+  { path: "/admin/stores", element: guarded("/admin/stores", <AdminStoresPage />) },
+  { path: "/admin/store-applications", element: guarded("/admin/store-applications", <AdminApplicationsPage />) },
+  { path: "/admin/categories", element: guarded("/admin/categories", <AdminCategoriesPage />) },
+  { path: "/admin/promotions", element: guarded("/admin/promotions", <AdminPromotionsPage />) },
+  { path: "/admin/users", element: guarded("/admin/users", <AdminUsersPage />) },
+  { path: "/admin/roles", element: guarded("/admin/roles", <AdminRolesPage />) },
 
   // 4. กลุ่มหน้า Merchant
   {
@@ -92,6 +102,7 @@ export const routes: RouteObject[] = [
   {
     element: <MerchantStoreGuard />,
     children: [
+<<<<<<< HEAD
       { path: "/merchant/dashboard", element: <MerchantDashboardPage /> },
       { path: "/merchant/products", element: <ProductManagementPage /> },
       { path: "/merchant/products/new", element: <ProductFormPage /> },
@@ -106,6 +117,19 @@ export const routes: RouteObject[] = [
       { path: "/merchant/store", element: <MyStorePage /> },
       { path: "/merchant/settings", element: <SettingsPage /> },
       { path: "/merchant/reinstatement", element: <ReinstatementPage /> },
+=======
+      { path: "/merchant/dashboard", element: guarded("/merchant/dashboard", <MerchantDashboardPage />) },
+      { path: "/merchant/products", element: guarded("/merchant/products", <ProductManagementPage />) },
+      { path: "/merchant/orders", element: guarded("/merchant/orders", <OrderManagementPage />) },
+      { path: "/merchant/customers", element: guarded("/merchant/customers", <CustomerManagementPage />) },
+      { path: "/merchant/promotions", element: guarded("/merchant/promotions", <PromotionManagementPage />) },
+      { path: "/merchant/reports", element: guarded("/merchant/reports", <ReportsPage />) },
+      { path: "/merchant/finance", element: guarded("/merchant/finance", <FinancePage />) },
+      { path: "/merchant/shipping", element: guarded("/merchant/shipping", <ShippingPage />) },
+      { path: "/merchant/store", element: guarded("/merchant/store", <MyStorePage />) },
+      { path: "/merchant/settings", element: guarded("/merchant/settings", <SettingsPage />) },
+      { path: "/merchant/reinstatement", element: guarded("/merchant/reinstatement", <ReinstatementPage />) },
+>>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
     ],
   },
     ],

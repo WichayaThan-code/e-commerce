@@ -10,6 +10,7 @@ import {
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
+import { hasPlatformAccess } from '../services/permissions'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-categories.css'
 
@@ -38,7 +39,7 @@ export default function AdminCategoriesPage(){
   const filtered=useMemo(()=>categories.filter(item=>`${item.name} ${item.description}`.toLowerCase().includes(query.trim().toLowerCase())&&(status==='ทั้งหมด'||(status==='ใช้งาน'?item.active:!item.active))).sort((a,b)=>sort==='จำนวนสินค้า (มากสุด)'?b.products-a.products:sort==='ชื่อหมวดหมู่'?a.name.localeCompare(b.name,'th'):a.id-b.id),[query,status,sort])
   if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
   if(!user){window.location.replace('/login');return null}
-  if(user.role!=='ADMIN'){window.location.replace('/dashboard');return null}
+  if(!hasPlatformAccess(user)){window.location.replace('/dashboard');return null}
   const notify=(message:string)=>{setNotice(message);window.setTimeout(()=>setNotice(''),1900)}
   const toggle=(id:number)=>setSelected(rows=>rows.includes(id)?rows.filter(row=>row!==id):[...rows,id])
   const reset=()=>{setQuery('');setStatus('ทั้งหมด');setSort('วันที่สร้าง (ใหม่สุด)')}

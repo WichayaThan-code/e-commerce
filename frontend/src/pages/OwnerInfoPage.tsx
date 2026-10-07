@@ -10,11 +10,14 @@ import MerchantOnboardingSidebar from '../components/merchant/MerchantOnboarding
 import MerchantHeader from '../components/MerchantHeader'
 import SearchableSelect from '../components/SearchableSelect'
 import ThaiAddressFields, { emptyThaiAddress, type ThaiAddressValue } from '../components/ThaiAddressFields'
-import { ApiError, merchantApi, type DocumentType, type MerchantOwner } from '../services/api'
+import { merchantApi, type DocumentType, type MerchantOwner } from '../services/api'
+import { showApiFailure } from '../services/apiErrors'
 import FormField from '../components/form/FormField'
 import FormGrid from '../components/form/FormGrid'
 import { SHOP_IMAGE_ACCEPT } from '../services/shopImage'
 import { readMerchantDraft, rememberDocumentName, writeMerchantDraft, type OwnerDraft } from '../services/merchantDraft'
+import { documentFileError, focusFirstInvalid, mergeFieldError, ownerPayload, validateOwner } from '../services/merchantApplicationValidation'
+import i18n from '../i18n'
 import '../styles/owner-info.css'
 import '../styles/form-fields.css'
 
@@ -55,6 +58,11 @@ function UploadCard({ title, icon: Icon, type, labels }: { title: string; icon: 
   const [uploading, setUploading] = useState(false)
   const upload = async (selected?: File) => {
     if (!selected) return
+    const fileError = documentFileError(selected)
+    if (fileError) {
+      setFile(fileError)
+      return
+    }
     setUploading(true)
     setFile(labels.uploading)
     try {
@@ -62,7 +70,7 @@ function UploadCard({ title, icon: Icon, type, labels }: { title: string; icon: 
       setFile(selected.name)
       rememberDocumentName(user?.id, type, selected.name)
     } catch (error) {
-      setFile(error instanceof ApiError ? error.message : labels.fail)
+      showApiFailure(error, (message) => setFile(message))
     } finally {
       setUploading(false)
     }
@@ -110,6 +118,8 @@ export default function OwnerInfoPage() {
   const [bankAccountNumber, setBankAccountNumber] = useState(saved?.bankAccountNumber || '')
   const [bankAccountName, setBankAccountName] = useState(saved?.bankAccountName || '')
   const [message, setMessage] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [submitting, setSubmitting] = useState(false)
   const [owners, setOwners] = useState<MerchantOwner[]>([])
   const [adding, setAdding] = useState(false)
   const [picking, setPicking] = useState(false)
@@ -151,38 +161,42 @@ export default function OwnerInfoPage() {
     setEmail((current) => current || (user.email === 'admin' ? '' : user.email || ''))
   }, [user])
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const currentOwner = (): OwnerDraft => ({
+    ownerType, title, firstName, lastName, citizenId, birthDate, nationality, phone, email,
+    houseNo, villageNo, building, alley, road, province: thaiAddress.province, district: thaiAddress.district,
+    subdistrict: thaiAddress.subdistrict, postalCode: thaiAddress.postalCode, sameAddress, bankName,
+    bankAccountNumber, bankAccountName,
+  })
+
+  const blurOwner = (field: string) => {
+    setFieldErrors((prev) => mergeFieldError(prev, field, validateOwner(currentOwner())[field]))
+  }
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (submitting) return
     if (!user) {
       window.location.assign('/login?next=/merchant/owner-info')
       return
     }
-    if (!firstName.trim() || !lastName.trim() || !citizenId.trim() || !birthDate || !phone.trim() || !email.trim()) {
-      setMessage(o.errPersonal)
+    const owner = currentOwner()
+    const nextErrors = validateOwner(owner)
+    setFieldErrors(nextErrors)
+    setMessage('')
+    if (Object.keys(nextErrors).length > 0) {
+      focusFirstInvalid(nextErrors)
       return
     }
-    if (citizenId.replace(/\D/g, '').length < 13) {
-      setMessage(o.errCitizen)
-      return
+    setSubmitting(true)
+    try {
+      await merchantApi.validateOwner(ownerPayload(owner))
+      writeMerchantDraft(user.id, { ...readMerchantDraft(user.id), owner, ownerId: undefined })
+      navigate('/merchant/documents')
+    } catch (error) {
+      showApiFailure(error, setMessage, setFieldErrors)
+    } finally {
+      setSubmitting(false)
     }
-    if (!houseNo.trim() || !thaiAddress.province || !thaiAddress.district || !thaiAddress.subdistrict || !thaiAddress.postalCode) {
-      setMessage(o.errAddress)
-      return
-    }
-    if (!bankName || !bankAccountNumber.trim() || !bankAccountName.trim()) {
-      setMessage(o.errBank)
-      return
-    }
-    const owner: OwnerDraft = {
-      ownerType, title, firstName: firstName.trim(), lastName: lastName.trim(), citizenId: citizenId.trim(),
-      birthDate, nationality, phone: phone.trim(), email: email.trim(), houseNo: houseNo.trim(),
-      villageNo: villageNo.trim(), building: building.trim(), alley: alley.trim(), road: road.trim(),
-      province: thaiAddress.province, district: thaiAddress.district, subdistrict: thaiAddress.subdistrict,
-      postalCode: thaiAddress.postalCode, sameAddress, bankName, bankAccountNumber: bankAccountNumber.trim(),
-      bankAccountName: bankAccountName.trim(),
-    }
-    writeMerchantDraft(user.id, { ...readMerchantDraft(user.id), owner, ownerId: undefined })
-    navigate('/merchant/documents')
   }
 
   const reuseOwner = async (ownerId: string) => {
@@ -194,7 +208,7 @@ export default function OwnerInfoPage() {
       writeMerchantDraft(user.id, { ...readMerchantDraft(user.id), ownerId, documentsConfirmed: true })
       navigate('/merchant/review')
     } catch (error) {
-      setMessage(error instanceof ApiError ? (error.code === 'CITIZEN_ID_TAKEN' ? ob.review.errCitizenTaken : error.message) : o.errPersonal)
+      showApiFailure(error, setMessage)
     } finally {
       setPicking(false)
     }
@@ -222,7 +236,8 @@ export default function OwnerInfoPage() {
               </div>
             ) : null}
             {owners.length > 0 && adding ? <button type="button" className="owner-choice-back" onClick={() => setAdding(false)}>{o.reuseLabel}</button> : null}
-            <form onSubmit={submit} hidden={owners.length > 0 && !adding} noValidate>
+            <form onSubmit={(event) => void submit(event)} hidden={owners.length > 0 && !adding} noValidate>
+              {message && <p className="form-alert" role="alert">{message}</p>}
               <fieldset className="owner-type">
                 <legend>{o.ownerType}</legend>
                 <div>
@@ -233,27 +248,27 @@ export default function OwnerInfoPage() {
               <section className="owner-form-section">
                 <h3>{o.personal}</h3>
                 <div className="owner-person-grid">
-                  <SearchableSelect label={o.title} required options={[...o.titles]} value={title} onChange={setTitle} />
-                  <FormField className="flush" label={<>{o.firstName} <em>*</em></>} icon={UserRound}>
-                    <input value={firstName} autoComplete="given-name" onChange={(e) => setFirstName(e.target.value)} />
+                  <SearchableSelect field="title" error={fieldErrors.title} onBlur={() => blurOwner('title')} label={o.title} required options={[...o.titles]} value={title} onChange={setTitle} />
+                  <FormField className="flush" label={<>{o.firstName} <em>*</em></>} icon={UserRound} error={fieldErrors.firstName}>
+                    <input name="firstName" value={firstName} autoComplete="given-name" aria-invalid={Boolean(fieldErrors.firstName)} onChange={(e) => setFirstName(e.target.value)} onBlur={() => blurOwner('firstName')} />
                   </FormField>
-                  <FormField className="flush" label={<>{o.lastName} <em>*</em></>}>
-                    <input value={lastName} autoComplete="family-name" onChange={(e) => setLastName(e.target.value)} />
+                  <FormField className="flush" label={<>{o.lastName} <em>*</em></>} error={fieldErrors.lastName}>
+                    <input name="lastName" value={lastName} autoComplete="family-name" aria-invalid={Boolean(fieldErrors.lastName)} onChange={(e) => setLastName(e.target.value)} onBlur={() => blurOwner('lastName')} />
                   </FormField>
-                  <FormField className="flush" label={<>{o.citizenId} <em>*</em></>} icon={IdCard}>
-                    <input inputMode="numeric" placeholder={o.citizenPh} value={citizenId} onChange={(e) => setCitizenId(e.target.value)} />
+                  <FormField className="flush" label={<>{o.citizenId} <em>*</em></>} icon={IdCard} error={fieldErrors.citizenId}>
+                    <input name="citizenId" inputMode="numeric" placeholder={o.citizenPh} value={citizenId} aria-invalid={Boolean(fieldErrors.citizenId)} onChange={(e) => setCitizenId(e.target.value)} onBlur={() => blurOwner('citizenId')} />
                   </FormField>
-                  <FormField className="flush" label={<>{o.birthDate} <em>*</em></>} icon={CalendarDays}>
-                    <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+                  <FormField className="flush" label={<>{o.birthDate} <em>*</em></>} icon={CalendarDays} error={fieldErrors.birthDate}>
+                    <input name="birthDate" type="date" value={birthDate} aria-invalid={Boolean(fieldErrors.birthDate)} onChange={(e) => setBirthDate(e.target.value)} onBlur={() => blurOwner('birthDate')} />
                   </FormField>
-                  <SearchableSelect label={o.nationality} required options={[...o.nationalities]} value={nationality} onChange={setNationality} />
+                  <SearchableSelect field="nationality" error={fieldErrors.nationality} onBlur={() => blurOwner('nationality')} label={o.nationality} required options={[...o.nationalities]} value={nationality} onChange={setNationality} />
                 </div>
                 <FormGrid>
-                  <FormField className="flush" label={<>{o.phone} <em>*</em></>} icon={Phone}>
-                    <input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  <FormField className="flush" label={<>{o.phone} <em>*</em></>} icon={Phone} error={fieldErrors.phone}>
+                    <input name="phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} aria-invalid={Boolean(fieldErrors.phone)} onChange={(e) => setPhone(e.target.value)} onBlur={() => blurOwner('phone')} />
                   </FormField>
-                  <FormField className="flush" label={<>{o.email} <em>*</em></>} icon={Mail}>
-                    <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <FormField className="flush" label={<>{o.email} <em>*</em></>} icon={Mail} error={fieldErrors.email}>
+                    <input name="email" type="email" autoComplete="email" value={email} aria-invalid={Boolean(fieldErrors.email)} onChange={(e) => setEmail(e.target.value)} onBlur={() => blurOwner('email')} />
                   </FormField>
                 </FormGrid>
               </section>
@@ -266,11 +281,16 @@ export default function OwnerInfoPage() {
                   </label>
                 </div>
                 {sameAddress ? (
-                  <AddressPreview userId={user?.id} emptyLabel={o.sameAddressEmpty} />
+                  <>
+                    <AddressPreview userId={user?.id} emptyLabel={o.sameAddressEmpty} />
+                    {(fieldErrors.houseNo || fieldErrors.province || fieldErrors.postalCode) && (
+                      <p className="form-alert" role="alert">{fieldErrors.houseNo || fieldErrors.province || fieldErrors.district || fieldErrors.subdistrict || fieldErrors.postalCode}</p>
+                    )}
+                  </>
                 ) : (
                 <div className="owner-address-grid">
-                  <FormField className="flush" label={<>{o.houseNo} <em>*</em></>}>
-                    <input placeholder="123/45" value={houseNo} onChange={(e) => setHouseNo(e.target.value)} />
+                  <FormField className="flush" label={<>{o.houseNo} <em>*</em></>} error={fieldErrors.houseNo}>
+                    <input name="houseNo" placeholder="123/45" value={houseNo} aria-invalid={Boolean(fieldErrors.houseNo)} onChange={(e) => setHouseNo(e.target.value)} onBlur={() => blurOwner('houseNo')} />
                   </FormField>
                   <FormField className="flush" label={o.villageNo}>
                     <input placeholder="5" value={villageNo} onChange={(e) => setVillageNo(e.target.value)} />
@@ -284,19 +304,19 @@ export default function OwnerInfoPage() {
                   <FormField className="flush" label={o.road}>
                     <input placeholder="สุขุมวิท" value={road} onChange={(e) => setRoad(e.target.value)} />
                   </FormField>
-                  <ThaiAddressFields value={thaiAddress} onChange={setThaiAddress} />
+                  <ThaiAddressFields value={thaiAddress} onChange={setThaiAddress} errors={fieldErrors} onBlurField={blurOwner} />
                 </div>
                 )}
               </section>
               <section className="owner-form-section">
                 <h3>{o.payout}</h3>
                 <div className="owner-payout-grid">
-                  <SearchableSelect label={o.bank} required placeholder={o.bankPh} options={[...o.banks]} value={bankName} onChange={setBankName} />
-                  <FormField className="flush" label={<>{o.accountNo} <em>*</em></>}>
-                    <input inputMode="numeric" placeholder={o.accountNoPh} value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} />
+                  <SearchableSelect field="bankName" error={fieldErrors.bankName} onBlur={() => blurOwner('bankName')} label={o.bank} required placeholder={o.bankPh} options={[...o.banks]} value={bankName} onChange={setBankName} />
+                  <FormField className="flush" label={<>{o.accountNo} <em>*</em></>} error={fieldErrors.bankAccountNumber}>
+                    <input name="bankAccountNumber" inputMode="numeric" placeholder={o.accountNoPh} value={bankAccountNumber} aria-invalid={Boolean(fieldErrors.bankAccountNumber)} onChange={(e) => setBankAccountNumber(e.target.value)} onBlur={() => blurOwner('bankAccountNumber')} />
                   </FormField>
-                  <FormField className="flush wide" label={<>{o.accountName} <em>*</em></>}>
-                    <input placeholder={o.accountNamePh} value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} />
+                  <FormField className="flush wide" label={<>{o.accountName} <em>*</em></>} error={fieldErrors.bankAccountName}>
+                    <input name="bankAccountName" placeholder={o.accountNamePh} value={bankAccountName} aria-invalid={Boolean(fieldErrors.bankAccountName)} onChange={(e) => setBankAccountName(e.target.value)} onBlur={() => blurOwner('bankAccountName')} />
                   </FormField>
                 </div>
               </section>
@@ -310,9 +330,8 @@ export default function OwnerInfoPage() {
               </section>
               <div className="owner-form-actions">
                 <a href="/merchant/register"><ArrowLeft />{ob.common.back}</a>
-                <button className="login-submit" type="submit">{ob.common.next} <ArrowRight /></button>
+                <button className="login-submit" type="submit" disabled={submitting}>{submitting ? i18n.t('validation.checking', { ns: 'merchant' }) : ob.common.next} <ArrowRight /></button>
               </div>
-              {message && <p className="owner-message" role="alert">{message}</p>}
             </form>
           </div>
         </section>

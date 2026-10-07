@@ -15,8 +15,11 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+
+import java.util.List;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -29,7 +32,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(AuthException.class)
     ResponseEntity<AuthDtos.ApiError> auth(AuthException exception) {
-        return ResponseEntity.status(exception.getStatus()).body(new AuthDtos.ApiError(exception.getCode(), exception.getMessage()));
+        var field = exception.getField() != null ? exception.getField() : fieldFor(exception.getCode());
+        List<AuthDtos.ApiFieldError> fieldErrors = field == null
+            ? null
+            : List.of(new AuthDtos.ApiFieldError(field, exception.getCode(), exception.getMessage()));
+        return ResponseEntity.status(exception.getStatus()).body(new AuthDtos.ApiError(exception.getCode(), exception.getMessage(), fieldErrors));
     }
 
     @ExceptionHandler(BadCredentialsException.class)
@@ -44,9 +51,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<AuthDtos.ApiError> validation(MethodArgumentNotValidException exception) {
-        var error = exception.getBindingResult().getFieldErrors().stream().findFirst();
-        var message = error.map(e -> e.getDefaultMessage()).orElse("ข้อมูลไม่ถูกต้อง");
-        return ResponseEntity.badRequest().body(new AuthDtos.ApiError("VALIDATION_ERROR", message));
+        var fieldErrors = exception.getBindingResult().getFieldErrors().stream()
+            .map(error -> new AuthDtos.ApiFieldError(error.getField(), constraintCode(error), safeMessage(error.getDefaultMessage())))
+            .toList();
+        var message = fieldErrors.isEmpty() ? "ข้อมูลไม่ถูกต้อง" : fieldErrors.get(0).message();
+        return ResponseEntity.badRequest().body(new AuthDtos.ApiError("VALIDATION_FAILED", message, fieldErrors.isEmpty() ? null : fieldErrors));
     }
 
     /** Malformed / unreadable JSON body (e.g. truncated JSON, wrong enum value). */
@@ -76,5 +85,30 @@ public class ApiExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     ResponseEntity<AuthDtos.ApiError> uploadSize() {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(new AuthDtos.ApiError("FILE_TOO_LARGE", "ไฟล์ต้องมีขนาดไม่เกิน 5 MB"));
+    }
+
+    private static String fieldFor(String code) {
+        return switch (code) {
+            case "CITIZEN_ID_TAKEN", "OWNER_EXISTS" -> "citizenId";
+            case "SHOP_EXISTS" -> "shopName";
+            default -> null;
+        };
+    }
+
+    private static String constraintCode(FieldError error) {
+        var code = error.getCode();
+        if (code == null) return "INVALID";
+        return switch (code) {
+            case "NotBlank", "NotNull", "NotEmpty" -> "REQUIRED";
+            case "Size" -> "TOO_LONG";
+            case "Pattern", "Email" -> "INVALID";
+            default -> code;
+        };
+    }
+
+    private static String safeMessage(String message) {
+        if (message == null || message.isBlank()) return "ข้อมูลไม่ถูกต้อง";
+        if (message.contains(":\\") || message.contains("Exception") || message.contains("\n")) return "ข้อมูลไม่ถูกต้อง";
+        return message;
     }
 }

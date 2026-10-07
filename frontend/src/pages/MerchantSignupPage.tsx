@@ -28,7 +28,9 @@ import FormField, { FieldError } from "../components/form/FormField";
 import FormGrid from "../components/form/FormGrid";
 import "../styles/form-fields.css";
 import { readMerchantDraft, writeMerchantDraft } from "../services/merchantDraft";
+import { focusFirstInvalid, MAX_LOGO_BYTES, mergeFieldError, validateShop, type ShopInput } from "../services/merchantApplicationValidation";
 import { isShopImage, SHOP_IMAGE_ACCEPT } from "../services/shopImage";
+import i18n from "../i18n";
 import { catalogApi, merchantApi, type ProductCategory } from "../services/api";
 import { labelForCategory } from "../services/categories";
 import "../styles/merchant-signup.css";
@@ -80,6 +82,7 @@ export default function MerchantSignupPage() {
     postalCode: savedDraft.postalCode || "",
   });
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const categoryChoices = remoteCategories?.length
@@ -136,18 +139,43 @@ export default function MerchantSignupPage() {
     });
   }, [shopName, shopNameEnglish, description, selectedCategory, saleType, social, address, thaiAddress, logoBase64]);
 
+  const shopInput = (): ShopInput => ({
+    shopName,
+    shopNameEnglish,
+    description,
+    category: selectedCategory,
+    website: social.website,
+    lineId: social.lineId,
+    facebookUrl: social.facebookUrl,
+    instagramUrl: social.instagramUrl,
+    tiktokUrl: social.tiktokUrl,
+    address,
+    province: thaiAddress.province,
+    district: thaiAddress.district,
+    subdistrict: thaiAddress.subdistrict,
+    postalCode: thaiAddress.postalCode,
+    logoBase64,
+  });
+
+  const blurShop = (field: string) => {
+    setFieldErrors((prev) => mergeFieldError(prev, field, validateShop(shopInput())[field]));
+  };
+
   const chooseLogo = async (file?: File) => {
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
+    if (file.size > MAX_LOGO_BYTES) {
+      setFieldErrors((prev) => ({ ...prev, logo: r.errLogoSize }));
       setMessage(r.errLogoSize);
       return;
     }
     if (!isShopImage(file)) {
+      setFieldErrors((prev) => ({ ...prev, logo: r.errLogoType }));
       setMessage(r.errLogoType);
       return;
     }
     try {
       setLogoBase64(await fileToBase64(file));
+      setFieldErrors((prev) => mergeFieldError(prev, "logo"));
       setMessage("");
     } catch {
       setMessage(r.errLogoRead);
@@ -156,18 +184,19 @@ export default function MerchantSignupPage() {
 
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting) return;
     if (!user) {
       window.location.assign("/login?next=/merchant/register");
       return;
     }
-    const nextErrors: Record<string, string> = {};
-    if (!shopName) nextErrors.shopName = r.errShopName;
-    if (!logoBase64) nextErrors.logo = r.errLogo;
-    if (!selectedCategory) nextErrors.category = r.errCategory;
-    if (!thaiAddress.province || !thaiAddress.district || !thaiAddress.subdistrict || !thaiAddress.postalCode) nextErrors.address = r.errAddress;
+    const nextErrors = validateShop(shopInput());
     setFieldErrors(nextErrors);
     setMessage("");
-    if (Object.keys(nextErrors).length > 0) return;
+    if (Object.keys(nextErrors).length > 0) {
+      focusFirstInvalid(nextErrors);
+      return;
+    }
+    setSubmitting(true);
     writeMerchantDraft(user?.id, {
       ...readMerchantDraft(user?.id),
       shopName,
@@ -276,6 +305,7 @@ export default function MerchantSignupPage() {
             </div>
 
             <form onSubmit={submit} noValidate>
+              {message && <p className="form-alert" role="alert">{message}</p>}
               <h3>{r.sectionShop}</h3>
 
               <FormGrid>
@@ -294,15 +324,18 @@ export default function MerchantSignupPage() {
                     aria-invalid={Boolean(fieldErrors.shopName)}
                     aria-describedby={fieldErrors.shopName ? "shop-name-error" : undefined}
                     onChange={(e) => setShopName(e.target.value)}
+                    onBlur={() => blurShop("shopName")}
                   />
                 </FormField>
-                <FormField className="flush" label={r.shopNameEn} icon={Type}>
+                <FormField className="flush" label={r.shopNameEn} icon={Type} error={fieldErrors.shopNameEnglish}>
                   <input
                     name="shopNameEnglish"
                     maxLength={100}
                     placeholder={r.shopNameEnPh}
                     value={shopNameEnglish}
+                    aria-invalid={Boolean(fieldErrors.shopNameEnglish)}
                     onChange={(e) => setShopNameEnglish(e.target.value)}
+                    onBlur={() => blurShop("shopNameEnglish")}
                   />
                 </FormField>
               </FormGrid>
@@ -310,18 +343,20 @@ export default function MerchantSignupPage() {
 
               <div className="merchant-two detail-logo">
                 <div>
-                  <FormField className="flush" label={r.description} multiline>
+                  <FormField className="flush" label={r.description} multiline error={fieldErrors.description}>
                     <textarea
                       name="description"
                       maxLength={500}
                       placeholder={r.descriptionPh}
                       value={description}
+                      aria-invalid={Boolean(fieldErrors.description)}
                       onChange={(e) => setDescription(e.target.value)}
+                      onBlur={() => blurShop("description")}
                     />
                   </FormField>
                   <small className="merchant-count">{description.length}/500</small>
                 </div>
-                <label>
+                <label data-field="logo">
                   {r.logo} <em>{ob.common.required}</em>
                   <button
                     className="logo-drop"
@@ -365,6 +400,9 @@ export default function MerchantSignupPage() {
 
               <div className="merchant-two compact-row">
                 <SearchableSelect
+                  field="category"
+                  error={fieldErrors.category}
+                  onBlur={() => blurShop("category")}
                   label={r.category}
                   required
                   placeholder={r.categoryPh}
@@ -375,10 +413,9 @@ export default function MerchantSignupPage() {
                     setSelectedCategory(match?.value || "");
                   }}
                 />
-                <FieldError text={fieldErrors.category} />
               </div>
 
-              <MerchantSocialFields copy={ob.social} value={social} onChange={setSocial} />
+              <MerchantSocialFields copy={ob.social} value={social} onChange={setSocial} errors={fieldErrors} onBlur={blurShop} />
 
               <fieldset>
                 <legend>
@@ -412,20 +449,26 @@ export default function MerchantSignupPage() {
                 </div>
               </fieldset>
 
-              <FormField label={r.address} icon={MapPin}>
+              <FormField label={r.address} icon={MapPin} error={fieldErrors.address}>
                 <input
                   name="address"
                   placeholder={r.addressPh}
                   value={address}
+                  aria-invalid={Boolean(fieldErrors.address)}
                   onChange={(e) => setAddress(e.target.value)}
+                  onBlur={() => blurShop("address")}
                 />
               </FormField>
 
-              <ThaiAddressFields value={thaiAddress} onChange={setThaiAddress} />
-              <FieldError text={fieldErrors.address} />
+              <ThaiAddressFields
+                value={thaiAddress}
+                onChange={setThaiAddress}
+                errors={fieldErrors}
+                onBlurField={blurShop}
+              />
 
-              <button className="login-submit merchant-next" type="submit">
-                {ob.common.next} <ArrowRight />
+              <button className="login-submit merchant-next" type="submit" disabled={submitting}>
+                {submitting ? i18n.t("validation.checking", { ns: "merchant" }) : ob.common.next} <ArrowRight />
               </button>
 
               {message && (

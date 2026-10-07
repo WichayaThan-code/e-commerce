@@ -34,13 +34,11 @@ public class OwnerAccountService {
     @Transactional
     public Owner upsert(UUID userId, MerchantDtos.OwnerRequest request) {
         var user = requireUser(userId);
+        assertCitizenAvailable(userId, request.citizenId());
         var hash = CitizenIdHasher.hash(request.citizenId());
         var citizen = cipher.encrypt(digits(request.citizenId()));
         var bank = cipher.encrypt(digits(request.bankAccountNumber()));
         var match = hash == null ? null : owners.findByCitizenIdHash(hash).orElse(null);
-        if (match != null && !userId.equals(match.getUser().getId())) {
-            throw new AuthException(HttpStatus.CONFLICT, "CITIZEN_ID_TAKEN", "เลขบัตรประชาชนนี้ถูกใช้โดยบัญชีอื่นแล้ว");
-        }
         if (match != null) {
             recordSensitiveChange(match, user, request, hash);
             match.apply(request, citizen, hash, bank, pendingReview(match, request, hash));
@@ -59,14 +57,23 @@ public class OwnerAccountService {
         var match = hash == null ? null : owners.findByCitizenIdHash(hash).orElse(null);
         if (match != null && !match.getId().equals(owner.getId())) {
             if (!userId.equals(match.getUser().getId())) {
-                throw new AuthException(HttpStatus.CONFLICT, "CITIZEN_ID_TAKEN", "เลขบัตรประชาชนนี้ถูกใช้โดยบัญชีอื่นแล้ว");
+                throw new AuthException(HttpStatus.CONFLICT, "CITIZEN_ID_TAKEN", "เลขบัตรประชาชนนี้ถูกใช้โดยบัญชีอื่นแล้ว", "citizenId");
             }
-            throw new AuthException(HttpStatus.CONFLICT, "OWNER_EXISTS", "เลขบัตรนี้เป็นเจ้าของอีกโปรไฟล์ของคุณอยู่แล้ว");
+            throw new AuthException(HttpStatus.CONFLICT, "OWNER_EXISTS", "เลขบัตรนี้เป็นเจ้าของอีกโปรไฟล์ของคุณอยู่แล้ว", "citizenId");
         }
         var user = requireUser(userId);
         recordSensitiveChange(owner, user, request, hash);
         owner.apply(request, cipher.encrypt(digits(request.citizenId())), hash, cipher.encrypt(digits(request.bankAccountNumber())), pendingReview(owner, request, hash));
         return toResponse(owners.save(owner));
+    }
+
+    @Transactional(readOnly = true)
+    public void assertCitizenAvailable(UUID userId, String citizenId) {
+        var hash = CitizenIdHasher.hash(citizenId);
+        var match = hash == null ? null : owners.findByCitizenIdHash(hash).orElse(null);
+        if (match != null && match.getUser() != null && !userId.equals(match.getUser().getId())) {
+            throw new AuthException(HttpStatus.CONFLICT, "CITIZEN_ID_TAKEN", "เลขบัตรประชาชนนี้ถูกใช้โดยบัญชีอื่นแล้ว", "citizenId");
+        }
     }
 
     @Transactional(readOnly = true)

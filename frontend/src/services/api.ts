@@ -19,8 +19,14 @@ let refreshInFlight: Promise<AuthResponse> | null = null
 /** Fired when the backend denies an action (403 / shop no longer reachable) so the UI re-reads its permissions. */
 export const PERMISSIONS_STALE_EVENT = 'tsf:permissions-stale'
 
+export type ApiFieldError = { field: string; code: string; message: string }
+
 export class ApiError extends Error {
-  constructor(public code:string, message:string, public status:number, public jobId?:string) { super(message) }
+  fieldErrors: ApiFieldError[]
+  constructor(public code:string, message:string, public status:number, public jobId?:string, fieldErrors?: ApiFieldError[]) {
+    super(message)
+    this.fieldErrors = fieldErrors ?? []
+  }
 }
 
 function acceptLanguageHeader() {
@@ -53,11 +59,16 @@ async function request<T>(path:string, init:RequestInit = {}, authenticate = fal
     } catch { accessToken = null }
   }
   if (!response.ok) {
-    const error: { code?: string; message?: string; jobId?: string } = await response.json().catch(() => ({ code: 'REQUEST_FAILED', message: 'เกิดข้อผิดพลาด กรุณาลองใหม่' }))
+    const error: { code?: string; message?: string; jobId?: string; fieldErrors?: ApiFieldError[] } = await response.json().catch(() => ({ code: response.status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_FAILED', message: 'เกิดข้อผิดพลาด กรุณาลองใหม่' }))
     if (authenticate && !path.startsWith('/api/auth/') && (response.status === 403 || error.code === 'SHOP_NOT_FOUND')) {
       window.dispatchEvent(new Event(PERMISSIONS_STALE_EVENT))
     }
-    throw new ApiError(error.code || 'REQUEST_FAILED', error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status, error.jobId)
+    const apiError = new ApiError(error.code || (response.status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_FAILED'), error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status, error.jobId, error.fieldErrors)
+    if (response.status === 401 && authenticate && !window.location.pathname.startsWith('/login')) {
+      const next = `${window.location.pathname}${window.location.search}`
+      window.location.assign(`/login?next=${encodeURIComponent(next)}`)
+    }
+    throw apiError
   }
   return response.status === 204 ? undefined as T : response.json()
 }
@@ -144,6 +155,7 @@ export const merchantApi = {
   getDraft: () => request<MerchantApplication>('/api/merchant-applications/draft', {}, true),
   saveShop: (payload:MerchantShopPayload) => request<MerchantApplication>('/api/merchant-applications/draft/shop', {method:'PUT',body:JSON.stringify(payload)}, true),
   saveOwner: (payload:MerchantOwnerPayload) => request<MerchantApplication>('/api/merchant-applications/draft/owner', {method:'PUT',body:JSON.stringify(payload)}, true),
+  validateOwner: (payload:MerchantOwnerPayload) => request<void>('/api/merchant-applications/validate-owner', {method:'POST',body:JSON.stringify(payload)}, true),
   owners: () => request<MerchantOwner[]>('/api/merchant/owners', {}, true),
   updateOwner: (id:string, payload:MerchantOwnerPayload) => request<MerchantOwner>(`/api/merchant/owners/${id}`, {method:'PUT', body:JSON.stringify(payload)}, true),
   attachOwner: (ownerId:string) => request<MerchantApplication>(`/api/merchant-applications/draft/owner/${ownerId}`, {method:'POST'}, true),
@@ -425,8 +437,8 @@ export async function authorizedBlob(path: string): Promise<Blob> {
     response = await load()
   }
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ code: 'REQUEST_FAILED', message: 'โหลดรูปไม่สำเร็จ' }))
-    throw new ApiError(error.code || 'REQUEST_FAILED', error.message || 'โหลดรูปไม่สำเร็จ', response.status)
+    const error = await response.json().catch(() => ({ code: 'REQUEST_FAILED', message: 'โหลดรูปไม่สำเร็จ', fieldErrors: [] as ApiFieldError[] }))
+    throw new ApiError(error.code || 'REQUEST_FAILED', error.message || 'โหลดรูปไม่สำเร็จ', response.status, undefined, error.fieldErrors)
   }
   return response.blob()
 }
@@ -447,9 +459,13 @@ function uploadForm<T>(path: string, body: FormData, onProgress?: (ratio: number
         return
       }
       if (xhr.status < 200 || xhr.status >= 300) {
-        let error: { code?: string; message?: string; jobId?: string } = { code: 'REQUEST_FAILED', message: 'อัปโหลดไม่สำเร็จ' }
+        let error: { code?: string; message?: string; jobId?: string; fieldErrors?: ApiFieldError[] } = { code: xhr.status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_FAILED', message: 'อัปโหลดไม่สำเร็จ' }
         try { error = JSON.parse(xhr.responseText) } catch { /* keep fallback */ }
-        reject(new ApiError(error.code || 'REQUEST_FAILED', error.message || 'อัปโหลดไม่สำเร็จ', xhr.status, error.jobId))
+        if (xhr.status === 401 && !window.location.pathname.startsWith('/login')) {
+          const next = `${window.location.pathname}${window.location.search}`
+          window.location.assign(`/login?next=${encodeURIComponent(next)}`)
+        }
+        reject(new ApiError(error.code || (xhr.status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_FAILED'), error.message || 'อัปโหลดไม่สำเร็จ', xhr.status, error.jobId, error.fieldErrors))
         return
       }
       resolve(JSON.parse(xhr.responseText) as T)

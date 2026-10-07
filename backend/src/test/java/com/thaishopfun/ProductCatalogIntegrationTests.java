@@ -4,6 +4,8 @@ import com.jayway.jsonpath.JsonPath;
 import com.thaishopfun.auth.RefreshTokenRepository;
 import com.thaishopfun.auth.UserAccount;
 import com.thaishopfun.auth.UserAccountRepository;
+import com.thaishopfun.auth.authz.PlatformRole;
+import com.thaishopfun.auth.authz.PlatformRoleRepository;
 import com.thaishopfun.catalog.InventoryLedgerRepository;
 import com.thaishopfun.catalog.ProductImportJobService;
 import com.thaishopfun.catalog.ProductSpreadsheet;
@@ -15,6 +17,7 @@ import com.thaishopfun.merchant.MerchantApplicationRepository;
 import com.thaishopfun.merchant.MerchantDocumentRepository;
 import com.thaishopfun.merchant.OwnerAuditLogRepository;
 import com.thaishopfun.merchant.OwnerRepository;
+import com.thaishopfun.merchant.ShopMemberRepository;
 import com.thaishopfun.merchant.ShopReinstatementRequestRepository;
 import com.thaishopfun.merchant.ShopRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +52,7 @@ class ProductCatalogIntegrationTests {
     @Autowired ProductSkuRepository productSkus;
     @Autowired ProductRepository catalogProducts;
     @Autowired ShopReinstatementRequestRepository reinstatements;
+    @Autowired ShopMemberRepository shopMembers;
     @Autowired ShopRepository shops;
     @Autowired MerchantDocumentRepository documents;
     @Autowired MerchantApplicationRepository applications;
@@ -56,6 +60,7 @@ class ProductCatalogIntegrationTests {
     @Autowired OwnerRepository owners;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired UserAccountRepository users;
+    @Autowired PlatformRoleRepository platformRoles;
     @Autowired PasswordEncoder passwords;
     @Autowired ProductImportJobService importJobs;
 
@@ -67,12 +72,14 @@ class ProductCatalogIntegrationTests {
         productSkus.deleteAll();
         catalogProducts.deleteAll();
         reinstatements.deleteAll();
+        shopMembers.deleteAll();
         shops.deleteAll();
         documents.deleteAll();
         applications.deleteAll();
         ownerAudits.deleteAll();
         owners.deleteAll();
         refreshTokens.deleteAll();
+        platformRoles.deleteAll();
         users.deleteAll();
     }
 
@@ -238,7 +245,8 @@ class ProductCatalogIntegrationTests {
         Number shopId = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].shopId");
         String slug = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].slug");
         if (approve) {
-            users.save(UserAccount.admin("approver-" + phone + "@example.com", passwords.encode("Password1")));
+            var approver = users.save(UserAccount.admin("approver-" + phone + "@example.com", passwords.encode("Password1")));
+            platformRoles.save(PlatformRole.grant(approver.getId(), PlatformRole.PLATFORM_ADMIN, null, "test"));
             var adminLogin = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
                 {"identity":"approver-%s@example.com","password":"Password1"}
                 """.formatted(phone))).andExpect(status().isOk()).andReturn();

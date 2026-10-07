@@ -141,6 +141,21 @@
   caret-color: #132b50;
 }
 
+.form-alert {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff4f4;
+  color: #b42318;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.form-alert a {
+  color: #9f1239;
+  font-weight: 700;
+}
+
 .form-field-error,
 .signup-field-error {
   display: flex;

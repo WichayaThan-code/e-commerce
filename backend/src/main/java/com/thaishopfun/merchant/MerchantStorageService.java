@@ -30,7 +30,7 @@ public class MerchantStorageService {
 
     public StoredFile store(UUID applicationId, MultipartFile file, String kind) {
         if (file == null || file.isEmpty()) throw bad("กรุณาเลือกไฟล์");
-        if (file.getSize() > MAX_BYTES) throw bad("ไฟล์ต้องมีขนาดไม่เกิน 5 MB");
+        if (file.getSize() > MAX_BYTES) throw new AuthException(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "ไฟล์ต้องมีขนาดไม่เกิน 5 MB");
         var contentType = imageType(file);
         var extension = EXTENSIONS.get(contentType);
         if (extension == null) throw bad("รองรับเฉพาะไฟล์ JPG, PNG, WEBP หรือ PDF");

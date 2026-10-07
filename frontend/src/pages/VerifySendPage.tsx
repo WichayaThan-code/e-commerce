@@ -21,7 +21,10 @@ import { useLanguage } from "../contexts/LanguageContext";
 import MerchantOnboardingSidebar from "../components/merchant/MerchantOnboardingSidebar";
 import MerchantHeader from "../components/MerchantHeader";
 import { ApiError, merchantApi, type MerchantApplication, type MerchantOwnerPayload, type MerchantShopPayload } from "../services/api";
+import { showApiFailure } from "../services/apiErrors";
 import { clearMerchantDraft, readMerchantDraft } from "../services/merchantDraft";
+import { reviewGap } from "../services/merchantApplicationValidation";
+import i18n from "../i18n";
 import "../styles/doc-confirm.css";
 import "../styles/verify-send.css";
 import "../styles/form-fields.css";
@@ -66,6 +69,7 @@ function ReviewSection({
 export default function VerifySendPage() {
   const navigate = useNavigate();
   const redirectTimer = useRef<number | null>(null);
+  const submittingRef = useRef(false);
   const { user } = useAuth();
   const { onboarding: ob } = useLanguage();
   const rv = ob.review;
@@ -78,6 +82,7 @@ export default function VerifySendPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [applyResult, setApplyResult] = useState<"success" | "error" | null>(null);
   const [message, setMessage] = useState(rv.loading);
+  const [stepHref, setStepHref] = useState("");
   useEffect(() => () => {
     if (redirectTimer.current) window.clearTimeout(redirectTimer.current);
   }, []);
@@ -88,9 +93,7 @@ export default function VerifySendPage() {
         setApplication(data);
         setMessage("");
       })
-      .catch((error) =>
-        setMessage(error instanceof ApiError ? error.message : rv.loadFail),
-      );
+      .catch((error) => showApiFailure(error, setMessage));
   }, []);
   const [localDraft] = useState(() => readMerchantDraft(user?.id));
   const owner = localDraft.owner;
@@ -103,33 +106,34 @@ export default function VerifySendPage() {
         ? "OWNER"
         : undefined);
   const submit = async () => {
-    if (submitting || submitted) return;
+    if (submittingRef.current || submitted) return;
     if (!confirmed) return;
+    submittingRef.current = true;
     setApplyResult(null);
     setSubmitting(true);
     if (!user) {
+      submittingRef.current = false;
       window.location.assign("/login?next=/merchant/review");
       return;
     }
     const draft = readMerchantDraft(user.id);
     const ownerDraft = draft.owner;
-    if (
-      !draft.shopName ||
-      !draft.address ||
-      !draft.category ||
-      !draft.province ||
-      !draft.district ||
-      !draft.subdistrict ||
-      !draft.postalCode ||
-      (!ownerDraft && !draft.ownerId && !application?.ownerId)
-    ) {
+    const uploaded = [
+      ...Object.keys(draft.documentNames || {}),
+      ...(application?.documents.map((document) => document.type) || []),
+    ];
+    const gap = reviewGap({ ...draft, ownerId: draft.ownerId || application?.ownerId || undefined }, uploaded);
+    if (gap) {
       setApplyResult("error");
-      setMessage(rv.errIncomplete);
+      setMessage(gap.message);
+      setStepHref(gap.href);
+      submittingRef.current = false;
       setSubmitting(false);
       return;
     }
+    setStepHref("");
     const shop: MerchantShopPayload = {
-      shopName: draft.shopName,
+      shopName: draft.shopName || "",
       shopNameEn: draft.shopNameEnglish || "",
       description: draft.description || "",
       category: draft.category || "",
@@ -140,10 +144,10 @@ export default function VerifySendPage() {
       instagramUrl: draft.instagramUrl || "",
       tiktokUrl: draft.tiktokUrl || "",
       address: draft.address || "",
-      province: draft.province,
-      district: draft.district,
-      subdistrict: draft.subdistrict,
-      postalCode: draft.postalCode,
+      province: draft.province || "",
+      district: draft.district || "",
+      subdistrict: draft.subdistrict || "",
+      postalCode: draft.postalCode || "",
     };
     try {
       if (draft.logoBase64 && !application?.documents.some((document) => document.type === "LOGO")) {
@@ -181,19 +185,19 @@ export default function VerifySendPage() {
       setApplyResult("success");
       clearMerchantDraft(user.id);
       setMessage(rv.success);
+      submittingRef.current = false;
       setSubmitting(false);
       redirectTimer.current = window.setTimeout(() => navigate("/"), 1600);
     } catch (error) {
       setApplyResult("error");
-      setMessage(
-        error instanceof ApiError
-          ? error.code === "SHOP_EXISTS"
-            ? rv.errShopExists
-            : error.code === "CITIZEN_ID_TAKEN"
-              ? rv.errCitizenTaken
-              : error.message
-          : rv.errSubmit,
-      );
+      const field = error instanceof ApiError ? error.fieldErrors[0]?.field : "";
+      setStepHref(field === "shopName" || field === "category" || field === "postalCode" || field === "address"
+        ? "/merchant/register"
+        : field === "citizenId" || field === "phone" || field === "email" || field === "bankAccountNumber" || field === "bankAccountName" || field === "bankName"
+          ? "/merchant/owner-info"
+          : "");
+      showApiFailure(error, setMessage);
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -331,8 +335,9 @@ export default function VerifySendPage() {
               </div>
             </label>
             {message && (
-              <p className="doc-message" role="status">
+              <p className={stepHref || applyResult === "error" ? "form-alert" : "doc-message"} role={stepHref || applyResult === "error" ? "alert" : "status"}>
                 {message}
+                {stepHref ? <> <a href={stepHref}>{i18n.t("validation.goFix", { ns: "merchant" })}</a></> : null}
               </p>
             )}
             <div className="verify-actions">
@@ -343,7 +348,26 @@ export default function VerifySendPage() {
               <button
                 className="login-submit"
                 type="button"
-                onClick={() => setConfirmOpen(true)}
+                onClick={() => {
+                  if (!user) {
+                    window.location.assign("/login?next=/merchant/review");
+                    return;
+                  }
+                  const draft = readMerchantDraft(user.id);
+                  const uploaded = [
+                    ...Object.keys(draft.documentNames || {}),
+                    ...(application?.documents.map((document) => document.type) || []),
+                  ];
+                  const gap = reviewGap({ ...draft, ownerId: draft.ownerId || application?.ownerId || undefined }, uploaded);
+                  if (gap) {
+                    setMessage(gap.message);
+                    setStepHref(gap.href);
+                    return;
+                  }
+                  setStepHref("");
+                  setMessage("");
+                  setConfirmOpen(true);
+                }}
                 disabled={!confirmed || submitted || submitting || !application}
               >
                 {submitting ? <LoaderCircle className="login-spinner" size={18} /> : <Send />}
@@ -454,7 +478,7 @@ export default function VerifySendPage() {
             ) : applyResult === "error" ? (
               <div className="apply-status bad" role="alert">
                 <h2 id="confirm-apply-title">สมัครร้านค้าไม่สำเร็จ</h2>
-                <p>{message}</p>
+                <p>{message}{stepHref ? <> <a href={stepHref}>{i18n.t("validation.goFix", { ns: "merchant" })}</a></> : null}</p>
                 <button type="button" onClick={() => { setConfirmOpen(false); setApplyResult(null); }}>ปิด</button>
               </div>
             ) : (
@@ -463,7 +487,7 @@ export default function VerifySendPage() {
                 <p>หากกดยืนยัน ระบบจะส่งใบสมัครทันที และจะไม่สามารถแก้ไขข้อมูลได้อีก</p>
                 <div>
                   <button type="button" onClick={() => setConfirmOpen(false)}>ยกเลิก</button>
-                  <button type="button" onClick={() => void submit()}>ยืนยัน</button>
+                  <button type="button" disabled={submitting} onClick={() => void submit()}>ยืนยัน</button>
                 </div>
               </>
             )}

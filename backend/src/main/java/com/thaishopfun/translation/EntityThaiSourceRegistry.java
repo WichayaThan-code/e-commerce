@@ -39,12 +39,12 @@ public class EntityThaiSourceRegistry {
 
     private String categoryField(String entityId, String field) {
         if (!"name".equals(field)) return null;
-        var category = categories.findById(Long.parseLong(entityId)).orElse(null);
+        var category = categories.findByCategoryNo(Long.parseLong(entityId)).orElse(null);
         return category == null ? null : category.getNameTh();
     }
 
     private String shopField(String entityId, String field) {
-        var shop = shops.findById(Long.parseLong(entityId)).orElse(null);
+        var shop = shops.findByShopId(Long.parseLong(entityId)).orElse(null);
         if (shop == null) return null;
         return switch (field) {
             case "name" -> shop.getName();

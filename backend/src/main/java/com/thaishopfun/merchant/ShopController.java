@@ -1,10 +1,7 @@
 package com.thaishopfun.merchant;
 
-<<<<<<< HEAD
 import com.thaishopfun.auth.RequestUser;
-=======
 import com.thaishopfun.auth.authz.PublicEndpoint;
->>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;

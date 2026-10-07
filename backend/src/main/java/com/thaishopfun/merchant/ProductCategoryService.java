@@ -20,21 +20,12 @@ public class ProductCategoryService {
     }
 
     public List<MerchantDtos.ProductCategoryResponse> listActive() {
-<<<<<<< HEAD
         var rows = categories.findByActiveTrueOrderBySortOrderAsc();
         var index = translations.loadIndex(
             TranslationEntityType.PRODUCT_CATEGORY,
             rows.stream().map(category -> String.valueOf(category.getId())).toList()
         );
         return rows.stream().map(category -> toResponse(category, index)).toList();
-=======
-        return categories.findByActiveTrueOrderBySortOrderAsc().stream()
-            .map(category -> new MerchantDtos.ProductCategoryResponse(
-                category.getId(), category.getNameTh(),
-                category.getNameEn() == null ? category.getNameTh() : category.getNameEn(),
-                category.getNameZh() == null ? (category.getNameEn() == null ? category.getNameTh() : category.getNameEn()) : category.getNameZh()))
-            .toList();
->>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
     }
 
     public void requireActiveOrCurrent(String submitted, String current) {

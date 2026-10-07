@@ -583,7 +583,7 @@ public class ProductService {
     }
 
     private Shop requireSellableShop(UUID userId, Long shopId) {
-        var shop = shops.findById(shopId).orElseThrow(ProductService::missingShop);
+        var shop = shops.findByShopId(shopId).orElseThrow(ProductService::missingShop);
         if (shop.getUser() == null || shop.getUser().getId() == null || !shop.getUser().getId().equals(userId)) throw missingShop();
         if (shop.getStatus() != ShopStatus.APPROVED) throw new AuthException(HttpStatus.FORBIDDEN, "SHOP_NOT_APPROVED", "ร้านนี้ยังเปิดขายไม่ได้");
         return shop;
@@ -650,7 +650,7 @@ public class ProductService {
 
     private com.thaishopfun.merchant.ProductCategory category(Long categoryId) {
         if (categoryId == null) return null;
-        return categories.findById(categoryId).orElseThrow(() -> bad("UNKNOWN_CATEGORY", "หมวดสินค้าไม่ถูกต้อง"));
+        return categories.findByCategoryNo(categoryId).orElseThrow(() -> bad("UNKNOWN_CATEGORY", "หมวดสินค้าไม่ถูกต้อง"));
     }
 
     private static ProductType requireType(String value) {

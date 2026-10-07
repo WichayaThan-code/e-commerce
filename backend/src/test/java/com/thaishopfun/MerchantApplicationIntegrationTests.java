@@ -7,16 +7,13 @@ import com.thaishopfun.auth.RefreshTokenRepository;
 import com.thaishopfun.auth.UserAccount;
 import com.thaishopfun.auth.UserAccountRepository;
 import com.thaishopfun.auth.UserRole;
-<<<<<<< HEAD
+import com.thaishopfun.auth.authz.PlatformRole;
+import com.thaishopfun.auth.authz.PlatformRoleRepository;
 import com.thaishopfun.catalog.InventoryLedgerRepository;
 import com.thaishopfun.catalog.InventoryLevelRepository;
 import com.thaishopfun.catalog.ProductImageRepository;
 import com.thaishopfun.catalog.ProductRepository;
 import com.thaishopfun.catalog.ProductSkuRepository;
-=======
-import com.thaishopfun.auth.authz.PlatformRole;
-import com.thaishopfun.auth.authz.PlatformRoleRepository;
->>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
 import com.thaishopfun.merchant.MerchantApplicationRepository;
 import com.thaishopfun.merchant.MerchantDocumentRepository;
 import com.thaishopfun.merchant.OwnerAuditLogRepository;
@@ -57,19 +54,14 @@ class MerchantApplicationIntegrationTests {
     @Autowired OtpVerificationRepository otpVerifications;
     @Autowired UserAccountRepository users;
     @Autowired PasswordEncoder passwords;
-<<<<<<< HEAD
     @Autowired InventoryLedgerRepository ledger;
     @Autowired InventoryLevelRepository levels;
     @Autowired ProductImageRepository productImages;
     @Autowired ProductSkuRepository productSkus;
     @Autowired ProductRepository catalogProducts;
-
-    @BeforeEach void clean(){ledger.deleteAll();levels.deleteAll();productImages.deleteAll();productSkus.deleteAll();catalogProducts.deleteAll();reinstatements.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
-=======
     @Autowired PlatformRoleRepository platformRoles;
 
-    @BeforeEach void clean(){platformRoles.deleteAll();reinstatements.deleteAll();shopMembers.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();otpVerifications.deleteAll();passwordResetTokens.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
->>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
+    @BeforeEach void clean(){ledger.deleteAll();levels.deleteAll();productImages.deleteAll();productSkus.deleteAll();catalogProducts.deleteAll();platformRoles.deleteAll();reinstatements.deleteAll();shopMembers.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();otpVerifications.deleteAll();passwordResetTokens.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
 
     @Test void savesUploadsAndSubmitsRealApplication() throws Exception {
         var registered=mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""

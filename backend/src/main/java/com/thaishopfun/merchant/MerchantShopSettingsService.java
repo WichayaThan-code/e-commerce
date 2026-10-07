@@ -1,11 +1,8 @@
 package com.thaishopfun.merchant;
 
 import com.thaishopfun.auth.AuthException;
-<<<<<<< HEAD
-import com.thaishopfun.translation.ContentTranslationBridge;
-=======
 import com.thaishopfun.auth.authz.AuthorizationService;
->>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
+import com.thaishopfun.translation.ContentTranslationBridge;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,30 +18,23 @@ public class MerchantShopSettingsService {
     private final MerchantApplicationRepository applications;
     private final MerchantStorageService storage;
     private final ProductCategoryService categories;
-<<<<<<< HEAD
     private final ContentTranslationBridge translationBridge;
+    private final AuthorizationService authorization;
 
     public MerchantShopSettingsService(
         ShopRepository shops,
         MerchantApplicationRepository applications,
         MerchantStorageService storage,
         ProductCategoryService categories,
-        ContentTranslationBridge translationBridge
+        ContentTranslationBridge translationBridge,
+        AuthorizationService authorization
     ) {
-=======
-    private final AuthorizationService authorization;
-
-    public MerchantShopSettingsService(ShopRepository shops, MerchantApplicationRepository applications, MerchantStorageService storage, ProductCategoryService categories, AuthorizationService authorization) {
->>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
         this.shops = shops;
         this.applications = applications;
         this.storage = storage;
         this.categories = categories;
-<<<<<<< HEAD
         this.translationBridge = translationBridge;
-=======
         this.authorization = authorization;
->>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
     }
 
     @Transactional(readOnly = true)

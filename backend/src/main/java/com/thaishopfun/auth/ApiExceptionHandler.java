@@ -1,13 +1,10 @@
 package com.thaishopfun.auth;
 
-<<<<<<< HEAD
 import com.thaishopfun.catalog.CatalogDtos;
 import com.thaishopfun.catalog.ImportRunningException;
-=======
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
->>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -23,14 +20,12 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
-<<<<<<< HEAD
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
     @ExceptionHandler(ImportRunningException.class)
     ResponseEntity<CatalogDtos.ProductImportConflict> importRunning(ImportRunningException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new CatalogDtos.ProductImportConflict("IMPORT_RUNNING", exception.getMessage(), exception.jobId()));
     }
-=======
-    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
->>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
 
     @ExceptionHandler(AuthException.class)
     ResponseEntity<AuthDtos.ApiError> auth(AuthException exception) {

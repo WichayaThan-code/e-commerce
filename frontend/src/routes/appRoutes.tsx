@@ -102,24 +102,11 @@ export const routes: RouteObject[] = [
   {
     element: <MerchantStoreGuard />,
     children: [
-<<<<<<< HEAD
-      { path: "/merchant/dashboard", element: <MerchantDashboardPage /> },
-      { path: "/merchant/products", element: <ProductManagementPage /> },
-      { path: "/merchant/products/new", element: <ProductFormPage /> },
-      { path: "/merchant/products/:productId", element: <ProductDetailPage /> },
-      { path: "/merchant/products/:productId/edit", element: <ProductFormPage /> },
-      { path: "/merchant/orders", element: <OrderManagementPage /> },
-      { path: "/merchant/customers", element: <CustomerManagementPage /> },
-      { path: "/merchant/promotions", element: <PromotionManagementPage /> },
-      { path: "/merchant/reports", element: <ReportsPage /> },
-      { path: "/merchant/finance", element: <FinancePage /> },
-      { path: "/merchant/shipping", element: <ShippingPage /> },
-      { path: "/merchant/store", element: <MyStorePage /> },
-      { path: "/merchant/settings", element: <SettingsPage /> },
-      { path: "/merchant/reinstatement", element: <ReinstatementPage /> },
-=======
       { path: "/merchant/dashboard", element: guarded("/merchant/dashboard", <MerchantDashboardPage />) },
       { path: "/merchant/products", element: guarded("/merchant/products", <ProductManagementPage />) },
+      { path: "/merchant/products/new", element: guarded("/merchant/products", <ProductFormPage />) },
+      { path: "/merchant/products/:productId/edit", element: guarded("/merchant/products", <ProductFormPage />) },
+      { path: "/merchant/products/:productId", element: guarded("/merchant/products", <ProductDetailPage />) },
       { path: "/merchant/orders", element: guarded("/merchant/orders", <OrderManagementPage />) },
       { path: "/merchant/customers", element: guarded("/merchant/customers", <CustomerManagementPage />) },
       { path: "/merchant/promotions", element: guarded("/merchant/promotions", <PromotionManagementPage />) },
@@ -129,7 +116,6 @@ export const routes: RouteObject[] = [
       { path: "/merchant/store", element: guarded("/merchant/store", <MyStorePage />) },
       { path: "/merchant/settings", element: guarded("/merchant/settings", <SettingsPage />) },
       { path: "/merchant/reinstatement", element: guarded("/merchant/reinstatement", <ReinstatementPage />) },
->>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
     ],
   },
     ],

@@ -53,15 +53,11 @@ async function request<T>(path:string, init:RequestInit = {}, authenticate = fal
     } catch { accessToken = null }
   }
   if (!response.ok) {
-    const error = await response.json().catch(() => ({code:'REQUEST_FAILED', message:'เกิดข้อผิดพลาด กรุณาลองใหม่'}))
-<<<<<<< HEAD
-    throw new ApiError(error.code || 'REQUEST_FAILED', error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status, error.jobId)
-=======
+    const error: { code?: string; message?: string; jobId?: string } = await response.json().catch(() => ({ code: 'REQUEST_FAILED', message: 'เกิดข้อผิดพลาด กรุณาลองใหม่' }))
     if (authenticate && !path.startsWith('/api/auth/') && (response.status === 403 || error.code === 'SHOP_NOT_FOUND')) {
       window.dispatchEvent(new Event(PERMISSIONS_STALE_EVENT))
     }
-    throw new ApiError(error.code || 'REQUEST_FAILED', error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status)
->>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
+    throw new ApiError(error.code || 'REQUEST_FAILED', error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status, error.jobId)
   }
   return response.status === 204 ? undefined as T : response.json()
 }

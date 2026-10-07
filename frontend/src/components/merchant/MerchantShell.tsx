@@ -6,6 +6,7 @@ import {
   Search, Settings, ShoppingBag, Store, TicketPercent, Truck, WalletCards,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { usePermissions } from "../../hooks/usePermissions";
 import LanguageSwitcher from "../LanguageSwitcher";
 import MerchantShopMenu from "../MerchantShopMenu";
 import "../../styles/merchant-dashboard.css";
@@ -26,6 +27,7 @@ const links = [
 
 export default function MerchantShell({ children, notice, tone = "ok" }: { children: ReactNode; notice?: string; tone?: "ok" | "fail" }) {
   const { t } = useTranslation("merchant");
+  const { canSeeMenuItem } = usePermissions();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const search = (event: FormEvent) => {
@@ -50,7 +52,7 @@ export default function MerchantShell({ children, notice, tone = "ok" }: { child
       </header>
       <aside className="merchant-sidebar pm-sidebar">
         <nav>
-          {links.map(([Icon, key, href]) => (
+          {links.filter(canSeeMenuItem).map(([Icon, key, href]) => (
             <NavLink key={key} to={href} className={({ isActive }) => (isActive ? "active" : undefined)} end={key !== "products"}>
               <Icon />
               {t(`catalog.menu.${key}`)}

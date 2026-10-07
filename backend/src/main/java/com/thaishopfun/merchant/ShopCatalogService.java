@@ -22,16 +22,13 @@ public class ShopCatalogService {
     private final TranslationService translations;
     private final ContentTranslationBridge translationBridge;
 
-<<<<<<< HEAD
     public ShopCatalogService(
         ShopRepository shops,
+        ShopMemberRepository members,
         MerchantStorageService storage,
         TranslationService translations,
         ContentTranslationBridge translationBridge
     ) {
-=======
-    public ShopCatalogService(ShopRepository shops, ShopMemberRepository members, MerchantStorageService storage) {
->>>>>>> 232b7724b5084e8924c048593b686e77c9566a9d
         this.shops = shops;
         this.members = members;
         this.storage = storage;

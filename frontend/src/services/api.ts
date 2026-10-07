@@ -9,6 +9,10 @@ export type ShopPermissionGrant = { shopId:number; role:string; permissions:stri
 export type AuthUser = { id:string; firstName:string; lastName:string; email:string; phone:string; role:UserRole; roleCodes?:string[]; permissions?:string[]; shopPermissions?:ShopPermissionGrant[]; superAdmin?:boolean }
 type AuthResponse = { accessToken:string; expiresIn:number; user:AuthUser }
 export type RegisterPayload = { firstName:string; lastName:string; email:string; phone:string; password:string }
+export type OtpPurpose = 'SIGNUP'|'LOGIN'|'PHONE_VERIFY'|'EMAIL_VERIFY'|'PASSWORD_RESET'|'STEP_UP'
+export type SendOtpResponse = { otpId:string; expiresIn:number; destinationMasked:string; channel:string; code:string|null }
+export type VerifyOtpResponse = { verified:boolean; purpose:string; resetToken:string|null }
+export type ForgotPasswordResponse = { message:string; resetToken:string|null }
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8081').replace(/\/$/, '')
 let accessToken: string | null = null
@@ -57,6 +61,10 @@ function refreshSession() {
 export const authApi = {
   login: (identity:string, password:string) => request<AuthResponse>('/api/auth/login', {method:'POST', body:JSON.stringify({identity,password})}).then(remember),
   register: (payload:RegisterPayload) => request<AuthResponse>('/api/auth/register', {method:'POST', body:JSON.stringify(payload)}).then(remember),
+  sendOtp: (destination:string, purpose:OtpPurpose) => request<SendOtpResponse>('/api/auth/otp/send', {method:'POST', body:JSON.stringify({destination,purpose})}),
+  verifyOtp: (otpId:string, code:string) => request<VerifyOtpResponse>('/api/auth/otp/verify', {method:'POST', body:JSON.stringify({otpId,code})}),
+  forgotPassword: (email:string) => request<ForgotPasswordResponse>('/api/auth/forgot-password', {method:'POST', body:JSON.stringify({email})}),
+  resetPassword: (token:string, newPassword:string) => request<{message:string}>('/api/auth/reset-password', {method:'POST', body:JSON.stringify({token,newPassword})}),
   refresh: () => refreshSession().then(response=>response.user),
   me: () => request<AuthUser>('/api/auth/me', {}, true),
   logout: async () => { try { await request<void>('/api/auth/logout', {method:'POST'}) } finally { accessToken = null } },

@@ -112,7 +112,7 @@ export default function LoginPage() {
                 {passwordVisible ? <EyeOff /> : <Eye />}
               </button>
             </div>
-            <button className="forgot" type="button" onClick={() => setMessage(p('form.forgotPasswordMessage'))}>{p('form.forgotPassword')}</button>
+            <a className="forgot" href="/forgot-password">{p('form.forgotPassword')}</a>
             <button className="login-submit" type="submit" disabled={submitting}>
               {submitting ? <><LoaderCircle className="login-spinner" size={19} /> {p('form.submitting')}</> : <>{p('form.submit')} <ArrowRight size={19} /></>}
             </button>

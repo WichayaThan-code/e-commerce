@@ -12,6 +12,7 @@ import FormGrid from '../components/form/FormGrid'
 import SignupAgreement, { type AgreementStep } from '../components/SignupAgreement'
 import { useAuth } from '../contexts/AuthContext'
 import LanguageSwitcher from '../components/LanguageSwitcher'
+import { ApiError, authApi } from '../services/api'
 
 const fieldNames = ['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'] as const
 type FieldName = (typeof fieldNames)[number]
@@ -45,6 +46,12 @@ export default function SignupPage() {
   const registrationPending = useRef(false)
   const [agreement, setAgreement] = useState<AgreementStep | null>(null)
   const [agreementError, setAgreementError] = useState('')
+  const [verificationEmail, setVerificationEmail] = useState('')
+  const [otpId, setOtpId] = useState<string | null>(null)
+  const [otpCode, setOtpCode] = useState('')
+  const [otpAttempts, setOtpAttempts] = useState(0)
+  const [resendAvailable, setResendAvailable] = useState(false)
+  const [otpStep, setOtpStep] = useState(false)
   const { register } = useAuth()
   const rules = useMemo(() => passwordRules(password), [password])
 
@@ -81,15 +88,30 @@ export default function SignupPage() {
     }
     registrationPending.current = true
     setSubmitting(true)
+    const payload = {
+      firstName: String(data.get('firstName')).trim(),
+      lastName: String(data.get('lastName')).trim(),
+      email: String(data.get('email')).trim(),
+      phone: String(data.get('phone')).replace(/[\s-]/g, ''),
+      password,
+    }
     try {
-      await register({
-        firstName: String(data.get('firstName')).trim(),
-        lastName: String(data.get('lastName')).trim(),
-        email: String(data.get('email')).trim(),
-        phone: String(data.get('phone')).replace(/[\s-]/g, ''),
-        password,
-      })
-      window.location.replace('/dashboard')
+      await register(payload)
+      setVerificationEmail(payload.email)
+      setOtpStep(true)
+      setAgreement(null)
+      setOtpCode('')
+      setOtpAttempts(0)
+      try {
+        const response = await authApi.sendOtp(payload.email, 'EMAIL_VERIFY')
+        setOtpId(response.otpId)
+        setResendAvailable(false)
+        setMessage('')
+      } catch (error) {
+        setOtpId(null)
+        setResendAvailable(true)
+        setMessage(error instanceof Error ? error.message : p('otp.sendFailed'))
+      }
     } catch (error) {
       const reason = error instanceof Error ? error.message : p('form.errorFailed')
       setAgreementError(reason)
@@ -111,6 +133,51 @@ export default function SignupPage() {
     setAgreement(null)
     setAgreementError('')
     requestAnimationFrame(() => submitRef.current?.focus())
+  }
+
+  const verifyEmailCode = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (registrationPending.current || !otpId) return
+    registrationPending.current = true
+    setSubmitting(true)
+    setMessage('')
+    try {
+      const response = await authApi.verifyOtp(otpId, otpCode)
+      if (!response.verified) throw new ApiError('OTP_NOT_VERIFIED', p('otp.verifyFailed'), 400)
+      window.location.replace('/dashboard')
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'INVALID_OTP') {
+        const next = otpAttempts + 1
+        setOtpAttempts(next)
+        if (next >= 5) setResendAvailable(true)
+      } else if (error instanceof ApiError && (error.code === 'OTP_LOCKED' || error.code === 'OTP_EXPIRED')) {
+        setOtpAttempts(5)
+        setResendAvailable(true)
+      }
+      setMessage(error instanceof Error ? error.message : p('otp.verifyFailed'))
+    } finally {
+      registrationPending.current = false
+      setSubmitting(false)
+    }
+  }
+
+  const resendEmailCode = async () => {
+    if (registrationPending.current || !verificationEmail) return
+    registrationPending.current = true
+    setSubmitting(true)
+    setMessage('')
+    try {
+      const response = await authApi.sendOtp(verificationEmail, 'EMAIL_VERIFY')
+      setOtpId(response.otpId)
+      setOtpCode('')
+      setOtpAttempts(0)
+      setResendAvailable(false)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : p('otp.sendFailed'))
+    } finally {
+      registrationPending.current = false
+      setSubmitting(false)
+    }
   }
 
   const fieldProps = (name: FieldName) => ({
@@ -158,11 +225,11 @@ export default function SignupPage() {
         <div className="login-card signup-card">
           <div className="login-title">
             <span className="login-welcome-icon"><ShoppingBag size={25} /></span>
-            <span className="login-kicker">{p('form.kicker')}</span>
-            <h2>{p('form.title')}</h2>
-            <p>{p('form.subtitle')}</p>
+            <span className="login-kicker">{p(otpStep ? 'otp.kicker' : 'form.kicker')}</span>
+            <h2 id={otpStep ? 'signup-otp-label' : undefined}>{p(otpStep ? 'otp.title' : 'form.title')}</h2>
+            <p>{p(otpStep ? 'otp.subtitle' : 'form.subtitle', { email: verificationEmail })}</p>
           </div>
-          <form
+          {!otpStep ? <form
             ref={formRef}
             onSubmit={submit}
             noValidate
@@ -221,8 +288,37 @@ export default function SignupPage() {
               {submitting ? <><LoaderCircle className="login-spinner" size={19} /> {p('form.submitting')}</> : <>{p('form.submit')} <ArrowRight size={19} /></>}
             </button>
             {message && <p className="login-message" role="alert"><CircleAlert size={18} /><span>{message}</span></p>}
-          </form>
-          <div className="login-divider"><span />{p('dividerSocial')}<span /></div>
+          </form> : <section className="signup-otp" aria-labelledby="signup-otp-label">
+            <form onSubmit={verifyEmailCode} aria-busy={submitting}>
+              <label htmlFor="signup-otp-code">{p('otp.codeLabel')}</label>
+              <input
+                id="signup-otp-code"
+                name="otpCode"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                required
+                value={otpCode}
+                onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                aria-describedby="signup-otp-help"
+                aria-label={p('otp.codeLabel')}
+                disabled={submitting || !otpId || resendAvailable}
+                autoFocus
+              />
+              <p id="signup-otp-help">{p('otp.helpText')}</p>
+              {otpAttempts > 0 && <p className="signup-otp-attempts" role="status">{p('otp.attempts', { count: otpAttempts })}</p>}
+              <button className="login-submit signup-submit" type="submit" disabled={submitting || !otpId || resendAvailable || otpCode.length !== 6}>
+                {submitting ? <><LoaderCircle className="login-spinner" size={19} /> {p('otp.verifying')}</> : <>{p('otp.verify')} <ArrowRight size={19} /></>}
+              </button>
+            </form>
+            {resendAvailable && <button className="signup-otp-resend" type="button" onClick={() => void resendEmailCode()} disabled={submitting}>
+              {submitting ? <LoaderCircle className="login-spinner" size={16} /> : null}{p('otp.resend')}
+            </button>}
+            {message && <p className="login-message" role="alert"><CircleAlert size={18} /><span>{message}</span></p>}
+          </section>}
+          {!otpStep && <><div className="login-divider"><span />{p('dividerSocial')}<span /></div>
           <div className="social-logins">
             {[p('socialGoogle'), p('socialFacebook'), p('socialApple')].map((provider) => (
               <button key={provider} type="button" disabled={submitting} onClick={() => setMessage(p('form.socialUnavailable', { provider }))}>
@@ -234,6 +330,7 @@ export default function SignupPage() {
             ))}
           </div>
           <p className="signup-line">{p('hasAccountPrompt')} <a href="/login">{p('loginLink')}</a></p>
+          </>}
         </div>
         <div className="login-merchant">
           <Store size={20} />

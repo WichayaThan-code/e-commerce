@@ -60,7 +60,7 @@ public final class MerchantDtos {
     public record OwnerShopRef(Long shopId, String shopName, ShopStatus status){}
     public record PublicShopResponse(
         Long shopId,
-        String name,String nameEn,String description,String category,
+        String name,String nameEn,String nameZh,String description,String descriptionEn,String descriptionZh,String category,
         String address,String province,String district,String subdistrict,String postalCode,
         String slug,String path,ShopStatus status,String logoUrl,String coverUrl
     ){}

@@ -1,6 +1,10 @@
 package com.thaishopfun.merchant;
 
 import com.thaishopfun.auth.AuthException;
+import com.thaishopfun.translation.ContentTranslationBridge;
+import com.thaishopfun.translation.ContentTranslationIndex;
+import com.thaishopfun.translation.TranslationEntityType;
+import com.thaishopfun.translation.TranslationService;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -14,10 +18,19 @@ import java.util.UUID;
 public class ShopCatalogService {
     private final ShopRepository shops;
     private final MerchantStorageService storage;
+    private final TranslationService translations;
+    private final ContentTranslationBridge translationBridge;
 
-    public ShopCatalogService(ShopRepository shops, MerchantStorageService storage) {
+    public ShopCatalogService(
+        ShopRepository shops,
+        MerchantStorageService storage,
+        TranslationService translations,
+        ContentTranslationBridge translationBridge
+    ) {
         this.shops = shops;
         this.storage = storage;
+        this.translations = translations;
+        this.translationBridge = translationBridge;
     }
 
     @Transactional
@@ -27,6 +40,7 @@ public class ShopCatalogService {
         if (owner == null) throw new AuthException(HttpStatus.BAD_REQUEST, "OWNER_REQUIRED", "กรุณาระบุเจ้าของร้านก่อนเปิดร้าน");
         var shop = shops.saveAndFlush(new Shop(application, "tmp-" + UUID.randomUUID().toString().substring(0, 12), owner));
         shop.assignSlug(uniqueSlug(ShopSlugs.base(application.getShopNameEn(), application.getShopName(), shop.getId())));
+        translationBridge.onShopSaved(shop, application.getShopNameEn());
     }
 
     @Transactional(readOnly = true)
@@ -36,16 +50,25 @@ public class ShopCatalogService {
 
     @Transactional(readOnly = true)
     public List<MerchantDtos.PublicShopResponse> list() {
-        return shops.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
+        var approved = shops.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream()
             .filter(shop -> shop.getStatus() == ShopStatus.APPROVED)
-            .map(this::toPublic)
             .toList();
+        var index = translations.loadIndex(
+            TranslationEntityType.SHOP,
+            approved.stream().map(shop -> String.valueOf(shop.getId())).toList()
+        );
+        return approved.stream().map(shop -> toPublic(shop, index)).toList();
     }
 
     @Transactional(readOnly = true)
-    public MerchantDtos.PublicShopResponse publicView(String slug) {
+    public MerchantDtos.PublicShopResponse publicView(String slug, UUID viewerId, boolean admin) {
         var shop = shops.findBySlug(slug).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า"));
-        return toPublic(shop);
+        var owner = shop.getUser() != null && viewerId != null && viewerId.equals(shop.getUser().getId());
+        if (shop.getStatus() != ShopStatus.APPROVED && !admin && !owner) {
+            throw new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า");
+        }
+        var index = translations.loadIndex(TranslationEntityType.SHOP, List.of(String.valueOf(shop.getId())));
+        return toPublic(shop, index);
     }
 
     @Transactional(readOnly = true)
@@ -60,11 +83,31 @@ public class ShopCatalogService {
         return storage.openPublicImage(shop.getCoverPath()).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "COVER_NOT_FOUND", "ไม่พบรูปปกร้าน"));
     }
 
-    private MerchantDtos.PublicShopResponse toPublic(Shop shop) {
+    private MerchantDtos.PublicShopResponse toPublic(Shop shop, ContentTranslationIndex index) {
+        var entityId = String.valueOf(shop.getId());
         var logo = storage.openPublicImage(shop.getLogoPath()).isPresent() ? "/api/shops/" + shop.getSlug() + "/logo" : null;
         var cover = storage.openPublicImage(shop.getCoverPath()).isEmpty() ? null
             : "/api/shops/" + shop.getSlug() + "/cover?v=" + shop.getUpdatedAt().toEpochMilli();
-        return new MerchantDtos.PublicShopResponse(shop.getId(), shop.getName(), shop.getNameEn(), shop.getDescription(), shop.getCategory(), shop.getAddress(), shop.getProvince(), shop.getDistrict(), shop.getSubdistrict(), shop.getPostalCode(), shop.getSlug(), shop.path(), shop.getStatus(), logo, cover);
+        return new MerchantDtos.PublicShopResponse(
+            shop.getId(),
+            shop.getName(),
+            index.resolve(entityId, "name", "en", shop.getName(), shop.getNameEn()),
+            index.resolve(entityId, "name", "zh", shop.getName(), null),
+            shop.getDescription(),
+            index.resolve(entityId, "description", "en", shop.getDescription(), null),
+            index.resolve(entityId, "description", "zh", shop.getDescription(), null),
+            shop.getCategory(),
+            shop.getAddress(),
+            shop.getProvince(),
+            shop.getDistrict(),
+            shop.getSubdistrict(),
+            shop.getPostalCode(),
+            shop.getSlug(),
+            shop.path(),
+            shop.getStatus(),
+            logo,
+            cover
+        );
     }
 
     private String uniqueSlug(String base) {

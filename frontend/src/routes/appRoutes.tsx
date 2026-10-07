@@ -21,6 +21,8 @@ import AdminRolesPage from "../pages/AdminRolesPage";
 
 import MerchantDashboardPage from "../pages/MerchantDashboardPage";
 import ProductManagementPage from "../pages/ProductManagementPage";
+import ProductFormPage from "../pages/ProductFormPage";
+import ProductDetailPage from "../pages/ProductDetailPage";
 import OrderManagementPage from "../pages/OrderManagementPage";
 import CustomerManagementPage from "../pages/CustomerManagementPage";
 import PromotionManagementPage from "../pages/PromotionManagementPage";
@@ -44,6 +46,7 @@ import OwnerInfoPage from "../pages/OwnerInfoPage";
 import DocumentConfirmPage from "../pages/DocumentConfirmPage";
 import VerifySendPage from "../pages/VerifySendPage";
 import ShopPage from "../pages/ShopPage";
+import ShopProductPage from "../pages/ShopProductPage";
 import ShopsPage from "../pages/ShopsPage";
 
 export const routes: RouteObject[] = [
@@ -64,6 +67,7 @@ export const routes: RouteObject[] = [
       { path: "/cart", element: <CartPage /> },
       { path: "/shops", element: <ShopsPage /> },
       { path: "/shop/:slug", element: <ShopPage /> },
+      { path: "/shop/:slug/product/:productSlug", element: <ShopProductPage /> },
     ],
   },
 
@@ -90,6 +94,9 @@ export const routes: RouteObject[] = [
     children: [
       { path: "/merchant/dashboard", element: <MerchantDashboardPage /> },
       { path: "/merchant/products", element: <ProductManagementPage /> },
+      { path: "/merchant/products/new", element: <ProductFormPage /> },
+      { path: "/merchant/products/:productId", element: <ProductDetailPage /> },
+      { path: "/merchant/products/:productId/edit", element: <ProductFormPage /> },
       { path: "/merchant/orders", element: <OrderManagementPage /> },
       { path: "/merchant/customers", element: <CustomerManagementPage /> },
       { path: "/merchant/promotions", element: <PromotionManagementPage /> },

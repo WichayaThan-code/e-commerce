@@ -1,6 +1,9 @@
 package com.thaishopfun.merchant;
 
+import com.thaishopfun.auth.RequestUser;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
@@ -23,7 +26,9 @@ public class ShopController {
     public List<MerchantDtos.PublicShopResponse> list() { return shops.list(); }
 
     @GetMapping("/{slug}")
-    public MerchantDtos.PublicShopResponse get(@PathVariable String slug) { return shops.publicView(slug); }
+    public MerchantDtos.PublicShopResponse get(@PathVariable String slug, @AuthenticationPrincipal Jwt jwt) {
+        return shops.publicView(slug, RequestUser.id(jwt), RequestUser.admin(jwt));
+    }
 
     @GetMapping("/{slug}/logo")
     public ResponseEntity<Resource> logo(@PathVariable String slug) {

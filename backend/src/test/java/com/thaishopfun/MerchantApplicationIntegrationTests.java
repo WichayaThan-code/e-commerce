@@ -5,6 +5,11 @@ import com.thaishopfun.auth.RefreshTokenRepository;
 import com.thaishopfun.auth.UserAccount;
 import com.thaishopfun.auth.UserAccountRepository;
 import com.thaishopfun.auth.UserRole;
+import com.thaishopfun.catalog.InventoryLedgerRepository;
+import com.thaishopfun.catalog.InventoryLevelRepository;
+import com.thaishopfun.catalog.ProductImageRepository;
+import com.thaishopfun.catalog.ProductRepository;
+import com.thaishopfun.catalog.ProductSkuRepository;
 import com.thaishopfun.merchant.MerchantApplicationRepository;
 import com.thaishopfun.merchant.MerchantDocumentRepository;
 import com.thaishopfun.merchant.OwnerAuditLogRepository;
@@ -41,8 +46,13 @@ class MerchantApplicationIntegrationTests {
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired UserAccountRepository users;
     @Autowired PasswordEncoder passwords;
+    @Autowired InventoryLedgerRepository ledger;
+    @Autowired InventoryLevelRepository levels;
+    @Autowired ProductImageRepository productImages;
+    @Autowired ProductSkuRepository productSkus;
+    @Autowired ProductRepository catalogProducts;
 
-    @BeforeEach void clean(){reinstatements.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
+    @BeforeEach void clean(){ledger.deleteAll();levels.deleteAll();productImages.deleteAll();productSkus.deleteAll();catalogProducts.deleteAll();reinstatements.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
 
     @Test void savesUploadsAndSubmitsRealApplication() throws Exception {
         var registered=mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
@@ -69,7 +79,8 @@ class MerchantApplicationIntegrationTests {
           .andExpect(jsonPath("$.shopPath").value("/shop/test-shop"));
         mvc.perform(get("/api/shops"))
           .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
-        mvc.perform(get("/api/shops/test-shop"))
+        mvc.perform(get("/api/shops/test-shop")).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SHOP_NOT_FOUND"));
+        mvc.perform(get("/api/shops/test-shop").header("Authorization", "Bearer " + token))
           .andExpect(status().isOk()).andExpect(jsonPath("$.name").value("ร้านทดสอบ"))
           .andExpect(jsonPath("$.status").value("PENDING_REVIEW")).andExpect(jsonPath("$.path").value("/shop/test-shop"))
           .andExpect(jsonPath("$.bankName").doesNotExist())

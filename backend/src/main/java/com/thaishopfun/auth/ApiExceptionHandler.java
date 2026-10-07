@@ -1,5 +1,7 @@
 package com.thaishopfun.auth;
 
+import com.thaishopfun.catalog.CatalogDtos;
+import com.thaishopfun.catalog.ImportRunningException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -10,6 +12,11 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(ImportRunningException.class)
+    ResponseEntity<CatalogDtos.ProductImportConflict> importRunning(ImportRunningException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new CatalogDtos.ProductImportConflict("IMPORT_RUNNING", exception.getMessage(), exception.jobId()));
+    }
+
     @ExceptionHandler(AuthException.class)
     ResponseEntity<AuthDtos.ApiError> auth(AuthException exception) {
         return ResponseEntity.status(exception.getStatus()).body(new AuthDtos.ApiError(exception.getCode(), exception.getMessage()));

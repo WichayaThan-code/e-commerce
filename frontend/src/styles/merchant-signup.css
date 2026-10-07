@@ -169,4 +169,8 @@
 .merchant-card form input[aria-invalid=true],.merchant-card form textarea[aria-invalid=true]{border-color:#e8a477;background:#fffcf9}
 .merchant-card form input::placeholder,.merchant-card form textarea::placeholder{color:#8793a3}
 .merchant-card .login-submit{width:min(100%,360px);margin:8px auto 0}
+.merchant-count{display:block;margin:-8px 0 14px;color:#69798c;font-size:11px;font-weight:500}
+.merchant-card .form-field em{font-style:normal;color:#ff3653;margin-left:3px}
+.merchant-card .searchable-select-btn,.owner-card .searchable-select-btn{height:51px;border:1px solid #dce2eb;border-radius:10px;color:#132b50;font-size:14px}
+.merchant-card .searchable-select-btn:focus,.merchant-card .searchable-select-btn.active{outline:none;border-color:#1671de;box-shadow:0 0 0 3px #1671de16}
 .merchant-card .logo-drop{border:1px dashed #dce2eb;border-radius:10px;background:#fff}

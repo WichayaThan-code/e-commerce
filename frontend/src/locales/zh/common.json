@@ -52,5 +52,50 @@
     "apply": "申请开店",
     "help": "帮助",
     "search": "搜索商品、订单、顾客..."
+  },
+  "admin": {
+    "searchAction": "",
+    "searchLabel": "",
+    "search": "",
+    "notify": "",
+    "notifyList": "",
+    "pendingTitle": "",
+    "shopCount": "",
+    "empty": "",
+    "waiting": "",
+    "unknownOwner": ""
+  },
+  "auth": {
+    "login": "",
+    "signup": ""
+  },
+  "signupAgreement": {
+    "termsTitle": "",
+    "privacyTitle": "",
+    "introTerms": "",
+    "introPrivacy": "",
+    "footerNextTerms": "",
+    "footerAccept": "",
+    "btnEdit": "",
+    "btnBack": "",
+    "btnLater": "",
+    "eyebrow": "",
+    "closeAria": "",
+    "stepsAria": "",
+    "stepTerms": "",
+    "stepPrivacy": "",
+    "helpLink": "",
+    "errorSuffix": "",
+    "btnNext": "",
+    "btnCreating": "",
+    "btnRetry": "",
+    "btnAcceptCreate": ""
+  },
+  "back": "",
+  "help": "",
+  "catalog": {
+    "errors": {
+      "REQUEST_FAILED": ""
+    }
   }
 }

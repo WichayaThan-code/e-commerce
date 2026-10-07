@@ -7,14 +7,16 @@ type FormFieldProps = {
   error?: string;
   errorId?: string;
   className?: string;
+  multiline?: boolean;
   children: ReactNode;
 };
 
-export default function FormField({ label, icon: Icon, error, errorId, className, children }: FormFieldProps) {
+export default function FormField({ label, icon: Icon, error, errorId, className, multiline, children }: FormFieldProps) {
+  const classes = ["form-field", className].filter(Boolean).join(" ");
   return (
-    <label className={className ? `form-field ${className}` : "form-field"}>
+    <label className={classes}>
       <span className="form-label">{label}</span>
-      <span className="form-control">
+      <span className={multiline ? "form-control form-control-area" : "form-control"}>
         {Icon ? <Icon aria-hidden="true" /> : null}
         {children}
       </span>

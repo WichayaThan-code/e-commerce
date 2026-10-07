@@ -51,6 +51,8 @@
 .owner-card .owner-icon-field:not(.left)>svg{display:none}
 .owner-card .owner-icon-field input[type="date"]{padding-right:4px}
 .owner-address-grid label.wide,.owner-payout-grid label.wide,.owner-address-grid .address-grid{grid-column:1 / -1}
+.owner-card .form-field{margin-bottom:0;min-width:0}
+.owner-form-section .form-grid{margin-top:13px}
 .owner-address-display{display:grid;gap:4px;width:100%;box-sizing:border-box;margin-top:12px;padding:14px 16px;border:1px solid #dce2eb;border-radius:10px;background:#f7f9fc;color:#132b50;font-size:14px;line-height:1.6}
 .owner-address-display b{font-weight:600}
 .owner-address-display span{color:#4d6280}

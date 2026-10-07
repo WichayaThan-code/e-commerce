@@ -3,7 +3,7 @@
   --pm-navy: #08245d;
 }
 .om-heading {
-  height: 69px;
+  height: auto;
 }
 .om-kpis .low > span,
 .om-kpis .empty > span {

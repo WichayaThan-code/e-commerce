@@ -11,6 +11,8 @@ import MerchantHeader from '../components/MerchantHeader'
 import SearchableSelect from '../components/SearchableSelect'
 import ThaiAddressFields, { emptyThaiAddress, type ThaiAddressValue } from '../components/ThaiAddressFields'
 import { ApiError, merchantApi, type DocumentType, type MerchantOwner } from '../services/api'
+import FormField from '../components/form/FormField'
+import FormGrid from '../components/form/FormGrid'
 import { SHOP_IMAGE_ACCEPT } from '../services/shopImage'
 import { readMerchantDraft, rememberDocumentName, writeMerchantDraft, type OwnerDraft } from '../services/merchantDraft'
 import '../styles/owner-info.css'
@@ -232,16 +234,28 @@ export default function OwnerInfoPage() {
                 <h3>{o.personal}</h3>
                 <div className="owner-person-grid">
                   <SearchableSelect label={o.title} required options={[...o.titles]} value={title} onChange={setTitle} />
-                  <label className="owner-field">{o.firstName} <em>*</em><input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></label>
-                  <label className="owner-field">{o.lastName} <em>*</em><input value={lastName} onChange={(e) => setLastName(e.target.value)} /></label>
-                  <label className="owner-field">{o.citizenId} <em>*</em><input inputMode="numeric" placeholder={o.citizenPh} value={citizenId} onChange={(e) => setCitizenId(e.target.value)} /></label>
-                  <label className="owner-field">{o.birthDate} <em>*</em><span className="owner-icon-field"><input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} /><CalendarDays /></span></label>
+                  <FormField className="flush" label={<>{o.firstName} <em>*</em></>} icon={UserRound}>
+                    <input value={firstName} autoComplete="given-name" onChange={(e) => setFirstName(e.target.value)} />
+                  </FormField>
+                  <FormField className="flush" label={<>{o.lastName} <em>*</em></>}>
+                    <input value={lastName} autoComplete="family-name" onChange={(e) => setLastName(e.target.value)} />
+                  </FormField>
+                  <FormField className="flush" label={<>{o.citizenId} <em>*</em></>} icon={IdCard}>
+                    <input inputMode="numeric" placeholder={o.citizenPh} value={citizenId} onChange={(e) => setCitizenId(e.target.value)} />
+                  </FormField>
+                  <FormField className="flush" label={<>{o.birthDate} <em>*</em></>} icon={CalendarDays}>
+                    <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+                  </FormField>
                   <SearchableSelect label={o.nationality} required options={[...o.nationalities]} value={nationality} onChange={setNationality} />
                 </div>
-                <div className="owner-contact-grid">
-                  <label className="owner-field">{o.phone} <em>*</em><span className="owner-icon-field left"><Phone /><input value={phone} onChange={(e) => setPhone(e.target.value)} /></span></label>
-                  <label className="owner-field">{o.email} <em>*</em><span className="owner-icon-field left"><Mail /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></span></label>
-                </div>
+                <FormGrid>
+                  <FormField className="flush" label={<>{o.phone} <em>*</em></>} icon={Phone}>
+                    <input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  </FormField>
+                  <FormField className="flush" label={<>{o.email} <em>*</em></>} icon={Mail}>
+                    <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  </FormField>
+                </FormGrid>
               </section>
               <section className="owner-form-section">
                 <div className="section-row">
@@ -255,11 +269,21 @@ export default function OwnerInfoPage() {
                   <AddressPreview userId={user?.id} emptyLabel={o.sameAddressEmpty} />
                 ) : (
                 <div className="owner-address-grid">
-                  <label className="owner-field">{o.houseNo} <em>*</em><input placeholder="123/45" value={houseNo} onChange={(e) => setHouseNo(e.target.value)} /></label>
-                  <label className="owner-field">{o.villageNo}<input placeholder="5" value={villageNo} onChange={(e) => setVillageNo(e.target.value)} /></label>
-                  <label className="owner-field wide">{o.building}<input placeholder="หมู่บ้านสุขสันต์" value={building} onChange={(e) => setBuilding(e.target.value)} /></label>
-                  <label className="owner-field">{o.alley}<input placeholder="สุขุมวิท 101" value={alley} onChange={(e) => setAlley(e.target.value)} /></label>
-                  <label className="owner-field">{o.road}<input placeholder="สุขุมวิท" value={road} onChange={(e) => setRoad(e.target.value)} /></label>
+                  <FormField className="flush" label={<>{o.houseNo} <em>*</em></>}>
+                    <input placeholder="123/45" value={houseNo} onChange={(e) => setHouseNo(e.target.value)} />
+                  </FormField>
+                  <FormField className="flush" label={o.villageNo}>
+                    <input placeholder="5" value={villageNo} onChange={(e) => setVillageNo(e.target.value)} />
+                  </FormField>
+                  <FormField className="flush wide" label={o.building}>
+                    <input placeholder="หมู่บ้านสุขสันต์" value={building} onChange={(e) => setBuilding(e.target.value)} />
+                  </FormField>
+                  <FormField className="flush" label={o.alley}>
+                    <input placeholder="สุขุมวิท 101" value={alley} onChange={(e) => setAlley(e.target.value)} />
+                  </FormField>
+                  <FormField className="flush" label={o.road}>
+                    <input placeholder="สุขุมวิท" value={road} onChange={(e) => setRoad(e.target.value)} />
+                  </FormField>
                   <ThaiAddressFields value={thaiAddress} onChange={setThaiAddress} />
                 </div>
                 )}
@@ -268,8 +292,12 @@ export default function OwnerInfoPage() {
                 <h3>{o.payout}</h3>
                 <div className="owner-payout-grid">
                   <SearchableSelect label={o.bank} required placeholder={o.bankPh} options={[...o.banks]} value={bankName} onChange={setBankName} />
-                  <label className="owner-field">{o.accountNo} <em>*</em><input inputMode="numeric" placeholder={o.accountNoPh} value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} /></label>
-                  <label className="owner-field wide">{o.accountName} <em>*</em><input placeholder={o.accountNamePh} value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} /></label>
+                  <FormField className="flush" label={<>{o.accountNo} <em>*</em></>}>
+                    <input inputMode="numeric" placeholder={o.accountNoPh} value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} />
+                  </FormField>
+                  <FormField className="flush wide" label={<>{o.accountName} <em>*</em></>}>
+                    <input placeholder={o.accountNamePh} value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} />
+                  </FormField>
                 </div>
               </section>
               <section className="owner-form-section documents">

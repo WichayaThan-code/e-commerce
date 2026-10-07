@@ -1,5 +1,6 @@
 package com.thaishopfun.merchant;
 
+import com.thaishopfun.translation.ContentTranslationBridge;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -9,15 +10,17 @@ import java.util.List;
 @Component
 public class ProductCategorySeeder implements ApplicationRunner {
     private final ProductCategoryRepository categories;
+    private final ContentTranslationBridge translationBridge;
 
-    public ProductCategorySeeder(ProductCategoryRepository categories) {
+    public ProductCategorySeeder(ProductCategoryRepository categories, ContentTranslationBridge translationBridge) {
         this.categories = categories;
+        this.translationBridge = translationBridge;
     }
 
     @Override
     public void run(ApplicationArguments args) {
         if (categories.count() > 0) return;
-        categories.saveAll(List.of(
+        var seeded = categories.saveAll(List.of(
             row("แฟชั่นและเสื้อผ้า", "Fashion & apparel", "时尚服装", 1),
             row("อาหารและเครื่องดื่ม", "Food & beverages", "食品饮料", 2),
             row("ความงามและสุขภาพ", "Beauty & wellness", "美容健康", 3),
@@ -32,6 +35,7 @@ public class ProductCategorySeeder implements ApplicationRunner {
             row("หนังสือและเครื่องเขียน", "Books & stationery", "图书文具", 12),
             row("เครื่องประดับและนาฬิกา", "Jewelry & watches", "珠宝手表", 13)
         ));
+        seeded.forEach(translationBridge::onCategorySaved);
     }
 
     private static ProductCategory row(String nameTh, String nameEn, String nameZh, int sortOrder) {

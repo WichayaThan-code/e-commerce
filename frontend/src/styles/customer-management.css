@@ -7,18 +7,7 @@
   padding-top: 91px;
 }
 .cm-heading {
-  height: 69px;
-}
-.cm-heading h1 {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-}
-.cm-heading h1 svg {
-  width: 42px;
-  height: 42px;
-  color: #087bf5;
-  fill: #087bf5;
+  height: auto;
 }
 .cm-kpis .ready > span:after,
 .cm-kpis .empty > span:after {

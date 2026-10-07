@@ -27,6 +27,14 @@ app:
   merchant:
     storage-root: ${STORAGE_ROOT:./uploads}
     data-encryption-secret: ${DATA_ENCRYPTION_SECRET:thaishopfun-local-data-encryption-secret-change-before-production}
+  translation:
+    provider: ${TRANSLATION_PROVIDER:none}
+    google-api-key: ${GOOGLE_TRANSLATE_API_KEY:}
+    deepl-api-key: ${DEEPL_API_KEY:}
+    glossary: ${TRANSLATION_GLOSSARY:ThaiShopFun,SKU,mg,ml}
+    batch-size: 40
+    max-attempts: 5
+    poll-delay-ms: 60000
   security:
     jwt-secret: ${JWT_SECRET:thaishopfun-local-development-secret-change-before-production}
     access-token-minutes: 15

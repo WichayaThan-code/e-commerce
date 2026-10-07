@@ -7,11 +7,13 @@ import {
   FileCheck2,
   Globe2,
   Headphones,
+  MapPin,
   Megaphone,
   PackageCheck,
   ShieldCheck,
   Store,
   TrendingUp,
+  Type,
   UsersRound,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -22,7 +24,8 @@ import { useLanguage } from "../contexts/LanguageContext";
 import MerchantHeader from "../components/MerchantHeader";
 import SearchableSelect from "../components/SearchableSelect";
 import ThaiAddressFields, { type ThaiAddressValue } from "../components/ThaiAddressFields";
-import { FieldError } from "../components/form/FormField";
+import FormField, { FieldError } from "../components/form/FormField";
+import FormGrid from "../components/form/FormGrid";
 import "../styles/form-fields.css";
 import { readMerchantDraft, writeMerchantDraft } from "../services/merchantDraft";
 import { isShopImage, SHOP_IMAGE_ACCEPT } from "../services/shopImage";
@@ -275,9 +278,14 @@ export default function MerchantSignupPage() {
             <form onSubmit={submit} noValidate>
               <h3>{r.sectionShop}</h3>
 
-              <div className="merchant-two">
-                <label>
-                  {r.shopName} <em>{ob.common.required}</em>
+              <FormGrid>
+                <FormField
+                  className="flush"
+                  label={<>{r.shopName} <em>{ob.common.required}</em></>}
+                  icon={Store}
+                  error={fieldErrors.shopName}
+                  errorId="shop-name-error"
+                >
                   <input
                     name="shopName"
                     maxLength={100}
@@ -287,11 +295,8 @@ export default function MerchantSignupPage() {
                     aria-describedby={fieldErrors.shopName ? "shop-name-error" : undefined}
                     onChange={(e) => setShopName(e.target.value)}
                   />
-                  <FieldError id="shop-name-error" text={fieldErrors.shopName} />
-                  <small>{shopName.length}/100</small>
-                </label>
-                <label>
-                  {r.shopNameEn}
+                </FormField>
+                <FormField className="flush" label={r.shopNameEn} icon={Type}>
                   <input
                     name="shopNameEnglish"
                     maxLength={100}
@@ -299,21 +304,23 @@ export default function MerchantSignupPage() {
                     value={shopNameEnglish}
                     onChange={(e) => setShopNameEnglish(e.target.value)}
                   />
-                </label>
-              </div>
+                </FormField>
+              </FormGrid>
+              <small className="merchant-count">{shopName.length}/100</small>
 
               <div className="merchant-two detail-logo">
-                <label>
-                  {r.description}
-                  <textarea
-                    name="description"
-                    maxLength={500}
-                    placeholder={r.descriptionPh}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                  <small>{description.length}/500</small>
-                </label>
+                <div>
+                  <FormField className="flush" label={r.description} multiline>
+                    <textarea
+                      name="description"
+                      maxLength={500}
+                      placeholder={r.descriptionPh}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </FormField>
+                  <small className="merchant-count">{description.length}/500</small>
+                </div>
                 <label>
                   {r.logo} <em>{ob.common.required}</em>
                   <button
@@ -405,15 +412,14 @@ export default function MerchantSignupPage() {
                 </div>
               </fieldset>
 
-              <label>
-                {r.address}
+              <FormField label={r.address} icon={MapPin}>
                 <input
                   name="address"
                   placeholder={r.addressPh}
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                 />
-              </label>
+              </FormField>
 
               <ThaiAddressFields value={thaiAddress} onChange={setThaiAddress} />
               <FieldError text={fieldErrors.address} />

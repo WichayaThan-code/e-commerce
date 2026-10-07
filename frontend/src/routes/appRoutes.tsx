@@ -25,6 +25,8 @@ import AdminRolesPage from "../pages/AdminRolesPage";
 
 import MerchantDashboardPage from "../pages/MerchantDashboardPage";
 import ProductManagementPage from "../pages/ProductManagementPage";
+import ProductFormPage from "../pages/ProductFormPage";
+import ProductDetailPage from "../pages/ProductDetailPage";
 import OrderManagementPage from "../pages/OrderManagementPage";
 import CustomerManagementPage from "../pages/CustomerManagementPage";
 import PromotionManagementPage from "../pages/PromotionManagementPage";
@@ -48,6 +50,7 @@ import OwnerInfoPage from "../pages/OwnerInfoPage";
 import DocumentConfirmPage from "../pages/DocumentConfirmPage";
 import VerifySendPage from "../pages/VerifySendPage";
 import ShopPage from "../pages/ShopPage";
+import ShopProductPage from "../pages/ShopProductPage";
 import ShopsPage from "../pages/ShopsPage";
 
 /** Wraps a page with the permission declared for its path in services/permissions.ts. */
@@ -75,6 +78,7 @@ export const routes: RouteObject[] = [
       { path: "/cart", element: <CartPage /> },
       { path: "/shops", element: <ShopsPage /> },
       { path: "/shop/:slug", element: <ShopPage /> },
+      { path: "/shop/:slug/product/:productSlug", element: <ShopProductPage /> },
     ],
   },
 
@@ -103,6 +107,9 @@ export const routes: RouteObject[] = [
     children: [
       { path: "/merchant/dashboard", element: guarded("/merchant/dashboard", <MerchantDashboardPage />) },
       { path: "/merchant/products", element: guarded("/merchant/products", <ProductManagementPage />) },
+      { path: "/merchant/products/new", element: guarded("/merchant/products", <ProductFormPage />) },
+      { path: "/merchant/products/:productId/edit", element: guarded("/merchant/products", <ProductFormPage />) },
+      { path: "/merchant/products/:productId", element: guarded("/merchant/products", <ProductDetailPage />) },
       { path: "/merchant/orders", element: guarded("/merchant/orders", <OrderManagementPage />) },
       { path: "/merchant/customers", element: guarded("/merchant/customers", <CustomerManagementPage />) },
       { path: "/merchant/promotions", element: guarded("/merchant/promotions", <PromotionManagementPage />) },

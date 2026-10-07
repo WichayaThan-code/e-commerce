@@ -1,3 +1,5 @@
+import i18n from '../i18n'
+
 export type UserRole = 'CUSTOMER' | 'MERCHANT' | 'ADMIN'
 /** Effective store permissions in one shop (shop_members role → auth_role_permissions). */
 export type ShopPermissionGrant = { shopId:number; role:string; permissions:string[] }
@@ -22,12 +24,24 @@ let refreshInFlight: Promise<AuthResponse> | null = null
 export const PERMISSIONS_STALE_EVENT = 'tsf:permissions-stale'
 
 export class ApiError extends Error {
-  constructor(public code:string, message:string, public status:number) { super(message) }
+  constructor(public code:string, message:string, public status:number, public jobId?:string) { super(message) }
+}
+
+function acceptLanguageHeader() {
+  const lng = i18n.language || 'th'
+  if (lng.startsWith('zh')) return 'zh-CN,zh;q=0.9'
+  if (lng.startsWith('en')) return 'en-US,en;q=0.9'
+  return 'th-TH,th;q=0.9'
+}
+
+function withLanguage(headers: Headers) {
+  headers.set('Accept-Language', acceptLanguageHeader())
 }
 
 async function request<T>(path:string, init:RequestInit = {}, authenticate = false, retry = true):Promise<T> {
   if (authenticate && !accessToken) await refreshSession()
   const headers = new Headers(init.headers)
+  withLanguage(headers)
   if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   if (authenticate && accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
   let response:Response
@@ -43,11 +57,11 @@ async function request<T>(path:string, init:RequestInit = {}, authenticate = fal
     } catch { accessToken = null }
   }
   if (!response.ok) {
-    const error = await response.json().catch(() => ({code:'REQUEST_FAILED', message:'เกิดข้อผิดพลาด กรุณาลองใหม่'}))
+    const error: { code?: string; message?: string; jobId?: string } = await response.json().catch(() => ({ code: 'REQUEST_FAILED', message: 'เกิดข้อผิดพลาด กรุณาลองใหม่' }))
     if (authenticate && !path.startsWith('/api/auth/') && (response.status === 403 || error.code === 'SHOP_NOT_FOUND')) {
       window.dispatchEvent(new Event(PERMISSIONS_STALE_EVENT))
     }
-    throw new ApiError(error.code || 'REQUEST_FAILED', error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status)
+    throw new ApiError(error.code || 'REQUEST_FAILED', error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status, error.jobId)
   }
   return response.status === 204 ? undefined as T : response.json()
 }
@@ -86,8 +100,10 @@ export type MerchantOwner = {
   id:string; ownerType:'PERSON'|'COMPANY'; title:string; firstName:string; lastName:string
   citizenIdMasked?:string|null; phone:string; email:string; sensitiveReview:string
 }
+export type TranslationMeta = { origin: 'MACHINE' | 'HUMAN'; status: 'PENDING' | 'DONE' | 'FAILED' }
+
 export type PublicShop = {
-  name:string;nameEn?:string;description?:string;category:string
+  name:string;nameEn?:string;nameZh?:string;description?:string;descriptionEn?:string;descriptionZh?:string;category:string
   address:string;province:string;district:string;subdistrict:string;postalCode:string
   slug:string;path:string;status:'PENDING_REVIEW'|'APPROVED'|'REJECTED'|'SUSPENDED';logoUrl?:string|null;coverUrl?:string|null
   shopId:number
@@ -157,6 +173,7 @@ async function downloadFile(path:string, filename:string) {
   if (!accessToken) await refreshSession()
   const load = async () => {
     const headers = new Headers()
+    withLanguage(headers)
     if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
     return fetch(`${API_URL}${path}`, {headers, credentials:'include'})
   }
@@ -237,4 +254,264 @@ export const catalogApi = {
 export const shopApi = {
   list: () => request<PublicShop[]>('/api/shops'),
   getBySlug: (slug:string) => request<PublicShop>(`/api/shops/${encodeURIComponent(slug)}`),
+  products: (slug:string, query: Pick<ProductListQuery, 'q' | 'categoryId' | 'sort' | 'page' | 'size' | 'priceBands'> = {}) => request<ProductPage<PublicProduct>>(`/api/shops/${encodeURIComponent(slug)}/products${productQuery(query)}`),
+  product: (slug:string, productSlug:string) => request<PublicProduct>(`/api/shops/${encodeURIComponent(slug)}/products/${encodeURIComponent(productSlug)}`),
+}
+
+export type ProductStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+export type ProductType = 'SIMPLE' | 'VARIABLE'
+export type StockFilter = 'in' | 'low' | 'out'
+export type ProductSort = 'newest' | 'name' | 'price_asc' | 'price_desc' | 'stock'
+export type ProductListQuery = {
+  q?: string
+  status?: ProductStatus
+  categoryId?: number
+  stock?: StockFilter
+  sort?: ProductSort
+  page?: number
+  size?: number
+  priceBands?: string
+}
+export type ProductSku = {
+  id: string
+  skuCode: string
+  barcode?: string | null
+  optionLabel?: string | null
+  optionValues?: Record<string, string>
+  price: number | string
+  costPrice?: number | string | null
+  compareAtPrice?: number | string | null
+  currency?: string | null
+  weightGrams?: number | null
+  active: boolean
+  onHand: number
+  reservedQty: number
+  available: number
+  lowStockThreshold?: number | null
+  version: number
+}
+export type ProductImage = { id: string; url: string; sortOrder: number; primary: boolean; altText?: string | null }
+export type Product = {
+  id: string
+  shopId: number
+  slug: string
+  nameTh: string
+  nameEn?: string | null
+  nameZh?: string | null
+  descriptionTh?: string | null
+  descriptionEn?: string | null
+  descriptionZh?: string | null
+  status: ProductStatus
+  productType: ProductType
+  categoryId?: number | null
+  brand?: string | null
+  basePrice?: number | string | null
+  compareAtPrice?: number | string | null
+  currency?: string | null
+  weightGrams?: number | null
+  publishedAt?: string | null
+  archivedAt?: string | null
+  modifiedAt?: string | null
+  skus: ProductSku[]
+  images: ProductImage[]
+  nameEnMeta?: TranslationMeta | null
+  nameZhMeta?: TranslationMeta | null
+  descriptionEnMeta?: TranslationMeta | null
+  descriptionZhMeta?: TranslationMeta | null
+}
+export type PublicSku = {
+  id: string
+  skuCode: string
+  optionLabel?: string | null
+  optionValues?: Record<string, string>
+  price: number | string
+  compareAtPrice?: number | string | null
+  currency?: string | null
+  available: number
+}
+export type PublicProduct = {
+  id: string
+  slug: string
+  nameTh: string
+  nameEn?: string | null
+  nameZh?: string | null
+  descriptionTh?: string | null
+  descriptionEn?: string | null
+  descriptionZh?: string | null
+  categoryId?: number | null
+  brand?: string | null
+  basePrice?: number | string | null
+  compareAtPrice?: number | string | null
+  currency?: string | null
+  skus: PublicSku[]
+  images: ProductImage[]
+}
+export type ProductPage<T> = { items: T[]; page: number; size: number; total: number }
+export type ProductImportResult = { created: number; failed: number; errors: { row: number; message: string }[] }
+export type ProductImportAccepted = { jobId: string; total: number }
+export type ProductImportJob = {
+  jobId: string
+  shopId: number
+  userId: string
+  status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED'
+  total: number
+  processed: number
+  created: number
+  failed: number
+  errors: { row: number; message: string }[]
+  currentRow: number | null
+  startedAt: string | null
+  finishedAt: string | null
+}
+export type SkuWrite = {
+  id?: string
+  skuCode: string
+  barcode?: string | null
+  optionLabel?: string | null
+  optionValues?: Record<string, string>
+  price: number
+  compareAtPrice?: number | null
+  weightGrams?: number | null
+}
+export type ProductWrite = {
+  nameTh: string
+  nameEn?: string | null
+  nameZh?: string | null
+  descriptionTh?: string | null
+  descriptionEn?: string | null
+  descriptionZh?: string | null
+  categoryId?: number | null
+  productType: ProductType
+  brand?: string | null
+  basePrice?: number | null
+  compareAtPrice?: number | null
+  weightGrams?: number | null
+  skus: SkuWrite[]
+}
+export type StockAdjustment = { skuId: string; entryType: string; onHand: number; available: number; version: number }
+export type LedgerEntry = {
+  id: number
+  skuId: string
+  skuCode: string
+  entryType: string
+  quantityDelta: number
+  onHandBefore: number
+  onHandAfter: number
+  reason?: string | null
+  createdAt?: string | null
+}
+
+function productQuery(query: ProductListQuery) {
+  const search = new URLSearchParams()
+  if (query.q) search.set('q', query.q)
+  if (query.status) search.set('status', query.status)
+  if (query.categoryId != null) search.set('categoryId', String(query.categoryId))
+  if (query.stock) search.set('stock', query.stock)
+  if (query.sort) search.set('sort', query.sort)
+  if (query.page != null) search.set('page', String(query.page))
+  if (query.size != null) search.set('size', String(query.size))
+  if (query.priceBands) search.set('priceBands', query.priceBands)
+  const text = search.toString()
+  return text ? `?${text}` : ''
+}
+
+function shopProducts(shopId: number, path = '') {
+  return `/api/merchant/shops/${shopId}${path}`
+}
+
+export async function authorizedBlob(path: string): Promise<Blob> {
+  if (!accessToken) await refreshSession()
+  const load = async () => {
+    const headers = new Headers()
+    withLanguage(headers)
+    if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+    return fetch(`${API_URL}${path}`, { headers, credentials: 'include' })
+  }
+  let response = await load()
+  if (response.status === 401) {
+    await refreshSession()
+    response = await load()
+  }
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ code: 'REQUEST_FAILED', message: 'โหลดรูปไม่สำเร็จ' }))
+    throw new ApiError(error.code || 'REQUEST_FAILED', error.message || 'โหลดรูปไม่สำเร็จ', response.status)
+  }
+  return response.blob()
+}
+
+function uploadForm<T>(path: string, body: FormData, onProgress?: (ratio: number) => void): Promise<T> {
+  const send = () => new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${API_URL}${path}`)
+    xhr.withCredentials = true
+    xhr.setRequestHeader('Accept-Language', acceptLanguageHeader())
+    if (accessToken) xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`)
+    xhr.upload.onprogress = (event) => {
+      if (onProgress && event.lengthComputable) onProgress(event.loaded / event.total)
+    }
+    xhr.onload = () => {
+      if (xhr.status === 401) {
+        reject(new ApiError('UNAUTHORIZED', 'กรุณาเข้าสู่ระบบใหม่', 401))
+        return
+      }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        let error: { code?: string; message?: string; jobId?: string } = { code: 'REQUEST_FAILED', message: 'อัปโหลดไม่สำเร็จ' }
+        try { error = JSON.parse(xhr.responseText) } catch { /* keep fallback */ }
+        reject(new ApiError(error.code || 'REQUEST_FAILED', error.message || 'อัปโหลดไม่สำเร็จ', xhr.status, error.jobId))
+        return
+      }
+      resolve(JSON.parse(xhr.responseText) as T)
+    }
+    xhr.onerror = () => reject(new ApiError('NETWORK_ERROR', 'เชื่อมต่อระบบไม่ได้ กรุณาตรวจสอบว่า Backend กำลังทำงาน', 0))
+    xhr.send(body)
+  })
+  return (async () => {
+    if (!accessToken) await refreshSession()
+    try {
+      return await send()
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        await refreshSession()
+        return send()
+      }
+      throw error
+    }
+  })()
+}
+
+export const productApi = {
+  list: (shopId: number, query: ProductListQuery = {}) => request<ProductPage<Product>>(shopProducts(shopId, `/products${productQuery(query)}`), {}, true),
+  get: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}`), {}, true),
+  create: (shopId: number, payload: ProductWrite) => request<Product>(shopProducts(shopId, '/products'), { method: 'POST', body: JSON.stringify(payload) }, true),
+  update: (shopId: number, productId: string, payload: ProductWrite) => request<Product>(shopProducts(shopId, `/products/${productId}`), { method: 'PUT', body: JSON.stringify(payload) }, true),
+  useAutoTranslation: (shopId: number, productId: string, payload: { field: 'name' | 'description'; locale: 'en' | 'zh' }) =>
+    request<Product>(shopProducts(shopId, `/products/${productId}/translations/use-auto`), { method: 'POST', body: JSON.stringify(payload) }, true),
+  publish: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/publish`), { method: 'POST' }, true),
+  archive: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/archive`), { method: 'POST' }, true),
+  unarchive: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/unarchive`), { method: 'POST' }, true),
+  addImage: (shopId: number, productId: string, file: File, onProgress?: (ratio: number) => void) => {
+    const body = new FormData()
+    body.append('file', file)
+    return uploadForm<Product>(shopProducts(shopId, `/products/${productId}/images`), body, onProgress)
+  },
+  deleteImage: (shopId: number, productId: string, imageId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/images/${imageId}`), { method: 'DELETE' }, true),
+  orderImages: (shopId: number, productId: string, imageIds: string[], primaryImageId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/images/order`), { method: 'PUT', body: JSON.stringify({ imageIds, primaryImageId }) }, true),
+  adjustStock: (shopId: number, skuId: string, payload: { entryType: 'RECEIVE' | 'ADJUST'; quantityDelta: number; reason?: string; version: number; idempotencyKey?: string }) => request<StockAdjustment>(shopProducts(shopId, `/skus/${skuId}/stock-adjustments`), { method: 'POST', body: JSON.stringify(payload) }, true),
+  ledger: (shopId: number, productId: string) => request<LedgerEntry[]>(shopProducts(shopId, `/products/${productId}/ledger`), {}, true),
+  exportExcel: async (shopId: number) => {
+    const blob = await authorizedBlob(shopProducts(shopId, '/products/export'))
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'products.xlsx'
+    link.click()
+    URL.revokeObjectURL(url)
+  },
+  importExcel: (shopId: number, file: File, onUploadProgress?: (percent: number) => void) => {
+    const body = new FormData()
+    body.append('file', file)
+    return uploadForm<ProductImportAccepted>(shopProducts(shopId, '/products/import'), body, (ratio) => onUploadProgress?.(Math.round(ratio * 100)))
+  },
+  importStatus: (shopId: number, jobId: string) => request<ProductImportJob>(shopProducts(shopId, `/products/import/${jobId}`), {}, true),
+  importBatch: (shopId: number, payloads: ProductWrite[]) => request<ProductImportResult>(shopProducts(shopId, '/products/batch'), { method: 'POST', body: JSON.stringify(payloads) }, true),
 }

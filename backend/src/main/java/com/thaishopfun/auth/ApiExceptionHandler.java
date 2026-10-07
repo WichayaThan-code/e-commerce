@@ -1,5 +1,7 @@
 package com.thaishopfun.auth;
 
+import com.thaishopfun.catalog.CatalogDtos;
+import com.thaishopfun.catalog.ImportRunningException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,6 +21,11 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 @RestControllerAdvice
 public class ApiExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    @ExceptionHandler(ImportRunningException.class)
+    ResponseEntity<CatalogDtos.ProductImportConflict> importRunning(ImportRunningException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new CatalogDtos.ProductImportConflict("IMPORT_RUNNING", exception.getMessage(), exception.jobId()));
+    }
 
     @ExceptionHandler(AuthException.class)
     ResponseEntity<AuthDtos.ApiError> auth(AuthException exception) {

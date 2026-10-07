@@ -8,6 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "i18n:check": "node scripts/check-i18n-keys.mjs",
+    "i18n:extract": "node scripts/i18n-extract.mjs",
+    "i18n:translate": "node scripts/i18n-auto-translate.mjs",
+    "i18n:sync": "node scripts/i18n-extract.mjs && node scripts/i18n-auto-translate.mjs && node scripts/check-i18n-keys.mjs",
     "i18n:export": "tsx scripts/export-legacy-locales.ts"
   },
   "dependencies": {
@@ -26,6 +29,7 @@
   "devDependencies": {
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "i18next-cli": "^1.74.7",
     "tsx": "^4.23.15"
   }
 }

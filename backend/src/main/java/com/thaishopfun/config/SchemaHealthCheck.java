@@ -35,12 +35,20 @@ public class SchemaHealthCheck implements ApplicationRunner {
         required.put("refresh_tokens", List.of("id", "user_id"));
         required.put("merchant_applications", List.of("id", "user_id", "owner_id", "citizen_id_hash"));
         required.put("merchant_documents", List.of("id", "application_id"));
-        required.put("shops", List.of("id", "shop_no", "owner_id", "opening_hours"));
+        required.put("shops", List.of("id", "shop_no", "shop_id", "owner_id", "opening_hours", "category_id"));
         required.put("shop_members", List.of("id", "shop_id", "user_id"));
         required.put("owners", List.of("id", "user_id", "citizen_id_hash"));
+        required.put("owner_audit_log", List.of("id", "owner_id", "field_name"));
         required.put("audit_logs", List.of("id", "resource_type", "resource_id"));
+        required.put("product_categories", List.of("category_id", "name_th"));
         required.put("hub_categories", List.of("id", "category_no", "name_th", "name_zh"));
-        required.put("shop_reinstatement_requests", List.of("id", "shop_id"));
+        required.put("shop_reinstatement_requests", List.of("id", "request_id", "shop_id"));
+        required.put("products", List.of("id", "shop_id", "slug", "name_th", "status", "currency", "created_date_time", "modified_by"));
+        required.put("product_skus", List.of("id", "product_id", "shop_id", "sku_code", "price", "option_values"));
+        required.put("product_images", List.of("id", "product_id", "storage_path", "is_primary"));
+        required.put("inventory_levels", List.of("id", "shop_id", "sku_id", "on_hand", "available"));
+        required.put("inventory_ledger", List.of("id", "shop_id", "sku_id", "entry_type", "idempotency_key"));
+        required.put("content_translations", List.of("id", "entity_type", "entity_id", "field_name", "locale", "status", "created_date_time", "modified_date_time"));
         var missing = new ArrayList<String>();
         try (var connection = dataSource.getConnection();
              var columns = connection.getMetaData().getColumns(null, "public", "%", "%")) {

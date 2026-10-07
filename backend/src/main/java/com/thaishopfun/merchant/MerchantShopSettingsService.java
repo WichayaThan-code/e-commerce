@@ -2,6 +2,7 @@ package com.thaishopfun.merchant;
 
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.authz.AuthorizationService;
+import com.thaishopfun.translation.ContentTranslationBridge;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,13 +18,22 @@ public class MerchantShopSettingsService {
     private final MerchantApplicationRepository applications;
     private final MerchantStorageService storage;
     private final ProductCategoryService categories;
+    private final ContentTranslationBridge translationBridge;
     private final AuthorizationService authorization;
 
-    public MerchantShopSettingsService(ShopRepository shops, MerchantApplicationRepository applications, MerchantStorageService storage, ProductCategoryService categories, AuthorizationService authorization) {
+    public MerchantShopSettingsService(
+        ShopRepository shops,
+        MerchantApplicationRepository applications,
+        MerchantStorageService storage,
+        ProductCategoryService categories,
+        ContentTranslationBridge translationBridge,
+        AuthorizationService authorization
+    ) {
         this.shops = shops;
         this.applications = applications;
         this.storage = storage;
         this.categories = categories;
+        this.translationBridge = translationBridge;
         this.authorization = authorization;
     }
 
@@ -184,6 +194,7 @@ public class MerchantShopSettingsService {
         application.syncFromShop(shop, request.phone().trim(), request.email().trim().toLowerCase());
         applications.save(application);
         shops.save(shop);
+        translationBridge.onShopSaved(shop, request.shopNameEn());
         return get(userId, shop.getId());
     }
 

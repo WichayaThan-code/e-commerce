@@ -98,6 +98,28 @@ public class MerchantStorageService {
         return type == null ? "" : type.toLowerCase(Locale.ROOT);
     }
 
+    public StoredFile storeBytes(UUID ownerId, byte[] bytes, String kind) {
+        if (bytes == null || bytes.length == 0) throw bad("กรุณาเลือกไฟล์");
+        if (bytes.length > MAX_BYTES) throw bad("ไฟล์ต้องมีขนาดไม่เกิน 5 MB");
+        var contentType = sniffedImageType(bytes);
+        if (contentType == null) throw bad("รองรับเฉพาะไฟล์ JPG, PNG หรือ WEBP");
+        var extension = EXTENSIONS.get(contentType);
+        var directory = root.resolve(ownerId.toString()).normalize();
+        if (!directory.startsWith(root)) throw bad("ตำแหน่งจัดเก็บไฟล์ไม่ถูกต้อง");
+        try {
+            Files.createDirectories(directory);
+            var digest = MessageDigest.getInstance("SHA-256");
+            digest.update(bytes);
+            var stored = writeUnique(directory, kind, extension, bytes);
+            var target = directory.resolve(stored).normalize();
+            return new StoredFile("image" + extension, stored, target.toString(), contentType, bytes.length, HexFormat.of().formatHex(digest.digest()));
+        } catch (AuthException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new AuthException(HttpStatus.INTERNAL_SERVER_ERROR, "FILE_STORAGE_ERROR", "ไม่สามารถจัดเก็บไฟล์ได้");
+        }
+    }
+
     public StoredFile copyInto(UUID applicationId, Path source, String kind, String contentType) {
         var extension = EXTENSIONS.getOrDefault(contentType, "");
         if (extension.isBlank()) throw bad("ไม่สามารถคัดลอกเอกสารเดิมได้");
@@ -133,6 +155,14 @@ public class MerchantStorageService {
             }
         }
         throw new IOException("ไม่สามารถสร้างชื่อไฟล์ที่ไม่ซ้ำได้");
+    }
+
+    public static String sniffedImageType(byte[] head) {
+        if (head == null) return null;
+        if (head.length >= 3 && (head[0] & 255) == 0xff && (head[1] & 255) == 0xd8 && (head[2] & 255) == 0xff) return "image/jpeg";
+        if (head.length >= 8 && (head[0] & 255) == 0x89 && head[1] == 0x50 && head[2] == 0x4e && head[3] == 0x47 && head[4] == 0x0d && head[5] == 0x0a && head[6] == 0x1a && head[7] == 0x0a) return "image/png";
+        if (head.length >= 12 && head[0] == 'R' && head[1] == 'I' && head[2] == 'F' && head[3] == 'F' && head[8] == 'W' && head[9] == 'E' && head[10] == 'B' && head[11] == 'P') return "image/webp";
+        return null;
     }
 
     private AuthException bad(String message) { return new AuthException(HttpStatus.BAD_REQUEST, "INVALID_FILE", message); }

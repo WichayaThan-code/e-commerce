@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { merchantApi, type MerchantShopOption } from "../services/api";
+import { ImportActivityProvider } from "./ImportActivityContext";
 import { useAuth } from "./AuthContext";
 
 const STORAGE_KEY = "tsf_active_shop";
@@ -56,7 +57,9 @@ export default function ActiveShopProvider() {
   const value = useMemo(() => ({ shops, shopId, setShopId, ready }), [shops, shopId, ready]);
   return (
     <ActiveShopContext.Provider value={value}>
-      <Outlet />
+      <ImportActivityProvider>
+        <Outlet />
+      </ImportActivityProvider>
     </ActiveShopContext.Provider>
   );
 }

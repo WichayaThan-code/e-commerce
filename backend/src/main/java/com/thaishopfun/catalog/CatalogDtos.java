@@ -24,8 +24,12 @@ public final class CatalogDtos {
         BigDecimal compareAtPrice,
         String currency,
         Integer weightGrams,
-        List<SkuWriteRequest> skus
+        List<SkuWriteRequest> skus,
+        List<OptionGroup> optionSchema,
+        Boolean confirmRemoveStocked
     ) {}
+
+    public record OptionGroup(String name, List<String> values) {}
 
     public record SkuWriteRequest(
         UUID id,
@@ -37,18 +41,26 @@ public final class CatalogDtos {
         BigDecimal costPrice,
         BigDecimal compareAtPrice,
         Integer weightGrams,
-        Integer initialStock
+        Integer initialStock,
+        UUID imageId,
+        Boolean active
     ) {}
 
     public record ImageOrderRequest(List<UUID> imageIds, UUID primaryImageId) {}
 
     public record StockAdjustRequest(String entryType, int quantityDelta, String reason, int version, String idempotencyKey) {}
 
+    public record BulkStockItem(UUID skuId, String entryType, int quantityDelta, int version, String reason) {}
+
+    public record BulkStockRequest(String idempotencyKey, List<BulkStockItem> items) {}
+
+    public record SkuCodeCheck(List<String> taken) {}
+
     public record PageResponse<T>(List<T> items, int page, int size, long total) {}
 
     public record ProductImportError(int row, String message) {}
 
-    public record ProductImportResult(int created, int failed, List<ProductImportError> errors) {}
+    public record ProductImportResult(int created, int failed, List<ProductImportError> errors, int skuCreated) {}
 
     public record ProductImportAccepted(UUID jobId, int total) {}
 
@@ -62,6 +74,7 @@ public final class CatalogDtos {
         int total,
         int processed,
         int created,
+        int skuCreated,
         int failed,
         List<ProductImportError> errors,
         Integer currentRow,
@@ -99,7 +112,8 @@ public final class CatalogDtos {
         TranslationMeta nameEnMeta,
         TranslationMeta nameZhMeta,
         TranslationMeta descriptionEnMeta,
-        TranslationMeta descriptionZhMeta
+        TranslationMeta descriptionZhMeta,
+        List<OptionGroup> optionSchema
     ) {}
 
     public record MerchantSkuResponse(
@@ -118,7 +132,8 @@ public final class CatalogDtos {
         int reservedQty,
         int available,
         Integer lowStockThreshold,
-        int version
+        int version,
+        UUID imageId
     ) {}
 
     public record ImageResponse(UUID id, String url, int sortOrder, boolean primary, String altText) {}
@@ -138,7 +153,8 @@ public final class CatalogDtos {
         BigDecimal compareAtPrice,
         String currency,
         List<PublicSkuResponse> skus,
-        List<ImageResponse> images
+        List<ImageResponse> images,
+        List<OptionGroup> optionSchema
     ) {}
 
     public record PublicSkuResponse(
@@ -149,7 +165,8 @@ public final class CatalogDtos {
         BigDecimal price,
         BigDecimal compareAtPrice,
         String currency,
-        int available
+        int available,
+        UUID imageId
     ) {}
 
     public record StockResponse(UUID skuId, String entryType, int onHand, int available, int version) {}

@@ -183,6 +183,28 @@ public class MerchantProductController {
         return products.orderImages(RequestUser.id(jwt), shopId, productId, request);
     }
 
+    @GetMapping("/skus/check")
+    @RequireShopPermission("PRODUCT_UPDATE")
+    public CatalogDtos.SkuCodeCheck checkSkus(
+        @AuthenticationPrincipal Jwt jwt,
+        @PathVariable Long shopId,
+        @RequestParam(required = false) String codes,
+        @RequestParam(required = false) UUID excludeProductId
+    ) {
+        return products.checkSkuCodes(RequestUser.id(jwt), shopId, codes, excludeProductId);
+    }
+
+    @PostMapping("/products/{productId}/stock-adjustments/bulk")
+    @RequireShopPermission("INVENTORY_ADJUST")
+    public List<CatalogDtos.StockResponse> adjustStockBulk(
+        @AuthenticationPrincipal Jwt jwt,
+        @PathVariable Long shopId,
+        @PathVariable UUID productId,
+        @RequestBody CatalogDtos.BulkStockRequest request
+    ) {
+        return products.adjustStockBulk(RequestUser.id(jwt), shopId, productId, request);
+    }
+
     @PostMapping("/skus/{skuId}/stock-adjustments")
     @RequireShopPermission("INVENTORY_ADJUST")
     public CatalogDtos.StockResponse adjustStock(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID skuId, @RequestBody CatalogDtos.StockAdjustRequest request) {

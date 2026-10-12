@@ -41,8 +41,8 @@ public class SchemaHealthCheck implements ApplicationRunner {
         required.put("audit_logs", List.of("id", "resource_type", "resource_id"));
         required.put("hub_categories", List.of("id", "category_no", "name_th", "name_zh"));
         required.put("shop_reinstatement_requests", List.of("id", "shop_id"));
-        required.put("products", List.of("id", "shop_id", "category_id", "slug", "name_th", "name_en", "name_zh", "description_th", "status", "currency", "created_date_time", "modified_by"));
-        required.put("product_skus", List.of("id", "product_id", "shop_id", "sku_code", "price", "option_values"));
+        required.put("products", List.of("id", "shop_id", "category_id", "slug", "name_th", "name_en", "name_zh", "description_th", "status", "currency", "option_schema", "created_date_time", "modified_by"));
+        required.put("product_skus", List.of("id", "product_id", "shop_id", "sku_code", "price", "option_values", "image_id"));
         required.put("product_images", List.of("id", "product_id", "storage_path", "is_primary"));
         required.put("inventory_levels", List.of("id", "shop_id", "sku_id", "on_hand", "available"));
         required.put("inventory_ledger", List.of("id", "shop_id", "sku_id", "entry_type", "idempotency_key"));

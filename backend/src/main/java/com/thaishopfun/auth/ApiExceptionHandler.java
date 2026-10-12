@@ -32,10 +32,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(AuthException.class)
     ResponseEntity<AuthDtos.ApiError> auth(AuthException exception) {
-        var field = exception.getField() != null ? exception.getField() : fieldFor(exception.getCode());
-        List<AuthDtos.ApiFieldError> fieldErrors = field == null
-            ? null
-            : List.of(new AuthDtos.ApiFieldError(field, exception.getCode(), exception.getMessage()));
+        List<AuthDtos.ApiFieldError> fieldErrors = exception.getFieldErrors();
+        if (fieldErrors == null) {
+            var field = exception.getField() != null ? exception.getField() : fieldFor(exception.getCode());
+            fieldErrors = field == null ? null : List.of(new AuthDtos.ApiFieldError(field, exception.getCode(), exception.getMessage()));
+        }
         return ResponseEntity.status(exception.getStatus()).body(new AuthDtos.ApiError(exception.getCode(), exception.getMessage(), fieldErrors));
     }
 

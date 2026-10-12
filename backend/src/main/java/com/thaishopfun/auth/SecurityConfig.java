@@ -1,11 +1,14 @@
 package com.thaishopfun.auth;
 
+import com.thaishopfun.audit.UserActionAudit;
+import com.thaishopfun.audit.UserActionAuditFilter;
 import com.thaishopfun.auth.authz.AuthorizationInterceptor;
 import com.thaishopfun.auth.authz.JsonSecurityErrorHandlers;
 import com.thaishopfun.auth.authz.PublicEndpointRegistry;
 import jakarta.servlet.DispatcherType;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -30,6 +33,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -117,7 +121,17 @@ public class SecurityConfig {
      * declared on the endpoint is checked against the role/permission matrix in the database (403 / 404).
      * The legacy "roles" claim (users.role) is no longer used for authorization.
      */
-    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter converter, PublicEndpointRegistry publicEndpoints) throws Exception {
+    @Bean UserActionAuditFilter userActionAuditFilter(UserActionAudit audit) {
+        return new UserActionAuditFilter(audit);
+    }
+
+    @Bean FilterRegistrationBean<UserActionAuditFilter> userActionAuditRegistration(UserActionAuditFilter filter) {
+        var registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter converter, PublicEndpointRegistry publicEndpoints, UserActionAuditFilter userActionAuditFilter) throws Exception {
         var entryPoint = JsonSecurityErrorHandlers.authenticationEntryPoint();
         var accessDenied = JsonSecurityErrorHandlers.accessDeniedHandler();
         return http
@@ -134,6 +148,7 @@ public class SecurityConfig {
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(converter))
                 .authenticationEntryPoint(entryPoint)
                 .accessDeniedHandler(accessDenied))
+            .addFilterAfter(userActionAuditFilter, BearerTokenAuthenticationFilter.class)
             .build();
     }
 

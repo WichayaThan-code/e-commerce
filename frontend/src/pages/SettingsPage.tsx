@@ -6,6 +6,7 @@ import {
   ShoppingBag, Store, TicketPercent, Trash2, Truck, UsersRound,
   WalletCards,
 } from "lucide-react";
+import MerchantBell from "../components/merchant/MerchantBell";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
@@ -83,7 +84,7 @@ export default function SettingsPage(){
   if(!user){window.location.replace("/login?next=/merchant/settings");return null}
   if((hasPlatformAccess(user) && !hasMerchantAccess(user))){window.location.replace("/admin");return null}
   return <main className="merchant-shell pm-shell settings-shell">
-    <header className="merchant-topbar"><Brand/><form onSubmit={e=>{e.preventDefault();notify("ค้นหาข้อมูลร้านค้าแล้ว")}}><Search/><input aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..."/></form><LanguageSwitcher /> <button className="merchant-bell" aria-label="การแจ้งเตือน"><Bell/><i>3</i></button><MerchantShopMenu /></header>
+    <header className="merchant-topbar"><Brand/><form onSubmit={e=>{e.preventDefault();notify("ค้นหาข้อมูลร้านค้าแล้ว")}}><Search/><input aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..."/></form><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
     <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href,badge])=><a className={label==="ตั้งค่า"?"active":""} href={href} key={label}><Icon/>{label}{badge&&<i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button></div></aside>
     <section className="pm-content settings-content">
       <header className="pm-heading settings-heading"><div><h1><Settings/>ตั้งค่า</h1><p>กำหนดวันและเวลาที่ร้านเปิดให้บริการ รวมถึงการใช้งานระบบ</p></div></header>

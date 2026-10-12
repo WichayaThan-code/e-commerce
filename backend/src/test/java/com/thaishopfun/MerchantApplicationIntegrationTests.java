@@ -61,7 +61,7 @@ class MerchantApplicationIntegrationTests {
     @Autowired ProductRepository catalogProducts;
     @Autowired PlatformRoleRepository platformRoles;
 
-    @BeforeEach void clean(){ledger.deleteAll();levels.deleteAll();productImages.deleteAll();productSkus.deleteAll();catalogProducts.deleteAll();platformRoles.deleteAll();reinstatements.deleteAll();shopMembers.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();otpVerifications.deleteAll();passwordResetTokens.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
+    @BeforeEach void clean(){ledger.deleteAll();levels.deleteAll();productSkus.deleteAll();productImages.deleteAll();catalogProducts.deleteAll();platformRoles.deleteAll();reinstatements.deleteAll();shopMembers.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();otpVerifications.deleteAll();passwordResetTokens.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
 
     @Test void savesUploadsAndSubmitsRealApplication() throws Exception {
         var registered=mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""

@@ -1,19 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
-import { Boxes, Check, LoaderCircle, Package, Plus, Trash2 } from "lucide-react";
+import { Boxes, Check, LoaderCircle, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { FieldError } from "../components/form/FormField";
 import SearchableSelect from "../components/SearchableSelect";
 import MerchantShell from "../components/merchant/MerchantShell";
 import ProductImagesField, { type LocalImage } from "../components/merchant/ProductImagesField";
+import VariantEditor from "../components/merchant/VariantEditor";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { labelForCategory } from "../services/categories";
 import { catalogMessage } from "../services/catalogText";
 import { ApiError, catalogApi, productApi, type Product, type ProductCategory, type TranslationMeta } from "../services/api";
 import {
-  axesFromSkus, combineSkus, emptyDraft, emptySku, fromProduct, toWrite, validateDraft,
-  type OptionAxis, type ProductDraft,
+  axesFromGroups, axesFromSkus, emptyDraft, emptySku, fromProduct, groupsFromAxes, optionKey, toWrite, uncoveredOptionLabels, validateDraft, variantIssues,
+  type VariantIssue,
+  type OptionGroupDraft, type ProductDraft,
 } from "./productFormModel";
 import "../styles/form-fields.css";
 
@@ -37,8 +39,11 @@ export default function ProductFormPage() {
   const { shopId } = useActiveShop();
   const editing = Boolean(productId);
   const [draft, setDraft] = useState<ProductDraft>(emptyDraft);
-  const [baseline, setBaseline] = useState(() => JSON.stringify(emptyDraft()));
-  const [axes, setAxes] = useState<OptionAxis[]>([]);
+  const [baseline, setBaseline] = useState(() => JSON.stringify(draft));
+  const [groups, setGroups] = useState<OptionGroupDraft[]>([]);
+  const [variantIssuesList, setVariantIssuesList] = useState<VariantIssue[]>([]);
+  const [submitAttempt, setSubmitAttempt] = useState(0);
+  const [stockConfirm, setStockConfirm] = useState<boolean | null>(null);
   const [remote, setRemote] = useState<Product[]>([]);
   const [local, setLocal] = useState<LocalImage[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -67,7 +72,7 @@ export default function ProductFormPage() {
       const next = fromProduct(data);
       setDraft(next);
       setBaseline(JSON.stringify(next));
-      setAxes(axesFromSkus(next.skus));
+      setGroups(groupsFromAxes(next.optionSchema.length ? next.optionSchema : axesFromSkus(next.skus)));
       setRemote([data]);
     }).catch((caught) => {
       if (active) setError(caught);
@@ -109,35 +114,121 @@ export default function ProductFormPage() {
     }
   };
 
-  const save = async (publish: boolean) => {
+  const onVariantIssues = useCallback((next: VariantIssue[]) => {
+    setVariantIssuesList((current) => {
+      if (current.length === next.length && current.every((item, index) => item.index === next[index].index && item.field === next[index].field && item.code === next[index].code)) return current;
+      return next;
+    });
+  }, []);
+  const optionGaps = useMemo(
+    () => (draft.productType === "VARIABLE" ? uncoveredOptionLabels(axesFromGroups(groups), draft.skus) : []),
+    [draft.productType, draft.skus, groups],
+  );
+  const submitAttempted = submitAttempt > 0;
+  useEffect(() => {
+    if (!submitAttempted || draft.productType !== "VARIABLE") return;
+    const taken = new Set(variantIssuesList.filter((issue) => issue.code === "SKU_CODE_TAKEN").map((issue) => draft.skus[issue.index]?.skuCode.trim() || "").filter(Boolean));
+    const live = variantIssues({ productType: "VARIABLE", skus: draft.skus, optionSchema: axesFromGroups(groups) }, taken);
+    const first = live.find((issue) => issue.index >= 0);
+    const target = first ? document.getElementById(`variant-row-${first.index}`) : document.getElementById("variant-problems");
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [submitAttempt]);
+
+  const save = async (publish: boolean, confirmRemoveStocked = false) => {
     if (shopId == null) return;
+    setSubmitAttempt((current) => current + 1);
     const imageCount = (product?.images.length || 0) + local.length;
-    const nextErrors = validateDraft(draft, publish, imageCount);
+    const nextErrors = validateDraft({ ...draft, optionSchema: axesFromGroups(groups) }, publish, imageCount);
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
+    const taken = new Set(variantIssuesList.filter((issue) => issue.code === "SKU_CODE_TAKEN").map((issue) => draft.skus[issue.index]?.skuCode.trim() || "").filter(Boolean));
+    const liveIssues = draft.productType === "VARIABLE"
+      ? variantIssues({ productType: "VARIABLE", skus: draft.skus, optionSchema: axesFromGroups(groups) }, taken)
+      : [];
+    const gaps = draft.productType === "VARIABLE" ? uncoveredOptionLabels(axesFromGroups(groups), draft.skus) : [];
+    if (Object.keys(nextErrors).length || liveIssues.length > 0 || gaps.length > 0) return;
     setSaving(publish ? "publish" : "draft");
+    setStockConfirm(null);
     let savedId = productId;
     try {
-      const payload = toWrite(draft);
+      const payload = toWrite({ ...draft, optionSchema: axesFromGroups(groups), confirmRemoveStocked });
       let saved = editing && productId ? await productApi.update(shopId, productId, payload) : await productApi.create(shopId, payload);
       savedId = saved.id;
-      if (!editing) {
-        for (const image of local) saved = await productApi.addImage(shopId, saved.id, image.file);
+      if (local.length) {
+        const uploadedIds: string[] = [];
+        for (const image of local) {
+          saved = await productApi.addImage(shopId, saved.id, image.file);
+          const known = new Set(uploadedIds);
+          const added = saved.images.find((item) => !known.has(item.id));
+          if (added) uploadedIds.push(added.id);
+        }
         const primaryIndex = Math.max(0, local.findIndex((image) => image.primary));
-        if (saved.images.length > 1 && primaryIndex > 0 && saved.images[primaryIndex]) {
-          saved = await productApi.orderImages(shopId, saved.id, saved.images.map((image) => image.id), saved.images[primaryIndex].id);
+        if (saved.images.length > 1 && primaryIndex > 0 && uploadedIds[primaryIndex]) {
+          const rest = saved.images.map((image) => image.id).filter((id) => id !== uploadedIds[primaryIndex]);
+          const primaryId = uploadedIds[primaryIndex];
+          const insertAt = saved.images.findIndex((image) => image.id === primaryId);
+          const ordered = saved.images.map((image) => image.id);
+          if (insertAt > 0) {
+            ordered.splice(insertAt, 1);
+            ordered.splice(Math.min(primaryIndex, ordered.length), 0, primaryId);
+          }
+          saved = await productApi.orderImages(shopId, saved.id, ordered.length ? ordered : [primaryId, ...rest], primaryId);
         }
-        for (const sku of saved.skus) {
-          const source = draft.skus.find((item) => item.skuCode.trim() === sku.skuCode);
-          const qty = Number(source?.initialStock || 0);
-          if (qty > 0) await productApi.adjustStock(shopId, sku.id, { entryType: "RECEIVE", quantityDelta: qty, version: sku.version, idempotencyKey: `open-${saved.id}-${sku.id}` });
+        if (draft.skus.some((sku) => sku.imageLocalKey && !sku.removed)) {
+          const keyToId = new Map(local.map((image, index) => [image.key, uploadedIds[index]]));
+          const boundSkus = draft.skus.map((sku) => {
+            const match = saved.skus.find((row) => row.skuCode === sku.skuCode.trim());
+            return {
+              ...sku,
+              id: sku.id || match?.id,
+              imageId: sku.imageLocalKey ? keyToId.get(sku.imageLocalKey) || sku.imageId : sku.imageId,
+              imageLocalKey: undefined,
+            };
+          });
+          saved = await productApi.update(shopId, saved.id, toWrite({
+            ...draft,
+            skus: boundSkus,
+            optionSchema: axesFromGroups(groups),
+            confirmRemoveStocked,
+          }));
         }
+      }
+      const adjustments = saved.skus.flatMap((sku) => {
+        const source = draft.skus.find((item) => item.id === sku.id && !item.removed);
+        if (!source || source.stockBaseline == null) return [];
+        const desired = Number(source.initialStock || 0);
+        const delta = desired - source.stockBaseline;
+        if (!Number.isInteger(delta) || delta === 0) return [];
+        return [{
+          skuId: sku.id,
+          entryType: delta > 0 ? "RECEIVE" as const : "ADJUST" as const,
+          quantityDelta: delta,
+          version: sku.version,
+          reason: t("catalog.variants.stockReason"),
+        }];
+      });
+      if (adjustments.length) {
+        await productApi.adjustStockBulk(shopId, saved.id, { idempotencyKey: `form-${saved.id}-${Date.now()}`, items: adjustments });
       }
       if (publish) await productApi.publish(shopId, saved.id);
       local.forEach((image) => URL.revokeObjectURL(image.preview));
       skipBlock.current = true;
       navigate(`/merchant/products/${saved.id}`, { replace: true });
     } catch (caught) {
+      if (caught instanceof ApiError && caught.code === "SKU_HAS_STOCK" && !confirmRemoveStocked) {
+        setStockConfirm(publish);
+      }
+      const mapped: Record<string, string> = {};
+      if (caught instanceof ApiError) {
+        const activeIndexes = draft.skus.flatMap((sku, index) => sku.removed ? [] : [index]);
+        caught.fieldErrors.forEach((item) => {
+          const match = /^skus\[(\d+)\]\.(.+)$/.exec(item.field);
+          if (match) {
+            const index = activeIndexes[Number(match[1])];
+            if (index != null) mapped[`skus.${index}.${match[2]}`] = item.code;
+          } else mapped[item.field] = item.code;
+        });
+      }
+      if (Object.keys(mapped).length) setErrors(mapped);
       toast(catalogMessage(t, caught), "fail");
       if (!editing && savedId && savedId !== productId) {
         skipBlock.current = true;
@@ -247,12 +338,17 @@ export default function ProductFormPage() {
           <fieldset>
             <legend>{t("catalog.form.type")}</legend>
             <div className="sale-types">
-              <button type="button" className={draft.productType === "SIMPLE" ? "active" : ""} onClick={() => setDraft({ ...draft, productType: "SIMPLE", skus: [draft.skus[0] || emptySku()] })}>
+              <button type="button" className={draft.productType === "SIMPLE" ? "active" : ""} onClick={() => { if (draft.productType !== "SIMPLE") { setSubmitAttempt(0); setVariantIssuesList([]); } setDraft({ ...draft, productType: "SIMPLE", optionSchema: [], skus: [(draft.skus.find((sku) => !sku.removed) || draft.skus[0] || emptySku())] }); }}>
                 <i>{draft.productType === "SIMPLE" ? <Check /> : null}</i>
                 <Package />
                 <span><b>{t("catalog.form.simple")}</b></span>
               </button>
-              <button type="button" className={draft.productType === "VARIABLE" ? "active" : ""} onClick={() => setDraft({ ...draft, productType: "VARIABLE" })}>
+              <button type="button" className={draft.productType === "VARIABLE" ? "active" : ""} onClick={() => {
+                if (draft.productType !== "VARIABLE") { setSubmitAttempt(0); setVariantIssuesList([]); }
+                const seeded = groups.length ? groups : [{ key: optionKey(), name: "", values: [] }];
+                setGroups(seeded);
+                setDraft({ ...draft, productType: "VARIABLE", optionSchema: axesFromGroups(seeded) });
+              }}>
                 <i>{draft.productType === "VARIABLE" ? <Check /> : null}</i>
                 <Boxes />
                 <span><b>{t("catalog.form.variable")}</b></span>
@@ -279,44 +375,27 @@ export default function ProductFormPage() {
             </label>
           </div>
           <h3>{t("catalog.form.sku")}</h3>
-          {draft.productType === "VARIABLE" && (
-            <div className="pm-options">
-              {axes.map((axis, index) => (
-                <div key={`${axis.name}-${index}`}>
-                  <label>
-                    {t("catalog.form.optionName")}
-                    <input value={axis.name} placeholder={t("catalog.form.optionName")} onChange={(event) => setAxes(axes.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} />
-                  </label>
-                  <label>
-                    {t("catalog.form.optionValue")}
-                    <input placeholder={t("catalog.form.optionValue")} onKeyDown={(event) => {
-                      if (event.key !== "Enter") return;
-                      event.preventDefault();
-                      const value = event.currentTarget.value.trim();
-                      if (!value || axis.values.includes(value)) return;
-                      setAxes(axes.map((item, itemIndex) => itemIndex === index ? { ...item, values: [...item.values, value] } : item));
-                      event.currentTarget.value = "";
-                    }} />
-                  </label>
-                  <div className="pm-chips">
-                    {axis.values.map((value) => <button type="button" key={value} onClick={() => setAxes(axes.map((item, itemIndex) => itemIndex === index ? { ...item, values: item.values.filter((entry) => entry !== value) } : item))}>{value} ×</button>)}
-                  </div>
-                  <button type="button" className="product-text-button" onClick={() => setAxes(axes.filter((_, itemIndex) => itemIndex !== index))}><Trash2 />{t("catalog.form.remove")}</button>
-                </div>
-              ))}
-              <div className="product-option-actions">
-                <button type="button" onClick={() => setAxes([...axes, { name: "", values: [] }])}><Plus />{t("catalog.form.addOption")}</button>
-                <button type="button" className="login-submit" onClick={() => {
-                  const generated = combineSkus(axes, draft.skus, draft.basePrice);
-                  if (generated.error) {
-                    setErrors({ skus: "SKU_REQUIRED" });
-                    return;
-                  }
-                  setDraft({ ...draft, skus: generated.skus });
-                }}>{t("catalog.form.generate")}</button>
-              </div>
-            </div>
-          )}
+          {draft.productType === "VARIABLE" ? (
+            <>
+              <VariantEditor
+                shopId={shopId}
+                productId={product?.id}
+                groups={groups}
+                skus={draft.skus}
+                price={draft.basePrice}
+                images={product?.images || []}
+                localImages={local}
+                serverErrors={errors}
+                submitAttempted={submitAttempted}
+                onIssues={onVariantIssues}
+                onChange={(nextGroups, nextSkus) => {
+                  setGroups(nextGroups);
+                  setDraft((current) => ({ ...current, skus: nextSkus, optionSchema: axesFromGroups(nextGroups) }));
+                }}
+              />
+              {submitAttempted && optionGaps.length > 0 ? <FieldError text={t("catalog.variants.optionUncovered")} /> : null}
+            </>
+          ) : (
           <div className="pm-sku-table">
             {draft.skus.map((sku, index) => (
               <div key={sku.id || index}>
@@ -343,10 +422,10 @@ export default function ProductFormPage() {
                     <FieldError text={fieldError(`skus.${index}.initialStock`)} />
                   </label>
                 )}
-                {draft.productType === "VARIABLE" && draft.skus.length > 1 ? <button type="button" className="product-text-button" onClick={() => setDraft({ ...draft, skus: draft.skus.filter((_, skuIndex) => skuIndex !== index) })}><Trash2 />{t("catalog.form.remove")}</button> : null}
               </div>
             ))}
           </div>
+          )}
           <ProductImagesField
             shopId={shopId}
             productId={product?.id}
@@ -362,6 +441,18 @@ export default function ProductFormPage() {
             <button type="button" className="login-submit" disabled={Boolean(saving)} onClick={() => void save(true)}>{saving === "publish" ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.savePublish")}</button>
           </div>
         </form>
+      )}
+      {stockConfirm != null && (
+        <div className="pm-dialog" role="dialog" aria-modal="true">
+          <section>
+            <h2>{t("catalog.variants.confirmStockTitle")}</h2>
+            <p>{t("catalog.variants.confirmStockBody")}</p>
+            <div>
+              <button type="button" onClick={() => setStockConfirm(null)}>{t("catalog.actions.cancel")}</button>
+              <button type="button" className="primary" onClick={() => void save(stockConfirm, true)}>{t("catalog.actions.confirm")}</button>
+            </div>
+          </section>
+        </div>
       )}
       {blocker.state === "blocked" && (
         <div className="pm-dialog" role="dialog" aria-modal="true">

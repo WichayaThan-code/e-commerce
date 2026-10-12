@@ -74,8 +74,8 @@ class TranslationIntegrationTests {
         translations.deleteAll();
         ledger.deleteAll();
         levels.deleteAll();
-        productImages.deleteAll();
         productSkus.deleteAll();
+        productImages.deleteAll();
         catalogProducts.deleteAll();
         reinstatements.deleteAll();
         shopMembers.deleteAll();

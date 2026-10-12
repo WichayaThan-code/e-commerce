@@ -8,7 +8,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -19,7 +18,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "product_skus", uniqueConstraints = @UniqueConstraint(name = "uq_product_skus_shop_code", columnNames = {"shop_id", "sku_code"}))
+@Table(name = "product_skus")
 public class ProductSku extends AuditedEntity {
     @Id
     private UUID id;
@@ -55,6 +54,9 @@ public class ProductSku extends AuditedEntity {
     private boolean active = true;
     @Column(name = "deleted_at")
     private Instant deletedAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "image_id")
+    private ProductImage image;
 
     protected ProductSku() {}
 
@@ -94,4 +96,6 @@ public class ProductSku extends AuditedEntity {
     public void setActive(boolean active) { this.active = active; }
     public Instant getDeletedAt() { return deletedAt; }
     public void setDeletedAt(Instant deletedAt) { this.deletedAt = deletedAt; }
+    public ProductImage getImage() { return image; }
+    public void setImage(ProductImage image) { this.image = image; }
 }

@@ -301,6 +301,7 @@ export type ProductSku = {
   available: number
   lowStockThreshold?: number | null
   version: number
+  imageId?: string | null
 }
 export type ProductImage = { id: string; url: string; sortOrder: number; primary: boolean; altText?: string | null }
 export type Product = {
@@ -330,6 +331,7 @@ export type Product = {
   nameZhMeta?: TranslationMeta | null
   descriptionEnMeta?: TranslationMeta | null
   descriptionZhMeta?: TranslationMeta | null
+  optionSchema?: { name: string; values: string[] }[]
 }
 export type PublicSku = {
   id: string
@@ -340,6 +342,7 @@ export type PublicSku = {
   compareAtPrice?: number | string | null
   currency?: string | null
   available: number
+  imageId?: string | null
 }
 export type PublicProduct = {
   id: string
@@ -357,9 +360,10 @@ export type PublicProduct = {
   currency?: string | null
   skus: PublicSku[]
   images: ProductImage[]
+  optionSchema?: { name: string; values: string[] }[]
 }
 export type ProductPage<T> = { items: T[]; page: number; size: number; total: number }
-export type ProductImportResult = { created: number; failed: number; errors: { row: number; message: string }[] }
+export type ProductImportResult = { created: number; failed: number; skuCreated?: number; errors: { row: number; message: string }[] }
 export type ProductImportAccepted = { jobId: string; total: number }
 export type ProductImportJob = {
   jobId: string
@@ -369,6 +373,7 @@ export type ProductImportJob = {
   total: number
   processed: number
   created: number
+  skuCreated?: number
   failed: number
   errors: { row: number; message: string }[]
   currentRow: number | null
@@ -384,6 +389,10 @@ export type SkuWrite = {
   price: number
   compareAtPrice?: number | null
   weightGrams?: number | null
+  initialStock?: number | null
+  costPrice?: number | null
+  imageId?: string | null
+  active?: boolean
 }
 export type ProductWrite = {
   nameTh: string
@@ -398,6 +407,8 @@ export type ProductWrite = {
   basePrice?: number | null
   compareAtPrice?: number | null
   weightGrams?: number | null
+  optionSchema?: { name: string; values: string[] }[]
+  confirmRemoveStocked?: boolean
   skus: SkuWrite[]
 }
 export type StockAdjustment = { skuId: string; entryType: string; onHand: number; available: number; version: number }
@@ -513,6 +524,13 @@ export const productApi = {
   deleteImage: (shopId: number, productId: string, imageId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/images/${imageId}`), { method: 'DELETE' }, true),
   orderImages: (shopId: number, productId: string, imageIds: string[], primaryImageId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/images/order`), { method: 'PUT', body: JSON.stringify({ imageIds, primaryImageId }) }, true),
   adjustStock: (shopId: number, skuId: string, payload: { entryType: 'RECEIVE' | 'ADJUST'; quantityDelta: number; reason?: string; version: number; idempotencyKey?: string }) => request<StockAdjustment>(shopProducts(shopId, `/skus/${skuId}/stock-adjustments`), { method: 'POST', body: JSON.stringify(payload) }, true),
+  adjustStockBulk: (shopId: number, productId: string, payload: { idempotencyKey?: string; items: { skuId: string; entryType: 'RECEIVE' | 'ADJUST'; quantityDelta: number; version: number; reason?: string }[] }) => request<StockAdjustment[]>(shopProducts(shopId, `/products/${productId}/stock-adjustments/bulk`), { method: 'POST', body: JSON.stringify(payload) }, true),
+  checkSkus: (shopId: number, codes: string[], excludeProductId?: string) => {
+    const search = new URLSearchParams()
+    if (codes.length) search.set('codes', codes.join(','))
+    if (excludeProductId) search.set('excludeProductId', excludeProductId)
+    return request<{ taken: string[] }>(shopProducts(shopId, `/skus/check?${search.toString()}`), {}, true)
+  },
   ledger: (shopId: number, productId: string) => request<LedgerEntry[]>(shopProducts(shopId, `/products/${productId}/ledger`), {}, true),
   exportExcel: async (shopId: number) => {
     const blob = await authorizedBlob(shopProducts(shopId, '/products/export'))

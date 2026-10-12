@@ -64,6 +64,9 @@ public class Product extends AuditedEntity {
     private String currency;
     @Column(name = "weight_grams")
     private Integer weightGrams;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "option_schema", nullable = false)
+    private String optionSchema;
     @Column(name = "published_at")
     private Instant publishedAt;
     @Column(name = "archived_at")
@@ -81,6 +84,7 @@ public class Product extends AuditedEntity {
         this.productType = productType;
         this.status = ProductStatus.DRAFT;
         this.currency = "THB";
+        this.optionSchema = "[]";
     }
 
     public UUID getId() { return id; }
@@ -115,6 +119,8 @@ public class Product extends AuditedEntity {
     public void setCurrency(String currency) { this.currency = currency; }
     public Integer getWeightGrams() { return weightGrams; }
     public void setWeightGrams(Integer weightGrams) { this.weightGrams = weightGrams; }
+    public String getOptionSchema() { return optionSchema; }
+    public void setOptionSchema(String optionSchema) { this.optionSchema = optionSchema == null || optionSchema.isBlank() ? "[]" : optionSchema; }
     public Instant getPublishedAt() { return publishedAt; }
     public void setPublishedAt(Instant publishedAt) { this.publishedAt = publishedAt; }
     public Instant getArchivedAt() { return archivedAt; }

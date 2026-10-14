@@ -29,6 +29,11 @@ public class GoogleTranslationProvider implements TranslationProvider {
     }
 
     @Override
+    public boolean configured() {
+        return properties.googleApiKey() != null && !properties.googleApiKey().isBlank();
+    }
+
+    @Override
     public List<String> translate(List<String> texts, String from, String to) {
         var key = properties.googleApiKey();
         if (key == null || key.isBlank()) {

@@ -358,6 +358,7 @@ export default function VariantEditor({
               <th>{t("catalog.variants.barcode")}</th>
               <th>{t("catalog.variants.weight")}</th>
               <th>{t("catalog.variants.stock")}</th>
+              <th>{t("catalog.form.safetyStock")}</th>
               <th>{t("catalog.variants.active")}</th>
             </tr>
           </thead>
@@ -367,6 +368,7 @@ export default function VariantEditor({
               const priceError = issueAt(index, "price");
               const comboError = issueAt(index, "optionValues");
               const stockError = issueAt(index, "initialStock");
+              const safetyError = issueAt(index, "safetyStock");
               const imageValue = sku.imageLocalKey ? `local:${sku.imageLocalKey}` : sku.imageId || "";
               return (
                 <tr id={`variant-row-${index}`} key={sku.clientKey} className={sku.removed ? "variant-removed" : undefined}>
@@ -408,6 +410,10 @@ export default function VariantEditor({
                   <td>
                     <input aria-invalid={Boolean(stockError)} value={sku.initialStock} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "initialStock")} onChange={(event) => { touch(sku.clientKey, "initialStock"); patchSku(index, { initialStock: event.target.value }); }} />
                     {stockError ? <span className="variant-error">{message(stockError)}</span> : null}
+                  </td>
+                  <td>
+                    <input inputMode="numeric" aria-invalid={Boolean(safetyError)} value={sku.safetyStock} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "safetyStock")} onChange={(event) => { touch(sku.clientKey, "safetyStock"); patchSku(index, { safetyStock: event.target.value }); }} />
+                    {safetyError ? <span className="variant-error">{message(safetyError)}</span> : null}
                   </td>
                   <td>
                     <button type="button" className={sku.active ? "variant-status ready" : "variant-status low"} disabled={sku.removed} onClick={() => patchSku(index, { active: !sku.active })}>

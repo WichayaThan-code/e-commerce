@@ -311,7 +311,7 @@ public class ProductImportService {
             var label = !blank(row.optionLabel()) ? row.optionLabel().trim() : values.isEmpty() ? null : String.join(" / ", values.values());
             skus.add(new CatalogDtos.SkuWriteRequest(
                 null, row.skuCode().trim(), blank(row.barcode()) ? null : row.barcode().trim(), label, values,
-                row.price(), null, row.compareAtPrice(), row.weightGrams(), row.stock(), null, null
+                row.price(), null, row.compareAtPrice(), row.weightGrams(), row.stock(), null, null, null
             ));
         }
         return new CatalogDtos.ProductWriteRequest(
@@ -442,7 +442,7 @@ public class ProductImportService {
             var imageId = firstImage[index] < 0 ? null : imageIds.get(firstImage[index]);
             skus.add(new CatalogDtos.SkuWriteRequest(
                 match.id(), sku.skuCode(), sku.barcode(), sku.optionLabel(), sku.optionValues(),
-                sku.price(), null, sku.compareAtPrice(), sku.weightGrams(), null, imageId, sku.active()
+                sku.price(), null, sku.compareAtPrice(), sku.weightGrams(), null, imageId, sku.active(), sku.safetyStock()
             ));
         }
         return new CatalogDtos.ProductWriteRequest(
@@ -523,7 +523,7 @@ public class ProductImportService {
         }
         var sku = new CatalogDtos.SkuWriteRequest(
             null, row.skuCode().trim(), row.barcode(), row.optionLabel(), Map.of(),
-            row.price(), null, row.compareAtPrice(), row.weightGrams(), row.stock(), null, null
+            row.price(), null, row.compareAtPrice(), row.weightGrams(), row.stock(), null, null, null
         );
         return new CatalogDtos.ProductWriteRequest(
             row.nameTh().trim(), row.nameEn(), row.nameZh(),

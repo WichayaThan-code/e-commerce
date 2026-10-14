@@ -6,7 +6,9 @@ import MerchantShell from "../components/merchant/MerchantShell";
 import AuthImage from "../components/merchant/AuthImage";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { catalogMessage, formatMoney, formatWhen } from "../services/catalogText";
-import { ApiError, productApi, type LedgerEntry, type Product } from "../services/api";
+import { ApiError, productApi, type LedgerEntry, type Product, type ProductSku } from "../services/api";
+
+type StockMovement = "RECEIVE" | "ISSUE" | "ADJUST" | "RESERVE" | "RELEASE";
 
 export default function ProductDetailPage() {
   const { productId = "" } = useParams();
@@ -22,7 +24,7 @@ export default function ProductDetailPage() {
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
-  const [adjust, setAdjust] = useState({ skuId: "", entryType: "RECEIVE" as "RECEIVE" | "ADJUST", quantityDelta: "1", reason: "" });
+  const [adjust, setAdjust] = useState({ skuId: "", entryType: "RECEIVE" as StockMovement, quantityDelta: "1", reason: "" });
 
   const load = (quiet = false) => {
     if (shopId == null) return;
@@ -65,20 +67,22 @@ export default function ProductDetailPage() {
   const submitStock = async () => {
     if (shopId == null || !product) return;
     const sku = product.skus.find((item) => item.id === adjust.skuId);
-    const quantityDelta = Number(adjust.quantityDelta);
-    if (!sku || !Number.isInteger(quantityDelta) || quantityDelta === 0) {
+    const quantity = Number(adjust.quantityDelta);
+    const issue = adjust.entryType === "ISSUE";
+    const needsPositive = issue || adjust.entryType === "RECEIVE" || adjust.entryType === "RESERVE" || adjust.entryType === "RELEASE";
+    if (!sku || !Number.isInteger(quantity) || (needsPositive ? quantity <= 0 : quantity === 0)) {
       toast(t("catalog.errors.INVALID_ADJUSTMENT"), "fail");
       return;
     }
-    if (adjust.entryType === "ADJUST" && !adjust.reason.trim()) {
+    if (adjust.entryType !== "RECEIVE" && !adjust.reason.trim()) {
       toast(t("catalog.errors.STOCK_REASON_REQUIRED"), "fail");
       return;
     }
     setBusy(true);
     try {
       await productApi.adjustStock(shopId, sku.id, {
-        entryType: adjust.entryType,
-        quantityDelta,
+        entryType: adjust.entryType === "ISSUE" ? "ADJUST" : adjust.entryType,
+        quantityDelta: issue ? -quantity : quantity,
         reason: adjust.reason.trim() || undefined,
         version: sku.version,
       });
@@ -118,6 +122,14 @@ export default function ProductDetailPage() {
   const image = product.images[activeImage] || product.images[0];
   const locale = i18n.language;
   const stockTotal = product.skus.reduce((sum, sku) => sum + sku.available, 0);
+  const movementLabel = (entry: LedgerEntry) => {
+    if (entry.entryType === "RECEIVE") return t("catalog.detail.receive");
+    if (entry.entryType === "RESERVE") return t("catalog.detail.reserve");
+    if (entry.entryType === "RELEASE") return t("catalog.detail.release");
+    if (entry.entryType === "ADJUST" && entry.quantityDelta < 0) return t("catalog.detail.issue");
+    return t("catalog.detail.adjust");
+  };
+  const stockMark = (sku: ProductSku) => (sku.available <= 0 && sku.onHand > 0 ? "low" : sku.available <= 0 ? "out" : null);
   const names = { th: product.nameTh, en: product.nameEn, zh: product.nameZh };
   const descriptions = { th: product.descriptionTh, en: product.descriptionEn, zh: product.descriptionZh };
   return (
@@ -180,16 +192,21 @@ export default function ProductDetailPage() {
           <h2>{t("catalog.detail.skus")}</h2>
           <div className="pm-table-scroll">
             <table>
-              <thead><tr><th>{t("catalog.form.sku")}</th><th>{t("catalog.form.options")}</th><th>{t("catalog.form.price")}</th><th>{t("catalog.columns.stock")}</th></tr></thead>
+              <thead><tr><th>{t("catalog.form.sku")}</th><th>{t("catalog.form.options")}</th><th>{t("catalog.form.price")}</th><th>{t("catalog.detail.onHand")}</th><th>{t("catalog.detail.reserved")}</th><th>{t("catalog.detail.available")}</th></tr></thead>
               <tbody>
-                {product.skus.map((sku) => (
+                {product.skus.map((sku) => {
+                  const mark = stockMark(sku);
+                  return (
                   <tr key={sku.id} className={sku.id === adjust.skuId ? "is-selected" : ""}>
                     <td>{sku.skuCode}</td>
                     <td>{sku.optionLabel || "—"}</td>
                     <td>{formatMoney(sku.price, locale)}</td>
-                    <td>{sku.available}{sku.available <= 0 ? <span className="pm-status empty">{t("catalog.badges.out")}</span> : sku.lowStockThreshold != null && sku.available <= sku.lowStockThreshold ? <span className="pm-status low">{t("catalog.badges.low")}</span> : null}</td>
+                    <td>{sku.onHand}</td>
+                    <td>{sku.reservedQty}</td>
+                    <td>{sku.available}{mark === "out" ? <span className="pm-status empty">{t("catalog.badges.out")}</span> : mark === "low" ? <span className="pm-status low">{t("catalog.badges.low")}</span> : null}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -200,15 +217,18 @@ export default function ProductDetailPage() {
               </select>
             </label>
             <label>{t("catalog.detail.entry")}
-              <select value={adjust.entryType} onChange={(event) => setAdjust({ ...adjust, entryType: event.target.value as "RECEIVE" | "ADJUST" })}>
+              <select value={adjust.entryType} onChange={(event) => setAdjust({ ...adjust, entryType: event.target.value as StockMovement })}>
                 <option value="RECEIVE">{t("catalog.detail.receive")}</option>
+                <option value="ISSUE">{t("catalog.detail.issue")}</option>
                 <option value="ADJUST">{t("catalog.detail.adjust")}</option>
+                <option value="RESERVE">{t("catalog.detail.reserve")}</option>
+                <option value="RELEASE">{t("catalog.detail.release")}</option>
               </select>
             </label>
             <label>{t("catalog.detail.delta")}
               <input inputMode="numeric" value={adjust.quantityDelta} onChange={(event) => setAdjust({ ...adjust, quantityDelta: event.target.value })} />
             </label>
-            {adjust.entryType === "ADJUST" ? (
+            {adjust.entryType !== "RECEIVE" ? (
               <label>{t("catalog.detail.reason")}
                 <input placeholder={t("catalog.detail.reasonPh")} value={adjust.reason} onChange={(event) => setAdjust({ ...adjust, reason: event.target.value })} />
               </label>
@@ -221,16 +241,17 @@ export default function ProductDetailPage() {
           {ledger.length === 0 ? <p className="pm-empty-note">{t("catalog.detail.emptyLedger")}</p> : (
             <div className="pm-table-scroll">
               <table>
-                <thead><tr><th>{t("catalog.detail.when")}</th><th>{t("catalog.form.sku")}</th><th>{t("catalog.detail.entry")}</th><th>{t("catalog.detail.delta")}</th><th>{t("catalog.detail.before")}</th><th>{t("catalog.detail.after")}</th><th>{t("catalog.detail.reason")}</th></tr></thead>
+                <thead><tr><th>{t("catalog.detail.when")}</th><th>{t("catalog.form.sku")}</th><th>{t("catalog.detail.entry")}</th><th>{t("catalog.detail.delta")}</th><th>{t("catalog.detail.before")}</th><th>{t("catalog.detail.after")}</th><th>{t("catalog.detail.actor")}</th><th>{t("catalog.detail.reason")}</th></tr></thead>
                 <tbody>
                   {ledger.map((entry) => (
                     <tr key={entry.id}>
                       <td>{formatWhen(entry.createdAt, locale)}</td>
                       <td>{entry.skuCode}</td>
-                      <td>{entry.entryType === "RECEIVE" ? t("catalog.detail.receive") : t("catalog.detail.adjust")}</td>
+                      <td>{movementLabel(entry)}</td>
                       <td className={entry.quantityDelta < 0 ? "is-down" : "is-up"}>{entry.quantityDelta > 0 ? `+${entry.quantityDelta}` : entry.quantityDelta}</td>
                       <td>{entry.onHandBefore}</td>
                       <td>{entry.onHandAfter}</td>
+                      <td>{entry.actorName || "—"}</td>
                       <td>{entry.reason || "—"}</td>
                     </tr>
                   ))}

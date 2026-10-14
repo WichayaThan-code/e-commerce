@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 
 @Component
@@ -31,6 +32,7 @@ public class ContentTranslationBridge {
                 thaiFields.put("description", product.getDescriptionTh());
             }
             translations.requestTranslation(TranslationEntityType.PRODUCT, entityId, thaiFields);
+            queueOptions(product, entityId);
             if (request != null) {
                 translations.recordHuman(TranslationEntityType.PRODUCT, entityId, "name", "en", product.getNameTh(), request.nameEn());
                 translations.recordHuman(TranslationEntityType.PRODUCT, entityId, "name", "zh", product.getNameTh(), request.nameZh());
@@ -40,6 +42,18 @@ public class ContentTranslationBridge {
         } catch (Exception exception) {
             log.warn("product translation queue skipped — {}", exception.getMessage());
         }
+    }
+
+    private void queueOptions(Product product, String entityId) {
+        var fields = new LinkedHashMap<String, String>();
+        var keep = new LinkedHashSet<String>();
+        for (var slot : OptionTranslationFields.fromSchemaJson(product.getOptionSchema())) {
+            if (!TranslationTextSupport.translatable(slot.thai())) continue;
+            fields.put(slot.field(), slot.thai());
+            keep.add(slot.field());
+        }
+        translations.requestTranslation(TranslationEntityType.PRODUCT_OPTION, entityId, fields);
+        translations.dropUnlisted(TranslationEntityType.PRODUCT_OPTION, entityId, keep);
     }
 
     public void onCategorySaved(ProductCategory category) {

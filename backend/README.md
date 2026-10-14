@@ -293,6 +293,10 @@ psql -U postgres -d TSF_DB -v ON_ERROR_STOP=1 -c "SELECT set_config('app.admin_e
 - Auth session: `{ "accessToken", "expiresIn", "user": { id, firstName, lastName, email, phone, role, emailVerified, phoneVerified, roleCodes, permissions, shopPermissions } }` + Set-Cookie `tsf_refresh` (ฟิลด์สิทธิ์ 3 ตัวท้ายเป็นฟิลด์ใหม่ ดูหัวข้อ "ระบบสิทธิ์" — ฟิลด์เดิมไม่เปลี่ยน)
 - Errors: `{ "code", "message" }` — malformed JSON / wrong parameter types → 400 `VALIDATION_ERROR`; unique-constraint races → 409 `CONFLICT`
 
+## นำเข้าสินค้าจาก Excel
+
+คอลัมน์ `nameTh` และ `descriptionTh` พอสำหรับสร้างและเผยแพร่สินค้า ระบบจะเข้าคิวแปล EN/ZH ให้เอง คอลัมน์ `nameEn`, `nameZh`, `descriptionEn`, `descriptionZh` ไม่บังคับ ถ้าว่างจะแปลอัตโนมัติ ถ้ากรอกมาจะเก็บเป็นคำแปลที่ร้านค้าแก้เองและไม่ถูกเขียนทับจนกว่าข้อความภาษาไทยจะเปลี่ยน ไฟล์ตัวอย่างมีชีต `readme` อธิบายไว้เช่นกัน
+
 ## Merchant / shop API (from branch 7f730e8)
 
 - `GET /api/merchant-applications/draft`, `PUT .../draft/shop`, `PUT .../draft/owner`, `POST .../draft/owner/{ownerId}`, `POST .../draft/documents/{type}`, `POST .../draft/submit` — one open DRAFT per user; a new application can be started after the previous one is submitted, rejected or withdrawn (multi-shop)

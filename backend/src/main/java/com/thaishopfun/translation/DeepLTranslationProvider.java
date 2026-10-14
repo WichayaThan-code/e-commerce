@@ -30,6 +30,11 @@ public class DeepLTranslationProvider implements TranslationProvider {
     }
 
     @Override
+    public boolean configured() {
+        return properties.deeplApiKey() != null && !properties.deeplApiKey().isBlank();
+    }
+
+    @Override
     public List<String> translate(List<String> texts, String from, String to) {
         var key = properties.deeplApiKey();
         if (key == null || key.isBlank()) {

@@ -57,10 +57,28 @@ public class InventoryLevel extends AuditedEntity {
     public int getOnHand() { return onHand; }
     public void setOnHand(int onHand) {
         this.onHand = onHand;
-        this.available = onHand - reservedQty;
+        refreshAvailable();
     }
     public int getReservedQty() { return reservedQty; }
-    public int getAvailable() { return available; }
+    public void setReservedQty(int reservedQty) {
+        this.reservedQty = reservedQty;
+        refreshAvailable();
+    }
+    public int getAvailable() {
+        return Math.max(0, onHand - reservedQty - safetyQty());
+    }
     public Integer getLowStockThreshold() { return lowStockThreshold; }
+    public void setLowStockThreshold(Integer lowStockThreshold) {
+        this.lowStockThreshold = lowStockThreshold;
+        refreshAvailable();
+    }
     public int getVersion() { return version; }
+
+    private int safetyQty() {
+        return lowStockThreshold == null ? 0 : Math.max(0, lowStockThreshold);
+    }
+
+    private void refreshAvailable() {
+        this.available = getAvailable();
+    }
 }

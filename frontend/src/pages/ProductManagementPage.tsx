@@ -24,9 +24,9 @@ const tabs = [
 
 function stockBadge(product: Product) {
   const rows = product.skus.filter((sku) => sku.active);
+  if (rows.some((sku) => sku.available <= 0 && sku.onHand > 0)) return "low" as const;
   const available = rows.reduce((sum, sku) => sum + sku.available, 0);
   if (available <= 0) return "out" as const;
-  if (rows.some((sku) => sku.lowStockThreshold != null && sku.available > 0 && sku.available <= sku.lowStockThreshold)) return "low" as const;
   return "in" as const;
 }
 

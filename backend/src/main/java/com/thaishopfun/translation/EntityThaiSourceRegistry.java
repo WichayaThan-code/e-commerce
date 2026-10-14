@@ -22,6 +22,7 @@ public class EntityThaiSourceRegistry {
     public String thaiText(TranslationEntityType type, String entityId, String field) {
         return switch (type) {
             case PRODUCT -> productField(entityId, field);
+            case PRODUCT_OPTION -> optionField(entityId, field);
             case PRODUCT_CATEGORY -> categoryField(entityId, field);
             case SHOP -> shopField(entityId, field);
         };
@@ -35,6 +36,12 @@ public class EntityThaiSourceRegistry {
             case "description" -> product.getDescriptionTh();
             default -> null;
         };
+    }
+
+    private String optionField(String entityId, String field) {
+        var product = products.findById(UUID.fromString(entityId)).orElse(null);
+        if (product == null) return null;
+        return OptionTranslationFields.thai(product.getOptionSchema(), field);
     }
 
     private String categoryField(String entityId, String field) {

@@ -147,6 +147,17 @@ public class MerchantProductController {
         return products.revertAutoTranslation(RequestUser.id(jwt), shopId, productId, request);
     }
 
+    @PostMapping("/products/{productId}/translations/retry")
+    @RequireShopPermission("PRODUCT_UPDATE")
+    public CatalogDtos.MerchantProductResponse retryTranslation(
+        @AuthenticationPrincipal Jwt jwt,
+        @PathVariable Long shopId,
+        @PathVariable UUID productId,
+        @RequestBody CatalogDtos.RevertAutoTranslationRequest request
+    ) {
+        return products.retryTranslation(RequestUser.id(jwt), shopId, productId, request);
+    }
+
     @PostMapping("/products/{productId}/publish")
     @RequireShopPermission("PRODUCT_UPDATE")
     public CatalogDtos.MerchantProductResponse publish(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID productId) {

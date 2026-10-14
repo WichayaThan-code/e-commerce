@@ -24,6 +24,16 @@ public class TranslationBackfillService implements TranslationService.BackfillSo
     @Override
     public List<BackfillItem> items(TranslationEntityType entityType) {
         return switch (entityType) {
+            case PRODUCT_OPTION -> products.findAll().stream()
+                .map(product -> {
+                    var fields = new LinkedHashMap<String, String>();
+                    for (var slot : OptionTranslationFields.fromSchemaJson(product.getOptionSchema())) {
+                        if (TranslationTextSupport.translatable(slot.thai())) fields.put(slot.field(), slot.thai());
+                    }
+                    return new BackfillItem(product.getId().toString(), fields);
+                })
+                .filter(item -> !item.fields().isEmpty())
+                .toList();
             case PRODUCT -> products.findAll().stream()
                 .map(product -> {
                     var fields = new LinkedHashMap<String, String>();

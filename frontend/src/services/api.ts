@@ -111,7 +111,7 @@ export type MerchantOwner = {
   id:string; ownerType:'PERSON'|'COMPANY'; title:string; firstName:string; lastName:string
   citizenIdMasked?:string|null; phone:string; email:string; sensitiveReview:string
 }
-export type TranslationMeta = { origin: 'MACHINE' | 'HUMAN'; status: 'PENDING' | 'DONE' | 'FAILED' }
+export type TranslationMeta = { origin: 'MACHINE' | 'HUMAN' | 'MANUAL'; status: 'PENDING' | 'DONE' | 'FAILED' }
 
 export type PublicShop = {
   name:string;nameEn?:string;nameZh?:string;description?:string;descriptionEn?:string;descriptionZh?:string;category:string
@@ -390,6 +390,7 @@ export type SkuWrite = {
   compareAtPrice?: number | null
   weightGrams?: number | null
   initialStock?: number | null
+  safetyStock?: number | null
   costPrice?: number | null
   imageId?: string | null
   active?: boolean
@@ -422,6 +423,9 @@ export type LedgerEntry = {
   onHandAfter: number
   reason?: string | null
   createdAt?: string | null
+  actorName?: string | null
+  reservedBefore?: number
+  reservedAfter?: number
 }
 
 function productQuery(query: ProductListQuery) {
@@ -513,6 +517,8 @@ export const productApi = {
   update: (shopId: number, productId: string, payload: ProductWrite) => request<Product>(shopProducts(shopId, `/products/${productId}`), { method: 'PUT', body: JSON.stringify(payload) }, true),
   useAutoTranslation: (shopId: number, productId: string, payload: { field: 'name' | 'description'; locale: 'en' | 'zh' }) =>
     request<Product>(shopProducts(shopId, `/products/${productId}/translations/use-auto`), { method: 'POST', body: JSON.stringify(payload) }, true),
+  retryTranslation: (shopId: number, productId: string, payload: { field: 'name' | 'description'; locale: 'en' | 'zh' }) =>
+    request<Product>(shopProducts(shopId, `/products/${productId}/translations/retry`), { method: 'POST', body: JSON.stringify(payload) }, true),
   publish: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/publish`), { method: 'POST' }, true),
   archive: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/archive`), { method: 'POST' }, true),
   unarchive: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/unarchive`), { method: 'POST' }, true),
@@ -523,8 +529,8 @@ export const productApi = {
   },
   deleteImage: (shopId: number, productId: string, imageId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/images/${imageId}`), { method: 'DELETE' }, true),
   orderImages: (shopId: number, productId: string, imageIds: string[], primaryImageId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/images/order`), { method: 'PUT', body: JSON.stringify({ imageIds, primaryImageId }) }, true),
-  adjustStock: (shopId: number, skuId: string, payload: { entryType: 'RECEIVE' | 'ADJUST'; quantityDelta: number; reason?: string; version: number; idempotencyKey?: string }) => request<StockAdjustment>(shopProducts(shopId, `/skus/${skuId}/stock-adjustments`), { method: 'POST', body: JSON.stringify(payload) }, true),
-  adjustStockBulk: (shopId: number, productId: string, payload: { idempotencyKey?: string; items: { skuId: string; entryType: 'RECEIVE' | 'ADJUST'; quantityDelta: number; version: number; reason?: string }[] }) => request<StockAdjustment[]>(shopProducts(shopId, `/products/${productId}/stock-adjustments/bulk`), { method: 'POST', body: JSON.stringify(payload) }, true),
+  adjustStock: (shopId: number, skuId: string, payload: { entryType: 'RECEIVE' | 'ADJUST' | 'RESERVE' | 'RELEASE'; quantityDelta: number; reason?: string; version: number; idempotencyKey?: string }) => request<StockAdjustment>(shopProducts(shopId, `/skus/${skuId}/stock-adjustments`), { method: 'POST', body: JSON.stringify(payload) }, true),
+  adjustStockBulk: (shopId: number, productId: string, payload: { idempotencyKey?: string; items: { skuId: string; entryType: 'RECEIVE' | 'ADJUST' | 'RESERVE' | 'RELEASE'; quantityDelta: number; version: number; reason?: string }[] }) => request<StockAdjustment[]>(shopProducts(shopId, `/products/${productId}/stock-adjustments/bulk`), { method: 'POST', body: JSON.stringify(payload) }, true),
   checkSkus: (shopId: number, codes: string[], excludeProductId?: string) => {
     const search = new URLSearchParams()
     if (codes.length) search.set('codes', codes.join(','))

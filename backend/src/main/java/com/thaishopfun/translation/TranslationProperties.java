@@ -12,11 +12,13 @@ public record TranslationProperties(
     String deeplApiKey,
     String glossary,
     int batchSize,
-    int maxAttempts
+    int maxAttempts,
+    int retryBackoffMs
 ) {
     public TranslationProperties {
         if (batchSize <= 0) batchSize = 40;
         if (maxAttempts <= 0) maxAttempts = 5;
+        if (retryBackoffMs < 0) retryBackoffMs = 30_000;
     }
 
     public List<String> glossaryTerms() {

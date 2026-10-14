@@ -12,6 +12,7 @@ export type SkuDraft = {
   costPrice: string;
   weightGrams: string;
   initialStock: string;
+  safetyStock: string;
   active: boolean;
   imageId?: string;
   imageLocalKey?: string;
@@ -57,6 +58,7 @@ export function emptySku(partial: Partial<SkuDraft> = {}): SkuDraft {
     costPrice: "",
     weightGrams: "",
     initialStock: "0",
+    safetyStock: "",
     active: true,
     ...partial,
     clientKey: partial.clientKey || optionKey(),
@@ -112,6 +114,7 @@ export function fromProduct(product: Product): ProductDraft {
           costPrice: sku.costPrice == null ? "" : String(sku.costPrice),
           weightGrams: sku.weightGrams == null ? "" : String(sku.weightGrams),
           initialStock: String(sku.onHand ?? 0),
+          safetyStock: sku.lowStockThreshold == null ? "" : String(sku.lowStockThreshold),
           active: sku.active,
           imageId: sku.imageId || undefined,
           stockBaseline: sku.onHand ?? 0,
@@ -349,6 +352,7 @@ export function validateDraft(draft: ProductDraft, publishing: boolean, imageCou
     if (skuCost != null && (Number.isNaN(skuCost) || skuCost < 0)) errors[`skus.${index}.costPrice`] = "PRICE_INVALID";
     const opening = Number(sku.initialStock || "0");
     if (!sku.id && (!Number.isInteger(opening) || opening < 0)) errors[`skus.${index}.initialStock`] = "INVALID_ADJUSTMENT";
+    if (Number.isNaN(safetyAmount(sku.safetyStock))) errors[`skus.${index}.safetyStock`] = "INVALID_ADJUSTMENT";
   });
   if (publishing && imageCount < 1) errors.images = "PUBLISH_INCOMPLETE";
   if (publishing && (price == null || Number.isNaN(price)) && draft.skus.some((sku) => !sku.removed && money(sku.price) == null)) errors.basePrice = "PUBLISH_INCOMPLETE";
@@ -370,6 +374,7 @@ export function toWrite(draft: ProductDraft): ProductWrite {
     compareAtPrice: money(sku.compareAtPrice),
     weightGrams: weight(sku.weightGrams),
     initialStock: sku.id ? null : Number(sku.initialStock || "0"),
+    safetyStock: safetyAmount(sku.safetyStock),
     imageId: sku.imageId || null,
     active: sku.active,
   }));
@@ -417,6 +422,14 @@ export function variantIssues(draft: Pick<ProductDraft, "productType" | "skus" |
     else combos.set(key, index);
     const opening = Number(sku.initialStock || "0");
     if (!sku.id && (!Number.isInteger(opening) || opening < 0)) issues.push({ index, field: "initialStock", code: "INVALID_ADJUSTMENT" });
+    if (Number.isNaN(safetyAmount(sku.safetyStock))) issues.push({ index, field: "safetyStock", code: "INVALID_ADJUSTMENT" });
   });
   return issues;
+}
+
+function safetyAmount(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const amount = Number(trimmed);
+  return Number.isInteger(amount) && amount >= 0 ? amount : Number.NaN;
 }

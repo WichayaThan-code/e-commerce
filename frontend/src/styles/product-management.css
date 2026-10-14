@@ -703,6 +703,9 @@
 }
 
 .pm-lang-hint { margin: 0 0 14px; color: #5d7396; font-size: 14px; line-height: 1.5; }
+.pm-translation-fold { margin: 0 0 18px; border: 1px solid #dce8f5; border-radius: 10px; background: #fff; padding: 12px 14px; }
+.pm-translation-fold summary { cursor: pointer; color: #09255e; font-weight: 700; }
+.pm-translation-fold .pm-lang-hint { margin: 12px 0; }
 .pm-lang-block { margin-bottom: 18px; padding: 14px 16px; border: 1px solid #dce8f5; border-radius: 10px; background: #f8fbfe; }
 .pm-lang-block h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #09255e; font-size: 15px; }
 .pm-lang-block h4 small { font-size: 12px; font-weight: 600; color: #6d84a3; }

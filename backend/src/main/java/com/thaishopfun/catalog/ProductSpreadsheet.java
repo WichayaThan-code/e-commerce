@@ -77,6 +77,10 @@ public final class ProductSpreadsheet {
     }
 
     public static byte[] write(List<SheetRow> rows) {
+        return write(rows, null);
+    }
+
+    public static byte[] write(List<SheetRow> rows, String readme) {
         try (var book = new XSSFWorkbook(); var out = new ByteArrayOutputStream()) {
             var sheet = book.createSheet("products");
             var header = sheet.createRow(0);
@@ -110,6 +114,11 @@ public final class ProductSpreadsheet {
                 writeText(row, 23, source.option3Value());
             }
             for (var index = 0; index < HEADERS.length; index++) sheet.autoSizeColumn(index);
+            if (readme != null && !readme.isBlank()) {
+                var note = book.createSheet("readme");
+                note.createRow(0).createCell(0).setCellValue(readme);
+                note.autoSizeColumn(0);
+            }
             book.write(out);
             return out.toByteArray();
         } catch (IOException exception) {
@@ -119,9 +128,9 @@ public final class ProductSpreadsheet {
 
     public static byte[] template() {
         return write(List.of(
-            new SheetRow(2, "เสื้อตัวอย่าง", "Sample shirt", null, "เสื้อหลายตัวเลือก", null, null, null, "ThaiShopFun", "SAMPLE-RED-S", null, "แดง / S", new BigDecimal("390"), new BigDecimal("590"), 280, 8, null, List.of(), null, "SAMPLE-SHIRT", "VARIABLE", "สี", "แดง", "ไซซ์", "S", null, null),
-            new SheetRow(3, "เสื้อตัวอย่าง", "Sample shirt", null, null, null, null, null, "ThaiShopFun", "SAMPLE-BLK-S", null, "ดำ / S", new BigDecimal("390"), new BigDecimal("590"), 280, 6, null, List.of(), null, "SAMPLE-SHIRT", "VARIABLE", "สี", "ดำ", "ไซซ์", "S", null, null)
-        ));
+            new SheetRow(2, "เสื้อตัวอย่าง", null, null, "เสื้อหลายตัวเลือก", null, null, null, "ThaiShopFun", "SAMPLE-RED-S", null, "แดง / S", new BigDecimal("390"), new BigDecimal("590"), 280, 8, null, List.of(), null, "SAMPLE-SHIRT", "VARIABLE", "สี", "แดง", "ไซซ์", "S", null, null),
+            new SheetRow(3, "เสื้อตัวอย่าง", null, null, null, null, null, null, "ThaiShopFun", "SAMPLE-BLK-S", null, "ดำ / S", new BigDecimal("390"), new BigDecimal("590"), 280, 6, null, List.of(), null, "SAMPLE-SHIRT", "VARIABLE", "สี", "ดำ", "ไซซ์", "S", null, null)
+        ), "กรอกแค่ nameTh และ descriptionTh ก็พอ คอลัมน์ nameEn, nameZh, descriptionEn, descriptionZh ไม่บังคับ ถ้าว่างระบบจะแปล EN/ZH ให้เอง ถ้ากรอกมาจะใช้คำนั้นและไม่เขียนทับ");
     }
 
     public static List<SheetRow> read(InputStream input) {

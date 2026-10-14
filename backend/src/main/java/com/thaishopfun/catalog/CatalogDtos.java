@@ -43,7 +43,8 @@ public final class CatalogDtos {
         Integer weightGrams,
         Integer initialStock,
         UUID imageId,
-        Boolean active
+        Boolean active,
+        Integer safetyStock
     ) {}
 
     public record ImageOrderRequest(List<UUID> imageIds, UUID primaryImageId) {}
@@ -180,6 +181,9 @@ public final class CatalogDtos {
         int onHandBefore,
         int onHandAfter,
         String reason,
-        Instant createdAt
+        Instant createdAt,
+        String actorName,
+        int reservedBefore,
+        int reservedAfter
     ) {}
 }

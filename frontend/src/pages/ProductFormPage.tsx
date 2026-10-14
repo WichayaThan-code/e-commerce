@@ -25,11 +25,15 @@ const langFields = [
   { id: "zh" as const, locale: "zh" as const, nameKey: "nameZh" as const, descriptionKey: "descriptionZh" as const, required: false, nameMetaKey: "nameZhMeta" as const, descriptionMetaKey: "descriptionZhMeta" as const },
 ];
 
+function isManual(meta?: TranslationMeta | null) {
+  return meta?.origin === "HUMAN" || meta?.origin === "MANUAL";
+}
+
 function translationBadge(t: TFunction<"merchant">, meta?: TranslationMeta | null) {
   if (!meta) return null;
   if (meta.status === "PENDING") return t("catalog.form.translationPending");
   if (meta.status === "FAILED") return t("catalog.form.translationFailed");
-  return meta.origin === "HUMAN" ? t("catalog.form.translationManual") : t("catalog.form.translationAuto");
+  return isManual(meta) ? t("catalog.form.translationManual") : t("catalog.form.translationAuto");
 }
 
 export default function ProductFormPage() {
@@ -102,13 +106,15 @@ export default function ProductFormPage() {
     setNotice(text);
   };
 
-  const revertAuto = async (field: "name" | "description", locale: "en" | "zh") => {
+  const applyTranslation = async (kind: "auto" | "retry", field: "name" | "description", locale: "en" | "zh") => {
     if (shopId == null || !productId) return;
     try {
-      const saved = await productApi.useAutoTranslation(shopId, productId, { field, locale });
+      const saved = kind === "retry"
+        ? await productApi.retryTranslation(shopId, productId, { field, locale })
+        : await productApi.useAutoTranslation(shopId, productId, { field, locale });
       setRemote([saved]);
       setDraft(fromProduct(saved));
-      toast(t("catalog.form.useAutoTranslation"), "ok");
+      toast(t(kind === "retry" ? "catalog.form.translationRetry" : "catalog.form.useAutoTranslation"), "ok");
     } catch (caught) {
       toast(catalogMessage(t, caught), "fail");
     }
@@ -273,52 +279,81 @@ export default function ProductFormPage() {
           {errors.form ? <p className="form-field-error">{t(`catalog.errors.${errors.form}`)}</p> : null}
           <h3>{t("catalog.form.general")}</h3>
           <p className="pm-lang-hint">{t("catalog.form.langsHint")}</p>
-          {langFields.map((field) => (
+          <div className="pm-lang-block">
+            <h4>{t("catalog.form.langTh")}</h4>
+            <label>
+              <span className="pm-lang-label">{t("catalog.form.name")} <em>*</em></span>
+              <input
+                value={draft.nameTh}
+                aria-invalid={Boolean(errors.nameTh)}
+                onChange={(event) => setDraft({ ...draft, nameTh: event.target.value })}
+                placeholder={t("catalog.form.namePh")}
+              />
+              <FieldError text={fieldError("nameTh")} />
+            </label>
+            <label>
+              <span className="pm-lang-label">{t("catalog.form.description")}</span>
+              <textarea
+                value={draft.descriptionTh}
+                onChange={(event) => setDraft({ ...draft, descriptionTh: event.target.value })}
+                placeholder={t("catalog.form.descriptionPh")}
+              />
+            </label>
+          </div>
+          <details className="pm-translation-fold">
+            <summary>{t("catalog.form.translationSection")}</summary>
+            <p className="pm-lang-hint">{t("catalog.form.translationSectionHint")}</p>
+            {langFields.filter((field) => field.id !== "th").map((field) => (
             <div className="pm-lang-block" key={field.id}>
               <h4>
-                {t(`catalog.form.lang${field.id === "th" ? "Th" : field.id === "en" ? "En" : "Zh"}`)}
-                {!field.required ? <small>{t("catalog.form.langOptional")}</small> : null}
+                {t(`catalog.form.lang${field.id === "en" ? "En" : "Zh"}`)}
+                <small>{t("catalog.form.langOptional")}</small>
               </h4>
               <label>
                 <span className="pm-lang-label">
-                  {t("catalog.form.name")} {field.required ? <em>*</em> : null}
-                  {field.locale && product ? (
-                    <span className="pm-translation-badge">{translationBadge(t, product[field.nameMetaKey!])}</span>
-                  ) : null}
+                  {t("catalog.form.name")}
+                  {product ? <span className="pm-translation-badge">{translationBadge(t, product[field.nameMetaKey!])}</span> : null}
                 </span>
                 <input
                   value={draft[field.nameKey]}
-                  aria-invalid={Boolean(errors[field.nameKey])}
                   onChange={(event) => setDraft({ ...draft, [field.nameKey]: event.target.value })}
                   placeholder={t("catalog.form.namePh")}
                 />
-                {field.locale && product?.[field.nameMetaKey!]?.origin === "HUMAN" && productId ? (
-                  <button type="button" className="pm-use-auto" onClick={() => void revertAuto("name", field.locale!)}>
+                {isManual(product?.[field.nameMetaKey!]) && productId ? (
+                  <button type="button" className="pm-use-auto" onClick={() => void applyTranslation("auto", "name", field.locale!)}>
                     {t("catalog.form.useAutoTranslation")}
                   </button>
                 ) : null}
-                <FieldError text={fieldError(field.nameKey)} />
+                {product?.[field.nameMetaKey!]?.status === "FAILED" && productId ? (
+                  <button type="button" className="pm-use-auto" onClick={() => void applyTranslation("retry", "name", field.locale!)}>
+                    {t("catalog.form.translationRetry")}
+                  </button>
+                ) : null}
               </label>
               <label>
                 <span className="pm-lang-label">
                   {t("catalog.form.description")}
-                  {field.locale && product ? (
-                    <span className="pm-translation-badge">{translationBadge(t, product[field.descriptionMetaKey!])}</span>
-                  ) : null}
+                  {product ? <span className="pm-translation-badge">{translationBadge(t, product[field.descriptionMetaKey!])}</span> : null}
                 </span>
                 <textarea
                   value={draft[field.descriptionKey]}
                   onChange={(event) => setDraft({ ...draft, [field.descriptionKey]: event.target.value })}
                   placeholder={t("catalog.form.descriptionPh")}
                 />
-                {field.locale && product?.[field.descriptionMetaKey!]?.origin === "HUMAN" && productId ? (
-                  <button type="button" className="pm-use-auto" onClick={() => void revertAuto("description", field.locale!)}>
+                {isManual(product?.[field.descriptionMetaKey!]) && productId ? (
+                  <button type="button" className="pm-use-auto" onClick={() => void applyTranslation("auto", "description", field.locale!)}>
                     {t("catalog.form.useAutoTranslation")}
+                  </button>
+                ) : null}
+                {product?.[field.descriptionMetaKey!]?.status === "FAILED" && productId ? (
+                  <button type="button" className="pm-use-auto" onClick={() => void applyTranslation("retry", "description", field.locale!)}>
+                    {t("catalog.form.translationRetry")}
                   </button>
                 ) : null}
               </label>
             </div>
-          ))}
+            ))}
+          </details>
           <div className="merchant-two">
             <SearchableSelect
               label={t("catalog.form.category")}
@@ -422,6 +457,11 @@ export default function ProductFormPage() {
                     <FieldError text={fieldError(`skus.${index}.initialStock`)} />
                   </label>
                 )}
+                <label>
+                  {t("catalog.form.safetyStock")}
+                  <input inputMode="numeric" value={sku.safetyStock} aria-invalid={Boolean(errors[`skus.${index}.safetyStock`])} onChange={(event) => setSku(index, { safetyStock: event.target.value })} />
+                  <FieldError text={fieldError(`skus.${index}.safetyStock`)} />
+                </label>
               </div>
             ))}
           </div>

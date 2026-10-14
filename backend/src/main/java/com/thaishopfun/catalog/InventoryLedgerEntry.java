@@ -48,6 +48,16 @@ public class InventoryLedgerEntry extends AuditedEntity {
     private String idempotencyKey;
     @Column(name = "actor_id")
     private UUID actorId;
+    @Column(name = "reserved_qty_before")
+    private Integer reservedQtyBefore;
+    @Column(name = "reserved_qty_after")
+    private Integer reservedQtyAfter;
+    @Column(name = "order_item_id")
+    private UUID orderItemId;
+    @Column(name = "reservation_id")
+    private UUID reservationId;
+    @Column(name = "actor_type", length = 30)
+    private String actorType;
 
     protected InventoryLedgerEntry() {}
 
@@ -63,7 +73,24 @@ public class InventoryLedgerEntry extends AuditedEntity {
         this.actorId = actorId;
     }
 
+    /** Order stock movements (RESERVE / RELEASE / COMMIT_SALE / RESTOCK_REFUND): link the order line and reservation. */
+    public InventoryLedgerEntry forOrder(String orderId, UUID orderItemId, UUID reservationId, int reservedBefore, int reservedAfter, String actorType) {
+        this.referenceType = "ORDER";
+        this.referenceId = orderId;
+        this.orderItemId = orderItemId;
+        this.reservationId = reservationId;
+        this.reservedQtyBefore = reservedBefore;
+        this.reservedQtyAfter = reservedAfter;
+        this.actorType = actorType;
+        return this;
+    }
+
     public Long getId() { return id; }
+    public String getReferenceType() { return referenceType; }
+    public String getReferenceId() { return referenceId; }
+    public UUID getOrderItemId() { return orderItemId; }
+    public Integer getReservedQtyBefore() { return reservedQtyBefore; }
+    public Integer getReservedQtyAfter() { return reservedQtyAfter; }
     public ProductSku getSku() { return sku; }
     public String getReason() { return reason; }
     public String getEntryType() { return entryType; }

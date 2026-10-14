@@ -60,6 +60,29 @@ public class InventoryLevel extends AuditedEntity {
         this.available = onHand - reservedQty;
     }
     public int getReservedQty() { return reservedQty; }
+
+    /** Order checkout: hold stock for an order line (available -= qty, reserved += qty). */
+    public void reserve(int qty) {
+        if (qty <= 0) throw new IllegalArgumentException("qty must be positive");
+        if (qty > available) throw new IllegalStateException("insufficient available stock");
+        this.reservedQty += qty;
+        this.available = onHand - reservedQty;
+    }
+
+    /** Order cancelled / refunded before dispatch: give a held quantity back (reserved -= qty, available += qty). */
+    public void releaseReserved(int qty) {
+        if (qty <= 0 || qty > reservedQty) throw new IllegalStateException("release exceeds reserved stock");
+        this.reservedQty -= qty;
+        this.available = onHand - reservedQty;
+    }
+
+    /** Order dispatched: the held quantity leaves the warehouse (on_hand -= qty, reserved -= qty; available unchanged). */
+    public void commitReserved(int qty) {
+        if (qty <= 0 || qty > reservedQty || qty > onHand) throw new IllegalStateException("commit exceeds reserved stock");
+        this.reservedQty -= qty;
+        this.onHand -= qty;
+        this.available = onHand - reservedQty;
+    }
     public int getAvailable() { return available; }
     public Integer getLowStockThreshold() { return lowStockThreshold; }
     public int getVersion() { return version; }

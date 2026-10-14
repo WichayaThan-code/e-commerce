@@ -96,6 +96,8 @@
       "soldOut": "Sold out",
       "inStock": "{{count}} in stock",
       "addToCart": "Add to cart",
+      "added": "Added to cart",
+      "notEnough": "Not enough stock for that quantity",
       "buyNow": "Buy now",
       "logoAlt": "{{name}} logo",
       "viewShop": "View shop",

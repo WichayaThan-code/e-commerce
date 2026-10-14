@@ -22,6 +22,11 @@ spring:
 
 server:
   port: ${SERVER_PORT:8081}
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-binding-errors: never
+    include-exception: false
 
 app:
   merchant:

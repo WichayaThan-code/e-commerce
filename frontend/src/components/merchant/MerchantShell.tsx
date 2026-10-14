@@ -2,12 +2,13 @@ import type { FormEvent, ReactNode } from "react";
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
-  BarChart3, Bell, Box, CircleHelp, CircleUserRound, Crown, Headphones, Home,
+  BarChart3, Box, CircleHelp, CircleUserRound, Crown, Headphones, Home,
   Search, Settings, ShoppingBag, Store, TicketPercent, Truck, WalletCards,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { usePermissions } from "../../hooks/usePermissions";
 import LanguageSwitcher from "../LanguageSwitcher";
+import MerchantBell from "./MerchantBell";
 import MerchantShopMenu from "../MerchantShopMenu";
 import "../../styles/merchant-dashboard.css";
 import "../../styles/product-management.css";
@@ -47,7 +48,7 @@ export default function MerchantShell({ children, notice, tone = "ok" }: { child
           <input aria-label={t("catalog.menu.searchPh")} placeholder={t("catalog.menu.searchPh")} value={query} onChange={(event) => setQuery(event.target.value)} />
         </form>
         <LanguageSwitcher />
-        <button className="merchant-bell" type="button" aria-label={t("catalog.menu.help")}><Bell /></button>
+        <MerchantBell />
         <MerchantShopMenu />
       </header>
       <aside className="merchant-sidebar pm-sidebar">

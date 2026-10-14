@@ -15,6 +15,7 @@ import com.thaishopfun.merchant.MerchantApplicationRepository;
 import com.thaishopfun.merchant.MerchantDocumentRepository;
 import com.thaishopfun.merchant.OwnerAuditLogRepository;
 import com.thaishopfun.merchant.OwnerRepository;
+import com.thaishopfun.merchant.ShopMemberRepository;
 import com.thaishopfun.merchant.ShopReinstatementRequestRepository;
 import com.thaishopfun.merchant.ShopRepository;
 import com.thaishopfun.translation.ContentTranslationRepository;
@@ -57,6 +58,7 @@ class TranslationIntegrationTests {
     @Autowired ProductSkuRepository productSkus;
     @Autowired ProductRepository catalogProducts;
     @Autowired ShopReinstatementRequestRepository reinstatements;
+    @Autowired ShopMemberRepository shopMembers;
     @Autowired ShopRepository shops;
     @Autowired MerchantDocumentRepository documents;
     @Autowired MerchantApplicationRepository applications;
@@ -64,18 +66,19 @@ class TranslationIntegrationTests {
     @Autowired OwnerRepository owners;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired UserAccountRepository users;
-    @Autowired PasswordEncoder passwords;
     @Autowired PlatformRoleRepository platformRoles;
+    @Autowired PasswordEncoder passwords;
 
     @BeforeEach
     void clean() {
         translations.deleteAll();
         ledger.deleteAll();
         levels.deleteAll();
-        productImages.deleteAll();
         productSkus.deleteAll();
+        productImages.deleteAll();
         catalogProducts.deleteAll();
         reinstatements.deleteAll();
+        shopMembers.deleteAll();
         shops.deleteAll();
         documents.deleteAll();
         applications.deleteAll();

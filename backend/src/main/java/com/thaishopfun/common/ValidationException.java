@@ -20,8 +20,21 @@ public class ValidationException extends AuthException {
     }
 
     public ValidationException(String code, List<FieldViolation> violations) {
-        super(HttpStatus.BAD_REQUEST, code, summary(violations));
+        this(HttpStatus.BAD_REQUEST, code, violations);
+    }
+
+    public ValidationException(HttpStatus status, String code, List<FieldViolation> violations) {
+        super(status, code, summary(violations), violations == null ? null : violations.stream()
+            .map(violation -> new com.thaishopfun.auth.AuthDtos.ApiFieldError(violation.field(), violation.code(), violation.message()))
+            .toList());
         this.violations = List.copyOf(violations);
+    }
+
+    /** When every problem has the same code (e.g. SKU_CODE_DUPLICATE_IN_FORM) that code is the top-level code; otherwise VALIDATION_ERROR. Used by the product form API (team frontend reads the top-level code). */
+    public static String topCode(List<FieldViolation> violations) {
+        if (violations == null || violations.isEmpty()) return CODE;
+        var codes = violations.stream().map(FieldViolation::code).distinct().toList();
+        return codes.size() == 1 && codes.get(0) != null ? codes.get(0) : CODE;
     }
 
     public List<FieldViolation> getViolations() { return violations; }

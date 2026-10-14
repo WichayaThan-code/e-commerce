@@ -31,6 +31,7 @@ public final class ValidationMessages {
         Map.entry("SKU_NOT_FOUND", "ไม่พบรหัส SKU นี้ในสินค้า"),
         Map.entry("SKU_CODE_REQUIRED", "กรุณาระบุรหัส SKU"),
         Map.entry("SKU_CODE_TOO_LONG", "รหัส SKU ยาวเกิน 64 ตัวอักษร"),
+        Map.entry("SKU_CODE_DUPLICATE_IN_FORM", "รหัส SKU ซ้ำกันในสินค้านี้"),
         Map.entry("SKU_CODE_DUPLICATE", "รหัส SKU ซ้ำกันในสินค้านี้"),
         Map.entry("SKU_CODE_TAKEN", "รหัส SKU นี้มีอยู่แล้วในร้าน"),
         Map.entry("BARCODE_INVALID", "บาร์โค้ดใช้ได้เฉพาะตัวอักษรภาษาอังกฤษ ตัวเลข และขีด ไม่เกิน 64 ตัว"),
@@ -75,10 +76,10 @@ public final class ValidationMessages {
         return new FieldViolation(field, code, text(code));
     }
 
-    /** Converts a Bean Validation property path such as {@code skus[0].price} to the form path {@code skus.0.price}. */
+    /** Bean Validation property path such as {@code skus[0].price}; the merchant form maps {@code skus[i].field}. */
     public static String fieldPath(String propertyPath) {
         if (propertyPath == null) return "";
-        return propertyPath.replaceAll("\\[(\\d+)]", ".$1").replaceAll("\\.<[^>]+>", "");
+        return propertyPath.replaceAll("\\.<[^>]+>", "");
     }
 
     /** Field violation from a Bean Validation message that is either a code or plain text. */

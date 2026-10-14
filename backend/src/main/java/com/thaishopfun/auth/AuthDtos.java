@@ -76,5 +76,10 @@ public final class AuthDtos {
 
     public record VerifyOtpResponse(boolean verified, String purpose, String resetToken) {}
 
-    public record ApiError(String code, String message) {}
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    public record ApiError(String code, String message, java.util.List<ApiFieldError> fieldErrors) {
+        public ApiError(String code, String message) { this(code, message, null); }
+    }
+
+    public record ApiFieldError(String field, String code, String message) {}
 }

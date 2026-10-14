@@ -1,47 +1,52 @@
 package com.thaishopfun.catalog;
 
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 final class JsonMaps {
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final TypeReference<List<CatalogDtos.OptionGroup>> GROUPS = new TypeReference<>() {};
+    private static final TypeReference<LinkedHashMap<String, String>> STRING_MAP = new TypeReference<>() {};
+
     private JsonMaps() {}
 
     static String write(Map<String, String> values) {
-        if (values == null || values.isEmpty()) return "{}";
-        var json = new StringBuilder("{");
-        var first = true;
-        for (var entry : values.entrySet()) {
-            if (!first) json.append(',');
-            first = false;
-            json.append('"').append(escape(entry.getKey())).append("\":\"")
-                .append(escape(entry.getValue() == null ? "" : entry.getValue())).append('"');
+        try {
+            return JSON.writeValueAsString(values == null ? Map.of() : values);
+        } catch (RuntimeException exception) {
+            return "{}";
         }
-        return json.append('}').toString();
     }
 
     static Map<String, String> read(String json) {
-        var values = new LinkedHashMap<String, String>();
-        if (json == null || json.isBlank() || "{}".equals(json.trim())) return values;
-        var body = json.trim();
-        if (body.startsWith("{")) body = body.substring(1);
-        if (body.endsWith("}")) body = body.substring(0, body.length() - 1);
-        if (body.isBlank()) return values;
-        for (var part : body.split(",")) {
-            var split = part.split(":", 2);
-            if (split.length < 2) continue;
-            values.put(unquote(split[0]), unquote(split[1]));
+        if (json == null || json.isBlank() || "{}".equals(json.trim())) return new LinkedHashMap<>();
+        try {
+            var values = JSON.readValue(json, STRING_MAP);
+            return values == null ? new LinkedHashMap<>() : values;
+        } catch (RuntimeException exception) {
+            return new LinkedHashMap<>();
         }
-        return values;
     }
 
-    private static String escape(String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    static String writeGroups(List<CatalogDtos.OptionGroup> groups) {
+        try {
+            return JSON.writeValueAsString(groups == null ? List.of() : groups);
+        } catch (RuntimeException exception) {
+            return "[]";
+        }
     }
 
-    private static String unquote(String value) {
-        var text = value.trim();
-        if (text.startsWith("\"")) text = text.substring(1);
-        if (text.endsWith("\"")) text = text.substring(0, text.length() - 1);
-        return text.replace("\\\"", "\"").replace("\\\\", "\\");
+    static List<CatalogDtos.OptionGroup> readGroups(String json) {
+        if (json == null || json.isBlank() || "[]".equals(json.trim())) return List.of();
+        try {
+            var groups = JSON.readValue(json, GROUPS);
+            return groups == null ? List.of() : List.copyOf(groups);
+        } catch (RuntimeException exception) {
+            return List.of();
+        }
     }
 }

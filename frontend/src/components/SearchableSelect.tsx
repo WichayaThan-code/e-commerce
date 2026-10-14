@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
+import { FieldError } from "./form/FormField";
 import "../styles/thai-address.css";
 
 interface SearchableSelectProps {
@@ -11,6 +12,9 @@ interface SearchableSelectProps {
   placeholder?: string;
   disabled?: boolean;
   compact?: boolean;
+  field?: string;
+  error?: string;
+  onBlur?: () => void;
 }
 
 export default function SearchableSelect({
@@ -22,6 +26,9 @@ export default function SearchableSelect({
   placeholder = "เลือกข้อมูล",
   disabled = false,
   compact = false,
+  field,
+  error,
+  onBlur,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -48,6 +55,10 @@ export default function SearchableSelect({
     <div
       className={`searchable-select-wrap${compact ? " compact" : ""}`}
       ref={containerRef}
+      data-field={field}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onBlur?.()
+      }}
     >
       {!compact && (
         <span className="select-label">
@@ -56,10 +67,19 @@ export default function SearchableSelect({
       )}
       <div
         aria-label={label}
+        aria-invalid={Boolean(error)}
+        tabIndex={disabled ? -1 : 0}
         className={`searchable-select-btn ${disabled ? "disabled" : ""} ${
           open ? "active" : ""
         }`}
         onClick={() => !disabled && setOpen((prev) => !prev)}
+        onKeyDown={(event) => {
+          if (disabled) return
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault()
+            setOpen((prev) => !prev)
+          }
+        }}
       >
         <span>{value || placeholder}</span>
         <ChevronDown size={16} />
@@ -107,6 +127,7 @@ export default function SearchableSelect({
           </ul>
         </div>
       )}
+      <FieldError text={error} />
     </div>
   );
 }

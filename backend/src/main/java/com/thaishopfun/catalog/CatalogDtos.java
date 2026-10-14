@@ -44,14 +44,34 @@ public final class CatalogDtos {
          * {@code optionValues} ({"Color":"Black","Size":"S"}). When null, the groups are derived from the SKUs'
          * optionValues (the current form sends only those).
          */
-        List<OptionGroupWriteRequest> optionGroups
+        List<OptionGroupWriteRequest> optionGroups,
+        /** Team frontend (VariantEditor) shape: [{name, values:[...]}]. Used when optionGroups is null. */
+        List<OptionGroup> optionSchema,
+        /** Removing SKUs that still have on-hand stock needs this flag (stock is written off through the ledger). */
+        Boolean confirmRemoveStocked
     ) {
         public ProductWriteRequest(String nameTh, String nameEn, String nameZh, String descriptionTh, String descriptionEn,
                                    String descriptionZh, Long categoryId, String slug, String productType, String brand,
                                    BigDecimal basePrice, BigDecimal compareAtPrice, String currency, Integer weightGrams,
                                    List<SkuWriteRequest> skus) {
             this(nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId, slug, productType, brand,
-                basePrice, compareAtPrice, currency, weightGrams, skus, null);
+                basePrice, compareAtPrice, currency, weightGrams, skus, null, null, null);
+        }
+
+        public ProductWriteRequest(String nameTh, String nameEn, String nameZh, String descriptionTh, String descriptionEn,
+                                   String descriptionZh, Long categoryId, String slug, String productType, String brand,
+                                   BigDecimal basePrice, BigDecimal compareAtPrice, String currency, Integer weightGrams,
+                                   List<SkuWriteRequest> skus, List<OptionGroupWriteRequest> optionGroups) {
+            this(nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId, slug, productType, brand,
+                basePrice, compareAtPrice, currency, weightGrams, skus, optionGroups, null, null);
+        }
+
+        public ProductWriteRequest(String nameTh, String nameEn, String nameZh, String descriptionTh, String descriptionEn,
+                                   String descriptionZh, Long categoryId, String slug, String productType, String brand,
+                                   BigDecimal basePrice, BigDecimal compareAtPrice, String currency, Integer weightGrams,
+                                   List<SkuWriteRequest> skus, List<OptionGroup> optionSchema, Boolean confirmRemoveStocked) {
+            this(nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId, slug, productType, brand,
+                basePrice, compareAtPrice, currency, weightGrams, skus, null, optionSchema, confirmRemoveStocked);
         }
     }
 
@@ -63,6 +83,8 @@ public final class CatalogDtos {
     public record VariantCombinationRequest(String skuPrefix, List<OptionGroupWriteRequest> optionGroups) {}
 
     public record VariantCombination(String optionLabel, Map<String, String> optionValues, String skuCode) {}
+
+    public record OptionGroup(String name, List<String> values) {}
 
     public record SkuWriteRequest(
         UUID id,
@@ -76,11 +98,18 @@ public final class CatalogDtos {
         @PositiveOrZero(message = "WEIGHT_INVALID") @Max(value = 1_000_000, message = "WEIGHT_INVALID") Integer weightGrams,
         @PositiveOrZero(message = "STOCK_INVALID") @Max(value = 1_000_000, message = "STOCK_INVALID") Integer initialStock,
         /** Variant image: id of one of this product's images (upload first, then save). */
-        UUID imageId
+        UUID imageId,
+        /** null keeps the current active flag (new SKUs are active). */
+        Boolean active
     ) {
         public SkuWriteRequest(UUID id, String skuCode, String barcode, String optionLabel, Map<String, String> optionValues,
                                BigDecimal price, BigDecimal costPrice, BigDecimal compareAtPrice, Integer weightGrams, Integer initialStock) {
-            this(id, skuCode, barcode, optionLabel, optionValues, price, costPrice, compareAtPrice, weightGrams, initialStock, null);
+            this(id, skuCode, barcode, optionLabel, optionValues, price, costPrice, compareAtPrice, weightGrams, initialStock, null, null);
+        }
+
+        public SkuWriteRequest(UUID id, String skuCode, String barcode, String optionLabel, Map<String, String> optionValues,
+                               BigDecimal price, BigDecimal costPrice, BigDecimal compareAtPrice, Integer weightGrams, Integer initialStock, UUID imageId) {
+            this(id, skuCode, barcode, optionLabel, optionValues, price, costPrice, compareAtPrice, weightGrams, initialStock, imageId, null);
         }
     }
 
@@ -97,9 +126,15 @@ public final class CatalogDtos {
 
     public record BrandOption(String name, long productCount) {}
 
+    public record BulkStockItem(UUID skuId, String entryType, int quantityDelta, int version, String reason) {}
+
+    public record BulkStockRequest(String idempotencyKey, List<BulkStockItem> items) {}
+
+    public record SkuCodeCheck(List<String> taken) {}
+
     public record ProductImportError(int row, String message) {}
 
-    public record ProductImportResult(int created, int failed, List<ProductImportError> errors) {}
+    public record ProductImportResult(int created, int failed, List<ProductImportError> errors, int skuCreated) {}
 
     public record ProductImportAccepted(UUID jobId, int total) {}
 
@@ -113,6 +148,7 @@ public final class CatalogDtos {
         int total,
         int processed,
         int created,
+        int skuCreated,
         int failed,
         List<ProductImportError> errors,
         Integer currentRow,
@@ -151,7 +187,8 @@ public final class CatalogDtos {
         TranslationMeta nameZhMeta,
         TranslationMeta descriptionEnMeta,
         TranslationMeta descriptionZhMeta,
-        List<OptionGroupResponse> optionGroups
+        List<OptionGroupResponse> optionGroups,
+        List<OptionGroup> optionSchema
     ) {}
 
     public record OptionGroupResponse(UUID id, String name, int sortOrder, List<OptionValueResponse> values) {}
@@ -199,7 +236,8 @@ public final class CatalogDtos {
         String currency,
         List<PublicSkuResponse> skus,
         List<ImageResponse> images,
-        List<OptionGroupResponse> optionGroups
+        List<OptionGroupResponse> optionGroups,
+        List<OptionGroup> optionSchema
     ) {}
 
     public record PublicSkuResponse(

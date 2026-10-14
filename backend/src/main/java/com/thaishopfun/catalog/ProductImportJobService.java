@@ -119,10 +119,9 @@ public class ProductImportJobService {
         }
         try {
             var catalog = categories.findByActiveTrueOrderBySortOrderAsc();
-            for (var row : rows) {
-                job.current(row.row());
-                var outcome = ProductImportService.importRow(products, job.userId, job.shopId, row, catalog);
-                job.record(outcome);
+            for (var group : ProductImportService.groupRows(rows)) {
+                job.current(group.get(0).row());
+                job.record(ProductImportService.importGroup(products, job.userId, job.shopId, group, catalog));
             }
             job.complete();
         } catch (RuntimeException exception) {
@@ -141,6 +140,7 @@ public class ProductImportJobService {
         private String status = "QUEUED";
         private int processed;
         private int created;
+        private int skuCreated;
         private int failed;
         private final List<CatalogDtos.ProductImportError> errors = new ArrayList<>();
         private Integer currentRow;
@@ -173,12 +173,15 @@ public class ProductImportJobService {
             }
         }
 
-        private void record(ProductImportService.RowOutcome outcome) {
+        private void record(ProductImportService.GroupOutcome outcome) {
             synchronized (this) {
-                if (outcome.created()) created++;
-                if (outcome.error() != null) errors.add(outcome.error());
+                if (outcome.created()) {
+                    created++;
+                    skuCreated += outcome.skuCreated();
+                }
+                errors.addAll(outcome.errors());
                 failed = errors.size();
-                processed++;
+                processed += outcome.rowCount();
             }
         }
 
@@ -205,7 +208,7 @@ public class ProductImportJobService {
         private CatalogDtos.ProductImportJobView view() {
             synchronized (this) {
                 return new CatalogDtos.ProductImportJobView(
-                    jobId, shopId, userId, status, total, processed, created, failed, List.copyOf(errors), currentRow, startedAt, finishedAt
+                    jobId, shopId, userId, status, total, processed, created, skuCreated, failed, List.copyOf(errors), currentRow, startedAt, finishedAt
                 );
             }
         }

@@ -28,11 +28,12 @@ import java.util.regex.Pattern;
 public final class ProductSpreadsheet {
     public static final int MAX_ROWS = 500;
     public static final int MAX_IMAGES = 9;
-    static final String[] HEADERS = {
+    public static final String[] HEADERS = {
         "nameTh", "nameEn", "nameZh", "descriptionTh", "descriptionEn", "descriptionZh",
-        "category", "brand", "skuCode", "barcode", "optionLabel", "price", "compareAtPrice", "weightGrams", "stock", "image"
+        "category", "brand", "skuCode", "barcode", "optionLabel", "price", "compareAtPrice", "weightGrams", "stock", "image",
+        "productKey", "productType", "option1Name", "option1Value", "option2Name", "option2Value", "option3Name", "option3Value"
     };
-    private static final int IMAGE_COLUMN = HEADERS.length - 1;
+    private static final int IMAGE_COLUMN = 15;
     private static final Set<String> IMAGE_ALIASES = Set.of("images", "imageurl", "imageurls", "รูป", "รูปภาพ", "รูปสินค้า");
     private static final Pattern DISPIMG = Pattern.compile("DISPIMG\\(\\s*\"([^\"]+)\"", Pattern.CASE_INSENSITIVE);
     private static final int MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -60,7 +61,15 @@ public final class ProductSpreadsheet {
         Integer stock,
         String image,
         List<EmbeddedImage> pictures,
-        String imageError
+        String imageError,
+        String productKey,
+        String productType,
+        String option1Name,
+        String option1Value,
+        String option2Name,
+        String option2Value,
+        String option3Name,
+        String option3Value
     ) {
         public SheetRow {
             pictures = pictures == null ? List.of() : List.copyOf(pictures);
@@ -91,6 +100,14 @@ public final class ProductSpreadsheet {
                 if (source.weightGrams() != null) row.createCell(13).setCellValue(source.weightGrams());
                 if (source.stock() != null) row.createCell(14).setCellValue(source.stock());
                 writeText(row, 15, source.image());
+                writeText(row, 16, source.productKey());
+                writeText(row, 17, source.productType());
+                writeText(row, 18, source.option1Name());
+                writeText(row, 19, source.option1Value());
+                writeText(row, 20, source.option2Name());
+                writeText(row, 21, source.option2Value());
+                writeText(row, 22, source.option3Name());
+                writeText(row, 23, source.option3Value());
             }
             for (var index = 0; index < HEADERS.length; index++) sheet.autoSizeColumn(index);
             book.write(out);
@@ -98,6 +115,13 @@ public final class ProductSpreadsheet {
         } catch (IOException exception) {
             throw new IllegalStateException("เขียนไฟล์ Excel ไม่สำเร็จ", exception);
         }
+    }
+
+    public static byte[] template() {
+        return write(List.of(
+            new SheetRow(2, "เสื้อตัวอย่าง", "Sample shirt", null, "เสื้อหลายตัวเลือก", null, null, null, "ThaiShopFun", "SAMPLE-RED-S", null, "แดง / S", new BigDecimal("390"), new BigDecimal("590"), 280, 8, null, List.of(), null, "SAMPLE-SHIRT", "VARIABLE", "สี", "แดง", "ไซซ์", "S", null, null),
+            new SheetRow(3, "เสื้อตัวอย่าง", "Sample shirt", null, null, null, null, null, "ThaiShopFun", "SAMPLE-BLK-S", null, "ดำ / S", new BigDecimal("390"), new BigDecimal("590"), 280, 6, null, List.of(), null, "SAMPLE-SHIRT", "VARIABLE", "สี", "ดำ", "ไซซ์", "S", null, null)
+        ));
     }
 
     public static List<SheetRow> read(InputStream input) {
@@ -144,7 +168,15 @@ public final class ProductSpreadsheet {
                     integer(text(row, columns[14], formatter)),
                     text(row, columns[IMAGE_COLUMN], formatter),
                     imageError == null ? pictures : List.of(),
-                    imageError
+                    imageError,
+                    text(row, columns[16], formatter),
+                    text(row, columns[17], formatter),
+                    text(row, columns[18], formatter),
+                    text(row, columns[19], formatter),
+                    text(row, columns[20], formatter),
+                    text(row, columns[21], formatter),
+                    text(row, columns[22], formatter),
+                    text(row, columns[23], formatter)
                 ));
                 if (rows.size() > MAX_ROWS) {
                     throw new IllegalArgumentException("นำเข้าได้ไม่เกิน " + MAX_ROWS + " แถวต่อครั้ง");

@@ -35,15 +35,20 @@ public class MerchantApplicationService {
         var application = getOrCreate(userId);
         editable(application);
         if (applications.existsByShopNameIgnoreCaseAndIdNot(request.shopName().trim(), application.getId())) {
-            throw new AuthException(HttpStatus.CONFLICT, "SHOP_EXISTS", "ชื่อร้านนี้มีในระบบแล้ว");
+            throw new AuthException(HttpStatus.CONFLICT, "SHOP_EXISTS", "ชื่อร้านนี้มีในระบบแล้ว", "shopName");
         }
         categories.requireActiveOrCurrent(request.category(), application.getCategory());
         application.updateShop(request);
         try {
             return response(applications.saveAndFlush(application));
         } catch (org.springframework.dao.DataIntegrityViolationException exception) {
-            throw new AuthException(HttpStatus.CONFLICT, "SHOP_EXISTS", "ชื่อร้านนี้มีในระบบแล้ว");
+            throw new AuthException(HttpStatus.CONFLICT, "SHOP_EXISTS", "ชื่อร้านนี้มีในระบบแล้ว", "shopName");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public void validateOwner(UUID userId, MerchantDtos.OwnerRequest request) {
+        ownerAccounts.assertCitizenAvailable(userId, request.citizenId());
     }
 
     @Transactional

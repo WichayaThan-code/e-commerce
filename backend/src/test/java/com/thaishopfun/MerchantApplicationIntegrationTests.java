@@ -60,7 +60,7 @@ class MerchantApplicationIntegrationTests {
     @Autowired ProductRepository catalogProducts;
     @Autowired PlatformRoleRepository platformRoles;
 
-    @BeforeEach void clean(){ledger.deleteAll();levels.deleteAll();productImages.deleteAll();productSkus.deleteAll();catalogProducts.deleteAll();platformRoles.deleteAll();reinstatements.deleteAll();shopMembers.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();otpVerifications.deleteAll();passwordResetTokens.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
+    @BeforeEach void clean(){ledger.deleteAll();levels.deleteAll();productSkus.deleteAll();productImages.deleteAll();catalogProducts.deleteAll();platformRoles.deleteAll();reinstatements.deleteAll();shopMembers.deleteAll();shops.deleteAll();documents.deleteAll();applications.deleteAll();ownerAudits.deleteAll();owners.deleteAll();otpVerifications.deleteAll();passwordResetTokens.deleteAll();refreshTokens.deleteAll();users.deleteAll();}
 
     @Test void savesUploadsAndSubmitsRealApplication() throws Exception {
         var registered=mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
@@ -139,7 +139,36 @@ class MerchantApplicationIntegrationTests {
         saveShop(first, "ร้านซ้ำ").andExpect(status().isOk());
         saveShop(second, "ร้านซ้ำ").andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SHOP_EXISTS"));
         saveShop(second, "ร้านอื่น").andExpect(status().isOk());
-        saveOwner(second).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CITIZEN_ID_TAKEN"));
+        saveOwner(second).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CITIZEN_ID_TAKEN"))
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("citizenId"))
+            .andExpect(jsonPath("$.fieldErrors[0].code").value("CITIZEN_ID_TAKEN"));
+    }
+
+    @Test void duplicateCitizenIdAndInvalidOwnerReturnFieldErrors() throws Exception {
+        String first = tokenFor("taken-a@example.com", "0810001112");
+        String second = tokenFor("taken-b@example.com", "0820002223");
+        saveShop(first, "ร้านตรวจซ้ำ").andExpect(status().isOk());
+        saveOwner(first, "1100700123451").andExpect(status().isOk());
+        saveShop(second, "ร้านตรวจซ้ำสอง").andExpect(status().isOk());
+        saveOwner(second, "1100700123451").andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("CITIZEN_ID_TAKEN"))
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("citizenId"))
+            .andExpect(jsonPath("$.fieldErrors[0].code").value("CITIZEN_ID_TAKEN"));
+        mvc.perform(post("/api/merchant-applications/validate-owner").header("Authorization", "Bearer " + second)
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                  {"ownerType":"PERSON","title":"นาง","firstName":"สมหญิง","lastName":"ใจดี","citizenId":"1100700123451","birthDate":"1980-08-15","nationality":"ไทย","phone":"0820002223","email":"taken-b@example.com","houseNo":"1","province":"กรุงเทพมหานคร","district":"บางรัก","subdistrict":"สีลม","postalCode":"10500","bankName":"KBANK","bankAccountNumber":"1234567890","bankAccountName":"สมหญิง ใจดี"}
+                  """))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("citizenId"));
+        mvc.perform(put("/api/merchant-applications/draft/owner").header("Authorization", "Bearer " + second)
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                  {"ownerType":"PERSON","title":"","firstName":"","lastName":"","citizenId":"abc","birthDate":"1980-01-01","nationality":"ไทย","phone":"xx","email":"not-an-email","houseNo":"1","province":"กรุงเทพมหานคร","district":"บางรัก","subdistrict":"สีลม","postalCode":"12","bankName":"KBANK","bankAccountNumber":"abc","bankAccountName":""}
+                  """))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'citizenId')]").isNotEmpty())
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'postalCode')]").isNotEmpty())
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'email')]").isNotEmpty());
     }
 
     @Test void secondShopReusesTheSameOwnerWithoutUploadingDocumentsAgain() throws Exception {

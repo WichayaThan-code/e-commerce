@@ -47,6 +47,15 @@ class ProductVariantService {
     /** Requested groups, or (when the request has none) groups derived from the SKUs' optionValues in first-seen order. */
     static List<CatalogDtos.OptionGroupWriteRequest> effectiveGroups(CatalogDtos.ProductWriteRequest request) {
         if (request.optionGroups() != null) return request.optionGroups();
+        if (request.optionSchema() != null) {
+            // team frontend (VariantEditor) sends optionSchema [{name, values:[...]}]
+            return request.optionSchema().stream()
+                .filter(java.util.Objects::nonNull)
+                .map(group -> new CatalogDtos.OptionGroupWriteRequest(null, group.name(),
+                    (group.values() == null ? List.<String>of() : group.values()).stream()
+                        .map(value -> new CatalogDtos.OptionValueWriteRequest(null, value)).toList()))
+                .toList();
+        }
         var derived = new LinkedHashMap<String, LinkedHashMap<String, String>>();
         var names = new LinkedHashMap<String, String>();
         for (var sku : request.skus() == null ? List.<CatalogDtos.SkuWriteRequest>of() : request.skus()) {
@@ -75,7 +84,7 @@ class ProductVariantService {
         for (var index = 0; index < incoming.size(); index++) {
             var sku = incoming.get(index);
             if (sku != null && sku.imageId() != null && !productImages.contains(sku.imageId())) {
-                add.accept(ValidationMessages.violation("skus." + index + ".imageId", "VARIANT_IMAGE_INVALID"));
+                add.accept(ValidationMessages.violation("skus[" + index + "].imageId", "VARIANT_IMAGE_INVALID"));
             }
         }
         if (type == ProductType.SIMPLE) {
@@ -151,7 +160,7 @@ class ProductVariantService {
         for (var index = 0; index < incoming.size(); index++) {
             var sku = incoming.get(index);
             if (sku == null) continue;
-            var prefix = "skus." + index + ".optionValues";
+            var prefix = "skus[" + index + "].optionValues";
             var chosen = new HashMap<String, String>();
             if (sku.optionValues() != null) {
                 for (var entry : sku.optionValues().entrySet()) {

@@ -96,6 +96,8 @@
       "soldOut": "已售罄",
       "inStock": "库存 {{count}} 件",
       "addToCart": "加入购物车",
+      "added": "已加入购物车",
+      "notEnough": "库存不足以加入该数量",
       "buyNow": "立即购买",
       "logoAlt": "{{name}} 标志",
       "viewShop": "查看店铺",

@@ -24,12 +24,16 @@ type ThaiAddressFieldsProps = {
   value: ThaiAddressValue;
   onChange: (value: ThaiAddressValue) => void;
   disabled?: boolean;
+  errors?: Record<string, string>;
+  onBlurField?: (field: keyof ThaiAddressValue) => void;
 };
 
 export default function ThaiAddressFields({
   value,
   onChange,
   disabled = false,
+  errors,
+  onBlurField,
 }: ThaiAddressFieldsProps) {
   const provinces = getProvinces();
   const districts = value.province ? getDistricts(value.province) : [];
@@ -55,6 +59,9 @@ export default function ThaiAddressFields({
   return (
     <div className="address-grid">
       <SearchableSelect
+        field="province"
+        error={errors?.province}
+        onBlur={() => onBlurField?.("province")}
         label="จังหวัด"
         required
         placeholder="เลือกจังหวัด"
@@ -71,6 +78,9 @@ export default function ThaiAddressFields({
         }
       />
       <SearchableSelect
+        field="district"
+        error={errors?.district}
+        onBlur={() => onBlurField?.("district")}
         label="อำเภอ / เขต"
         required
         disabled={disabled || !value.province}
@@ -89,6 +99,9 @@ export default function ThaiAddressFields({
         }
       />
       <SearchableSelect
+        field="subdistrict"
+        error={errors?.subdistrict}
+        onBlur={() => onBlurField?.("subdistrict")}
         label="ตำบล / แขวง"
         required
         disabled={disabled || !value.district}
@@ -111,6 +124,9 @@ export default function ThaiAddressFields({
         }}
       />
       <SearchableSelect
+        field="postalCode"
+        error={errors?.postalCode}
+        onBlur={() => onBlurField?.("postalCode")}
         label="รหัสไปรษณีย์"
         required
         disabled={disabled || !value.subdistrict}

@@ -206,7 +206,7 @@ class ProductVariantIntegrationTests {
         // rename White -> Ivory (same id), drop size L, drop variant Black/M, add Ivory/M with opening stock 4;
         // initialStock on an existing SKU is ignored (stock changes go through the adjustment endpoint)
         var body = """
-            {"nameTh":"เสื้อยืด","productType":"VARIABLE","categoryId":%d,
+            {"nameTh":"เสื้อยืด","productType":"VARIABLE","categoryId":%d,"confirmRemoveStocked":true,
              "optionGroups":[
                {"id":"%s","name":"Colour","values":[{"id":"%s","value":"Black"},{"id":"%s","value":"Ivory"}]},
                {"id":"%s","name":"Size","values":[{"id":"%s","value":"S"},{"id":"%s","value":"M"}]}],
@@ -229,20 +229,21 @@ class ProductVariantIntegrationTests {
         assertEquals(List.of("Ivory / S"), JsonPath.<List<String>>read(updated, "$.skus[?(@.skuCode == 'TS-IVR-S')].optionLabel"));
         assertEquals(List.of(189.0), JsonPath.<List<Double>>read(updated, "$.skus[?(@.skuCode == 'TS-BLK-S')].price"));
 
-        // the removed variant is soft-deleted: row, stock level and ledger history stay
+        // the removed variant is soft-deleted: row and ledger history stay; its on-hand stock is written off
+        // through an ADJUST ledger entry because the request confirmed removal (confirmRemoveStocked, team contract)
         var removed = productSkus.findById(UUID.fromString(blkM)).orElseThrow();
         assertNotNull(removed.getDeletedAt());
         assertFalse(removed.isActive());
-        assertEquals(3, (int) jdbc.queryForObject("SELECT on_hand FROM inventory_levels WHERE sku_id = ?", Integer.class, UUID.fromString(blkM)));
-        assertEquals(3, ledger.count(), "Black/S and Black/M opening + Ivory/M opening");
+        assertEquals(0, (int) jdbc.queryForObject("SELECT on_hand FROM inventory_levels WHERE sku_id = ?", Integer.class, UUID.fromString(blkM)));
+        assertEquals(4, ledger.count(), "Black/S and Black/M opening + Ivory/M opening + Black/M write-off");
         perform(get(base(shop) + "/products/" + productId + "/ledger"), shop.token)
             .andExpect(status().isOk()).andExpect(jsonPath("$[*].skuCode", hasItems("TS-BLK-M", "TS-BLK-S", "TS-IVR-M")));
         assertEquals(4, productSkus.count());
         assertEquals(2, optionGroups.count());
         assertEquals(4, optionValues.count());
-        // its code stays reserved in the shop so history keeps pointing at one SKU
+        // a soft-deleted SKU no longer reserves its code (V23 partial unique index): the code can be reused
         perform(put(base(shop) + "/products/" + productId), shop.token, body.replace("TS-IVR-M", "TS-BLK-M"))
-            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.2.skuCode')].code", hasItem("SKU_CODE_TAKEN")));
+            .andExpect(status().isOk());
 
         // removing a value that a variant still uses is rejected clearly
         var dropIvory = """
@@ -254,12 +255,12 @@ class ProductVariantIntegrationTests {
             """.formatted(category, colorId, blackId, sizeId, sId, mId, blkS, whtS);
         perform(put(base(shop) + "/products/" + productId), shop.token, dropIvory)
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.1.optionValues.Colour')].code", hasItem("OPTION_VALUE_IN_USE")));
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[1].optionValues.Colour')].code", hasItem("OPTION_VALUE_IN_USE")));
         assertEquals(4, optionValues.count(), "nothing changed");
 
-        // switching to SIMPLE removes the option data but not the SKU history
+        // switching to SIMPLE removes the option data but not the SKU history (stocked variants need confirmRemoveStocked)
         perform(put(base(shop) + "/products/" + productId), shop.token, """
-            {"nameTh":"เสื้อยืด","productType":"SIMPLE","categoryId":%d,"skus":[{"id":"%s","skuCode":"TS-BLK-S","price":189.00}]}
+            {"nameTh":"เสื้อยืด","productType":"SIMPLE","categoryId":%d,"confirmRemoveStocked":true,"skus":[{"id":"%s","skuCode":"TS-BLK-S","price":189.00}]}
             """.formatted(category, blkS))
             .andExpect(status().isOk()).andExpect(jsonPath("$.optionGroups.length()").value(0)).andExpect(jsonPath("$.skus[0].options.length()").value(0));
         assertEquals(0, optionGroups.count());
@@ -288,8 +289,8 @@ class ProductVariantIntegrationTests {
               {"skuCode":"PT-5","optionValues":{"สี":"ดำ","ไซซ์":"S"},"price":300}]}
             """.formatted(category))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.1.optionValues.ไซซ์')].code", hasItem("VARIANT_OPTION_REQUIRED")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.2.optionValues')].code", hasItem("VARIANT_COMBINATION_DUPLICATE")));
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[1].optionValues.ไซซ์')].code", hasItem("VARIANT_OPTION_REQUIRED")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[2].optionValues')].code", hasItem("VARIANT_COMBINATION_DUPLICATE")));
         assertNotNull(created);
     }
 
@@ -326,17 +327,17 @@ class ProductVariantIntegrationTests {
             .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups.1.name')].code", hasItem("OPTION_GROUP_DUPLICATE")))
             .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups.2.name')].code", hasItem("OPTION_GROUP_NAME_REQUIRED")))
             .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups.2.values')].code", hasItem("OPTION_VALUE_REQUIRED")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.0.skuCode')].code", hasItem("SKU_CODE_REQUIRED")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.0.price')].code", hasItem("PRICE_INVALID")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.0.costPrice')].code", hasItem("COST_PRICE_INVALID")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.0.initialStock')].code", hasItem("STOCK_INVALID")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.1.barcode')].code", hasItem("BARCODE_TAKEN")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.1.imageId')].code", hasItem("VARIANT_IMAGE_INVALID")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.1.optionValues.Color')].code", hasItem("OPTION_VALUE_UNKNOWN")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.1.optionValues.Weight')].code", hasItem("OPTION_GROUP_UNKNOWN")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.2.optionValues.Color')].code", hasItem("VARIANT_OPTION_REQUIRED")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.3.optionValues')].code", hasItem("VARIANT_COMBINATION_DUPLICATE")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.3.skuCode')].code", hasItem("SKU_CODE_TAKEN")));
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[0].skuCode')].code", hasItem("SKU_CODE_REQUIRED")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[0].price')].code", hasItem("PRICE_INVALID")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[0].costPrice')].code", hasItem("COST_PRICE_INVALID")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[0].initialStock')].code", hasItem("STOCK_INVALID")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[1].barcode')].code", hasItem("BARCODE_TAKEN")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[1].imageId')].code", hasItem("VARIANT_IMAGE_INVALID")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[1].optionValues.Color')].code", hasItem("OPTION_VALUE_UNKNOWN")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[1].optionValues.Weight')].code", hasItem("OPTION_GROUP_UNKNOWN")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[2].optionValues.Color')].code", hasItem("VARIANT_OPTION_REQUIRED")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[3].optionValues')].code", hasItem("VARIANT_COMBINATION_DUPLICATE")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[3].skuCode')].code", hasItem("SKU_CODE_TAKEN")));
 
         // VARIABLE with an explicit empty group list, SIMPLE with groups, image of another product on update
         perform(post(base(shop) + "/products"), shop.token, """
@@ -349,7 +350,7 @@ class ProductVariantIntegrationTests {
             .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups')].code", hasItem("OPTION_GROUPS_NOT_ALLOWED")));
         String firstId = JsonPath.read(first, "$.id");
         perform(put(base(shop) + "/products/" + firstId), shop.token, updateBody(first, category, Map.of("TS-BLK-S", foreignImage)))
-            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.1.imageId')].code", hasItem("VARIANT_IMAGE_INVALID")));
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[1].imageId')].code", hasItem("VARIANT_IMAGE_INVALID")));
 
         assertEquals(products, catalogProducts.count());
         assertEquals(skuRows, productSkus.count());

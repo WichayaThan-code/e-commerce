@@ -18,7 +18,10 @@ import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import MerchantOnboardingSidebar from "../components/merchant/MerchantOnboardingSidebar";
 import MerchantHeader from "../components/MerchantHeader";
-import { ApiError, merchantApi, type DocumentType } from "../services/api";
+import { merchantApi, type DocumentType } from "../services/api";
+import { showApiFailure } from "../services/apiErrors";
+import { documentFileError, focusFirstInvalid, validateDocuments } from "../services/merchantApplicationValidation";
+import i18n from "../i18n";
 import { SHOP_IMAGE_ACCEPT } from "../services/shopImage";
 import { readMerchantDraft, rememberDocumentName, writeMerchantDraft } from "../services/merchantDraft";
 import "../styles/doc-confirm.css";
@@ -66,6 +69,7 @@ type DocRowProps = {
   uploadText: string;
   exampleTitle: string;
   existingName?: string;
+  error?: string;
 };
 function DocumentRow({
   kind,
@@ -75,6 +79,7 @@ function DocumentRow({
   uploadText,
   exampleTitle,
   existingName,
+  error,
 }: DocRowProps) {
   const { user } = useAuth();
   const Icon = kind === "id" ? IdCard : kind === "home" ? Home : Building2;
@@ -85,8 +90,9 @@ function DocumentRow({
   }, [existingName]);
   const select = async (selected?: File) => {
     if (!selected) return;
-    if (selected.size > 5 * 1024 * 1024) {
-      setFile("ไฟล์มีขนาดเกิน 5 MB");
+    const fileError = documentFileError(selected);
+    if (fileError) {
+      setFile(fileError);
       return;
     }
     setUploading(true);
@@ -96,15 +102,13 @@ function DocumentRow({
       setFile(selected.name);
       rememberDocumentName(user?.id, type, selected.name);
     } catch (error) {
-      setFile(
-        error instanceof ApiError ? error.message : "อัปโหลดไฟล์ไม่สำเร็จ",
-      );
+      showApiFailure(error, (text) => setFile(text));
     } finally {
       setUploading(false);
     }
   };
   return (
-    <section className="document-row">
+    <section className="document-row" data-field={type}>
       <div className="document-row-title">
         <Icon />
         <div>
@@ -164,6 +168,7 @@ function DocumentRow({
           )}
         </div>
       </div>
+      {error ? <p className="form-alert" role="alert">{error}</p> : null}
     </section>
   );
 }
@@ -175,6 +180,8 @@ export default function DocumentConfirmPage() {
   const o = ob.owner;
   const [confirmed, setConfirmed] = useState(() => readMerchantDraft(user?.id).documentsConfirmed ?? true);
   const [message, setMessage] = useState("");
+  const [docErrors, setDocErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
   const [existingDocs, setExistingDocs] = useState<Partial<Record<DocumentType, string>>>({});
   useEffect(() => {
     if (!user) return;
@@ -195,27 +202,44 @@ export default function DocumentConfirmPage() {
     writeMerchantDraft(user.id, { ...readMerchantDraft(user.id), documentsConfirmed: confirmed });
   }, [confirmed]);
   const next = async () => {
+    if (submitting) return;
     if (!user) {
       window.location.assign("/login?next=/merchant/documents");
       return;
     }
     if (!confirmed) {
-      setMessage("กรุณารับรองว่าข้อมูลและเอกสารเป็นความจริง");
+      setMessage(i18n.t("validation.stepDocuments", { ns: "merchant" }));
       return;
     }
-    setMessage("กำลังตรวจสอบเอกสาร...");
+    const local = readMerchantDraft(user.id);
+    const known = new Set<string>([
+      ...Object.keys(local.documentNames || {}),
+      ...Object.keys(existingDocs),
+    ]);
+    const localErrors = validateDocuments(local.owner?.ownerType, [...known]);
+    if (Object.keys(localErrors).length > 0) {
+      setDocErrors(localErrors);
+      setMessage(i18n.t("validation.stepDocuments", { ns: "merchant" }));
+      focusFirstInvalid(localErrors);
+      return;
+    }
+    setSubmitting(true);
+    setMessage(i18n.t("validation.checking", { ns: "merchant" }));
     try {
       const draft = await merchantApi.getDraft();
-      const types = draft.documents.map((d) => d.type);
-      if (!types.includes("IDENTITY") || !types.includes("ADDRESS")) {
-        setMessage("กรุณาอัปโหลดเอกสารยืนยันตัวตนและเอกสารยืนยันที่อยู่ให้ครบ");
+      const types = draft.documents.map((item) => item.type);
+      const serverErrors = validateDocuments(local.owner?.ownerType, types);
+      if (Object.keys(serverErrors).length > 0) {
+        setDocErrors(serverErrors);
+        setMessage(i18n.t("validation.stepDocuments", { ns: "merchant" }));
+        focusFirstInvalid(serverErrors);
         return;
       }
       window.location.assign("/merchant/review");
     } catch (error) {
-      setMessage(
-        error instanceof ApiError ? error.message : "ไม่สามารถตรวจสอบเอกสารได้",
-      );
+      showApiFailure(error, setMessage);
+    } finally {
+      setSubmitting(false);
     }
   };
   return (
@@ -241,9 +265,9 @@ export default function DocumentConfirmPage() {
                 );
               })}
             </div>
-            <DocumentRow type="IDENTITY" kind={d.rows[0].kind} title={d.rows[0].title} description={d.rows[0].description} uploadText={d.rows[0].uploadText} exampleTitle={d.rows[0].exampleTitle} existingName={existingDocs.IDENTITY} />
-            <DocumentRow type="ADDRESS" kind={d.rows[1].kind} title={d.rows[1].title} description={d.rows[1].description} uploadText={d.rows[1].uploadText} exampleTitle={d.rows[1].exampleTitle} existingName={existingDocs.ADDRESS} />
-            <DocumentRow type="BUSINESS" kind={d.rows[2].kind} title={d.rows[2].title} description={d.rows[2].description} uploadText={d.rows[2].uploadText} exampleTitle={d.rows[2].exampleTitle} existingName={existingDocs.BUSINESS} />
+            <DocumentRow type="IDENTITY" kind={d.rows[0].kind} title={d.rows[0].title} description={d.rows[0].description} uploadText={d.rows[0].uploadText} exampleTitle={d.rows[0].exampleTitle} existingName={existingDocs.IDENTITY} error={docErrors.IDENTITY} />
+            <DocumentRow type="ADDRESS" kind={d.rows[1].kind} title={d.rows[1].title} description={d.rows[1].description} uploadText={d.rows[1].uploadText} exampleTitle={d.rows[1].exampleTitle} existingName={existingDocs.ADDRESS} error={docErrors.ADDRESS} />
+            <DocumentRow type="BUSINESS" kind={d.rows[2].kind} title={d.rows[2].title} description={d.rows[2].description} uploadText={d.rows[2].uploadText} exampleTitle={d.rows[2].exampleTitle} existingName={existingDocs.BUSINESS} error={docErrors.BUSINESS} />
             <label className="doc-confirm-check">
               <input
                 type="checkbox"
@@ -262,11 +286,11 @@ export default function DocumentConfirmPage() {
                 <ArrowLeft />
                 {ob.common.back}
               </a>
-              <button className="login-submit" type="button" onClick={() => void next()}>
-                {d.next} <ArrowRight />
+              <button className="login-submit" type="button" onClick={() => void next()} disabled={submitting}>
+                {submitting ? i18n.t("validation.checking", { ns: "merchant" }) : d.next} <ArrowRight />
               </button>
             </div>
-            {message && <p className="doc-message">{message}</p>}
+            {message && <p className="form-alert" role="alert">{message}</p>}
           </div>
         </section>
         <aside className="doc-notes">

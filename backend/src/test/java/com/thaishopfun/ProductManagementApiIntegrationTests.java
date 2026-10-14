@@ -317,12 +317,12 @@ class ProductManagementApiIntegrationTests {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
             .andExpect(jsonPath("$.message").isNotEmpty())
-            .andExpect(jsonPath("$.fieldErrors[*].field", hasItems("nameTh", "basePrice", "compareAtPrice", "skus.0.skuCode",
-                "skus.0.barcode", "skus.0.price", "skus.0.initialStock")))
+            .andExpect(jsonPath("$.fieldErrors[*].field", hasItems("nameTh", "basePrice", "compareAtPrice", "skus[0].skuCode",
+                "skus[0].barcode", "skus[0].price", "skus[0].initialStock")))
             .andExpect(jsonPath("$.fieldErrors[?(@.field == 'nameTh')].code", hasItem("NAME_REQUIRED")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.0.price')].code", hasItem("PRICE_INVALID")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.0.initialStock')].code", hasItem("STOCK_INVALID")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus.0.barcode')].code", hasItem("BARCODE_INVALID")));
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[0].price')].code", hasItem("PRICE_INVALID")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[0].initialStock')].code", hasItem("STOCK_INVALID")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[0].barcode')].code", hasItem("BARCODE_INVALID")));
         assertEquals(0, catalogProducts.count());
 
         perform(post(base(shop) + "/products"), shop.token, """
@@ -348,13 +348,13 @@ class ProductManagementApiIntegrationTests {
               {"skuCode":"SET-1","barcode":"111","price":10},{"skuCode":"SET-1","barcode":"111","price":10}]}
             """.formatted(category))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.fieldErrors[*].code", hasItems("SKU_CODE_DUPLICATE", "BARCODE_DUPLICATE")));
+            .andExpect(jsonPath("$.fieldErrors[*].code", hasItems("SKU_CODE_DUPLICATE_IN_FORM", "BARCODE_DUPLICATE")));
         assertEquals(0, catalogProducts.count());
 
         create(shop, product("ชาเขียว", "Green Tea", category, null, "TEA-1", "8850001", "50.00"));
         perform(post(base(shop) + "/products"), shop.token, product("ชาดำ", "Black Tea", category, null, "TEA-1", "8850001", "40.00"))
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.fieldErrors[*].field", containsInAnyOrder("skus.0.skuCode", "skus.0.barcode")))
+            .andExpect(jsonPath("$.fieldErrors[*].field", containsInAnyOrder("skus[0].skuCode", "skus[0].barcode")))
             .andExpect(jsonPath("$.fieldErrors[*].code", containsInAnyOrder("SKU_CODE_TAKEN", "BARCODE_TAKEN")));
         assertEquals(1, catalogProducts.count());
 

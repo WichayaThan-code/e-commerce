@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, ShoppingCart, Store, Truck, X } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
+import { useCart } from "../contexts/CartContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import { labelForCategory } from "../services/categories";
 import { localizedText } from "../services/catalogText";
@@ -23,6 +25,11 @@ function amount(value: number | string | null | undefined) {
 }
 
 function groupsFor(product: PublicProduct, optionLabel: string): Group[] {
+  if (product.optionSchema?.length) {
+    return product.optionSchema
+      .filter((group) => group.name && group.values?.length)
+      .map((group) => ({ key: group.name, label: group.name, values: group.values }));
+  }
   const named = new Map<string, string[]>();
   product.skus.forEach((sku) => {
     Object.entries(sku.optionValues || {}).forEach(([key, value]) => {
@@ -49,6 +56,9 @@ function skuMatches(sku: PublicSku, groups: Group[], picked: Record<string, stri
 
 export default function ShopProductPage() {
   const { slug = "", productSlug = "" } = useParams();
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  const { addLine } = useCart();
   const { tp, localeTag } = usePublicTranslation();
   const lang = localeTag.startsWith("en") ? "en" : localeTag.startsWith("zh") ? "zh" : "th";
   const [product, setProduct] = useState<PublicProduct | null>(null);
@@ -109,6 +119,11 @@ export default function ShopProductPage() {
         ? product.skus.find((sku) => groups.every((group) => (group.key === "option" ? sku.optionLabel : sku.optionValues?.[group.key]) === picked[group.key]))
         : undefined
     : undefined;
+  useEffect(() => {
+    if (!product || !selectedSku?.imageId) return;
+    const index = product.images.findIndex((image) => image.id === selectedSku.imageId);
+    if (index >= 0) setActive(index);
+  }, [product, selectedSku?.imageId]);
   const stock = selectedSku ? Math.max(0, selectedSku.available) : 0;
   const soldOut = Boolean(selectedSku) && stock <= 0;
   const ready = Boolean(selectedSku) && stock > 0;
@@ -150,15 +165,48 @@ export default function ShopProductPage() {
       notify(tp("shop.productError"));
     }
   };
+  const placeInCart = () => {
+    if (!product || !selectedSku || !complete) { setWarn(true); return false; }
+    if (!ready || qty < 1 || qty > stock) {
+      notify(tp("shop.view.notEnough"));
+      return false;
+    }
+    const price = amount(selectedSku.price) ?? 0;
+    const comparePrice = amount(selectedSku.compareAtPrice) ?? amount(product.compareAtPrice);
+    const photo = product.images.find((item) => item.id === selectedSku.imageId) || product.images.find((item) => item.primary) || product.images[0];
+    const optionLabel = groups.map((group) => picked[group.key]).filter(Boolean).join(" / ") || selectedSku.optionLabel || "";
+    const result = addLine({
+      id: selectedSku.id,
+      name,
+      shop: shopName || slug,
+      optionLabel,
+      price,
+      old: comparePrice != null && comparePrice > price ? comparePrice : price,
+      quantity: qty,
+      stock,
+      imageUrl: photo?.url ?? null,
+    });
+    if (result.added < 1) {
+      notify(tp("shop.view.notEnough"));
+      return false;
+    }
+    return true;
+  };
+  const signedIn = () => {
+    if (authLoading) return false;
+    if (!user) {
+      navigate("/login");
+      return false;
+    }
+    return true;
+  };
   const addToCart = () => {
-    if (!complete) { setWarn(true); return; }
-    if (!ready) return;
-    notify(tp("shop.view.soon"));
+    if (!signedIn()) return;
+    if (placeInCart()) notify(tp("shop.view.added"));
   };
   const buyNow = () => {
-    if (!complete) { setWarn(true); return; }
-    if (!ready) return;
-    notify(tp("shop.view.soon"));
+    if (!signedIn()) return;
+    if (placeInCart()) navigate("/cart");
   };
 
   const name = product ? localizedText(localeTag, product.nameTh, product.nameEn, product.nameZh) : "";

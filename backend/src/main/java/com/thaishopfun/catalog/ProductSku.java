@@ -8,7 +8,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -19,7 +18,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "product_skus", uniqueConstraints = @UniqueConstraint(name = "uq_product_skus_shop_code", columnNames = {"shop_id", "sku_code"}))
+@Table(name = "product_skus")
 public class ProductSku extends AuditedEntity {
     @Id
     private UUID id;

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Archive, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Download, Eye, LoaderCircle, Pencil, Plus, RotateCcw, Search, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import ImportProgressDialog, { importJobKey } from "../components/merchant/ImportProgressDialog";
+import { useImportActivity } from "../contexts/ImportActivityContext";
 import MerchantShell from "../components/merchant/MerchantShell";
 import AuthImage from "../components/merchant/AuthImage";
 import SearchableSelect from "../components/SearchableSelect";
@@ -64,20 +64,14 @@ export default function ProductManagementPage() {
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
   const [reload, setReload] = useState(0);
   const [transfer, setTransfer] = useState<"export" | "import" | null>(null);
-  const [importBusy, setImportBusy] = useState(false);
-  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
-  const [importJobId, setImportJobId] = useState<string | null>(null);
-  const [importError, setImportError] = useState<string | null>(null);
+  const { busy: importBusy, finishedTick, startImport } = useImportActivity();
   const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setQuery(q); }, [q]);
   useEffect(() => {
-    if (shopId == null) return;
-    const saved = sessionStorage.getItem(importJobKey(shopId));
-    if (!saved) return;
-    setImportJobId(saved);
-    setImportBusy(true);
-  }, [shopId]);
+    if (finishedTick === 0) return;
+    setReload((value) => value + 1);
+  }, [finishedTick]);
   useEffect(() => {
     const handle = window.setTimeout(() => {
       if (query === q) return;
@@ -151,37 +145,12 @@ export default function ProductManagementPage() {
     }
   };
   const importProducts = async (file?: File) => {
-    if (shopId == null || !file || transfer || importBusy) return;
-    setImportError(null);
-    setImportJobId(null);
-    setUploadPercent(0);
-    setImportBusy(true);
+    if (!file || transfer || importBusy) return;
     try {
-      const accepted = await productApi.importExcel(shopId, file, setUploadPercent);
-      sessionStorage.setItem(importJobKey(shopId), accepted.jobId);
-      setUploadPercent(null);
-      setImportJobId(accepted.jobId);
-    } catch (caught) {
-      if (caught instanceof ApiError && caught.status === 409 && caught.code === "IMPORT_RUNNING" && caught.jobId) {
-        sessionStorage.setItem(importJobKey(shopId), caught.jobId);
-        setUploadPercent(null);
-        setImportJobId(caught.jobId);
-        return;
-      }
-      setUploadPercent(null);
-      setImportError(catalogMessage(t, caught));
-      setImportBusy(false);
+      await startImport(file);
     } finally {
       if (importRef.current) importRef.current.value = "";
     }
-  };
-  const closeImport = () => {
-    if (shopId != null) sessionStorage.removeItem(importJobKey(shopId));
-    setImportJobId(null);
-    setImportError(null);
-    setUploadPercent(null);
-    setImportBusy(false);
-    setReload((value) => value + 1);
   };
   const toast = (text: string, nextTone: "ok" | "fail" = "ok") => {
     setTone(nextTone);
@@ -288,16 +257,6 @@ export default function ProductManagementPage() {
           {canCreate ? <Link className="primary" to="/merchant/products/new"><Plus />{t("catalog.add")}</Link> : <button type="button" className="primary" disabled title={deniedTitle(false)}><Plus />{t("catalog.add")}</button>}
         </div>
       </header>
-      {shopId != null && (uploadPercent != null || importJobId || importError) ? (
-        <ImportProgressDialog
-          shopId={shopId}
-          uploadPercent={uploadPercent}
-          jobId={importJobId}
-          uploadError={importError}
-          onBusy={setImportBusy}
-          onClose={closeImport}
-        />
-      ) : null}
       <div className="pm-tabs" role="tablist">
         {tabs.map(([value, key]) => (
           <button key={key} type="button" role="tab" aria-selected={status === value} className={status === value ? "active" : ""} onClick={() => patch({ status: value || null })}>

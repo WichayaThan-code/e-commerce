@@ -4,7 +4,8 @@ export type UserRole = 'CUSTOMER' | 'MERCHANT' | 'ADMIN'
 /** Effective store permissions in one shop (shop_members role → auth_role_permissions). */
 export type ShopPermissionGrant = { shopId:number; role:string; permissions:string[] }
 /**
- * `role` is the legacy account role kept for routing. `roleCodes`, `permissions` (account + platform level) and
+ * `role` is the account kind (ADMIN / MERCHANT / CUSTOMER) derived by the backend from platform_roles and
+ * shop_members (users.role was dropped); display / routing only. `roleCodes`, `permissions` (account + platform level) and
  * `shopPermissions` are the effective permissions resolved from the database on every login/refresh/me call;
  * `superAdmin` (active PLATFORM_ADMIN) means every permission in every shop.
  */
@@ -23,8 +24,9 @@ let refreshInFlight: Promise<AuthResponse> | null = null
 /** Fired when the backend denies an action (403 / shop no longer reachable) so the UI re-reads its permissions. */
 export const PERMISSIONS_STALE_EVENT = 'tsf:permissions-stale'
 
+export type ApiFieldError = { field: string; code: string; message: string }
 export class ApiError extends Error {
-  constructor(public code:string, message:string, public status:number, public jobId?:string) { super(message) }
+  constructor(public code:string, message:string, public status:number, public jobId?:string, public fieldErrors?:ApiFieldError[]) { super(message) }
 }
 
 function acceptLanguageHeader() {
@@ -57,11 +59,11 @@ async function request<T>(path:string, init:RequestInit = {}, authenticate = fal
     } catch { accessToken = null }
   }
   if (!response.ok) {
-    const error: { code?: string; message?: string; jobId?: string } = await response.json().catch(() => ({ code: 'REQUEST_FAILED', message: 'เกิดข้อผิดพลาด กรุณาลองใหม่' }))
+    const error: { code?: string; message?: string; jobId?: string; fieldErrors?: ApiFieldError[] } = await response.json().catch(() => ({ code: 'REQUEST_FAILED', message: 'เกิดข้อผิดพลาด กรุณาลองใหม่' }))
     if (authenticate && !path.startsWith('/api/auth/') && (response.status === 403 || error.code === 'SHOP_NOT_FOUND')) {
       window.dispatchEvent(new Event(PERMISSIONS_STALE_EVENT))
     }
-    throw new ApiError(error.code || 'REQUEST_FAILED', error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status, error.jobId)
+    throw new ApiError(error.code || 'REQUEST_FAILED', error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status, error.jobId, error.fieldErrors)
   }
   return response.status === 204 ? undefined as T : response.json()
 }
@@ -224,6 +226,12 @@ export type AdminUserDetail = { id:string; firstName:string; lastName:string; em
 export type AdminActivityEvent = { at:string; type:string; title:string; subjectName:string|null; actorName:string|null; roleCode:string|null; roleNameTh:string|null; shopName:string|null; source:string }
 export type AdminRoleSummary = { code:string; nameTh:string|null; descriptionTh:string|null; context:string; assignable:boolean; sortOrder:number; policyVersion:string; assignment:'PLATFORM_ROLES'|'SHOP_MEMBERS'|'IMPLICIT'|'PUBLIC'; userCount:number|null; permissionCount:number; active:boolean; superAdmin:boolean }
 export type AdminRoleDetail = { role:AdminRoleSummary; groups:{ module:string; permissions:AdminPermissionInfo[] }[]; catalogPermissionCount:number }
+export type AdminCreateUser = { firstName:string; lastName:string; email:string; phone:string }
+export type AdminUpdateUser = { firstName:string; lastName:string; phone:string }
+export type AdminRoleContext = 'PLATFORM'|'STORE'
+export type AdminRoleMutation = { context:AdminRoleContext; nameTh:string; descriptionTh:string; permissions:string[] }
+export type AdminShopOption = { shopId:number; shopName:string; status:string }
+export type AdminShopRoleMember = { userId:string; firstName:string; lastName:string; email:string; role:string; roleNameTh:string|null; active:boolean; joinedAt:string|null }
 export type AdminUserQuery = { q?:string; role?:string; status?:string; from?:string; to?:string; sort?:string; dir?:'asc'|'desc'; page?:number; size?:number }
 
 function queryString(params:Record<string, string|number|undefined>) {
@@ -235,14 +243,28 @@ function queryString(params:Record<string, string|number|undefined>) {
 
 export const adminDirectoryApi = {
   users: (query:AdminUserQuery) => request<AdminUserPage>(`/api/admin/users${queryString(query)}`, {}, true),
+  createUser: (body:AdminCreateUser) => request<AdminUserDetail>('/api/admin/users', {method:'POST', body:JSON.stringify(body)}, true),
+  updateUser: (id:string, body:AdminUpdateUser) => request<AdminUserDetail>(`/api/admin/users/${id}`, {method:'PUT', body:JSON.stringify(body)}, true),
+  assignRole: (id:string, roleCode:string|null) => request<AdminUserDetail>(`/api/admin/users/${id}/role`, {method:'PUT', body:JSON.stringify({roleCode})}, true),
+  suspendUser: (id:string) => request<AdminUserDetail>(`/api/admin/users/${id}/suspend`, {method:'POST'}, true),
+  restoreUser: (id:string) => request<AdminUserDetail>(`/api/admin/users/${id}/restore`, {method:'POST'}, true),
+  deleteUser: (id:string) => request<void>(`/api/admin/users/${id}`, {method:'DELETE'}, true),
   userStats: () => request<AdminUserStats>('/api/admin/users/stats', {}, true),
   userFilterOptions: () => request<AdminUserFilterOptions>('/api/admin/users/filter-options', {}, true),
   user: (id:string) => request<AdminUserDetail>(`/api/admin/users/${id}`, {}, true),
   userHistory: (id:string, limit = 50) => request<AdminActivityEvent[]>(`/api/admin/users/${id}/history?limit=${limit}`, {}, true),
   exportUsers: ({page:_page, size:_size, ...query}:AdminUserQuery) => downloadFile(`/api/admin/users/export${queryString(query)}`, 'users.csv'),
   roles: () => request<AdminRoleSummary[]>('/api/admin/roles', {}, true),
+  platformPermissions: () => request<AdminPermissionInfo[]>('/api/admin/roles/permissions', {}, true),
   role: (code:string) => request<AdminRoleDetail>(`/api/admin/roles/${encodeURIComponent(code)}`, {}, true),
+  createRole: (body:AdminRoleMutation) => request<AdminRoleDetail>('/api/admin/roles', {method:'POST', body:JSON.stringify(body)}, true),
+  updateRole: (code:string, body:AdminRoleMutation) => request<AdminRoleDetail>(`/api/admin/roles/${encodeURIComponent(code)}`, {method:'PUT', body:JSON.stringify(body)}, true),
+  deleteRole: (code:string) => request<void>(`/api/admin/roles/${encodeURIComponent(code)}`, {method:'DELETE'}, true),
   roleActivity: (limit = 20) => request<AdminActivityEvent[]>(`/api/admin/roles/activity?limit=${limit}`, {}, true),
+  shopsForRoleAssignment: () => request<AdminShopOption[]>('/api/admin/shop-role-assignments/shops', {}, true),
+  shopRoleMembers: (shopId:number) => request<AdminShopRoleMember[]>(`/api/admin/shop-role-assignments?shopId=${shopId}`, {}, true),
+  assignShopRole: (shopId:number, userId:string, roleCode:string) => request<AdminShopRoleMember>(`/api/admin/shop-role-assignments/${shopId}/${userId}`, {method:'PUT', body:JSON.stringify({roleCode})}, true),
+  removeShopRole: (shopId:number, userId:string) => request<void>(`/api/admin/shop-role-assignments/${shopId}/${userId}`, {method:'DELETE'}, true),
 }
 
 export type ProductCategory = { id:number; nameTh:string; nameEn:string; nameZh:string }
@@ -261,11 +283,12 @@ export const shopApi = {
 export type ProductStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type ProductType = 'SIMPLE' | 'VARIABLE'
 export type StockFilter = 'in' | 'low' | 'out'
-export type ProductSort = 'newest' | 'name' | 'price_asc' | 'price_desc' | 'stock'
+export type ProductSort = 'newest' | 'oldest' | 'updated' | 'name' | 'name_desc' | 'price_asc' | 'price_desc' | 'stock'
 export type ProductListQuery = {
   q?: string
   status?: ProductStatus
   categoryId?: number
+  brand?: string
   stock?: StockFilter
   sort?: ProductSort
   page?: number
@@ -346,7 +369,8 @@ export type PublicProduct = {
   skus: PublicSku[]
   images: ProductImage[]
 }
-export type ProductPage<T> = { items: T[]; page: number; size: number; total: number }
+export type ProductPage<T> = { items: T[]; page: number; size: number; total: number; totalPages?: number }
+export type ProductBrand = { name: string; productCount: number }
 export type ProductImportResult = { created: number; failed: number; errors: { row: number; message: string }[] }
 export type ProductImportAccepted = { jobId: string; total: number }
 export type ProductImportJob = {
@@ -372,6 +396,7 @@ export type SkuWrite = {
   price: number
   compareAtPrice?: number | null
   weightGrams?: number | null
+  initialStock?: number | null
 }
 export type ProductWrite = {
   nameTh: string
@@ -406,6 +431,7 @@ function productQuery(query: ProductListQuery) {
   if (query.q) search.set('q', query.q)
   if (query.status) search.set('status', query.status)
   if (query.categoryId != null) search.set('categoryId', String(query.categoryId))
+  if (query.brand) search.set('brand', query.brand)
   if (query.stock) search.set('stock', query.stock)
   if (query.sort) search.set('sort', query.sort)
   if (query.page != null) search.set('page', String(query.page))
@@ -455,9 +481,9 @@ function uploadForm<T>(path: string, body: FormData, onProgress?: (ratio: number
         return
       }
       if (xhr.status < 200 || xhr.status >= 300) {
-        let error: { code?: string; message?: string; jobId?: string } = { code: 'REQUEST_FAILED', message: 'อัปโหลดไม่สำเร็จ' }
+        let error: { code?: string; message?: string; jobId?: string; fieldErrors?: ApiFieldError[] } = { code: 'REQUEST_FAILED', message: 'อัปโหลดไม่สำเร็จ' }
         try { error = JSON.parse(xhr.responseText) } catch { /* keep fallback */ }
-        reject(new ApiError(error.code || 'REQUEST_FAILED', error.message || 'อัปโหลดไม่สำเร็จ', xhr.status, error.jobId))
+        reject(new ApiError(error.code || 'REQUEST_FAILED', error.message || 'อัปโหลดไม่สำเร็จ', xhr.status, error.jobId, error.fieldErrors))
         return
       }
       resolve(JSON.parse(xhr.responseText) as T)
@@ -482,6 +508,7 @@ function uploadForm<T>(path: string, body: FormData, onProgress?: (ratio: number
 export const productApi = {
   list: (shopId: number, query: ProductListQuery = {}) => request<ProductPage<Product>>(shopProducts(shopId, `/products${productQuery(query)}`), {}, true),
   get: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}`), {}, true),
+  brands: (shopId: number) => request<ProductBrand[]>(shopProducts(shopId, '/products/brands'), {}, true),
   create: (shopId: number, payload: ProductWrite) => request<Product>(shopProducts(shopId, '/products'), { method: 'POST', body: JSON.stringify(payload) }, true),
   update: (shopId: number, productId: string, payload: ProductWrite) => request<Product>(shopProducts(shopId, `/products/${productId}`), { method: 'PUT', body: JSON.stringify(payload) }, true),
   useAutoTranslation: (shopId: number, productId: string, payload: { field: 'name' | 'description'; locale: 'en' | 'zh' }) =>

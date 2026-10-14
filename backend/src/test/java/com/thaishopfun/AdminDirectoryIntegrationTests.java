@@ -5,6 +5,7 @@ import com.thaishopfun.auth.OtpVerificationRepository;
 import com.thaishopfun.auth.PasswordResetTokenRepository;
 import com.thaishopfun.auth.RefreshTokenRepository;
 import com.thaishopfun.auth.UserAccountRepository;
+import com.thaishopfun.auth.authz.AuthorizationService;
 import com.thaishopfun.auth.authz.PlatformRole;
 import com.thaishopfun.auth.authz.PlatformRoleRepository;
 import com.thaishopfun.merchant.MerchantApplicationRepository;
@@ -24,6 +25,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.context.request.RequestContextHolder;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
@@ -54,6 +56,7 @@ class AdminDirectoryIntegrationTests {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired UserAccountRepository users;
+    @Autowired AuthorizationService authorization;
     @Autowired PlatformRoleRepository platformRoles;
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired PasswordResetTokenRepository passwordResetTokens;
@@ -308,6 +311,148 @@ class AdminDirectoryIntegrationTests {
             .andExpect(jsonPath("$[?(@.type=='SHOP_ROLE_ADDED' && @.roleCode=='STORE_VIEWER')].shopName").value(hasItem("ร้านบทบาท")));
     }
 
+    @Test void platformAdminCanManageAccountsAndCustomPlatformRoles() throws Exception {
+        var admin = platformAdmin("manage-admin@example.com", "0820000044");
+        var buyer = register("manage-buyer@example.com", "0820000045", "ผู้ใช้", "ธรรมดา");
+        mvc.perform(post("/api/admin/users/" + admin.id + "/suspend").header("Authorization", bearer(admin.token)))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SELF_ADMIN_ACTION"));
+        var protectedAdmin = platformAdmin("manage-protected-admin@example.com", "0820000048");
+        mvc.perform(post("/api/admin/users/" + protectedAdmin.id + "/suspend").header("Authorization", bearer(admin.token)))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SUPER_ADMIN_PROTECTED"));
+        mvc.perform(post("/api/admin/users").header("Authorization", bearer(buyer.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"firstName":"ผู้ใช้","lastName":"ใหม่","email":"managed@example.com","phone":"0820000046"}
+                    """))
+            .andExpect(status().isForbidden());
+
+        String userId = mvc.perform(post("/api/admin/users").header("Authorization", bearer(admin.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"firstName":"ผู้ใช้","lastName":"ใหม่","email":"managed@example.com","phone":"0820000046"}
+                    """))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.firstName").value("ผู้ใช้"))
+            .andExpect(jsonPath("$.email").value("managed@example.com"))
+            .andExpect(jsonPath("$.resetToken").doesNotExist())
+            .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        var managedId = UUID.fromString(JsonPath.read(userId, "$.id"));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM password_reset_tokens WHERE user_id = ?", Integer.class, managedId));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM audit_logs WHERE resource_id = ? AND action = 'ACCOUNT_CREATED_BY_ADMIN'", Integer.class, managedId));
+
+        mvc.perform(put("/api/admin/users/" + managedId).header("Authorization", bearer(admin.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"firstName":"ผู้ใช้แก้ไข","lastName":"แล้ว","phone":"0820000047"}
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.firstName").value("ผู้ใช้แก้ไข"))
+            .andExpect(jsonPath("$.phone").value("0820000047"));
+
+        mvc.perform(post("/api/admin/users/" + managedId + "/suspend").header("Authorization", bearer(admin.token)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SUSPENDED"));
+        mvc.perform(post("/api/admin/users/" + managedId + "/restore").header("Authorization", bearer(admin.token)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ACTIVE"));
+
+        var shopOwner = register("manage-owner@example.com", "0820000049", "เจ้าของ", "ร้าน");
+        var managedShopNo = openShop(shopOwner, "ร้านที่ยังเปิด", "Active Shop", "2000000000009");
+        mvc.perform(delete("/api/admin/users/" + shopOwner.id).header("Authorization", bearer(admin.token)))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SHOP_OWNERSHIP_REQUIRED"));
+        mvc.perform(post("/api/admin/store-applications/" + managedShopNo + "/approve")
+                .header("Authorization", bearer(admin.token)))
+            .andExpect(status().isOk());
+
+        String createdRole = null;
+        String createdStoreRole = null;
+        try {
+            var permissionResponse = mvc.perform(get("/api/admin/roles/permissions").header("Authorization", bearer(admin.token)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+            var availablePermissions = JsonPath.<List<String>>read(permissionResponse, "$[*].code");
+            assertTrue(availablePermissions.contains("PLATFORM_ACCOUNT_READ"));
+            assertFalse(availablePermissions.contains("PLATFORM_ROLE_CREATE"));
+            assertFalse(availablePermissions.contains("PLATFORM_ROLE_UPDATE"));
+            assertFalse(availablePermissions.contains("PLATFORM_ROLE_DELETE"));
+            assertFalse(availablePermissions.contains("PLATFORM_ACCOUNT_ROLE_ASSIGN"));
+
+            mvc.perform(post("/api/admin/roles").header("Authorization", bearer(admin.token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                        {"nameTh":"บทบาทไม่ปลอดภัย","descriptionTh":"ห้ามมอบสิทธิ์จัดการบทบาท","permissions":["PLATFORM_ROLE_CREATE"]}
+                        """))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("PROTECTED_PERMISSION"));
+
+            var roleResponse = mvc.perform(post("/api/admin/roles").header("Authorization", bearer(admin.token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                        {"nameTh":"ผู้ตรวจบัญชี","descriptionTh":"อ่านข้อมูลบัญชี","permissions":["PLATFORM_ACCOUNT_READ"]}
+                        """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.role.context").value("PLATFORM"))
+                .andExpect(jsonPath("$.groups[*].permissions[*].code", hasItem("PLATFORM_ACCOUNT_READ")))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+            createdRole = JsonPath.read(roleResponse, "$.role.code");
+            mvc.perform(put("/api/admin/users/" + managedId + "/role").header("Authorization", bearer(admin.token))
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"roleCode\":\"" + createdRole + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roles[*].code", hasItem(createdRole)));
+
+            var storeRoleResponse = mvc.perform(post("/api/admin/roles").header("Authorization", bearer(admin.token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                        {"context":"STORE","nameTh":"ผู้ช่วยจัดการร้าน","descriptionTh":"อ่านข้อมูลร้าน","permissions":["SHOP_READ"]}
+                        """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.role.context").value("STORE"))
+                .andExpect(jsonPath("$.groups[*].permissions[*].code", hasItem("SHOP_READ")))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+            createdStoreRole = JsonPath.read(storeRoleResponse, "$.role.code");
+            mvc.perform(put("/api/admin/shop-role-assignments/" + managedShopNo + "/" + buyer.id)
+                    .header("Authorization", bearer(admin.token)).contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"roleCode\":\"" + createdStoreRole + "\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.role").value(createdStoreRole))
+                .andExpect(jsonPath("$.active").value(true));
+            assertEquals(AuthorizationService.ShopDecision.GRANTED,
+                authorization.checkShop(buyer.id, managedShopNo, "SHOP_READ"));
+            mvc.perform(get("/api/admin/shop-role-assignments?shopId=" + managedShopNo).header("Authorization", bearer(admin.token)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[*].email", hasItem("manage-buyer@example.com")));
+            mvc.perform(delete("/api/admin/shop-role-assignments/" + managedShopNo + "/" + buyer.id)
+                    .header("Authorization", bearer(admin.token)))
+                .andExpect(status().isNoContent());
+            RequestContextHolder.resetRequestAttributes();
+            assertEquals(AuthorizationService.ShopDecision.NOT_MEMBER,
+                authorization.checkShop(buyer.id, managedShopNo, "SHOP_READ"));
+            mvc.perform(post("/api/admin/roles").header("Authorization", bearer(admin.token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                        {"context":"STORE","nameTh":"บทบาทผิดขอบเขต","descriptionTh":"","permissions":["PLATFORM_ACCOUNT_READ"]}
+                        """))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_ROLE_PERMISSIONS"));
+
+            mvc.perform(put("/api/admin/roles/" + createdRole).header("Authorization", bearer(admin.token))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                        {"nameTh":"ผู้ตรวจบัญชีแก้ไข","descriptionTh":"อ่านข้อมูลบัญชีที่แก้ไข","permissions":["PLATFORM_ACCOUNT_READ"]}
+                        """))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.role.nameTh").value("ผู้ตรวจบัญชีแก้ไข"));
+
+            mvc.perform(delete("/api/admin/users/" + managedId).header("Authorization", bearer(admin.token)))
+                .andExpect(status().isNoContent());
+            mvc.perform(get("/api/admin/users/" + managedId).header("Authorization", bearer(admin.token)))
+                .andExpect(status().isNotFound());
+        } finally {
+            if (createdStoreRole != null) {
+                jdbc.update("DELETE FROM shop_members WHERE role = ?", createdStoreRole);
+                jdbc.update("DELETE FROM auth_role_permissions WHERE role_id = (SELECT id FROM auth_roles WHERE code = ?)", createdStoreRole);
+                jdbc.update("DELETE FROM auth_roles WHERE code = ?", createdStoreRole);
+            }
+            if (createdRole != null) {
+                jdbc.update("DELETE FROM platform_roles WHERE role = ?", createdRole);
+                jdbc.update("DELETE FROM auth_role_permissions WHERE role_id = (SELECT id FROM auth_roles WHERE code = ?)", createdRole);
+                jdbc.update("DELETE FROM auth_roles WHERE code = ?", createdRole);
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- detail and history
 
     @Test void userDetailShowsEffectiveRolesPermissionsAndHistory() throws Exception {
@@ -320,7 +465,7 @@ class AdminDirectoryIntegrationTests {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.email").value("detail-owner@example.com"))
             .andExpect(jsonPath("$.status").value("ACTIVE"))
-            .andExpect(jsonPath("$.accountRole").value("CUSTOMER"))
+            .andExpect(jsonPath("$.accountRole").value("MERCHANT")) // derived from shop_members (users.role was dropped)
             .andExpect(jsonPath("$.superAdmin").value(false))
             .andExpect(jsonPath("$.primaryRole.code").value("STORE_OWNER"))
             .andExpect(jsonPath("$.roles[*].code", hasItems("STORE_OWNER", "BUYER", "APPLICANT")))

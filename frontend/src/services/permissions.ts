@@ -23,6 +23,7 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   '/admin/promotions': { permission: 'PLATFORM_SETTING_UPDATE', scope: 'platform' }, // interim
   '/admin/users': { permission: 'PLATFORM_ACCOUNT_READ', scope: 'platform' },
   '/admin/roles': { permission: 'PLATFORM_ACCOUNT_READ', scope: 'platform' }, // role catalog read (GET /api/admin/roles)
+  '/admin/role-assignments': { permission: 'PLATFORM_ACCOUNT_READ', scope: 'platform' },
   '/merchant/dashboard': { permission: 'SHOP_READ', scope: 'shop' },
   '/merchant/products': { permission: 'PRODUCT_READ', scope: 'shop' },
   '/merchant/orders': { permission: 'ORDER_READ', scope: 'shop' },
@@ -73,7 +74,7 @@ export function hasShopPermission(user: AuthUser | null | undefined, permission:
   return !!user?.shopPermissions?.some(shop => shop.shopId === shopId && shop.permissions.includes(permission))
 }
 
-/** May open the admin area: super admin or any PLATFORM_* permission (independent of the legacy users.role). */
+/** May open the admin area: super admin or any PLATFORM_* permission (platform_roles; users.role no longer exists). */
 export function hasPlatformAccess(user: AuthUser | null | undefined): boolean {
   if (!user) return false
   return isSuperAdmin(user) || !!user.permissions?.some(code => code.startsWith('PLATFORM_'))
@@ -82,13 +83,15 @@ export function hasPlatformAccess(user: AuthUser | null | undefined): boolean {
 /** May open the merchant area: an active membership with permissions in at least one shop (owner or team member). */
 export function hasMerchantAccess(user: AuthUser | null | undefined): boolean {
   if (!user) return false
+  // `role` is derived by the backend from the same memberships; the fallback only matters for a session cached
+  // before shopPermissions existed
   return (user.shopPermissions?.length ?? 0) > 0 || user.role === 'MERCHANT'
 }
 
 /**
  * Which kind of account to present (labels, home links, redirects), derived from the effective permissions so that
- * platform admins and shop team members are recognised even when users.role says otherwise. Falls back to the legacy
- * role only when the backend sent no permission fields.
+ * the result matches the backend's derived `role` (platform_roles / shop_members). Falls back to `role` only when
+ * the backend sent no permission fields.
  */
 export function accountKind(user: AuthUser | null | undefined): UserRole {
   if (!user) return 'CUSTOMER'

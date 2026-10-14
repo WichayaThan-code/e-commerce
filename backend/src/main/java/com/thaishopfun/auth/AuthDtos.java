@@ -41,7 +41,9 @@ public final class AuthDtos {
     ) {}
 
     /**
-     * Current user. {@code role} is the legacy users.role (display / routing only, not used for authorization).
+     * Current user. {@code role} (CUSTOMER / MERCHANT / ADMIN) is derived from the role tables, not stored (users.role
+     * was dropped in V18): ADMIN = any platform permission (active platform_roles row), MERCHANT = active membership in
+     * at least one shop, else CUSTOMER. Kept for frontend compatibility (labels / landing page), never for authorization.
      * {@code roleCodes}, {@code permissions} (account + platform level) and {@code shopPermissions} (per shop the user
      * is an active member of) are computed from the database permission matrix at the time of the response.
      * {@code superAdmin} is true for an active PLATFORM_ADMIN: every permission, in every shop, including codes added
@@ -55,7 +57,9 @@ public final class AuthDtos {
     ) {
         public static UserResponse from(UserAccount user, AuthorizationService.EffectivePermissions access) {
             return new UserResponse(
-                user.getId(), user.getFirstName(), user.getLastName(), user.getEmail(), user.getPhone(), user.getRole(),
+                user.getId(), user.getFirstName(), user.getLastName(), user.getEmail(), user.getPhone(),
+                UserRole.derive(access.superAdmin() || access.permissions().stream().anyMatch(code -> code.startsWith("PLATFORM_")),
+                    !access.shops().isEmpty()),
                 user.isEmailVerified(), user.isPhoneVerified(),
                 access.roles(), access.permissions(), access.shops(), access.superAdmin()
             );

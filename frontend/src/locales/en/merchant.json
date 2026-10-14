@@ -365,13 +365,37 @@
       "STOCK_REASON_REQUIRED": "Reason is required for stock adjustments",
       "REQUEST_FAILED": "Request failed. Please try again.",
       "NAME_REQUIRED": "Product name (Thai) is required",
-      "PRICE_INVALID": "Invalid price",
-      "COMPARE_PRICE_INVALID": "Compare-at price must be higher than sale price",
+      "PRICE_INVALID": "Price must be greater than 0",
+      "COMPARE_PRICE_INVALID": "Original price must not be lower than the sale price",
       "WEIGHT_INVALID": "Invalid weight",
       "SIMPLE_SKU_COUNT": "Simple products must have exactly one SKU",
       "SKU_REQUIRED": "At least one SKU is required",
       "SKU_CODE_REQUIRED": "SKU code is required",
-      "PUBLISH_INCOMPLETE": "Complete required fields before publishing"
+      "PUBLISH_INCOMPLETE": "Complete required fields before publishing",
+      "VALIDATION_ERROR": "Please check the highlighted fields",
+      "PRICE_REQUIRED": "Price is required",
+      "COST_PRICE_INVALID": "Cost must not be negative",
+      "NAME_TOO_LONG": "Product name is longer than 255 characters",
+      "BRAND_TOO_LONG": "Brand is longer than 100 characters",
+      "UNKNOWN_CATEGORY": "Invalid category",
+      "CATEGORY_INACTIVE": "This category is no longer active, please choose another",
+      "SKU_CODE_TOO_LONG": "SKU code is longer than 64 characters",
+      "SKU_CODE_DUPLICATE": "Duplicate SKU code in this product",
+      "SKU_CODE_TAKEN": "This SKU code already exists in the shop",
+      "SKU_NOT_FOUND": "SKU not found in this product",
+      "BARCODE_INVALID": "Barcode may only contain letters, digits and dashes (max 64)",
+      "BARCODE_DUPLICATE": "Duplicate barcode in this product",
+      "BARCODE_TAKEN": "This barcode already exists in the shop",
+      "STOCK_INVALID": "Initial stock must be a whole number from 0 to 1,000,000",
+      "PUBLISH_IMAGE_REQUIRED": "Upload at least 1 image before publishing",
+      "PUBLISH_PRICE_REQUIRED": "A price is required before publishing",
+      "PUBLISH_SKU_REQUIRED": "At least 1 active SKU is required before publishing",
+      "PUBLISHED_IMAGE_REQUIRED": "A published product needs at least 1 image. Upload a new image before deleting this one",
+      "IMAGE_TYPE": "Only JPG, PNG or WEBP files are supported",
+      "IMAGE_LIMIT": "A product can have at most 9 images",
+      "FILE_TOO_LARGE": "File must be 5 MB or smaller",
+      "PRODUCT_ARCHIVED": "Restore an archived product before publishing",
+      "SHOP_NOT_APPROVED": "This shop cannot sell yet"
     },
     "loading": "Loading products...",
     "forbiddenTitle": "Access denied",
@@ -449,7 +473,9 @@
       "leaveTitle": "Leave this page?",
       "leaveBody": "You have unsaved changes.",
       "leaveStay": "Stay",
-      "leaveGo": "Leave without saving"
+      "leaveGo": "Leave without saving",
+      "barcode": "Barcode",
+      "barcodePh": "Optional, e.g. 8850001234567"
     },
     "columns": {
       "stock": "Stock",
@@ -497,7 +523,7 @@
     "exportDone": "Exported products to Excel",
     "importDone": "Imported {{created}} products",
     "importPartial": "Imported {{created}}, failed {{failed}}",
-    "searchPh": "Search product name or SKU",
+    "searchPh": "Search by product name, SKU or barcode",
     "category": "Category",
     "categoryAll": "All categories",
     "stock": "Stock",
@@ -532,6 +558,10 @@
       "ARCHIVED": "Archived"
     },
     "selected": "",
-    "archiveBulk": ""
+    "archiveBulk": "",
+    "brand": "Brand",
+    "brandAll": "All brands",
+    "sortUpdated": "Recently updated",
+    "sortOldest": "Oldest"
   }
 }

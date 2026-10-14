@@ -12,7 +12,7 @@ import { usePermissions } from "../hooks/usePermissions";
 import { labelForCategory } from "../services/categories";
 import { catalogMessage, formatMoney, formatWhen } from "../services/catalogText";
 import { hasMerchantAccess, hasPlatformAccess } from "../services/permissions";
-import { ApiError, catalogApi, productApi, type Product, type ProductCategory, type ProductSort, type ProductStatus, type StockFilter } from "../services/api";
+import { ApiError, catalogApi, productApi, type Product, type ProductBrand, type ProductCategory, type ProductSort, type ProductStatus, type StockFilter } from "../services/api";
 import type { Locale } from "../i18n";
 
 const tabs = [
@@ -44,6 +44,7 @@ export default function ProductManagementPage() {
   const q = params.get("q") || "";
   const status = (params.get("status") || "") as "" | ProductStatus;
   const categoryId = params.get("categoryId") || "";
+  const brand = params.get("brand") || "";
   const stock = (params.get("stock") || "") as "" | StockFilter;
   const sort = (params.get("sort") || "newest") as ProductSort;
   const page = Math.max(0, Number(params.get("page") || "1") - 1);
@@ -53,6 +54,7 @@ export default function ProductManagementPage() {
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState({ all: 0, published: 0, draft: 0, archived: 0 });
   const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [brands, setBrands] = useState<ProductBrand[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -96,10 +98,15 @@ export default function ProductManagementPage() {
 
   useEffect(() => {
     if (shopId == null) return;
+    productApi.brands(shopId).then(setBrands).catch(() => setBrands([]));
+  }, [shopId, reload]);
+
+  useEffect(() => {
+    if (shopId == null) return;
     let active = true;
     setLoading(true);
     setError(null);
-    const shared = { q, categoryId: categoryId ? Number(categoryId) : undefined, stock: stock || undefined };
+    const shared = { q, categoryId: categoryId ? Number(categoryId) : undefined, brand: brand || undefined, stock: stock || undefined };
     Promise.all([
       productApi.list(shopId, { ...shared, status: status || undefined, sort, page, size }),
       productApi.list(shopId, { ...shared, size: 1 }),
@@ -118,7 +125,7 @@ export default function ProductManagementPage() {
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  }, [shopId, q, status, categoryId, stock, sort, page, size, reload]);
+  }, [shopId, q, status, categoryId, brand, stock, sort, page, size, reload]);
 
   const patch = (updates: Record<string, string | null>) => {
     setParams((current) => {
@@ -207,7 +214,7 @@ export default function ProductManagementPage() {
   const pages = Math.max(1, Math.ceil(total / size));
   const from = total === 0 ? 0 : page * size + 1;
   const to = Math.min(total, (page + 1) * size);
-  const filtered = Boolean(q || categoryId || stock || status);
+  const filtered = Boolean(q || categoryId || brand || stock || status);
   const lang = locale.startsWith("en") ? "en" : locale.startsWith("zh") ? "zh" : "th";
   const categoryName = (id?: number | null) => {
     const match = categories.find((category) => category.id === id);
@@ -221,6 +228,8 @@ export default function ProductManagementPage() {
   ] as const;
   const sortChoices = [
     ["newest", t("catalog.sortNewest")],
+    ["updated", t("catalog.sortUpdated")],
+    ["oldest", t("catalog.sortOldest")],
     ["name", t("catalog.sortName")],
     ["price_asc", t("catalog.sortPriceAsc")],
     ["price_desc", t("catalog.sortPriceDesc")],
@@ -298,7 +307,7 @@ export default function ProductManagementPage() {
         ))}
       </div>
       <section className="pm-table-card">
-        <form className="pm-filters" onSubmit={(event) => event.preventDefault()}>
+        <form className="pm-filters pm-filters-brand" onSubmit={(event) => event.preventDefault()}>
           <label className="pm-search">
             <Search />
             <input aria-label={t("catalog.searchPh")} placeholder={t("catalog.searchPh")} value={query} onChange={(event) => setQuery(event.target.value)} />
@@ -312,6 +321,13 @@ export default function ProductManagementPage() {
               const match = categories.find((category) => labelForCategory(category, lang) === picked);
               patch({ categoryId: match ? String(match.id) : null });
             }}
+          />
+          <SearchableSelect
+            label={t("catalog.brand")}
+            placeholder={t("catalog.brandAll")}
+            options={[t("catalog.brandAll"), ...brands.map((item) => item.name)]}
+            value={brand || t("catalog.brandAll")}
+            onChange={(picked) => patch({ brand: brands.some((item) => item.name === picked) ? picked : null })}
           />
           <SearchableSelect
             label={t("catalog.stock")}

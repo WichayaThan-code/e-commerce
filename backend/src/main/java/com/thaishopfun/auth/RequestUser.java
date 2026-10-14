@@ -10,10 +10,4 @@ public final class RequestUser {
     public static UUID id(Jwt jwt) {
         return jwt == null ? null : UUID.fromString(jwt.getSubject());
     }
-
-    public static boolean admin(Jwt jwt) {
-        if (jwt == null) return false;
-        var roles = jwt.getClaimAsStringList("roles");
-        return roles != null && roles.stream().anyMatch(role -> "ADMIN".equals(role) || "ROLE_ADMIN".equals(role));
-    }
 }

@@ -26,6 +26,7 @@ public class OwnerAuditLog {
     @Column(nullable = false, length = 20) private String outcome;
     @Column(name = "reason_code", length = 50) private String fieldName;
     @Column(name = "auth_context", length = 20) private String authContext;
+    @Column(name = "policy_version", length = 20) private String policyVersion;
     @Column(name = "created_date_time", nullable = false) private Instant createdDateTime;
     @Column(name = "created_by") private UUID createdBy;
     @Column(name = "modified_date_time", nullable = false) private Instant modifiedDateTime;

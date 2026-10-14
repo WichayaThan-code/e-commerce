@@ -365,13 +365,37 @@
       "STOCK_REASON_REQUIRED": "调整库存时必须填写原因",
       "REQUEST_FAILED": "操作失败，请重试",
       "NAME_REQUIRED": "请填写商品名称（泰语）",
-      "PRICE_INVALID": "价格无效",
-      "COMPARE_PRICE_INVALID": "原价必须高于售价",
+      "PRICE_INVALID": "价格必须大于 0",
+      "COMPARE_PRICE_INVALID": "原价不得低于售价",
       "WEIGHT_INVALID": "重量无效",
       "SIMPLE_SKU_COUNT": "单规格商品只能有一个 SKU",
       "SKU_REQUIRED": "至少需要一个 SKU",
       "SKU_CODE_REQUIRED": "请填写 SKU 编码",
-      "PUBLISH_INCOMPLETE": "发布前请补全必填信息"
+      "PUBLISH_INCOMPLETE": "发布前请补全必填信息",
+      "VALIDATION_ERROR": "请检查标出的字段",
+      "PRICE_REQUIRED": "请填写价格",
+      "COST_PRICE_INVALID": "成本不能为负数",
+      "NAME_TOO_LONG": "商品名称超过 255 个字符",
+      "BRAND_TOO_LONG": "品牌名称超过 100 个字符",
+      "UNKNOWN_CATEGORY": "分类无效",
+      "CATEGORY_INACTIVE": "该分类已停用，请选择其他分类",
+      "SKU_CODE_TOO_LONG": "SKU 编码超过 64 个字符",
+      "SKU_CODE_DUPLICATE": "本商品中 SKU 编码重复",
+      "SKU_CODE_TAKEN": "店铺中已存在该 SKU 编码",
+      "SKU_NOT_FOUND": "本商品中找不到该 SKU",
+      "BARCODE_INVALID": "条形码只能包含字母、数字和连字符（最多 64 位）",
+      "BARCODE_DUPLICATE": "本商品中条形码重复",
+      "BARCODE_TAKEN": "店铺中已存在该条形码",
+      "STOCK_INVALID": "初始库存必须是 0 到 1,000,000 的整数",
+      "PUBLISH_IMAGE_REQUIRED": "发布前请至少上传 1 张图片",
+      "PUBLISH_PRICE_REQUIRED": "发布前需要设置价格",
+      "PUBLISH_SKU_REQUIRED": "发布前需要至少 1 个在售 SKU",
+      "PUBLISHED_IMAGE_REQUIRED": "已发布的商品至少需要 1 张图片，请先上传新图片再删除",
+      "IMAGE_TYPE": "仅支持 JPG、PNG 或 WEBP 文件",
+      "IMAGE_LIMIT": "每个商品最多 9 张图片",
+      "FILE_TOO_LARGE": "文件不能超过 5 MB",
+      "PRODUCT_ARCHIVED": "已归档的商品需先恢复才能发布",
+      "SHOP_NOT_APPROVED": "该店铺暂不能销售"
     },
     "loading": "正在加载商品...",
     "forbiddenTitle": "无权访问",
@@ -449,7 +473,9 @@
       "leaveTitle": "离开此页？",
       "leaveBody": "有未保存的更改。",
       "leaveStay": "留在此页",
-      "leaveGo": "不保存并离开"
+      "leaveGo": "不保存并离开",
+      "barcode": "条形码",
+      "barcodePh": "可选，例如 8850001234567"
     },
     "columns": {
       "stock": "库存",
@@ -497,7 +523,7 @@
     "exportDone": "已导出商品 Excel",
     "importDone": "成功导入 {{created}} 条",
     "importPartial": "导入 {{created}} 条，失败 {{failed}} 条",
-    "searchPh": "搜索商品名称或 SKU",
+    "searchPh": "按商品名称、SKU 或条形码搜索",
     "category": "分类",
     "categoryAll": "全部分类",
     "stock": "库存",
@@ -532,6 +558,10 @@
       "ARCHIVED": "已归档"
     },
     "selected": "",
-    "archiveBulk": ""
+    "archiveBulk": "",
+    "brand": "品牌",
+    "brandAll": "全部品牌",
+    "sortUpdated": "最近更新",
+    "sortOldest": "最早"
   }
 }

@@ -11,4 +11,6 @@ public interface ProductSkuRepository extends JpaRepository<ProductSku, UUID> {
     Optional<ProductSku> findByIdAndShop_ShopIdAndDeletedAtIsNull(UUID id, Long shopId);
     boolean existsByShop_ShopIdAndSkuCode(Long shopId, String skuCode);
     boolean existsByShop_ShopIdAndSkuCodeAndIdNot(Long shopId, String skuCode, UUID id);
+    boolean existsByShop_ShopIdAndBarcodeIgnoreCaseAndDeletedAtIsNull(Long shopId, String barcode);
+    boolean existsByShop_ShopIdAndBarcodeIgnoreCaseAndDeletedAtIsNullAndIdNot(Long shopId, String barcode, UUID id);
 }

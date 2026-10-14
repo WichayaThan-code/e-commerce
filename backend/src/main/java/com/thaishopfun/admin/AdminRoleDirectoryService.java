@@ -69,6 +69,14 @@ public class AdminRoleDirectoryService {
         return new RoleDetail(summary, groups.entrySet().stream().map(e -> new PermissionGroup(e.getKey(), List.copyOf(e.getValue()))).toList(), catalogSize);
     }
 
+    @Transactional(readOnly = true)
+    public List<PermissionInfo> assignablePermissions() {
+        return catalog.permissions().values().stream()
+            .filter(permission -> ("PLATFORM".equals(permission.scope()) || "STORE".equals(permission.scope())) && permission.active())
+            .filter(permission -> !AdminRoleManagementService.ROLE_ADMIN_PERMISSIONS.contains(permission.code()))
+            .toList();
+    }
+
     /** Recent role activity: platform role grants/revocations, shop role assignments/removals and role-related audit_logs. */
     @Transactional(readOnly = true)
     public List<ActivityEvent> activity(int limit) {

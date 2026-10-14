@@ -2,6 +2,8 @@ package com.thaishopfun.auth;
 
 import com.thaishopfun.auth.authz.PlatformRole;
 import com.thaishopfun.auth.authz.PlatformRoleRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,9 +13,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
 public class AdminBootstrapConfig {
+    private static final Logger log = LoggerFactory.getLogger(AdminBootstrapConfig.class);
+
     /**
-     * Creates the bootstrap admin account (app.bootstrap-admin.*) and makes sure it holds an active PLATFORM_ADMIN
-     * row in platform_roles: platform permissions come from platform_roles + auth_role_permissions, not users.role.
+     * Creates the bootstrap admin account (app.bootstrap-admin.*) and grants it an active PLATFORM_ADMIN row in
+     * platform_roles, the only source of admin rights. An account that already exists is never promoted here
+     * (it could be an ordinary user with the same e-mail, or an admin whose role was deliberately revoked);
+     * grant it through platform_roles instead.
      */
     @Bean
     @ConditionalOnProperty(name = "app.bootstrap-admin.password")
@@ -26,11 +32,16 @@ public class AdminBootstrapConfig {
     ) {
         return args -> {
             var normalized = username.trim().toLowerCase();
-            var account = users.findByEmailIgnoreCaseOrPhone(normalized, normalized)
-                .orElseGet(() -> users.save(UserAccount.admin(normalized, passwords.encode(password))));
-            if (account.getRole() == UserRole.ADMIN && !platformRoles.existsByUserIdAndRevokedAtIsNull(account.getId())) {
-                platformRoles.save(PlatformRole.grant(account.getId(), PlatformRole.PLATFORM_ADMIN, null, "bootstrap-admin"));
+            var existing = users.findByEmailIgnoreCaseOrPhone(normalized, normalized);
+            if (existing.isPresent()) {
+                if (!platformRoles.existsByUserIdAndRevokedAtIsNull(existing.get().getId())) {
+                    log.warn("Bootstrap admin account {} exists without an active platform role; not granting one automatically "
+                        + "(insert a platform_roles row to make it an admin)", existing.get().getId());
+                }
+                return;
             }
+            var account = users.save(UserAccount.systemAccount(normalized, passwords.encode(password)));
+            platformRoles.save(PlatformRole.grant(account.getId(), PlatformRole.PLATFORM_ADMIN, null, "bootstrap-admin"));
         };
     }
 }

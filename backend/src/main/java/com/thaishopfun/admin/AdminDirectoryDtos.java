@@ -59,4 +59,11 @@ public final class AdminDirectoryDtos {
     public record PermissionGroup(String module, List<PermissionInfo> permissions) {}
 
     public record RoleDetail(RoleSummary role, List<PermissionGroup> groups, int catalogPermissionCount) {}
+
+    public record ShopOption(Long shopId, String shopName, String status) {}
+
+    public record ShopRoleMember(
+        UUID userId, String firstName, String lastName, String email, String role, String roleNameTh,
+        boolean active, Instant joinedAt
+    ) {}
 }

@@ -180,7 +180,8 @@ Schema ทั้งหมดอยู่ใน **ไฟล์เดียว**: 
 | ไฟล์ | หน้าที่ |
 |------|---------|
 | `V1__init_schema.sql` | สร้าง schema ทั้งหมด (รวม V1+V2+V3 เดิมเป็นไฟล์เดียว) — **ไม่มี** ข้อมูลอ้างอิง (ดู Seed ด้านล่าง) |
-| `V3__authz_platform_admin_backfill.sql` | สิทธิ์ผู้ดูแลระบบย้ายไปอ่านจาก `platform_roles`: คัดลอก user ที่ `users.role = 'ADMIN'` (ยังไม่ถูกลบ และยังไม่มีแถว active) เป็น `PLATFORM_ADMIN` — idempotent, INSERT อย่างเดียว ไม่ลบ/แก้ข้อมูลเดิม |
+| `V3__authz_platform_admin_backfill.sql` | สิทธิ์ผู้ดูแลระบบย้ายไปอ่านจาก `platform_roles`: คัดลอก user ที่ `users.role = 'ADMIN'` (ยังไม่ถูกลบ และยังไม่มีแถว active) เป็น `PLATFORM_ADMIN` — idempotent, INSERT อย่างเดียว ไม่ลบ/แก้ข้อมูลเดิม |
+| `V18__drop_users_role.sql` | authz step 2: ลบคอลัมน์ `users.role` (+ CHECK `ck_users_role` ถ้ามี) — คัดลอกค่าเดิมไว้ที่ `users_role_legacy_v18` ก่อน และ `RAISE NOTICE` บัญชีที่ `users.role` บอกสิทธิ์มากกว่าที่ `platform_roles` / `shop_members` ให้ (ไม่ grant ให้อัตโนมัติ) — idempotent |
 | `V2__shop_onboarding_owners_categories_reinstatement.sql` | ส่วนต่อจาก branch ร้านค้า (7f730e8): ตาราง `owners`, `shop_reinstatement_requests`, คอลัมน์ร้าน/ใบสมัคร (`shop_no`, `owner_id`, social links, `opening_hours`, `citizen_id_hash`), `hub_categories.category_no`/`name_zh`, สถานะร้าน `PENDING_REVIEW/ACTIVE/REJECTED/SUSPENDED/CLOSED` — เขียนแบบ defensive (`IF NOT EXISTS`) |
 
 ไฟล์เดิม (`V1__create_auth_tables.sql`, `V2__create_merchant_applications.sql`, `V3__ecommerce_schema_v3.sql`) ย้ายไปเก็บที่ `backend/db-archive/` (อยู่นอก `resources` — Flyway จะไม่โหลด) เก็บไว้อ้างอิงเท่านั้น ห้ามย้ายกลับ
@@ -306,7 +307,7 @@ psql -U postgres -d TSF_DB -v ON_ERROR_STOP=1 -c "SELECT set_config('app.admin_e
 ### หลักการ
 
 - **Deny by default**: ทุก endpoint ใน `com.thaishopfun` ต้องประกาศกฎ 1 อย่างเท่านั้น — `@PublicEndpoint`, `@RequirePermission("CODE")` (สิทธิ์ระดับบัญชี/แพลตฟอร์ม), `@RequireShopPermission("CODE")` (สิทธิ์ในร้านที่ระบุด้วย `shopId`) หรือ `@FilterByShopPermission("CODE")` (รายการที่กรองเฉพาะร้านที่มีสิทธิ์) — endpoint ที่ไม่มีกฎจะถูกปฏิเสธ 403 `ACCESS_RULE_MISSING` และเทส `EndpointAccessRuleCoverageTests` จะ fail
-- **สิทธิ์มาจากฐานข้อมูล** ไม่ hard-code role: `auth_roles` / `auth_permissions` / `auth_role_permissions` (seed) + `platform_roles` (ผู้ดูแลแพลตฟอร์ม) + `shop_members` (บทบาทในแต่ละร้าน) — `users.role` เลิกใช้ตัดสินสิทธิ์แล้ว (ยังเก็บไว้ให้ frontend ใช้เลือกหน้า) และ claim `roles` ใน JWT เป็นข้อมูลประกอบเท่านั้น
+- **สิทธิ์มาจากฐานข้อมูล** ไม่ hard-code role: `auth_roles` / `auth_permissions` / `auth_role_permissions` (seed) + `platform_roles` (ผู้ดูแลแพลตฟอร์ม) + `shop_members` (บทบาทในแต่ละร้าน) — คอลัมน์ `users.role` ถูกลบแล้ว (V18) ; field `role` ใน `/api/auth/me` คำนวณจากตาราง (ADMIN = มี `platform_roles` ที่ active, MERCHANT = เป็นสมาชิก active ของร้านอย่างน้อย 1 ร้าน, นอกนั้น CUSTOMER) ใช้เลือกหน้าเท่านั้น และ claim `roles` ใน JWT (= รหัสบทบาทจาก `platform_roles` + `shop_members` ตอน login) เป็นข้อมูลประกอบเท่านั้น
 - ผู้ใช้ที่ login แล้วได้สิทธิ์ของ role ในบริบท `ACCOUNT` / `APPLICANT` (`BUYER`, `APPLICANT`) โดยอัตโนมัติ
 - โค้ดหลักอยู่ที่ `src/main/java/com/thaishopfun/auth/authz/` — `AuthorizationInterceptor` (ตรวจทุก request), `AuthorizationService` (อ่านบทบาทของผู้ใช้), `PermissionMatrix` (cache role → permission), `PublicEndpointRegistry` (ส่งรายการ public ให้ `SecurityConfig` จาก annotation), `JsonSecurityErrorHandlers` (รูปแบบ 401/403)
 
@@ -353,6 +354,12 @@ psql -U postgres -d TSF_DB -v ON_ERROR_STOP=1 -c "SELECT set_config('app.admin_e
 | `POST .../{shopId}/reactivate`, `.../bulk/reactivate` | แพลตฟอร์ม | `PLATFORM_SHOP_RESTORE` |
 | `GET /api/admin/users`, `.../users/stats`, `.../users/filter-options`, `.../users/export`, `.../users/{id}` | แพลตฟอร์ม | `PLATFORM_ACCOUNT_READ` |
 | `GET /api/admin/roles`, `GET /api/admin/roles/{code}` | แพลตฟอร์ม | `PLATFORM_ACCOUNT_READ` |
+| `POST /api/admin/users`, `PUT /api/admin/users/{id}` | แพลตฟอร์ม | `PLATFORM_ACCOUNT_CREATE`, `PLATFORM_ACCOUNT_UPDATE` |
+| `POST /api/admin/users/{id}/suspend`, `.../restore`, `DELETE /api/admin/users/{id}` | แพลตฟอร์ม | `PLATFORM_ACCOUNT_SUSPEND`, `PLATFORM_ACCOUNT_RESTORE`, `PLATFORM_ACCOUNT_DELETE` |
+| `PUT /api/admin/users/{id}/role` | แพลตฟอร์ม | `PLATFORM_ACCOUNT_ROLE_ASSIGN` |
+| `GET /api/admin/roles/permissions`, `POST /api/admin/roles`, `PUT /api/admin/roles/{code}`, `DELETE /api/admin/roles/{code}` | แพลตฟอร์ม | อ่านใช้ `PLATFORM_ACCOUNT_READ`; แก้ไขใช้ `PLATFORM_ROLE_CREATE` / `PLATFORM_ROLE_UPDATE` / `PLATFORM_ROLE_DELETE` |
+| `GET /api/admin/shop-role-assignments/shops`, `GET /api/admin/shop-role-assignments?shopId=...` | แพลตฟอร์ม | `PLATFORM_ACCOUNT_READ` |
+| `PUT` / `DELETE /api/admin/shop-role-assignments/{shopId}/{userId}` | แพลตฟอร์ม | `PLATFORM_ACCOUNT_ROLE_ASSIGN` |
 | `GET /api/admin/users/{id}/history`, `GET /api/admin/roles/activity` | แพลตฟอร์ม | `PLATFORM_AUDIT_READ` |
 
 `/api/merchant/settings*` ที่ไม่ส่ง `shopId` ใช้ร้านล่าสุด (`shop_no` มากสุด) ที่เป็นสมาชิก (พฤติกรรมเดิม) แล้วตรวจสิทธิ์กับร้านนั้น ; `/api/merchant/reinstatement` ต้องส่ง `shopId`
@@ -383,24 +390,29 @@ psql -U postgres -d TSF_DB -v ON_ERROR_STOP=1 -c "SELECT set_config('app.admin_e
 - ตัดสินใน `AuthorizationService` ไม่ได้พึ่งแถวใน `auth_role_permissions` → รัน seed ใหม่ (ซึ่งเขียน mapping ทับ) ก็ยังเป็นสิทธิ์สูงสุดอยู่ ; ผู้ใช้อื่นยังเป็น deny-by-default ตามเดิม
 - `/api/auth/me` คืน `"superAdmin": true` และ `permissions` = รหัสที่ active ทั้งหมด (ร้านที่เป็นสมาชิกใน `shopPermissions` = รหัส STORE ทั้งหมด) — frontend ถือว่า super admin ทำได้ทุกอย่าง
 - รายการ `GET /api/merchant/shops` ยังแสดงเฉพาะร้านที่เป็นสมาชิก (ร้านอื่นจัดการผ่านหน้า admin หรือส่ง `shopId`)
-- `users.role` ไม่มีผลกับสิทธิ์ — ให้สิทธิ์ผ่าน `platform_roles` เท่านั้น ; frontend เลือกหน้า admin/ร้านจากสิทธิ์ใน `/api/auth/me` (ไม่ใช่ `users.role`)
+- ไม่มี `users.role` แล้ว (V18) — ให้สิทธิ์ผู้ดูแลผ่าน `platform_roles` เท่านั้น ; bootstrap admin (`app.bootstrap-admin.*`) จะ grant `PLATFORM_ADMIN` เฉพาะบัญชีที่มันสร้างใหม่ ไม่ยกระดับบัญชีที่มีอยู่แล้ว ; frontend เลือกหน้า admin/ร้านจากสิทธิ์ใน `/api/auth/me`
 
 - สิทธิ์ `/api/admin/**` มาจาก `platform_roles` (role `PLATFORM_ADMIN` ที่ยังไม่ `revoked_at`) — `V3__authz_platform_admin_backfill.sql` คัดลอก ADMIN เดิมให้แล้ว และ bootstrap admin (`app.bootstrap-admin.*`) ได้แถวนี้อัตโนมัติ
 - ตั้งให้ user ที่มีอยู่แล้ว: ใช้ seed พร้อม `app.admin_email` (หัวข้อ Seed ด้านบน) ; ถอนสิทธิ์: `UPDATE platform_roles SET revoked_at = now(), revoke_reason = '...' WHERE user_id = '...' AND revoked_at IS NULL;` (มีผลทันที)
 
-### หน้า admin ผู้ใช้งาน / บทบาทและสิทธิ์ (อ่านอย่างเดียว)
+### หน้า admin ผู้ใช้งาน / บทบาทและสิทธิ์
 
 ข้อมูลทุกตัวมาจากตารางจริง (`users`, `platform_roles`, `shop_members`, `shops`, `auth_roles`, `auth_permissions`, `auth_role_permissions`, `merchant_applications`, `audit_logs`) ผ่าน `com.thaishopfun.admin`:
 
 - `GET /api/admin/users?q=&role=&status=&from=&to=&sort=&dir=&page=&size=` — แบ่งหน้า/กรอง/เรียงที่ server (`page` เริ่ม 0, `size` สูงสุด 100) ; `q` ค้นชื่อ-นามสกุล อีเมล เบอร์ (มี/ไม่มีขีด) และชื่อร้าน ; `role` = รหัสใน `auth_roles` (context `PLATFORM`/`STORE`) หรือ `GENERAL` (ไม่มีบทบาทแพลตฟอร์ม/ร้าน) ; `status` = `ACTIVE`/`SUSPENDED` ; `from`/`to` = วันที่สมัคร (yyyy-MM-dd, เวลาไทย, รวมวันสุดท้าย) ; `sort` = `createdAt`(ค่าเริ่ม)/`name`/`email`/`lastLoginAt`/`status` ; ค่าผิด → 400 `INVALID_FILTER`
-- บทบาทของผู้ใช้คิดแบบเดียวกับ `AuthorizationService`: แอดมิน = `platform_roles` ที่ยังไม่ `revoked_at`, บทบาทร้าน = `shop_members` ที่ `ACTIVE` และ `removed_at IS NULL` ; บทบาทหลักในตาราง = แพลตฟอร์ม > บทบาทร้านที่ `sort_order` ต่ำสุด > `BUYER` ; บัญชีที่ `deleted_at` ไม่ถูกนับ/แสดง ; `users.role` แสดงเป็นข้อมูลอ้างอิงเท่านั้น
+- บทบาทของผู้ใช้คิดแบบเดียวกับ `AuthorizationService`: แอดมิน = `platform_roles` ที่ยังไม่ `revoked_at`, บทบาทร้าน = `shop_members` ที่ `ACTIVE` และ `removed_at IS NULL` ; บทบาทหลักในตาราง = แพลตฟอร์ม > บทบาทร้านที่ `sort_order` ต่ำสุด > `BUYER` ; บัญชีที่ `deleted_at` ไม่ถูกนับ/แสดง ; `accountRole` (ประเภทบัญชี) คำนวณจากตารางเดียวกัน (ADMIN / MERCHANT / CUSTOMER) ไม่ได้อ่านจาก `users.role` (ลบแล้วใน V18)
 - `GET /api/admin/users/stats` — ทั้งหมด / แอดมิน / เจ้าของร้าน / ทั่วไป / ใช้งาน / ระงับ / จำนวนบทบาท ; `previous` = ค่า ณ ต้นเดือนนี้ (เวลาไทย) คำนวณจาก `created_date_time`, `granted_at`/`revoked_at`, `joined_at`/`removed_at` ; ถ้าไม่มีข้อมูลก่อนเดือนนี้ `changePercent = null` (หน้าเว็บแสดง `-`)
 - `GET /api/admin/users/{id}` — โปรไฟล์ + บทบาท + สิทธิ์ที่มีผลจริง (`AuthorizationService.effectivePermissions`) แยกระดับบัญชี/รายร้าน ; `/history` — สมัคร/ยืนยัน/เข้าสู่ระบบล่าสุด, ได้รับ-ถอนบทบาท, เข้า-ออกร้าน, ส่งใบสมัคร, `audit_logs`
 - `GET /api/admin/users/export` — CSV (UTF-8 BOM) ตามตัวกรองเดียวกัน สูงสุด 10,000 แถว
 - `GET /api/admin/roles` — ทุกแถวใน `auth_roles` พร้อมจำนวนผู้ใช้จริง (PLATFORM จาก `platform_roles`, STORE จาก `shop_members`, BUYER/APPLICANT = บัญชีที่ใช้งานทั้งหมดเพราะได้โดยปริยาย, GUEST = ไม่ผูกบัญชี → `null`) และจำนวนสิทธิ์ที่ผูก ; `auth_roles` ไม่มีคอลัมน์สถานะ จึงถือว่า "ใช้งาน" เมื่อมีสิทธิ์ active ผูกอยู่อย่างน้อย 1 รายการ (PLATFORM_ADMIN ใช้งานเสมอ)
 - `GET /api/admin/roles/{code}` — สิทธิ์ของบทบาทจัดกลุ่มตาม `auth_permissions.module` ; `GET /api/admin/roles/activity` — ประวัติล่าสุดจาก `platform_roles` / `shop_members` / `audit_logs` ที่เกี่ยวกับบทบาท
+- `POST /api/admin/users` — สร้างบัญชีด้วยรหัสผ่านสุ่มที่ไม่ส่งกลับ และส่งลิงก์ตั้งรหัสผ่านทางอีเมล ; `PUT /api/admin/users/{id}` แก้ชื่อ/นามสกุล/เบอร์ ; `POST .../{id}/suspend` และ `/restore` เปลี่ยนสถานะและเพิกถอน session ; `DELETE .../{id}` เป็น soft-delete และปฏิเสธบัญชีผู้ดูแลระบบหลัก/ตัวเอง รวมถึงเจ้าของร้านที่ยังมีร้านใช้งาน
+- `PUT /api/admin/users/{id}/role` กำหนดหรือถอนบทบาทแพลตฟอร์มแบบกำหนดเอง ; custom store roles กำหนดผ่านหน้าผูกผู้ใช้กับ role ภายในร้านที่เลือก
+- `GET /api/admin/roles/permissions` คืน permission ที่ active ทั้ง scope `PLATFORM` และ `STORE`
+- `POST /api/admin/roles`, `PUT /api/admin/roles/{code}`, `DELETE /api/admin/roles/{code}` สร้าง/แก้/ปิด custom role ตาม `context` (`PLATFORM` หรือ `STORE`) และยอมรับ permission เฉพาะ scope เดียวกับ role ; การปิด platform role ถอนการกำหนดจาก `platform_roles` ส่วนการปิด store role ทำให้สมาชิกที่ใช้ role นั้น inactive ; ไม่อนุญาตให้ custom role ได้สิทธิ์จัดการ role/มอบหมาย role เพื่อป้องกัน privilege escalation ; `PLATFORM_ADMIN` และบทบาทระบบแก้หรือลบไม่ได้
+- `/admin/role-assignments` จัดการสมาชิกและ role ภายในร้านที่เลือก โดยผู้ใช้หนึ่งรายมี membership เดียวต่อร้าน ; ห้ามแก้หรือนำเจ้าของร้าน (`STORE_OWNER`) ออกผ่านหน้านี้ และบันทึกการเปลี่ยนแปลงใน `audit_logs`
 - ทุก query เป็น SQL ที่ใช้ได้ทั้ง PostgreSQL และ H2: COUNT 1 ครั้ง + หน้า 1 ครั้ง + ดึงบทบาท/ร้านของแถวในหน้านั้นแบบ batch (`IN`) 2 ครั้ง (ไม่มี N+1) ; มี index `platform_roles(user_id)`, `shop_members(user_id)`, `audit_logs(actor_id, occurred_at)` อยู่แล้ว ; ยังไม่มี index `users(created_date_time)` และการค้นแบบ `%คำ%` ใช้ btree ไม่ได้ — ถ้าผู้ใช้หลักแสนค่อยเพิ่ม V4 (index + `pg_trgm`)
-- **ยังไม่มีการเขียน**: ส่งอีเมล, รีเซ็ตรหัสผ่าน, ระงับ/ลบผู้ใช้, เพิ่มผู้ใช้, แก้สิทธิ์บทบาท, เพิ่มบทบาท — ปุ่มใน UI ถูกปิดพร้อม tooltip "ยังไม่เปิดใช้งาน" ; การแก้สิทธิ์บทบาทจาก UI จะชนกับ seed ที่ generate (`seed_reference_data.sql` เขียน mapping ทับเมื่อรันใหม่) ต้องออกแบบที่ตัวสร้าง seed ก่อน
+- custom-role mappings ใช้ `policy_version='CUSTOM'`; การรัน reference seed จะไม่เขียนทับ mapping เหล่านี้ ขณะที่ `V19__admin_account_and_custom_role_management.sql` อนุญาต custom role codes ใน `platform_roles` และ `V20__custom_store_roles.sql` อนุญาต custom STORE role codes ใน `shop_members`
 
 ### การทดสอบ
 

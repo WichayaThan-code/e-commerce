@@ -1,5 +1,6 @@
 package com.thaishopfun.translation;
 
+import com.thaishopfun.auth.authz.RequirePermission;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +19,7 @@ public class AdminTranslationController {
         this.backfillSource = backfillSource;
     }
 
+    @RequirePermission("PLATFORM_SETTING_UPDATE")
     @PostMapping("/backfill")
     public TranslationService.BackfillResult backfill(@RequestParam String entityType) {
         var type = TranslationEntityType.parse(entityType);

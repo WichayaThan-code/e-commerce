@@ -13,7 +13,6 @@ public class UserAccount {
     @Column(nullable = false, unique = true) private String email;
     @Column(nullable = false, unique = true) private String phone;
     @Column(name = "password_hash", nullable = false) private String passwordHash;
-    @Enumerated(EnumType.STRING) @Column(nullable = false) private UserRole role;
     @Enumerated(EnumType.STRING) @Column(nullable = false) private UserStatus status;
     @Column(name = "email_verified_at") private Instant emailVerifiedAt;
     @Column(name = "phone_verified_at") private Instant phoneVerifiedAt;
@@ -33,24 +32,20 @@ public class UserAccount {
         this.email = email;
         this.phone = phone;
         this.passwordHash = passwordHash;
-        this.role = UserRole.CUSTOMER;
         this.status = UserStatus.ACTIVE;
         this.permissionVersion = 0;
         this.createdDateTime = now;
         this.modifiedDateTime = now;
     }
 
-    public static UserAccount admin(String username, String passwordHash) {
+    /**
+     * The bootstrap "System Administrator" account (pre-verified e-mail). Creating it grants nothing: admin rights
+     * come only from an active platform_roles row, which the caller grants explicitly (see AdminBootstrapConfig).
+     */
+    public static UserAccount systemAccount(String username, String passwordHash) {
         var account = new UserAccount("System", "Administrator", username.toLowerCase(), "0000000000", passwordHash);
-        account.role = UserRole.ADMIN;
         account.emailVerifiedAt = Instant.now();
         return account;
-    }
-
-    public void promoteToMerchant() {
-        if (role == UserRole.ADMIN || role == UserRole.MERCHANT) return;
-        role = UserRole.MERCHANT;
-        touch();
     }
 
     public UUID getId() { return id; }
@@ -59,7 +54,6 @@ public class UserAccount {
     public String getEmail() { return email; }
     public String getPhone() { return phone; }
     public String getPasswordHash() { return passwordHash; }
-    public UserRole getRole() { return role; }
     public UserStatus getStatus() { return status; }
     public Instant getEmailVerifiedAt() { return emailVerifiedAt; }
     public Instant getPhoneVerifiedAt() { return phoneVerifiedAt; }

@@ -1,6 +1,7 @@
 package com.thaishopfun.auth;
 
 import com.thaishopfun.auth.authz.AuthorizationInterceptor;
+import com.thaishopfun.auth.authz.AuthorizationService;
 import com.thaishopfun.auth.authz.JsonSecurityErrorHandlers;
 import com.thaishopfun.auth.authz.PublicEndpointRegistry;
 import jakarta.servlet.DispatcherType;
@@ -44,14 +45,18 @@ import java.util.UUID;
 public class SecurityConfig {
     @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
 
-    @Bean UserDetailsService userDetailsService(UserAccountRepository users) {
+    /**
+     * Login lookup. Authorities are the user's role codes from the role tables (platform_roles + active shop
+     * memberships, as ROLE_&lt;code&gt;); users.role no longer exists. Permission checks never use these authorities.
+     */
+    @Bean UserDetailsService userDetailsService(UserAccountRepository users, AuthorizationService authorization) {
         return identity -> {
             var normalized = identity.trim().toLowerCase();
             var account = users.findByEmailIgnoreCaseOrPhone(normalized, identity.trim())
                 .orElseThrow(() -> new org.springframework.security.core.userdetails.UsernameNotFoundException("ไม่พบบัญชีผู้ใช้"));
             return User.withUsername(account.getId().toString())
                 .password(account.getPasswordHash())
-                .roles(account.getRole().name())
+                .roles(authorization.roleCodes(account.getId()).toArray(String[]::new))
                 .disabled(account.getStatus() != UserStatus.ACTIVE || account.isDeleted())
                 .build();
         };
@@ -115,7 +120,7 @@ public class SecurityConfig {
      * Layer 1 (this filter chain): endpoints annotated {@code @PublicEndpoint} are permitAll, every other request
      * needs a valid access token (401 JSON otherwise). Layer 2 ({@link AuthorizationInterceptor}): the permission
      * declared on the endpoint is checked against the role/permission matrix in the database (403 / 404).
-     * The legacy "roles" claim (users.role) is no longer used for authorization.
+     * The informational "roles" claim (role codes from platform_roles / shop_members) is not used for authorization.
      */
     @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter converter, PublicEndpointRegistry publicEndpoints) throws Exception {
         var entryPoint = JsonSecurityErrorHandlers.authenticationEntryPoint();

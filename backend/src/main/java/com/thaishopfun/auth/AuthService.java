@@ -358,8 +358,9 @@ public class AuthService {
             .issuedAt(now)
             .expiresAt(now.plus(accessDuration))
             .subject(user.getId().toString())
-            // informational only (legacy users.role); permissions are evaluated live from the database
-            .claim("roles", List.of(user.getRole().name()))
+            // informational only: role codes from platform_roles / shop_members at sign-in; permissions are
+            // evaluated live from the database on every request (and "pv" invalidates the token on revocation)
+            .claim("roles", authorization.roleCodes(user.getId()))
             .claim("pv", user.getPermissionVersion())
             .build();
         var accessToken = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();

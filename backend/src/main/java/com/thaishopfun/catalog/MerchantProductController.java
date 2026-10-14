@@ -2,6 +2,7 @@ package com.thaishopfun.catalog;
 
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.RequestUser;
+import com.thaishopfun.auth.authz.RequireShopPermission;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
@@ -41,6 +42,7 @@ public class MerchantProductController {
         this.importJobs = importJobs;
     }
 
+    @RequireShopPermission("PRODUCT_READ")
     @GetMapping("/products")
     public CatalogDtos.PageResponse<CatalogDtos.MerchantProductResponse> list(
         @AuthenticationPrincipal Jwt jwt,
@@ -48,14 +50,22 @@ public class MerchantProductController {
         @RequestParam(required = false) String q,
         @RequestParam(required = false) String status,
         @RequestParam(required = false) Long categoryId,
+        @RequestParam(required = false) String brand,
         @RequestParam(required = false) String stock,
         @RequestParam(required = false) String sort,
         @RequestParam(required = false) Integer page,
         @RequestParam(required = false) Integer size
     ) {
-        return products.list(RequestUser.id(jwt), shopId, q, status, categoryId, stock, sort, page, size);
+        return products.list(RequestUser.id(jwt), shopId, q, status, categoryId, brand, stock, sort, page, size);
     }
 
+    @RequireShopPermission("PRODUCT_READ")
+    @GetMapping("/products/brands")
+    public List<CatalogDtos.BrandOption> brands(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId) {
+        return products.brands(RequestUser.id(jwt), shopId);
+    }
+
+    @RequireShopPermission("PRODUCT_READ")
     @GetMapping(value = "/products/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     public ResponseEntity<byte[]> export(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId) {
         var body = products.exportWorkbook(RequestUser.id(jwt), shopId);
@@ -65,6 +75,7 @@ public class MerchantProductController {
             .body(body);
     }
 
+    @RequireShopPermission("PRODUCT_IMPORT")
     @PostMapping(value = "/products/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CatalogDtos.ProductImportAccepted> importFile(
         @AuthenticationPrincipal Jwt jwt,
@@ -77,6 +88,7 @@ public class MerchantProductController {
         return ResponseEntity.accepted().body(importJobs.submit(RequestUser.id(jwt), shopId, file.getInputStream()));
     }
 
+    @RequireShopPermission("PRODUCT_IMPORT")
     @GetMapping("/products/import/{jobId}")
     public CatalogDtos.ProductImportJobView importStatus(
         @AuthenticationPrincipal Jwt jwt,
@@ -86,6 +98,7 @@ public class MerchantProductController {
         return importJobs.status(RequestUser.id(jwt), shopId, jobId);
     }
 
+    @RequireShopPermission("PRODUCT_IMPORT")
     @PostMapping("/products/batch")
     public CatalogDtos.ProductImportResult batch(
         @AuthenticationPrincipal Jwt jwt,
@@ -95,16 +108,19 @@ public class MerchantProductController {
         return imports.importBatch(RequestUser.id(jwt), shopId, requests);
     }
 
+    @RequireShopPermission("PRODUCT_READ")
     @GetMapping("/products/{productId}")
     public CatalogDtos.MerchantProductResponse get(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID productId) {
         return products.get(RequestUser.id(jwt), shopId, productId);
     }
 
+    @RequireShopPermission("INVENTORY_READ")
     @GetMapping("/products/{productId}/ledger")
     public List<CatalogDtos.LedgerEntryResponse> ledger(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID productId) {
         return products.ledger(RequestUser.id(jwt), shopId, productId);
     }
 
+    @RequireShopPermission("PRODUCT_READ")
     @GetMapping("/products/{productId}/images/{imageId}")
     public ResponseEntity<Resource> image(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID productId, @PathVariable UUID imageId) {
         var file = products.merchantImage(RequestUser.id(jwt), shopId, productId, imageId);
@@ -115,16 +131,26 @@ public class MerchantProductController {
         return ResponseEntity.ok().contentType(type).cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePrivate()).body(new FileSystemResource(file));
     }
 
+    @RequireShopPermission("PRODUCT_CREATE")
     @PostMapping("/products")
     public CatalogDtos.MerchantProductResponse create(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @RequestBody CatalogDtos.ProductWriteRequest request) {
         return products.create(RequestUser.id(jwt), shopId, request);
     }
 
+    /** Helper for the variant form: every combination of the option groups with a suggested SKU code. Saves nothing. */
+    @RequireShopPermission("PRODUCT_READ")
+    @PostMapping("/products/variant-combinations")
+    public List<CatalogDtos.VariantCombination> variantCombinations(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @RequestBody CatalogDtos.VariantCombinationRequest request) {
+        return products.variantCombinations(RequestUser.id(jwt), shopId, request);
+    }
+
+    @RequireShopPermission("PRODUCT_UPDATE")
     @PutMapping("/products/{productId}")
     public CatalogDtos.MerchantProductResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID productId, @RequestBody CatalogDtos.ProductWriteRequest request) {
         return products.update(RequestUser.id(jwt), shopId, productId, request);
     }
 
+    @RequireShopPermission("PRODUCT_UPDATE")
     @PostMapping("/products/{productId}/translations/use-auto")
     public CatalogDtos.MerchantProductResponse useAutoTranslation(
         @AuthenticationPrincipal Jwt jwt,
@@ -135,36 +161,43 @@ public class MerchantProductController {
         return products.revertAutoTranslation(RequestUser.id(jwt), shopId, productId, request);
     }
 
+    @RequireShopPermission("PRODUCT_UPDATE")
     @PostMapping("/products/{productId}/publish")
     public CatalogDtos.MerchantProductResponse publish(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID productId) {
         return products.publish(RequestUser.id(jwt), shopId, productId);
     }
 
+    @RequireShopPermission("PRODUCT_ARCHIVE")
     @PostMapping("/products/{productId}/archive")
     public CatalogDtos.MerchantProductResponse archive(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID productId) {
         return products.archive(RequestUser.id(jwt), shopId, productId);
     }
 
+    @RequireShopPermission("PRODUCT_ARCHIVE")
     @PostMapping("/products/{productId}/unarchive")
     public CatalogDtos.MerchantProductResponse unarchive(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID productId) {
         return products.unarchive(RequestUser.id(jwt), shopId, productId);
     }
 
+    @RequireShopPermission("PRODUCT_UPDATE")
     @PostMapping(value = "/products/{productId}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public CatalogDtos.MerchantProductResponse addImage(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID productId, @RequestPart("file") MultipartFile file) {
         return products.addImage(RequestUser.id(jwt), shopId, productId, file);
     }
 
+    @RequireShopPermission("PRODUCT_UPDATE")
     @DeleteMapping("/products/{productId}/images/{imageId}")
     public CatalogDtos.MerchantProductResponse deleteImage(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID productId, @PathVariable UUID imageId) {
         return products.deleteImage(RequestUser.id(jwt), shopId, productId, imageId);
     }
 
+    @RequireShopPermission("PRODUCT_UPDATE")
     @PutMapping("/products/{productId}/images/order")
     public CatalogDtos.MerchantProductResponse orderImages(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID productId, @RequestBody CatalogDtos.ImageOrderRequest request) {
         return products.orderImages(RequestUser.id(jwt), shopId, productId, request);
     }
 
+    @RequireShopPermission("INVENTORY_ADJUST")
     @PostMapping("/skus/{skuId}/stock-adjustments")
     public CatalogDtos.StockResponse adjustStock(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID skuId, @RequestBody CatalogDtos.StockAdjustRequest request) {
         return products.adjustStock(RequestUser.id(jwt), shopId, skuId, request);

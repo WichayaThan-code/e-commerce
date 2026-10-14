@@ -2,6 +2,9 @@ package com.thaishopfun.auth;
 
 import com.thaishopfun.catalog.CatalogDtos;
 import com.thaishopfun.catalog.ImportRunningException;
+import com.thaishopfun.common.ApiValidationError;
+import com.thaishopfun.common.ValidationException;
+import com.thaishopfun.common.ValidationMessages;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -27,6 +30,13 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new CatalogDtos.ProductImportConflict("IMPORT_RUNNING", exception.getMessage(), exception.jobId()));
     }
 
+    /** Field-level validation failure from a service (more specific than AuthException, so it wins). */
+    @ExceptionHandler(ValidationException.class)
+    ResponseEntity<ApiValidationError> fieldValidation(ValidationException exception) {
+        var first = exception.getViolations().isEmpty() ? exception.getMessage() : exception.getViolations().get(0).message();
+        return ResponseEntity.status(exception.getStatus()).body(new ApiValidationError(exception.getCode(), first, exception.getViolations()));
+    }
+
     @ExceptionHandler(AuthException.class)
     ResponseEntity<AuthDtos.ApiError> auth(AuthException exception) {
         return ResponseEntity.status(exception.getStatus()).body(new AuthDtos.ApiError(exception.getCode(), exception.getMessage()));
@@ -43,10 +53,12 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    ResponseEntity<AuthDtos.ApiError> validation(MethodArgumentNotValidException exception) {
-        var error = exception.getBindingResult().getFieldErrors().stream().findFirst();
-        var message = error.map(e -> e.getDefaultMessage()).orElse("ข้อมูลไม่ถูกต้อง");
-        return ResponseEntity.badRequest().body(new AuthDtos.ApiError("VALIDATION_ERROR", message));
+    ResponseEntity<ApiValidationError> validation(MethodArgumentNotValidException exception) {
+        var fields = exception.getBindingResult().getFieldErrors().stream()
+            .map(error -> ValidationMessages.fromConstraint(error.getField(), error.getDefaultMessage()))
+            .toList();
+        var message = fields.isEmpty() ? "ข้อมูลไม่ถูกต้อง" : fields.get(0).message();
+        return ResponseEntity.badRequest().body(new ApiValidationError("VALIDATION_ERROR", message, fields));
     }
 
     /** Malformed / unreadable JSON body (e.g. truncated JSON, wrong enum value). */

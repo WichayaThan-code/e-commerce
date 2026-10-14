@@ -1,5 +1,14 @@
 package com.thaishopfun.catalog;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -9,42 +18,84 @@ import java.util.UUID;
 public final class CatalogDtos {
     private CatalogDtos() {}
 
+    /**
+     * Create/update body. The annotations carry validation codes (see common.ValidationMessages); ProductService
+     * runs them programmatically together with the business rules, so the API, the batch endpoint and the Excel
+     * import all return every field problem at once in the same format.
+     */
     public record ProductWriteRequest(
-        String nameTh,
-        String nameEn,
-        String nameZh,
+        @NotBlank(message = "NAME_REQUIRED") @Size(max = 255, message = "NAME_TOO_LONG") String nameTh,
+        @Size(max = 255, message = "NAME_TOO_LONG") String nameEn,
+        @Size(max = 255, message = "NAME_TOO_LONG") String nameZh,
         String descriptionTh,
         String descriptionEn,
         String descriptionZh,
         Long categoryId,
-        String slug,
+        @Size(max = 150, message = "SLUG_INVALID") String slug,
         String productType,
-        String brand,
-        BigDecimal basePrice,
-        BigDecimal compareAtPrice,
+        @Size(max = 100, message = "BRAND_TOO_LONG") String brand,
+        @DecimalMin(value = "0.01", message = "PRICE_INVALID") BigDecimal basePrice,
+        @DecimalMin(value = "0.01", message = "COMPARE_PRICE_INVALID") BigDecimal compareAtPrice,
         String currency,
-        Integer weightGrams,
-        List<SkuWriteRequest> skus
-    ) {}
+        @PositiveOrZero(message = "WEIGHT_INVALID") @Max(value = 1_000_000, message = "WEIGHT_INVALID") Integer weightGrams,
+        @Size(max = 100, message = "SKU_LIMIT") List<@Valid SkuWriteRequest> skus,
+        /**
+         * Option groups of a VARIABLE product (1-3). Each SKU then picks exactly one value per group through
+         * {@code optionValues} ({"Color":"Black","Size":"S"}). When null, the groups are derived from the SKUs'
+         * optionValues (the current form sends only those).
+         */
+        List<OptionGroupWriteRequest> optionGroups
+    ) {
+        public ProductWriteRequest(String nameTh, String nameEn, String nameZh, String descriptionTh, String descriptionEn,
+                                   String descriptionZh, Long categoryId, String slug, String productType, String brand,
+                                   BigDecimal basePrice, BigDecimal compareAtPrice, String currency, Integer weightGrams,
+                                   List<SkuWriteRequest> skus) {
+            this(nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId, slug, productType, brand,
+                basePrice, compareAtPrice, currency, weightGrams, skus, null);
+        }
+    }
+
+    /** id keeps an existing group (rename allowed); without id an existing group with the same name is reused. */
+    public record OptionGroupWriteRequest(UUID id, String name, List<OptionValueWriteRequest> values) {}
+
+    public record OptionValueWriteRequest(UUID id, String value) {}
+
+    public record VariantCombinationRequest(String skuPrefix, List<OptionGroupWriteRequest> optionGroups) {}
+
+    public record VariantCombination(String optionLabel, Map<String, String> optionValues, String skuCode) {}
 
     public record SkuWriteRequest(
         UUID id,
-        String skuCode,
-        String barcode,
-        String optionLabel,
+        @NotBlank(message = "SKU_CODE_REQUIRED") @Size(max = 64, message = "SKU_CODE_TOO_LONG") String skuCode,
+        @Size(max = 64, message = "BARCODE_INVALID") @Pattern(regexp = "^[A-Za-z0-9-]*$", message = "BARCODE_INVALID") String barcode,
+        @Size(max = 255, message = "OPTION_LABEL_TOO_LONG") String optionLabel,
         Map<String, String> optionValues,
-        BigDecimal price,
-        BigDecimal costPrice,
-        BigDecimal compareAtPrice,
-        Integer weightGrams,
-        Integer initialStock
-    ) {}
+        @NotNull(message = "PRICE_REQUIRED") @DecimalMin(value = "0.01", message = "PRICE_INVALID") BigDecimal price,
+        @DecimalMin(value = "0.00", message = "COST_PRICE_INVALID") BigDecimal costPrice,
+        @DecimalMin(value = "0.01", message = "COMPARE_PRICE_INVALID") BigDecimal compareAtPrice,
+        @PositiveOrZero(message = "WEIGHT_INVALID") @Max(value = 1_000_000, message = "WEIGHT_INVALID") Integer weightGrams,
+        @PositiveOrZero(message = "STOCK_INVALID") @Max(value = 1_000_000, message = "STOCK_INVALID") Integer initialStock,
+        /** Variant image: id of one of this product's images (upload first, then save). */
+        UUID imageId
+    ) {
+        public SkuWriteRequest(UUID id, String skuCode, String barcode, String optionLabel, Map<String, String> optionValues,
+                               BigDecimal price, BigDecimal costPrice, BigDecimal compareAtPrice, Integer weightGrams, Integer initialStock) {
+            this(id, skuCode, barcode, optionLabel, optionValues, price, costPrice, compareAtPrice, weightGrams, initialStock, null);
+        }
+    }
 
     public record ImageOrderRequest(List<UUID> imageIds, UUID primaryImageId) {}
 
     public record StockAdjustRequest(String entryType, int quantityDelta, String reason, int version, String idempotencyKey) {}
 
-    public record PageResponse<T>(List<T> items, int page, int size, long total) {}
+    /** page is 0-based; totalPages is derived from total/size so clients don't have to compute it. */
+    public record PageResponse<T>(List<T> items, int page, int size, long total, int totalPages) {
+        public PageResponse(List<T> items, int page, int size, long total) {
+            this(items, page, size, total, size <= 0 ? 0 : (int) ((total + size - 1) / size));
+        }
+    }
+
+    public record BrandOption(String name, long productCount) {}
 
     public record ProductImportError(int row, String message) {}
 
@@ -99,8 +150,15 @@ public final class CatalogDtos {
         TranslationMeta nameEnMeta,
         TranslationMeta nameZhMeta,
         TranslationMeta descriptionEnMeta,
-        TranslationMeta descriptionZhMeta
+        TranslationMeta descriptionZhMeta,
+        List<OptionGroupResponse> optionGroups
     ) {}
+
+    public record OptionGroupResponse(UUID id, String name, int sortOrder, List<OptionValueResponse> values) {}
+
+    public record OptionValueResponse(UUID id, String value, int sortOrder) {}
+
+    public record SkuOptionResponse(UUID groupId, String groupName, UUID valueId, String value) {}
 
     public record MerchantSkuResponse(
         UUID id,
@@ -118,7 +176,9 @@ public final class CatalogDtos {
         int reservedQty,
         int available,
         Integer lowStockThreshold,
-        int version
+        int version,
+        UUID imageId,
+        List<SkuOptionResponse> options
     ) {}
 
     public record ImageResponse(UUID id, String url, int sortOrder, boolean primary, String altText) {}
@@ -138,7 +198,8 @@ public final class CatalogDtos {
         BigDecimal compareAtPrice,
         String currency,
         List<PublicSkuResponse> skus,
-        List<ImageResponse> images
+        List<ImageResponse> images,
+        List<OptionGroupResponse> optionGroups
     ) {}
 
     public record PublicSkuResponse(
@@ -149,7 +210,9 @@ public final class CatalogDtos {
         BigDecimal price,
         BigDecimal compareAtPrice,
         String currency,
-        int available
+        int available,
+        UUID imageId,
+        List<SkuOptionResponse> options
     ) {}
 
     public record StockResponse(UUID skuId, String entryType, int onHand, int available, int version) {}

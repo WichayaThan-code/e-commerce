@@ -147,29 +147,43 @@ function weight(value: string) {
   return Number.isInteger(amount) ? amount : Number.NaN;
 }
 
+const BARCODE = /^[A-Za-z0-9-]{0,64}$/;
+const MAX_STOCK = 1_000_000;
+
+/** Client-side mirror of the backend rules (ProductService.validate); the server re-checks everything. */
 export function validateDraft(draft: ProductDraft, publishing: boolean, imageCount: number) {
   const errors: Record<string, string> = {};
   if (!draft.nameTh.trim()) errors.nameTh = "NAME_REQUIRED";
   const price = money(draft.basePrice);
   const compare = money(draft.compareAtPrice);
   const grams = weight(draft.weightGrams);
-  if (draft.basePrice.trim() && (price == null || Number.isNaN(price) || price < 0)) errors.basePrice = "PRICE_INVALID";
-  if (compare != null && (Number.isNaN(compare) || (price != null && !Number.isNaN(price) && compare <= price))) errors.compareAtPrice = "COMPARE_PRICE_INVALID";
-  if (grams != null && (Number.isNaN(grams) || grams < 0)) errors.weightGrams = "WEIGHT_INVALID";
+  if (draft.basePrice.trim() && (price == null || Number.isNaN(price) || price <= 0)) errors.basePrice = "PRICE_INVALID";
+  if (compare != null && (Number.isNaN(compare) || compare <= 0 || (price != null && !Number.isNaN(price) && compare < price))) errors.compareAtPrice = "COMPARE_PRICE_INVALID";
+  if (grams != null && (Number.isNaN(grams) || grams < 0 || grams > MAX_STOCK)) errors.weightGrams = "WEIGHT_INVALID";
   if (draft.productType === "SIMPLE" && draft.skus.length !== 1) errors.skus = "SIMPLE_SKU_COUNT";
   if (draft.productType === "VARIABLE" && draft.skus.length < 1) errors.skus = "SKU_REQUIRED";
+  const codes = new Set<string>();
+  const barcodes = new Set<string>();
   draft.skus.forEach((sku, index) => {
-    if (!sku.skuCode.trim()) errors[`skus.${index}.skuCode`] = "SKU_CODE_REQUIRED";
+    const code = sku.skuCode.trim();
+    if (!code) errors[`skus.${index}.skuCode`] = "SKU_CODE_REQUIRED";
+    else if (code.length > 64) errors[`skus.${index}.skuCode`] = "SKU_CODE_TOO_LONG";
+    else if (codes.has(code)) errors[`skus.${index}.skuCode`] = "SKU_CODE_DUPLICATE";
+    codes.add(code);
+    const barcode = sku.barcode.trim();
+    if (barcode && !BARCODE.test(barcode)) errors[`skus.${index}.barcode`] = "BARCODE_INVALID";
+    else if (barcode && barcodes.has(barcode.toLowerCase())) errors[`skus.${index}.barcode`] = "BARCODE_DUPLICATE";
+    if (barcode) barcodes.add(barcode.toLowerCase());
     const skuPrice = money(sku.price);
     const skuCompare = money(sku.compareAtPrice);
-    if (skuPrice == null || Number.isNaN(skuPrice) || skuPrice < 0) errors[`skus.${index}.price`] = "PRICE_INVALID";
-    if (skuCompare != null && (Number.isNaN(skuCompare) || (skuPrice != null && !Number.isNaN(skuPrice) && skuCompare <= skuPrice))) {
+    if (skuPrice == null || Number.isNaN(skuPrice) || skuPrice <= 0) errors[`skus.${index}.price`] = "PRICE_INVALID";
+    if (skuCompare != null && (Number.isNaN(skuCompare) || skuCompare <= 0 || (skuPrice != null && !Number.isNaN(skuPrice) && skuCompare < skuPrice))) {
       errors[`skus.${index}.compareAtPrice`] = "COMPARE_PRICE_INVALID";
     }
     const opening = Number(sku.initialStock || "0");
-    if (!sku.id && (!Number.isInteger(opening) || opening < 0)) errors[`skus.${index}.initialStock`] = "INVALID_ADJUSTMENT";
+    if (!sku.id && (!Number.isInteger(opening) || opening < 0 || opening > MAX_STOCK)) errors[`skus.${index}.initialStock`] = "STOCK_INVALID";
   });
-  if (publishing && imageCount < 1) errors.images = "PUBLISH_INCOMPLETE";
+  if (publishing && imageCount < 1) errors.images = "PUBLISH_IMAGE_REQUIRED";
   if (publishing && (price == null || Number.isNaN(price)) && draft.skus.some((sku) => money(sku.price) == null)) errors.basePrice = "PUBLISH_INCOMPLETE";
   return errors;
 }
@@ -187,6 +201,8 @@ export function toWrite(draft: ProductDraft): ProductWrite {
     price: money(sku.price) ?? 0,
     compareAtPrice: money(sku.compareAtPrice),
     weightGrams: weight(sku.weightGrams),
+    // opening stock is saved with the product (ledger RECEIVE in the same transaction); existing SKUs ignore it
+    initialStock: sku.id ? null : Number(sku.initialStock || "0") || 0,
   }));
   return {
     nameTh: draft.nameTh.trim(),

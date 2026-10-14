@@ -2,6 +2,7 @@ package com.thaishopfun.admin;
 
 import com.thaishopfun.admin.AdminDirectoryDtos.*;
 import com.thaishopfun.auth.AuthException;
+import com.thaishopfun.auth.UserRole;
 import com.thaishopfun.auth.authz.AuthorizationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -156,22 +157,28 @@ public class AdminUserDirectoryService {
     private List<UserRow> rows(String where, MapSqlParameterSource params, Map<String, AdminCatalog.RoleRow> roles, String orderBy, int limit, long offset) {
         params.addValue("limit", limit).addValue("offset", offset);
         var base = jdbc.query("""
-            SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.status, u.role, u.created_date_time, u.last_login_at
+            SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.status, u.created_date_time, u.last_login_at
               FROM users u WHERE %s ORDER BY %s LIMIT :limit OFFSET :offset
             """.formatted(where, orderBy), params, (rs, i) -> new BaseUser(
             rs.getObject("id", UUID.class), rs.getString("first_name"), rs.getString("last_name"), rs.getString("email"),
-            rs.getString("phone"), rs.getString("status"), rs.getString("role"), instant(rs, "created_date_time"), instant(rs, "last_login_at")));
+            rs.getString("phone"), rs.getString("status"), instant(rs, "created_date_time"), instant(rs, "last_login_at")));
         if (base.isEmpty()) return List.of();
         var grants = grantsOf(base.stream().map(BaseUser::id).toList(), roles);
         return base.stream().map(user -> {
             var grant = grants.getOrDefault(user.id(), Grant.EMPTY);
-            return new UserRow(user.id(), user.firstName(), user.lastName(), user.email(), user.phone(), user.status(), user.accountRole(),
+            return new UserRow(user.id(), user.firstName(), user.lastName(), user.email(), user.phone(), user.status(), accountKind(grant),
                 primaryRole(grant, roles), roleCodes(grant, roles), grant.shops(), grant.platformRoles().contains(AuthorizationService.SUPER_ADMIN_ROLE),
                 user.createdAt(), user.lastLoginAt());
         }).toList();
     }
 
-    private record BaseUser(UUID id, String firstName, String lastName, String email, String phone, String status, String accountRole, Instant createdAt, Instant lastLoginAt) {}
+    private record BaseUser(UUID id, String firstName, String lastName, String email, String phone, String status, Instant createdAt, Instant lastLoginAt) {}
+
+    /** CUSTOMER / MERCHANT / ADMIN derived from the role tables (users.role was dropped in V18); same rule as /api/auth/me. */
+    private static String accountKind(Grant grant) {
+        if (grant == null) return UserRole.CUSTOMER.name();
+        return UserRole.derive(!grant.platformRoles().isEmpty(), !grant.shops().isEmpty()).name();
+    }
 
     private record Grant(Set<String> platformRoles, List<ShopRef> shops) {
         static final Grant EMPTY = new Grant(Set.of(), List.of());
@@ -306,11 +313,11 @@ public class AdminUserDirectoryService {
     @Transactional(readOnly = true)
     public UserDetail detail(UUID userId) {
         var users = jdbc.query("""
-            SELECT id, first_name, last_name, email, phone, status, role, created_date_time, last_login_at, email_verified_at, phone_verified_at
+            SELECT id, first_name, last_name, email, phone, status, created_date_time, last_login_at, email_verified_at, phone_verified_at
               FROM users WHERE id = :id AND deleted_at IS NULL
             """, new MapSqlParameterSource("id", userId), (rs, i) -> new Object[]{
             rs.getString("first_name"), rs.getString("last_name"), rs.getString("email"), rs.getString("phone"), rs.getString("status"),
-            rs.getString("role"), instant(rs, "created_date_time"), instant(rs, "last_login_at"), instant(rs, "email_verified_at"), instant(rs, "phone_verified_at")});
+            null, instant(rs, "created_date_time"), instant(rs, "last_login_at"), instant(rs, "email_verified_at"), instant(rs, "phone_verified_at")});
         if (users.isEmpty()) throw new AuthException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "ไม่พบผู้ใช้งาน");
         var u = users.get(0);
         var roles = catalog.roles();
@@ -338,7 +345,7 @@ public class AdminUserDirectoryService {
         shopRoleRefs.forEach(ref -> { if (allRoles.stream().noneMatch(r -> r.code().equals(ref.code()))) allRoles.add(ref); });
         allRoles.sort(Comparator.comparingInt(ref -> roles.containsKey(ref.code()) ? -roles.get(ref.code()).sortOrder() : 0));
 
-        return new UserDetail(userId, (String) u[0], (String) u[1], (String) u[2], (String) u[3], (String) u[4], (String) u[5],
+        return new UserDetail(userId, (String) u[0], (String) u[1], (String) u[2], (String) u[3], (String) u[4], accountKind(grant),
             effective.superAdmin(), (Instant) u[6], (Instant) u[7], (Instant) u[8], (Instant) u[9],
             primaryRole(grant, roles), List.copyOf(allRoles), describe(effective.permissions(), permissions), shops);
     }

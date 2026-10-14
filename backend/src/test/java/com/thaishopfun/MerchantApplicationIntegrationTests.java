@@ -6,7 +6,6 @@ import com.thaishopfun.auth.PasswordResetTokenRepository;
 import com.thaishopfun.auth.RefreshTokenRepository;
 import com.thaishopfun.auth.UserAccount;
 import com.thaishopfun.auth.UserAccountRepository;
-import com.thaishopfun.auth.UserRole;
 import com.thaishopfun.auth.authz.PlatformRole;
 import com.thaishopfun.auth.authz.PlatformRoleRepository;
 import com.thaishopfun.catalog.InventoryLedgerRepository;
@@ -177,8 +176,8 @@ class MerchantApplicationIntegrationTests {
           .andExpect(status().isOk()).andExpect(jsonPath("$.approved").value(false)).andExpect(jsonPath("$.hasShop").value(true)).andExpect(jsonPath("$.status").value("PENDING_REVIEW"));
         mvc.perform(get("/api/admin/store-applications").header("Authorization", "Bearer " + merchant)).andExpect(status().isForbidden());
 
-        var reviewer = users.save(UserAccount.admin("review-admin@example.com", passwords.encode("Password1")));
-        // platform permissions come from platform_roles (users.role ADMIN alone grants nothing any more)
+        var reviewer = users.save(UserAccount.systemAccount("review-admin@example.com", passwords.encode("Password1")));
+        // platform permissions come only from platform_roles
         platformRoles.save(PlatformRole.grant(reviewer.getId(), PlatformRole.PLATFORM_ADMIN, null, "test"));
         var adminLogin = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
           {"identity":"review-admin@example.com","password":"Password1"}
@@ -214,7 +213,13 @@ class MerchantApplicationIntegrationTests {
           .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SHOP_ALREADY_APPROVED"));
         mvc.perform(get("/api/merchant/store-access").header("Authorization", "Bearer " + merchant))
           .andExpect(status().isOk()).andExpect(jsonPath("$.approved").value(true)).andExpect(jsonPath("$.hasShop").value(true));
-        org.junit.jupiter.api.Assertions.assertEquals(UserRole.MERCHANT, users.findByEmailIgnoreCaseOrPhone("seller@example.com", "seller@example.com").orElseThrow().getRole());
+        // approval does not touch users: the STORE_OWNER membership (created at submit) is what makes the seller a merchant
+        var seller = users.findByEmailIgnoreCaseOrPhone("seller@example.com", "seller@example.com").orElseThrow();
+        org.junit.jupiter.api.Assertions.assertTrue(shopMembers.findAll().stream().anyMatch(member ->
+            seller.getId().equals(member.getUserId()) && "STORE_OWNER".equals(member.getRole())));
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + merchant))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("MERCHANT"))
+          .andExpect(jsonPath("$.roleCodes").isArray());
 
         mvc.perform(post("/api/admin/store-applications/bulk/suspend").header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON).content("{\"shopIds\":[" + shopId + "]}"))
           .andExpect(status().isOk()).andExpect(jsonPath("$.updated").value(1)).andExpect(jsonPath("$.applications[0].status").value("SUSPENDED"));
@@ -260,7 +265,7 @@ class MerchantApplicationIntegrationTests {
           .andExpect(status().isOk()).andReturn();
         String firstId = JsonPath.read(submitted.getResponse().getContentAsString(), "$.id");
 
-        var rejecter = users.save(UserAccount.admin("reject-admin@example.com", passwords.encode("Password1")));
+        var rejecter = users.save(UserAccount.systemAccount("reject-admin@example.com", passwords.encode("Password1")));
         platformRoles.save(PlatformRole.grant(rejecter.getId(), PlatformRole.PLATFORM_ADMIN, null, "test"));
         var adminLogin = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
           {"identity":"reject-admin@example.com","password":"Password1"}

@@ -45,6 +45,7 @@ public class Shop {
     @Column(name = "published_at") private Instant publishedAt;
     @Column(name = "suspended_at") private Instant suspendedAt;
     @Column(name = "restored_at") private Instant restoredAt;
+    @Column(name = "deleted_at") private Instant deletedAt;
     @Column(name = "created_date_time", nullable = false) private Instant createdAt;
     @Column(name = "modified_date_time", nullable = false) private Instant updatedAt;
 

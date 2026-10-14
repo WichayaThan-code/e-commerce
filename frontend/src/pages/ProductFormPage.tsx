@@ -8,6 +8,7 @@ import SearchableSelect from "../components/SearchableSelect";
 import MerchantShell from "../components/merchant/MerchantShell";
 import ProductImagesField, { type LocalImage } from "../components/merchant/ProductImagesField";
 import { useActiveShop } from "../contexts/ActiveShopContext";
+import { usePermissions } from "../hooks/usePermissions";
 import { labelForCategory } from "../services/categories";
 import { catalogMessage } from "../services/catalogText";
 import { ApiError, catalogApi, productApi, type Product, type ProductCategory, type TranslationMeta } from "../services/api";
@@ -16,6 +17,9 @@ import {
   type OptionAxis, type ProductDraft,
 } from "./productFormModel";
 import "../styles/form-fields.css";
+
+/** Error keys that have an inline slot in the form; anything else the server reports is listed at the top. */
+const placedField = /^(nameTh|nameEn|nameZh|brand|basePrice|compareAtPrice|weightGrams|skus|images|skus\.\d+\.(skuCode|barcode|price|compareAtPrice|initialStock))$/;
 
 const langFields = [
   { id: "th" as const, locale: null as null, nameKey: "nameTh" as const, descriptionKey: "descriptionTh" as const, required: true },
@@ -35,7 +39,13 @@ export default function ProductFormPage() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation("merchant");
   const { shopId } = useActiveShop();
+  const { canInShop, deniedTitle } = usePermissions();
   const editing = Boolean(productId);
+  const canCreate = canInShop("PRODUCT_CREATE");
+  const canUpdate = canInShop("PRODUCT_UPDATE");
+  // create needs PRODUCT_CREATE; edit, image upload and publish need PRODUCT_UPDATE (same codes the API checks)
+  const canSaveDraft = editing ? canUpdate : canCreate;
+  const canPublish = editing ? canUpdate : canCreate && canUpdate;
   const [draft, setDraft] = useState<ProductDraft>(emptyDraft);
   const [baseline, setBaseline] = useState(() => JSON.stringify(emptyDraft()));
   const [axes, setAxes] = useState<OptionAxis[]>([]);
@@ -43,6 +53,7 @@ export default function ProductFormPage() {
   const [local, setLocal] = useState<LocalImage[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [serverMessages, setServerMessages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(editing);
   const [error, setError] = useState<unknown>(null);
   const [saving, setSaving] = useState<"draft" | "publish" | null>(null);
@@ -88,7 +99,13 @@ export default function ProductFormPage() {
   }, [dirty]);
 
   const locale = i18n.language.startsWith("en") ? "en" : i18n.language.startsWith("zh") ? "zh" : "th";
-  const fieldError = (key: string) => (errors[key] ? t(`catalog.errors.${errors[key]}`) : undefined);
+  const errorText = (code: string, fallback?: string) => {
+    const key = `catalog.errors.${code}`;
+    const translated = t(key);
+    return translated === key ? fallback || code : translated;
+  };
+  const fieldError = (key: string) => (errors[key] ? errorText(errors[key], serverMessages[key]) : undefined);
+  const unplaced = Object.keys(errors).filter((key) => key !== "form" && !placedField.test(key));
   const setSku = (index: number, patch: Partial<ProductDraft["skus"][number]>) => {
     setDraft((current) => ({ ...current, skus: current.skus.map((sku, skuIndex) => skuIndex === index ? { ...sku, ...patch } : sku) }));
   };
@@ -112,8 +129,10 @@ export default function ProductFormPage() {
   const save = async (publish: boolean) => {
     if (shopId == null) return;
     const imageCount = (product?.images.length || 0) + local.length;
+    if (!(publish ? canPublish : canSaveDraft)) return;
     const nextErrors = validateDraft(draft, publish, imageCount);
     setErrors(nextErrors);
+    setServerMessages({});
     if (Object.keys(nextErrors).length) return;
     setSaving(publish ? "publish" : "draft");
     let savedId = productId;
@@ -127,17 +146,17 @@ export default function ProductFormPage() {
         if (saved.images.length > 1 && primaryIndex > 0 && saved.images[primaryIndex]) {
           saved = await productApi.orderImages(shopId, saved.id, saved.images.map((image) => image.id), saved.images[primaryIndex].id);
         }
-        for (const sku of saved.skus) {
-          const source = draft.skus.find((item) => item.skuCode.trim() === sku.skuCode);
-          const qty = Number(source?.initialStock || 0);
-          if (qty > 0) await productApi.adjustStock(shopId, sku.id, { entryType: "RECEIVE", quantityDelta: qty, version: sku.version, idempotencyKey: `open-${saved.id}-${sku.id}` });
-        }
       }
       if (publish) await productApi.publish(shopId, saved.id);
       local.forEach((image) => URL.revokeObjectURL(image.preview));
       skipBlock.current = true;
       navigate(`/merchant/products/${saved.id}`, { replace: true });
     } catch (caught) {
+      if (caught instanceof ApiError && caught.fieldErrors?.length) {
+        // field-level 400 from the API: highlight each field with the server's code/message
+        setErrors(Object.fromEntries(caught.fieldErrors.map((item) => [item.field, item.code])));
+        setServerMessages(Object.fromEntries(caught.fieldErrors.map((item) => [item.field, item.message])));
+      }
       toast(catalogMessage(t, caught), "fail");
       if (!editing && savedId && savedId !== productId) {
         skipBlock.current = true;
@@ -180,6 +199,7 @@ export default function ProductFormPage() {
       ) : shopId == null ? null : (
         <form className="product-form-card" onSubmit={(event) => { event.preventDefault(); void save(false); }}>
           {errors.form ? <p className="form-field-error">{t(`catalog.errors.${errors.form}`)}</p> : null}
+          {unplaced.length ? <p className="form-field-error">{unplaced.map((key) => errorText(errors[key], serverMessages[key])).join(" · ")}</p> : null}
           <h3>{t("catalog.form.general")}</h3>
           <p className="pm-lang-hint">{t("catalog.form.langsHint")}</p>
           {langFields.map((field) => (
@@ -241,7 +261,8 @@ export default function ProductFormPage() {
             />
             <label>
               {t("catalog.form.brand")}
-              <input value={draft.brand} placeholder={t("catalog.form.brandPh")} onChange={(event) => setDraft({ ...draft, brand: event.target.value })} />
+              <input value={draft.brand} aria-invalid={Boolean(errors.brand)} placeholder={t("catalog.form.brandPh")} onChange={(event) => setDraft({ ...draft, brand: event.target.value })} />
+              <FieldError text={fieldError("brand")} />
             </label>
           </div>
           <fieldset>
@@ -259,7 +280,7 @@ export default function ProductFormPage() {
               </button>
             </div>
           </fieldset>
-          {errors.skus ? <FieldError text={t(`catalog.errors.${errors.skus}`)} /> : null}
+          {errors.skus ? <FieldError text={fieldError("skus")} /> : null}
           <h3>{t("catalog.form.price")}</h3>
           <div className="merchant-two">
             <label>
@@ -343,6 +364,11 @@ export default function ProductFormPage() {
                     <FieldError text={fieldError(`skus.${index}.initialStock`)} />
                   </label>
                 )}
+                <label>
+                  {t("catalog.form.barcode")}
+                  <input value={sku.barcode} aria-invalid={Boolean(errors[`skus.${index}.barcode`])} placeholder={t("catalog.form.barcodePh")} onChange={(event) => setSku(index, { barcode: event.target.value })} />
+                  <FieldError text={fieldError(`skus.${index}.barcode`)} />
+                </label>
                 {draft.productType === "VARIABLE" && draft.skus.length > 1 ? <button type="button" className="product-text-button" onClick={() => setDraft({ ...draft, skus: draft.skus.filter((_, skuIndex) => skuIndex !== index) })}><Trash2 />{t("catalog.form.remove")}</button> : null}
               </div>
             ))}
@@ -354,12 +380,13 @@ export default function ProductFormPage() {
             local={local}
             onLocal={setLocal}
             onRemote={(saved) => setRemote([saved])}
-            onError={(code) => toast(t(`catalog.errors.${code}`), "fail")}
+            onError={(code) => toast(errorText(code), "fail")}
+            disabled={!canUpdate}
           />
-          {errors.images ? <FieldError text={t(`catalog.errors.${errors.images}`)} /> : null}
+          {errors.images ? <FieldError text={fieldError("images")} /> : null}
           <div className="product-form-actions">
-            <button type="submit" className="product-draft" disabled={Boolean(saving)}>{saving === "draft" ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.saveDraft")}</button>
-            <button type="button" className="login-submit" disabled={Boolean(saving)} onClick={() => void save(true)}>{saving === "publish" ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.savePublish")}</button>
+            <button type="submit" className="product-draft" disabled={Boolean(saving) || !canSaveDraft} title={deniedTitle(canSaveDraft)}>{saving === "draft" ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.saveDraft")}</button>
+            <button type="button" className="login-submit" disabled={Boolean(saving) || !canPublish} title={deniedTitle(canPublish)} onClick={() => void save(true)}>{saving === "publish" ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.savePublish")}</button>
           </div>
         </form>
       )}

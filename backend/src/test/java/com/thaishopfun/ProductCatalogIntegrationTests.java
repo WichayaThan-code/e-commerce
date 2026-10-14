@@ -4,6 +4,8 @@ import com.jayway.jsonpath.JsonPath;
 import com.thaishopfun.auth.RefreshTokenRepository;
 import com.thaishopfun.auth.UserAccount;
 import com.thaishopfun.auth.UserAccountRepository;
+import com.thaishopfun.auth.authz.PlatformRole;
+import com.thaishopfun.auth.authz.PlatformRoleRepository;
 import com.thaishopfun.catalog.InventoryLedgerRepository;
 import com.thaishopfun.catalog.ProductImportJobService;
 import com.thaishopfun.catalog.ProductSpreadsheet;
@@ -57,6 +59,7 @@ class ProductCatalogIntegrationTests {
     @Autowired RefreshTokenRepository refreshTokens;
     @Autowired UserAccountRepository users;
     @Autowired PasswordEncoder passwords;
+    @Autowired PlatformRoleRepository platformRoles;
     @Autowired ProductImportJobService importJobs;
 
     @BeforeEach
@@ -73,6 +76,7 @@ class ProductCatalogIntegrationTests {
         ownerAudits.deleteAll();
         owners.deleteAll();
         refreshTokens.deleteAll();
+        platformRoles.deleteAll();
         users.deleteAll();
     }
 
@@ -88,7 +92,8 @@ class ProductCatalogIntegrationTests {
         mvc.perform(get("/api/shops/" + pending.slug)).andExpect(status().isNotFound());
         mvc.perform(get("/api/shops/" + pending.slug + "/products")).andExpect(status().isNotFound());
 
-        users.save(UserAccount.admin("catalog-admin@example.com", passwords.encode("Password1")));
+        var catalogAdmin = users.save(UserAccount.systemAccount("catalog-admin@example.com", passwords.encode("Password1")));
+        platformRoles.save(PlatformRole.grant(catalogAdmin.getId(), PlatformRole.PLATFORM_ADMIN, null, "test"));
         var adminLogin = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
             {"identity":"catalog-admin@example.com","password":"Password1"}
             """)).andExpect(status().isOk()).andReturn();
@@ -238,7 +243,9 @@ class ProductCatalogIntegrationTests {
         Number shopId = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].shopId");
         String slug = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].slug");
         if (approve) {
-            users.save(UserAccount.admin("approver-" + phone + "@example.com", passwords.encode("Password1")));
+            // admin rights come only from platform_roles (users.role no longer exists)
+            var approver = users.save(UserAccount.systemAccount("approver-" + phone + "@example.com", passwords.encode("Password1")));
+            platformRoles.save(PlatformRole.grant(approver.getId(), PlatformRole.PLATFORM_ADMIN, null, "test"));
             var adminLogin = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
                 {"identity":"approver-%s@example.com","password":"Password1"}
                 """.formatted(phone))).andExpect(status().isOk()).andReturn();

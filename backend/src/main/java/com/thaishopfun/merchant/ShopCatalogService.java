@@ -1,6 +1,7 @@
 package com.thaishopfun.merchant;
 
 import com.thaishopfun.auth.AuthException;
+import com.thaishopfun.auth.authz.AuthorizationService;
 import com.thaishopfun.translation.ContentTranslationBridge;
 import com.thaishopfun.translation.ContentTranslationIndex;
 import com.thaishopfun.translation.TranslationEntityType;
@@ -21,19 +22,22 @@ public class ShopCatalogService {
     private final MerchantStorageService storage;
     private final TranslationService translations;
     private final ContentTranslationBridge translationBridge;
+    private final AuthorizationService authorization;
 
     public ShopCatalogService(
         ShopRepository shops,
         ShopMemberRepository members,
         MerchantStorageService storage,
         TranslationService translations,
-        ContentTranslationBridge translationBridge
+        ContentTranslationBridge translationBridge,
+        AuthorizationService authorization
     ) {
         this.shops = shops;
         this.members = members;
         this.storage = storage;
         this.translations = translations;
         this.translationBridge = translationBridge;
+        this.authorization = authorization;
     }
 
     @Transactional
@@ -66,14 +70,24 @@ public class ShopCatalogService {
     }
 
     @Transactional(readOnly = true)
-    public MerchantDtos.PublicShopResponse publicView(String slug, UUID viewerId, boolean admin) {
+    public MerchantDtos.PublicShopResponse publicView(String slug, UUID viewerId) {
         var shop = shops.findBySlug(slug).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า"));
-        var owner = shop.getUser() != null && viewerId != null && viewerId.equals(shop.getUser().getId());
-        if (shop.getStatus() != ShopStatus.APPROVED && !admin && !owner) {
+        if (shop.getStatus() != ShopStatus.APPROVED && !canPreview(shop, viewerId)) {
             throw new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า");
         }
         var index = translations.loadIndex(TranslationEntityType.SHOP, List.of(String.valueOf(shop.getId())));
         return toPublic(shop, index);
+    }
+
+    /**
+     * A shop that is not APPROVED is visible only to its owner, its active members and platform staff with
+     * PLATFORM_SHOP_READ (super admin included), all read from the role tables (no JWT role claim).
+     */
+    private boolean canPreview(Shop shop, UUID viewerId) {
+        if (viewerId == null) return false;
+        if (shop.getUser() != null && viewerId.equals(shop.getUser().getId())) return true;
+        if (authorization.grants(viewerId).shopRoles().containsKey(shop.getId())) return true;
+        return authorization.hasPermission(viewerId, "PLATFORM_SHOP_READ");
     }
 
     @Transactional(readOnly = true)

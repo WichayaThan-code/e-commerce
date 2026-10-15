@@ -118,13 +118,27 @@ public class TranslationService {
     @Transactional
     public void retry(TranslationEntityType entityType, String entityId, String fieldName, String locale) {
         var row = repository.findByEntityTypeAndEntityIdAndFieldNameAndLocale(entityType, entityId, fieldName, locale).orElse(null);
-        if (row == null || row.getStatus() != TranslationStatus.FAILED) return;
+        if (row == null) throw new RetryRejected("TRANSLATION_NOT_FOUND", "ไม่พบงานแปลของฟิลด์นี้");
+        if (row.getStatus() != TranslationStatus.FAILED && row.getStatus() != TranslationStatus.PENDING) {
+            throw new RetryRejected("TRANSLATION_NOT_RETRYABLE", "เข้าคิวใหม่ได้เฉพาะงานที่กำลังรอหรือแปลไม่สำเร็จ สถานะปัจจุบันคือ " + row.getStatus());
+        }
         row.setStatus(TranslationStatus.PENDING);
         row.setAttempts(0);
         row.setErrorMessage(null);
         row.setOrigin(TranslationOrigin.MACHINE);
         repository.save(row);
         events.publishEvent(new TranslationRequestedEvent(entityType, entityId));
+    }
+
+    public static final class RetryRejected extends RuntimeException {
+        private final String code;
+
+        public RetryRejected(String code, String message) {
+            super(message);
+            this.code = code;
+        }
+
+        public String code() { return code; }
     }
 
     @Transactional

@@ -22,6 +22,7 @@ import AdminCategoriesPage from "../pages/AdminCategoriesPage";
 import AdminPromotionsPage from "../pages/AdminPromotionsPage";
 import AdminUsersPage from "../pages/AdminUsersPage";
 import AdminRolesPage from "../pages/AdminRolesPage";
+import AdminShopRoleAssignmentsPage from "../pages/AdminShopRoleAssignmentsPage";
 
 import MerchantDashboardPage from "../pages/MerchantDashboardPage";
 import ProductManagementPage from "../pages/ProductManagementPage";
@@ -97,6 +98,7 @@ export const routes: RouteObject[] = [
   { path: "/admin/promotions", element: guarded("/admin/promotions", <AdminPromotionsPage />) },
   { path: "/admin/users", element: guarded("/admin/users", <AdminUsersPage />) },
   { path: "/admin/roles", element: guarded("/admin/roles", <AdminRolesPage />) },
+  { path: "/admin/role-assignments", element: guarded("/admin/role-assignments", <AdminShopRoleAssignmentsPage />) },
 
   // 4. กลุ่มหน้า Merchant
   {

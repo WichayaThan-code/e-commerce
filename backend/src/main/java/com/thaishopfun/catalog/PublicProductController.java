@@ -5,6 +5,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import com.thaishopfun.auth.authz.PublicEndpoint;
 import com.thaishopfun.translation.ContentLocale;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,7 +19,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 @RestController
-@PublicEndpoint("public storefront products: CATALOG_READ (GUEST)")
+@PublicEndpoint // storefront catalog: anonymous browsing (unpublished goods / unapproved shops are filtered by the service)
 @RequestMapping("/api/shops/{slug}/products")
 public class PublicProductController {
     private final ProductService products;

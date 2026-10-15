@@ -325,7 +325,14 @@
     "dialogClose": "Close",
     "empty": "—"
   },
+  "shopMenu": {
+    "openFailed": "Could not open a form for another shop"
+  },
   "catalog": {
+    "toggle": {
+      "on": "On",
+      "off": "Off"
+    },
     "menu": {
       "searchPh": "Search products, orders, customers...",
       "help": "Help",
@@ -374,6 +381,10 @@
       "SKU_REQUIRED": "At least one SKU is required",
       "SKU_CODE_REQUIRED": "SKU code is required",
       "PUBLISH_INCOMPLETE": "Complete required fields before publishing",
+      "PUBLISH_SKU_REQUIRED": "At least one SKU must be on sale before publishing",
+      "PUBLISHED_SKU_REQUIRED": "A published product needs at least one SKU on sale",
+      "BARCODE_INVALID": "Barcode may use only A-Z, digits, and hyphen",
+      "SAFETY_STOCK_INVALID": "Safety stock must be a whole number from 0 to 1,000,000",
       "SKU_CODE_DUPLICATE_IN_FORM": "This SKU is duplicated in the form",
       "SKU_CODE_TAKEN": "This SKU is already used in the shop",
       "VARIANT_COMBINATION_DUPLICATE": "This option combination is duplicated",
@@ -381,7 +392,10 @@
       "SKU_HAS_STOCK": "A variant still has stock or a reservation",
       "OPTION_SCHEMA_INVALID": "Add 1 to 3 option groups",
       "OPTION_VALUES_MISMATCH": "Option values do not match the groups",
-      "IMAGE_NOT_ON_PRODUCT": "This image does not belong to the product"
+      "IMAGE_NOT_ON_PRODUCT": "This image does not belong to the product",
+      "OPTION_VALUE_UNUSED": "This option value has no active SKU",
+      "TRANSLATION_NOT_FOUND": "No translation job was found for this field",
+      "TRANSLATION_NOT_RETRYABLE": "Only waiting or failed translations can be queued again"
     },
     "variants": {
       "title": "Variants",
@@ -396,6 +410,7 @@
       "selectMatching": "Select matching rows",
       "apply": "Apply to selected rows",
       "generate": "Generate SKUs from prefix",
+      "fillCombinations": "Create all option combinations",
       "prefix": "SKU prefix",
       "tooMany": "More than 100 combinations. Remove some option values before building the table.",
       "optionUncovered": "An option value has no matching SKU",
@@ -407,7 +422,10 @@
       "barcode": "Barcode",
       "weight": "Weight",
       "stock": "Stock",
-      "active": "Enabled",
+      "safety": "Safety stock",
+      "active": "On sale",
+      "selectRow": "Select row",
+      "removeValue": "Remove {{name}}",
       "inactive": "Disabled",
       "image": "Image",
       "imageN": "Image {{n}}",
@@ -436,7 +454,8 @@
       "savePublish": "Save & publish",
       "clear": "Clear filters",
       "addFirst": "Add first product",
-      "view": "View details"
+      "view": "View details",
+      "close": "Close"
     },
     "detail": {
       "gallery": "Gallery",
@@ -451,6 +470,9 @@
       "onHand": "On hand",
       "reserved": "Reserved",
       "available": "Available",
+      "safetyStock": "Safety stock",
+      "reservedBefore": "Reserved before",
+      "reservedAfter": "Reserved after",
       "actor": "By",
       "delta": "Quantity",
       "reason": "Reason",
@@ -539,6 +561,16 @@
     "title": "Product catalog",
     "add": "Add product",
     "export": "Export",
+    "downloadTemplate": "Download template",
+    "variantLine": "{{count}} options · total stock {{stock}}",
+    "importResult": {
+      "title": "Import result",
+      "summary": "Created {{created}} products · {{skuCreated}} SKUs · {{failed}} failed",
+      "row": "Excel row",
+      "productKey": "productKey",
+      "skuCode": "skuCode",
+      "message": "Message"
+    },
     "import": "Import",
     "importHint": "Thai name and description are enough. EN/ZH are translated automatically. Filled nameEn, nameZh, descriptionEn, or descriptionZh are kept. Place a JPG, PNG, or WEBP on the row, or put an image link in the image column",
     "importDialogTitle": "Importing products",

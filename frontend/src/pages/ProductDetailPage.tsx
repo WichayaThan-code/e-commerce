@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Archive, ExternalLink, LoaderCircle, Pencil, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import ConfirmDialog from "../components/form/ConfirmDialog";
+import SearchableSelect from "../components/SearchableSelect";
 import MerchantShell from "../components/merchant/MerchantShell";
 import AuthImage from "../components/merchant/AuthImage";
 import { useActiveShop } from "../contexts/ActiveShopContext";
@@ -68,8 +70,7 @@ export default function ProductDetailPage() {
     if (shopId == null || !product) return;
     const sku = product.skus.find((item) => item.id === adjust.skuId);
     const quantity = Number(adjust.quantityDelta);
-    const issue = adjust.entryType === "ISSUE";
-    const needsPositive = issue || adjust.entryType === "RECEIVE" || adjust.entryType === "RESERVE" || adjust.entryType === "RELEASE";
+    const needsPositive = adjust.entryType === "ISSUE" || adjust.entryType === "RECEIVE" || adjust.entryType === "RESERVE" || adjust.entryType === "RELEASE";
     if (!sku || !Number.isInteger(quantity) || (needsPositive ? quantity <= 0 : quantity === 0)) {
       toast(t("catalog.errors.INVALID_ADJUSTMENT"), "fail");
       return;
@@ -81,8 +82,8 @@ export default function ProductDetailPage() {
     setBusy(true);
     try {
       await productApi.adjustStock(shopId, sku.id, {
-        entryType: adjust.entryType === "ISSUE" ? "ADJUST" : adjust.entryType,
-        quantityDelta: issue ? -quantity : quantity,
+        entryType: adjust.entryType,
+        quantityDelta: quantity,
         reason: adjust.reason.trim() || undefined,
         version: sku.version,
       });
@@ -122,13 +123,15 @@ export default function ProductDetailPage() {
   const image = product.images[activeImage] || product.images[0];
   const locale = i18n.language;
   const stockTotal = product.skus.reduce((sum, sku) => sum + sku.available, 0);
+  const movementKey: Record<StockMovement, string> = { RECEIVE: "receive", ISSUE: "issue", ADJUST: "adjust", RESERVE: "reserve", RELEASE: "release" };
   const movementLabel = (entry: LedgerEntry) => {
-    if (entry.entryType === "RECEIVE") return t("catalog.detail.receive");
-    if (entry.entryType === "RESERVE") return t("catalog.detail.reserve");
-    if (entry.entryType === "RELEASE") return t("catalog.detail.release");
-    if (entry.entryType === "ADJUST" && entry.quantityDelta < 0) return t("catalog.detail.issue");
-    return t("catalog.detail.adjust");
+    const key = movementKey[entry.entryType as StockMovement];
+    return key ? t(`catalog.detail.${key}`) : entry.entryType;
   };
+  const movements: StockMovement[] = ["RECEIVE", "ISSUE", "ADJUST", "RESERVE", "RELEASE"];
+  const movementText = (type: StockMovement) => t(`catalog.detail.${movementKey[type]}`);
+  const skuLabel = (sku: ProductSku) => sku.skuCode;
+  const selectedSku = product.skus.find((sku) => sku.id === adjust.skuId);
   const stockMark = (sku: ProductSku) => (sku.available <= 0 && sku.onHand > 0 ? "low" : sku.available <= 0 ? "out" : null);
   const names = { th: product.nameTh, en: product.nameEn, zh: product.nameZh };
   const descriptions = { th: product.descriptionTh, en: product.descriptionEn, zh: product.descriptionZh };
@@ -192,7 +195,7 @@ export default function ProductDetailPage() {
           <h2>{t("catalog.detail.skus")}</h2>
           <div className="pm-table-scroll">
             <table>
-              <thead><tr><th>{t("catalog.form.sku")}</th><th>{t("catalog.form.options")}</th><th>{t("catalog.form.price")}</th><th>{t("catalog.detail.onHand")}</th><th>{t("catalog.detail.reserved")}</th><th>{t("catalog.detail.available")}</th></tr></thead>
+              <thead><tr><th>{t("catalog.form.sku")}</th><th>{t("catalog.form.options")}</th><th>{t("catalog.form.price")}</th><th>{t("catalog.detail.onHand")}</th><th>{t("catalog.detail.reserved")}</th><th>{t("catalog.detail.safetyStock")}</th><th>{t("catalog.detail.available")}</th></tr></thead>
               <tbody>
                 {product.skus.map((sku) => {
                   const mark = stockMark(sku);
@@ -203,6 +206,7 @@ export default function ProductDetailPage() {
                     <td>{formatMoney(sku.price, locale)}</td>
                     <td>{sku.onHand}</td>
                     <td>{sku.reservedQty}</td>
+                    <td>{sku.safetyStock ?? 0}</td>
                     <td>{sku.available}{mark === "out" ? <span className="pm-status empty">{t("catalog.badges.out")}</span> : mark === "low" ? <span className="pm-status low">{t("catalog.badges.low")}</span> : null}</td>
                   </tr>
                   );
@@ -211,20 +215,26 @@ export default function ProductDetailPage() {
             </table>
           </div>
           <form className="pm-adjust" onSubmit={(event) => { event.preventDefault(); void submitStock(); }}>
-            <label>{t("catalog.form.sku")}
-              <select value={adjust.skuId} onChange={(event) => setAdjust({ ...adjust, skuId: event.target.value })}>
-                {product.skus.map((sku) => <option key={sku.id} value={sku.id}>{sku.skuCode}</option>)}
-              </select>
-            </label>
-            <label>{t("catalog.detail.entry")}
-              <select value={adjust.entryType} onChange={(event) => setAdjust({ ...adjust, entryType: event.target.value as StockMovement })}>
-                <option value="RECEIVE">{t("catalog.detail.receive")}</option>
-                <option value="ISSUE">{t("catalog.detail.issue")}</option>
-                <option value="ADJUST">{t("catalog.detail.adjust")}</option>
-                <option value="RESERVE">{t("catalog.detail.reserve")}</option>
-                <option value="RELEASE">{t("catalog.detail.release")}</option>
-              </select>
-            </label>
+            <SearchableSelect
+              label={t("catalog.form.sku")}
+              placeholder={t("catalog.form.sku")}
+              options={product.skus.map(skuLabel)}
+              value={selectedSku ? skuLabel(selectedSku) : ""}
+              onChange={(picked) => {
+                const match = product.skus.find((sku) => skuLabel(sku) === picked);
+                if (match) setAdjust({ ...adjust, skuId: match.id });
+              }}
+            />
+            <SearchableSelect
+              label={t("catalog.detail.entry")}
+              placeholder={t("catalog.detail.entry")}
+              options={movements.map(movementText)}
+              value={movementText(adjust.entryType)}
+              onChange={(picked) => {
+                const match = movements.find((type) => movementText(type) === picked);
+                if (match) setAdjust({ ...adjust, entryType: match });
+              }}
+            />
             <label>{t("catalog.detail.delta")}
               <input inputMode="numeric" value={adjust.quantityDelta} onChange={(event) => setAdjust({ ...adjust, quantityDelta: event.target.value })} />
             </label>
@@ -241,7 +251,7 @@ export default function ProductDetailPage() {
           {ledger.length === 0 ? <p className="pm-empty-note">{t("catalog.detail.emptyLedger")}</p> : (
             <div className="pm-table-scroll">
               <table>
-                <thead><tr><th>{t("catalog.detail.when")}</th><th>{t("catalog.form.sku")}</th><th>{t("catalog.detail.entry")}</th><th>{t("catalog.detail.delta")}</th><th>{t("catalog.detail.before")}</th><th>{t("catalog.detail.after")}</th><th>{t("catalog.detail.actor")}</th><th>{t("catalog.detail.reason")}</th></tr></thead>
+                <thead><tr><th>{t("catalog.detail.when")}</th><th>{t("catalog.form.sku")}</th><th>{t("catalog.detail.entry")}</th><th>{t("catalog.detail.delta")}</th><th>{t("catalog.detail.before")}</th><th>{t("catalog.detail.after")}</th><th>{t("catalog.detail.reservedBefore")}</th><th>{t("catalog.detail.reservedAfter")}</th><th>{t("catalog.detail.actor")}</th><th>{t("catalog.detail.reason")}</th></tr></thead>
                 <tbody>
                   {ledger.map((entry) => (
                     <tr key={entry.id}>
@@ -251,6 +261,8 @@ export default function ProductDetailPage() {
                       <td className={entry.quantityDelta < 0 ? "is-down" : "is-up"}>{entry.quantityDelta > 0 ? `+${entry.quantityDelta}` : entry.quantityDelta}</td>
                       <td>{entry.onHandBefore}</td>
                       <td>{entry.onHandAfter}</td>
+                      <td>{entry.reservedBefore ?? "—"}</td>
+                      <td>{entry.reservedAfter ?? "—"}</td>
                       <td>{entry.actorName || "—"}</td>
                       <td>{entry.reason || "—"}</td>
                     </tr>
@@ -262,16 +274,15 @@ export default function ProductDetailPage() {
         </section>
       </div>
       {confirm && (
-        <div className="pm-dialog" role="dialog" aria-modal="true">
-          <section>
-            <h2>{t("catalog.archiveTitle")}</h2>
-            <p>{t("catalog.archiveBody")}</p>
-            <div>
-              <button type="button" onClick={() => setConfirm(false)}>{t("catalog.actions.cancel")}</button>
-              <button type="button" className="primary" disabled={busy} onClick={() => void act("archive")}>{t("catalog.actions.confirm")}</button>
-            </div>
-          </section>
-        </div>
+        <ConfirmDialog
+          title={t("catalog.archiveTitle")}
+          message={t("catalog.archiveBody")}
+          cancelLabel={t("catalog.actions.cancel")}
+          confirmLabel={t("catalog.actions.confirm")}
+          confirmDisabled={busy}
+          onCancel={() => setConfirm(false)}
+          onConfirm={() => void act("archive")}
+        />
       )}
     </MerchantShell>
   );

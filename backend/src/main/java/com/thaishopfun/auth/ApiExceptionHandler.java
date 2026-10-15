@@ -2,6 +2,9 @@ package com.thaishopfun.auth;
 
 import com.thaishopfun.catalog.CatalogDtos;
 import com.thaishopfun.catalog.ImportRunningException;
+import com.thaishopfun.common.ApiValidationError;
+import com.thaishopfun.common.ValidationException;
+import com.thaishopfun.common.ValidationMessages;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -28,6 +31,13 @@ public class ApiExceptionHandler {
     @ExceptionHandler(ImportRunningException.class)
     ResponseEntity<CatalogDtos.ProductImportConflict> importRunning(ImportRunningException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new CatalogDtos.ProductImportConflict("IMPORT_RUNNING", exception.getMessage(), exception.jobId()));
+    }
+
+    /** Field-level validation failure from a service (more specific than AuthException, so it wins). */
+    @ExceptionHandler(ValidationException.class)
+    ResponseEntity<ApiValidationError> fieldValidation(ValidationException exception) {
+        var first = exception.getViolations().isEmpty() ? exception.getMessage() : exception.getViolations().get(0).message();
+        return ResponseEntity.status(exception.getStatus()).body(new ApiValidationError(exception.getCode(), first, exception.getViolations()));
     }
 
     @ExceptionHandler(AuthException.class)

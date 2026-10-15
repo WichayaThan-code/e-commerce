@@ -101,7 +101,8 @@ class ProductCatalogIntegrationTests {
         mvc.perform(get("/api/shops/" + pending.slug)).andExpect(status().isNotFound());
         mvc.perform(get("/api/shops/" + pending.slug + "/products")).andExpect(status().isNotFound());
 
-        users.save(UserAccount.admin("catalog-admin@example.com", passwords.encode("Password1")));
+        var catalogAdmin = users.save(UserAccount.systemAccount("catalog-admin@example.com", passwords.encode("Password1")));
+        platformRoles.save(PlatformRole.grant(catalogAdmin.getId(), PlatformRole.PLATFORM_ADMIN, null, "test"));
         var adminLogin = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
             {"identity":"catalog-admin@example.com","password":"Password1"}
             """)).andExpect(status().isOk()).andReturn();
@@ -445,7 +446,7 @@ class ProductCatalogIntegrationTests {
         org.junit.jupiter.api.Assertions.assertEquals(3, ((Number) JsonPath.read(body, "$.skuCreated")).intValue());
         org.junit.jupiter.api.Assertions.assertEquals(1, ((Number) JsonPath.read(body, "$.failed")).intValue());
         org.junit.jupiter.api.Assertions.assertEquals(5, ((Number) JsonPath.read(body, "$.errors[0].row")).intValue());
-        org.junit.jupiter.api.Assertions.assertTrue(JsonPath.read(body, "$.errors[0].message").toString().contains("OPTION_VALUES_MISMATCH"), body);
+        org.junit.jupiter.api.Assertions.assertTrue(JsonPath.read(body, "$.errors[0].message").toString().contains("VARIANT_OPTION_REQUIRED"), body);
 
         var listed = mvc.perform(get("/api/merchant/shops/" + shop.shopId + "/products").header("Authorization", "Bearer " + shop.token))
             .andExpect(status().isOk())
@@ -642,7 +643,8 @@ class ProductCatalogIntegrationTests {
         Number shopId = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].shopId");
         String slug = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].slug");
         if (approve) {
-            var approver = users.save(UserAccount.admin("approver-" + phone + "@example.com", passwords.encode("Password1")));
+            // admin rights come only from platform_roles (users.role no longer exists)
+            var approver = users.save(UserAccount.systemAccount("approver-" + phone + "@example.com", passwords.encode("Password1")));
             platformRoles.save(PlatformRole.grant(approver.getId(), PlatformRole.PLATFORM_ADMIN, null, "test"));
             var adminLogin = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
                 {"identity":"approver-%s@example.com","password":"Password1"}

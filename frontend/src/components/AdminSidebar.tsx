@@ -14,7 +14,7 @@ export function refreshAdminStoreApplications() {
   window.dispatchEvent(new Event(STORE_APPLICATIONS_CHANGED))
 }
 
-export type AdminSection = 'home' | 'stores' | 'applications' | 'categories' | 'promotions' | 'users' | 'roles'
+export type AdminSection = 'home' | 'stores' | 'applications' | 'categories' | 'promotions' | 'users' | 'roles' | 'role-assignments'
 
 const links: { key: AdminSection; label: string; href: string; icon: typeof Store }[] = [
   { key: 'stores', label: 'ร้านค้า', href: '/admin/stores', icon: Store },
@@ -23,11 +23,12 @@ const links: { key: AdminSection; label: string; href: string; icon: typeof Stor
   { key: 'promotions', label: 'โปรโมชั่น/แคมเปญ', href: '/admin/promotions', icon: Megaphone },
   { key: 'users', label: 'ผู้ใช้งาน', href: '/admin/users', icon: UsersRound },
   { key: 'roles', label: 'บทบาทและสิทธิ์', href: '/admin/roles', icon: UserCog },
+  { key: 'role-assignments', label: 'ผูกผู้ใช้กับ role', href: '/admin/role-assignments', icon: UserCog },
 ]
 
 const groups: { label: string; keys: AdminSection[] }[] = [
   { label: 'จัดการร้านค้า', keys: ['stores', 'applications', 'categories', 'promotions'] },
-  { label: 'จัดการผู้ใช้', keys: ['users', 'roles'] },
+  { label: 'จัดการผู้ใช้', keys: ['users', 'roles', 'role-assignments'] },
 ]
 
 const placeholders = [

@@ -3,6 +3,7 @@ import { ImagePlus, Star, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { productApi, type Product, type ProductImage } from "../../services/api";
 import AuthImage from "./AuthImage";
+import { NO_PERMISSION_TITLE } from "../../hooks/usePermissions";
 
 export type LocalImage = { key: string; file: File; preview: string; primary: boolean; progress?: number };
 
@@ -19,7 +20,7 @@ function acceptFile(file: File) {
 }
 
 export default function ProductImagesField({
-  shopId, productId, remote, local, onLocal, onRemote, onError,
+  shopId, productId, remote, local, onLocal, onRemote, onError, disabled = false,
 }: {
   shopId: number;
   productId?: string | null;
@@ -28,6 +29,8 @@ export default function ProductImagesField({
   onLocal: (images: LocalImage[]) => void;
   onRemote: (product: Product) => void;
   onError: (code: string) => void;
+  /** no PRODUCT_UPDATE in this shop: images can be viewed but not uploaded, reordered or deleted */
+  disabled?: boolean;
 }) {
   const { t } = useTranslation("merchant");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,6 +39,7 @@ export default function ProductImagesField({
   const total = remote.length + local.length;
 
   const addFiles = async (files: File[]) => {
+    if (disabled) return;
     const room = MAX_IMAGES - total;
     if (room <= 0) {
       onError("IMAGE_LIMIT");
@@ -98,7 +102,7 @@ export default function ProductImagesField({
   };
 
   const moveRemote = async (from: number, to: number) => {
-    if (!productId || from === to) return;
+    if (disabled || !productId || from === to) return;
     const next = [...remote];
     const [item] = next.splice(from, 1);
     next.splice(to, 0, item);
@@ -123,6 +127,8 @@ export default function ProductImagesField({
       <button
         type="button"
         className={dragOver ? "pm-drop over" : "pm-drop"}
+        disabled={disabled}
+        title={disabled ? NO_PERMISSION_TITLE : undefined}
         onClick={() => inputRef.current?.click()}
         onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
@@ -159,8 +165,8 @@ export default function ProductImagesField({
             <AuthImage path={image.url} alt="" />
             {image.primary ? <em>{t("catalog.images.primary")}</em> : null}
             <div>
-              <button type="button" aria-label={t("catalog.images.setPrimary")} onClick={() => void setPrimaryRemote(image.id).catch((error) => onError(error?.code || "REQUEST_FAILED"))}><Star /></button>
-              <button type="button" aria-label={t("catalog.images.remove")} onClick={() => void removeRemote(image.id).catch((error) => onError(error?.code || "REQUEST_FAILED"))}><Trash2 /></button>
+              <button type="button" aria-label={t("catalog.images.setPrimary")} disabled={disabled} onClick={() => void setPrimaryRemote(image.id).catch((error) => onError(error?.code || "REQUEST_FAILED"))}><Star /></button>
+              <button type="button" aria-label={t("catalog.images.remove")} disabled={disabled} onClick={() => void removeRemote(image.id).catch((error) => onError(error?.code || "REQUEST_FAILED"))}><Trash2 /></button>
             </div>
           </figure>
         ))}

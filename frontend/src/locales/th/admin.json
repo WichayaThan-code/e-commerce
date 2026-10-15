@@ -8,5 +8,24 @@
   "shopCount": "ร้าน",
   "empty": "ไม่มีร้านที่รออนุมัติ",
   "waiting": "รอการอนุมัติ",
-  "unknownOwner": "ไม่ระบุเจ้าของ"
+  "unknownOwner": "ไม่ระบุเจ้าของ",
+  "confirm": {
+    "cancel": "ยกเลิก",
+    "confirm": "ยืนยัน",
+    "deactivateRoleTitle": "ปิดใช้งานบทบาท",
+    "deactivateRoleBody": "ปิดใช้งานบทบาท {{name}} และเพิกถอนบทบาทนี้จากผู้ใช้ทั้งหมดหรือไม่?",
+    "removeMemberTitle": "นำออกจากร้าน",
+    "removeMemberBody": "นำ {{name}} ออกจากร้านนี้หรือไม่?",
+    "suspendStoreTitle": "ระงับร้าน",
+    "suspendStoreBody": "ระงับร้าน {{name}}?",
+    "reactivateStoreTitle": "เปิดใช้งานร้าน",
+    "reactivateStoreBody": "เปิดใช้งานร้าน {{name}} อีกครั้ง?",
+    "appealNote": "คำร้องปลดระงับ: {{appeal}}",
+    "suspendUserTitle": "ระงับบัญชี",
+    "suspendUserBody": "ระงับบัญชีนี้และออกจากระบบทุกอุปกรณ์หรือไม่?",
+    "restoreUserTitle": "คืนสถานะบัญชี",
+    "restoreUserBody": "คืนสถานะบัญชีนี้หรือไม่?",
+    "deleteUserTitle": "ลบบัญชี",
+    "deleteUserBody": "ลบบัญชี {{name}} หรือไม่? การลบเป็นแบบเก็บประวัติและไม่สามารถยกเลิกได้"
+  }
 }

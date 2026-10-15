@@ -69,8 +69,7 @@ public class StoreReviewService {
         if (shop.getStatus() == ShopStatus.APPROVED || shop.getStatus() == ShopStatus.SUSPENDED) {
             throw new AuthException(HttpStatus.CONFLICT, "SHOP_ALREADY_APPROVED", "ร้านนี้ได้รับการอนุมัติแล้ว ไม่สามารถอนุมัติซ้ำได้");
         }
-        shop.approve();
-        shop.getUser().promoteToMerchant();
+        shop.approve(); // the owner's STORE_OWNER membership (shop_members) already exists; it is the source of truth
         return toAdmin(shop);
     }
 
@@ -86,10 +85,7 @@ public class StoreReviewService {
 
     @Transactional
     public MerchantDtos.BulkShopResponse approveMany(List<Long> shopIds) {
-        return applyMany(shopIds, ShopStatus.PENDING_REVIEW, shop -> {
-            shop.approve();
-            shop.getUser().promoteToMerchant();
-        });
+        return applyMany(shopIds, ShopStatus.PENDING_REVIEW, Shop::approve);
     }
 
     @Transactional

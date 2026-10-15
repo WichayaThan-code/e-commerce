@@ -13,7 +13,11 @@
 .confirm-dialog button:first-child{border:1px solid #c5d4e6;background:#fff;color:#4d6789}
 .confirm-dialog button:last-child{border:0;background:linear-gradient(100deg,#087cf5,#0866ef);color:#fff}
 .confirm-dialog button:disabled{opacity:.7;cursor:default}
-.shop-entry-link{display:inline-block;margin-top:6px;color:#0878f5;font-size:13px;font-weight:700;word-break:break-all}
+.review-section dd,.review-address{min-width:0;overflow-wrap:anywhere}
+.verify-success{align-items:flex-start;min-width:0}
+.verify-success>svg{flex:none;margin-top:1px}
+.verify-success>span{min-width:0;flex:1}
+.shop-entry-link{display:inline;margin-top:6px;color:#0878f5;font-size:13px;font-weight:700;overflow-wrap:anywhere}
 .apply-status{display:grid;justify-items:center;text-align:center;gap:8px;padding:6px 0 2px}
 .apply-status h2{margin:0;font-size:22px;color:#08245e}
 .apply-status p{margin:0}

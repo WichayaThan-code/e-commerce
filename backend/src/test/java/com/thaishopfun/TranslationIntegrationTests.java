@@ -325,7 +325,8 @@ class TranslationIntegrationTests {
         Number shopId = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].shopId");
         String slug = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].slug");
         if (approve) {
-            var approver = users.save(UserAccount.admin("approver-" + phone + "@example.com", passwords.encode("Password1")));
+            // admin rights come only from platform_roles (users.role no longer exists)
+            var approver = users.save(UserAccount.systemAccount("approver-" + phone + "@example.com", passwords.encode("Password1")));
             platformRoles.save(PlatformRole.grant(approver.getId(), PlatformRole.PLATFORM_ADMIN, null, "test"));
             var adminLogin = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content("""
                 {"identity":"approver-%s@example.com","password":"Password1"}

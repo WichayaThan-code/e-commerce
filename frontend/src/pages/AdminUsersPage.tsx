@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Download, KeyRound, Mail,
   MoreVertical, Plus, Search, Settings, ShieldCheck, Store, Trash2, UserRound, UsersRound, X,
 } from 'lucide-react'
+import ConfirmDialog from '../components/form/ConfirmDialog'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
@@ -10,7 +12,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import { hasPlatformAccess } from '../services/permissions'
 import {
   adminDirectoryApi, ApiError,
-  type AdminActivityEvent, type AdminUserDetail, type AdminUserFilterOptions, type AdminUserPage, type AdminUserQuery, type AdminUserRow, type AdminUserStats,
+  type AdminActivityEvent, type AdminRoleSummary, type AdminUserDetail, type AdminUserFilterOptions, type AdminUserPage, type AdminUserQuery, type AdminUserRow, type AdminUserStats,
 } from '../services/api'
 import { formatChange, formatDate, formatDateTime, formatNumber, initialOf, NOT_ENABLED, percentOf } from '../services/adminFormat'
 import '../styles/admin-dashboard.css'
@@ -43,6 +45,7 @@ function pageWindow(current: number, total: number): (number | '…')[] {
 }
 
 export default function AdminUsersPage() {
+  const { t } = useTranslation('admin')
   const { user, loading } = useAuth()
   const { can } = usePermissions()
   const allowed = !!user && hasPlatformAccess(user)
@@ -62,6 +65,7 @@ export default function AdminUsersPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<AdminUserDetail | null>(null)
   const [detailState, setDetailState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [detailError, setDetailError] = useState('')
   const [history, setHistory] = useState<AdminActivityEvent[] | null>(null)
   const [historyError, setHistoryError] = useState('')
   const [selectedRows, setSelectedRows] = useState<string[]>([])
@@ -70,8 +74,21 @@ export default function AdminUsersPage() {
   const [showTip, setShowTip] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [notice, setNotice] = useState('')
+  const [accountDialog, setAccountDialog] = useState<'create' | 'edit' | null>(null)
+  const [accountForm, setAccountForm] = useState({ firstName: '', lastName: '', email: '', phone: '' })
+  const [platformRoles, setPlatformRoles] = useState<AdminRoleSummary[]>([])
+  const [roleChoice, setRoleChoice] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [userConfirm, setUserConfirm] = useState<'suspend' | 'restore' | 'delete' | null>(null)
+  const [actionError, setActionError] = useState('')
 
   const notify = useCallback((message: string) => { setNotice(message); window.setTimeout(() => setNotice(''), 2400) }, [])
+  const canCreate = can('PLATFORM_ACCOUNT_CREATE')
+  const canUpdate = can('PLATFORM_ACCOUNT_UPDATE')
+  const canSuspend = can('PLATFORM_ACCOUNT_SUSPEND')
+  const canRestore = can('PLATFORM_ACCOUNT_RESTORE')
+  const canDelete = can('PLATFORM_ACCOUNT_DELETE')
+  const canAssignRole = can('PLATFORM_ACCOUNT_ROLE_ASSIGN')
   const query: AdminUserQuery = useMemo(() => ({ q: filters.q.trim(), role: filters.role, status: filters.status, from: filters.from, to: filters.to }), [filters])
 
   // live search: typing applies after a short pause
@@ -87,6 +104,9 @@ export default function AdminUsersPage() {
     setStatsError('')
     adminDirectoryApi.userStats().then(value => { if (!cancelled) setStats(value) }).catch(error => { if (!cancelled) setStatsError(errorText(error)) })
     adminDirectoryApi.userFilterOptions().then(value => { if (!cancelled) setOptions(value) }).catch(() => { /* filters keep their current value */ })
+    adminDirectoryApi.roles().then(value => {
+      if (!cancelled) setPlatformRoles(value.filter(role => role.context === 'PLATFORM' && role.assignable && !role.superAdmin))
+    }).catch(error => { if (!cancelled) setActionError(errorText(error)) })
     return () => { cancelled = true }
   }, [allowed, reloadKey])
 
@@ -108,13 +128,14 @@ export default function AdminUsersPage() {
   }, [allowed, query, page, size, reloadKey])
 
   useEffect(() => {
-    if (!allowed || !selectedId) { setDetail(null); setDetailState('idle'); return }
+    if (!allowed || !selectedId) { setDetail(null); setDetailState('idle'); setDetailError(''); return }
     let cancelled = false
     setDetail(null)
     setDetailState('loading')
+    setDetailError('')
     adminDirectoryApi.user(selectedId)
       .then(value => { if (!cancelled) { setDetail(value); setDetailState('idle') } })
-      .catch(() => { if (!cancelled) { setDetail(null); setDetailState('error') } })
+      .catch(error => { if (!cancelled) { setDetail(null); setDetailError(errorText(error)); setDetailState('error') } })
     return () => { cancelled = true }
   }, [allowed, selectedId])
 
@@ -129,6 +150,10 @@ export default function AdminUsersPage() {
     return () => { cancelled = true }
   }, [allowed, selectedId, tab, canAudit])
 
+  useEffect(() => {
+    setRoleChoice(detail?.roles.find(role => role.context === 'PLATFORM')?.code ?? '')
+  }, [detail])
+
   if (loading) return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
   if (!user) { window.location.replace('/login'); return null }
   if (!hasPlatformAccess(user)) { window.location.replace('/dashboard'); return null }
@@ -141,6 +166,91 @@ export default function AdminUsersPage() {
   const search = () => { setFilters({ ...draft }); setPage(0); setReloadKey(key => key + 1) }
   const reset = () => { setDraft(EMPTY_FILTERS); setFilters(EMPTY_FILTERS); setPage(0); setDateOpen(false) }
   const toggle = (id: string) => setSelectedRows(rows => rows.includes(id) ? rows.filter(row => row !== id) : [...rows, id])
+  const openCreate = () => {
+    setAccountForm({ firstName: '', lastName: '', email: '', phone: '' })
+    setActionError('')
+    setAccountDialog('create')
+  }
+  const openEdit = () => {
+    if (!detail) return
+    setAccountForm({ firstName: detail.firstName, lastName: detail.lastName, email: detail.email, phone: detail.phone })
+    setActionError('')
+    setAccountDialog('edit')
+  }
+  const saveAccount = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSaving(true)
+    setActionError('')
+    try {
+      const saved = accountDialog === 'create'
+        ? await adminDirectoryApi.createUser(accountForm)
+        : detail ? await adminDirectoryApi.updateUser(detail.id, {
+          firstName: accountForm.firstName,
+          lastName: accountForm.lastName,
+          phone: accountForm.phone,
+        }) : null
+      if (!saved) return
+      setDetail(saved)
+      setSelectedId(saved.id)
+      setAccountDialog(null)
+      setReloadKey(key => key + 1)
+      notify(accountDialog === 'create' ? 'สร้างบัญชีแล้ว ส่งลิงก์ตั้งรหัสผ่านไปยังอีเมลแล้ว' : 'บันทึกข้อมูลผู้ใช้แล้ว')
+    } catch (error) {
+      setActionError(errorText(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+  const setUserStatus = async (action: 'suspend' | 'restore') => {
+    if (!detail) return
+    setUserConfirm(null)
+    setSaving(true)
+    setActionError('')
+    try {
+      const updated = action === 'suspend'
+        ? await adminDirectoryApi.suspendUser(detail.id)
+        : await adminDirectoryApi.restoreUser(detail.id)
+      setDetail(updated)
+      setReloadKey(key => key + 1)
+      notify(action === 'suspend' ? 'ระงับบัญชีและเพิกถอน session แล้ว' : 'คืนสถานะบัญชีแล้ว')
+    } catch (error) {
+      setActionError(errorText(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+  const deleteSelectedUser = async () => {
+    if (!detail) return
+    setUserConfirm(null)
+    setSaving(true)
+    setActionError('')
+    try {
+      await adminDirectoryApi.deleteUser(detail.id)
+      setDetail(null)
+      setSelectedId(null)
+      setReloadKey(key => key + 1)
+      notify('ลบบัญชีผู้ใช้แล้ว')
+    } catch (error) {
+      setActionError(errorText(error))
+    } finally {
+      setSaving(false)
+    }
+  }
+  const saveRole = async () => {
+    if (!detail) return
+    setSaving(true)
+    setActionError('')
+    try {
+      const updated = await adminDirectoryApi.assignRole(detail.id, roleChoice || null)
+      setDetail(updated)
+      setReloadKey(key => key + 1)
+      notify(roleChoice ? 'กำหนดบทบาทแล้ว' : 'เพิกถอนบทบาทแพลตฟอร์มแล้ว')
+    } catch (error) {
+      setActionError(errorText(error))
+    } finally {
+      setSaving(false)
+    }
+  }
   const exportCsv = async () => {
     setExporting(true)
     try {
@@ -164,12 +274,13 @@ export default function AdminUsersPage() {
   const headStatus = head?.status ?? selectedRow?.status
   const headRole = head?.primaryRole ?? selectedRow?.primaryRole
   const headShops = head ? [...new Set(head.shops.map(shop => shop.shopName))].join(', ') || '-' : selectedRow ? shopsLabel(selectedRow) : ''
+  const selectedPlatformRole = detail?.roles.find(role => role.context === 'PLATFORM')?.code ?? ''
 
   return <main className="admin-shell users-shell">
     <AdminHeader user={user} />
     <AdminSidebar active="users" className="users-sidebar"/>
     <div className="admin-content users-content">
-      <section className="users-heading"><div className="users-title"><span><UserRound/></span><div><h1>ผู้ใช้งาน</h1><p>จัดการผู้ใช้งานทั้งหมดในระบบ ThaiShopFun</p><small>“เพิ่ม แก้ไข และกำหนดสิทธิ์ผู้ใช้งาน เพื่อความปลอดภัยและประสิทธิภาพในการทำงาน”</small></div></div><button className="add-user" disabled title={NOT_ENABLED}><Plus/>เพิ่มผู้ใช้งาน</button></section>
+      <section className="users-heading"><div className="users-title"><span><UserRound/></span><div><h1>ผู้ใช้งาน</h1><p>จัดการผู้ใช้งานทั้งหมดในระบบ ThaiShopFun</p><small>“เพิ่ม แก้ไข และกำหนดสิทธิ์ผู้ใช้งาน เพื่อความปลอดภัยและประสิทธิภาพในการทำงาน”</small></div></div>{canCreate && <button className="add-user" onClick={openCreate}><Plus/>เพิ่มผู้ใช้งาน</button>}</section>
       <section className="user-kpis">
         <article className="all"><span><UsersRound/></span><div><b>ผู้ใช้งานทั้งหมด</b><strong>{kpi(stats?.total)}</strong><small>{statsError || 'จากเดือนก่อน'}</small></div></article>
         <article className="admins"><span><UserRound/></span><div><b>ผู้ใช้แอดมิน</b><strong>{kpi(stats?.admins)}</strong><small>คิดเป็น {percentOf(stats?.admins.value, stats?.total.value)}</small></div></article>
@@ -216,7 +327,7 @@ export default function AdminUsersPage() {
         <section className="user-summary"><i className={selectedRow ? avatarTone(selectedRow) : 'gray'}>{initialOf(head?.firstName ?? selectedRow?.firstName)}</i><div><b>{headName || '…'}</b>{headStatus && <span className={`user-status ${headStatus === 'ACTIVE' ? 'active' : 'suspended'}`}><small/>{STATUS_LABEL[headStatus] ?? headStatus}</span>}{headRole && <em className={`user-role ${roleTone(headRole.context, headRole.code)}`}>{headRole.nameTh ?? headRole.code}</em>}<p>{headShops}</p></div></section>
         <nav className="user-tabs">{(['ข้อมูลผู้ใช้', 'สิทธิ์การใช้งาน', 'ประวัติ'] as const).map(value => <button className={tab === value ? 'active' : ''} key={value} onClick={() => setTab(value)}>{value}</button>)}</nav>
         {detailState === 'loading' && !detail ? <div className="user-detail-body">กำลังโหลด...</div>
-          : detailState === 'error' ? <div className="user-detail-body">โหลดรายละเอียดไม่สำเร็จ</div>
+          : detailState === 'error' ? <div className="user-detail-body" role="alert">โหลดรายละเอียดไม่สำเร็จ: {detailError}</div>
           : !detail ? <div className="user-detail-body"/>
           : tab === 'ข้อมูลผู้ใช้' ? <div className="user-detail-body"><dl>
               <div><dt><UserRound/>ชื่อ-นามสกุล</dt><dd>{fullName(detail)}</dd></div>
@@ -225,7 +336,7 @@ export default function AdminUsersPage() {
               <div><dt><CalendarDays/>วันที่สมัคร</dt><dd>{formatDateTime(detail.createdAt)}</dd></div>
               <div><dt><ShieldCheck/>เข้าสู่ระบบล่าสุด</dt><dd>{detail.lastLoginAt ? formatDateTime(detail.lastLoginAt) : 'ยังไม่เคยเข้าสู่ระบบ'}</dd></div>
               <div><dt><ShieldCheck/>บทบาท</dt><dd>{detail.roles.map(role => role.nameTh ?? role.code).join(', ')}{detail.superAdmin ? ' (super admin)' : ''}</dd></div>
-              <div><dt><UserRound/>users.role</dt><dd>{detail.accountRole}</dd></div>
+              <div><dt><UserRound/>ประเภทบัญชี</dt><dd>{detail.accountRole}</dd></div>
             </dl></div>
           : tab === 'สิทธิ์การใช้งาน' ? <div className="user-permissions">
               {detail.superAdmin && <p><Check/>ผู้ดูแลแพลตฟอร์ม (super admin) — ได้รับทุกสิทธิ์ในทุกร้าน</p>}
@@ -240,10 +351,47 @@ export default function AdminUsersPage() {
                 : history.length === 0 ? <p><span>ยังไม่มีประวัติ</span></p>
                 : history.map((event, index) => <p key={`${event.type}-${event.at}-${index}`}><span>{event.title}{event.shopName && !event.title.includes(event.shopName) ? ` · ${event.shopName}` : ''}</span><small>{formatDateTime(event.at)}{event.actorName && event.actorName !== event.subjectName ? ` · โดย ${event.actorName}` : ''}</small></p>)}
             </div>}
-        <footer><button disabled title={NOT_ENABLED}><Mail/>ส่งอีเมล</button><button disabled title={NOT_ENABLED}><KeyRound/>รีเซ็ตรหัสผ่าน</button><button className="suspend" disabled title={NOT_ENABLED}><AlertTriangle/>ระงับการใช้งาน</button><button className="delete" disabled title={NOT_ENABLED}><Trash2/>ลบผู้ใช้งาน</button></footer>
+        {actionError && <p className="admin-action-error" role="alert">{actionError}</p>}
+        {detail && <footer className="user-actions">
+          {canUpdate && <button onClick={openEdit} disabled={saving || detail.superAdmin}><Settings/>แก้ไขข้อมูล</button>}
+          {canAssignRole && !detail.superAdmin && <label className="user-role-assignment">บทบาทแพลตฟอร์ม
+            <select value={roleChoice} onChange={event => setRoleChoice(event.target.value)} disabled={saving || detail.status !== 'ACTIVE'}>
+              <option value="">ไม่มีบทบาท</option>
+              {platformRoles.map(role => <option key={role.code} value={role.code}>{role.nameTh ?? role.code}</option>)}
+            </select>
+            <button onClick={saveRole} disabled={saving || detail.status !== 'ACTIVE' || roleChoice === selectedPlatformRole}>บันทึกบทบาท</button>
+          </label>}
+          {headStatus === 'ACTIVE' && canSuspend && <button className="suspend" onClick={() => setUserConfirm('suspend')} disabled={saving || detail.superAdmin || detail.id === user.id}><AlertTriangle/>ระงับการใช้งาน</button>}
+          {headStatus === 'SUSPENDED' && canRestore && <button onClick={() => setUserConfirm('restore')} disabled={saving || detail.superAdmin || detail.id === user.id}><Check/>คืนสถานะ</button>}
+          {canDelete && <button className="delete" onClick={() => setUserConfirm('delete')} disabled={saving || detail.superAdmin || detail.id === user.id}><Trash2/>ลบผู้ใช้งาน</button>}
+        </footer>}
       </>}
     </aside>
+    {accountDialog && <div className="admin-modal-backdrop" role="presentation">
+      <form className="admin-management-dialog" onSubmit={saveAccount} role="dialog" aria-modal="true" aria-labelledby="account-dialog-title">
+        <header><h2 id="account-dialog-title">{accountDialog === 'create' ? 'เพิ่มผู้ใช้งาน' : 'แก้ไขข้อมูลผู้ใช้'}</h2><button type="button" onClick={() => setAccountDialog(null)} aria-label="ปิด"><X/></button></header>
+        <label>ชื่อ<input required maxLength={100} value={accountForm.firstName} onChange={event => setAccountForm({ ...accountForm, firstName: event.target.value })}/></label>
+        <label>นามสกุล<input required maxLength={100} value={accountForm.lastName} onChange={event => setAccountForm({ ...accountForm, lastName: event.target.value })}/></label>
+        <label>อีเมล<input required type="email" maxLength={255} value={accountForm.email} disabled={accountDialog === 'edit'} onChange={event => setAccountForm({ ...accountForm, email: event.target.value })}/></label>
+        <label>เบอร์โทรศัพท์<input required type="tel" pattern="[0-9+ \-]{9,20}" value={accountForm.phone} onChange={event => setAccountForm({ ...accountForm, phone: event.target.value })}/></label>
+        {accountDialog === 'create' && <p>ระบบจะส่งลิงก์ตั้งรหัสผ่านไปยังอีเมลที่ระบุ</p>}
+        {actionError && <p className="admin-action-error" role="alert">{actionError}</p>}
+        <footer><button type="button" onClick={() => setAccountDialog(null)} disabled={saving}>ยกเลิก</button><button type="submit" disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button></footer>
+      </form>
+    </div>}
     {showTip && <aside className="user-tip"><button aria-label="ปิดคำแนะนำ" onClick={() => setShowTip(false)}>×</button><h2>💡 คำแนะนำ</h2><p>คุณสามารถกำหนดบทบาทและสิทธิ์การใช้งานให้กับผู้ใช้งาน เพื่อควบคุมการเข้าถึงข้อมูลในระบบได้อย่างปลอดภัย</p></aside>}
     {notice && <div className="admin-toast" role="status">{notice}</div>}
+    {userConfirm && detail && (
+      <ConfirmDialog
+        title={t(userConfirm === 'delete' ? 'confirm.deleteUserTitle' : userConfirm === 'suspend' ? 'confirm.suspendUserTitle' : 'confirm.restoreUserTitle')}
+        message={t(userConfirm === 'delete' ? 'confirm.deleteUserBody' : userConfirm === 'suspend' ? 'confirm.suspendUserBody' : 'confirm.restoreUserBody', { name: fullName(detail) })}
+        cancelLabel={t('confirm.cancel')}
+        confirmLabel={t('confirm.confirm')}
+        danger={userConfirm !== 'restore'}
+        confirmDisabled={saving}
+        onCancel={() => setUserConfirm(null)}
+        onConfirm={() => void (userConfirm === 'delete' ? deleteSelectedUser() : setUserStatus(userConfirm))}
+      />
+    )}
   </main>
 }

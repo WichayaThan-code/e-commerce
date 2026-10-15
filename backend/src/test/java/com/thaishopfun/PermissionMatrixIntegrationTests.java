@@ -321,7 +321,8 @@ class PermissionMatrixIntegrationTests {
         mvc.perform(get("/api/auth/me").header("Authorization", bearer(owner.token)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.email").value("me@example.com"))
-            .andExpect(jsonPath("$.role").value("CUSTOMER"))
+            // derived from the role tables: the STORE_OWNER membership (created at submit) makes the account a merchant
+            .andExpect(jsonPath("$.role").value("MERCHANT"))
             .andExpect(jsonPath("$.roleCodes", hasItems("BUYER", "APPLICANT")))
             .andExpect(jsonPath("$.permissions", hasItems("BUYER_PROFILE_READ", "SHOP_APPLICATION_CREATE")))
             .andExpect(jsonPath("$.permissions", not(hasItem("PLATFORM_APPLICATION_READ"))))
@@ -347,7 +348,7 @@ class PermissionMatrixIntegrationTests {
     @Test void platformAdminHoldsEveryPermissionInEveryShop() throws Exception {
         var alice = register("super-alice@example.com", "0810000014");
         long aliceShop = openShop(alice, "ร้านซูเปอร์", "Super Shop", "1000000000008");
-        // granted only through platform_roles; users.role stays CUSTOMER
+        // granted only through platform_roles (there is no users.role column any more)
         var admin = platformAdmin("super-admin@example.com", "0810000015");
         var asAdmin = bearer(admin.token);
 
@@ -374,7 +375,7 @@ class PermissionMatrixIntegrationTests {
 
         mvc.perform(get("/api/auth/me").header("Authorization", asAdmin))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.role").value("CUSTOMER"))
+            .andExpect(jsonPath("$.role").value("ADMIN"))
             .andExpect(jsonPath("$.superAdmin").value(true))
             .andExpect(jsonPath("$.roleCodes", hasItem("PLATFORM_ADMIN")))
             .andExpect(jsonPath("$.permissions", hasItems("PLATFORM_APPLICATION_READ", "PLATFORM_SETTING_UPDATE", "BUYER_PROFILE_READ")));
@@ -425,7 +426,7 @@ class PermissionMatrixIntegrationTests {
             }
             matrix.invalidate();
         }
-        assertEquals(10, matrix.permissionsOf("PLATFORM_ADMIN").size());
+        assertEquals(17, matrix.permissionsOf("PLATFORM_ADMIN").size());
     }
 
     // ---------------------------------------------------------------- helpers
@@ -480,7 +481,7 @@ class PermissionMatrixIntegrationTests {
 
     static String accessToken(JwtEncoder encoder, UUID userId, int permissionVersion, Instant issuedAt, Instant expiresAt) {
         var claims = JwtClaimsSet.builder().issuer("thaishopfun").issuedAt(issuedAt).expiresAt(expiresAt)
-            .subject(userId.toString()).claim("roles", List.of("CUSTOMER")).claim("pv", permissionVersion).build();
+            .subject(userId.toString()).claim("roles", List.of()).claim("pv", permissionVersion).build();
         return encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
     }
 

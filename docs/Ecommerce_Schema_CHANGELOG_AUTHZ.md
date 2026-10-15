@@ -60,7 +60,7 @@ Backup ก่อนแก้: `/workspace/ecommerce-schema_v3_backup_pre_authz/`
 ## Flyway V3 (ยังไม่ได้รันบน shared DB ของผู้ใช้)
 
 - ยังรันต่อจาก V1/V2 เดิมได้ (users, refresh_tokens, merchant_applications, merchant_documents) — ทดสอบด้วย psql `-1` และ **Flyway CLI 11.8.2** จริง
-- `users.role` — step 1 เท่านั้น: `INSERT INTO platform_roles … SELECT … WHERE role='ADMIN' AND NOT EXISTS active row`, คงคอลัมน์ + COMMENT DEPRECATED. Step 2 (DROP COLUMN) ทำใน migration ถัดไปหลังแก้ JPA/โค้ด login
+- `users.role` — step 1 เท่านั้น: `INSERT INTO platform_roles … SELECT … WHERE role='ADMIN' AND NOT EXISTS active row`, คงคอลัมน์ + COMMENT DEPRECATED. Step 2 (DROP COLUMN) ทำใน migration ถัดไปหลังแก้ JPA/โค้ด login — **ทำแล้วใน `V18__drop_users_role.sql`** (ค่าเดิมเก็บใน `users_role_legacy_v18`)
 - `merchant_applications` (ตาราง V2) — guard ข้อมูลเดิม:
   - CHECK self-review: ถ้ามีแถวผิด → `ADD CONSTRAINT … NOT VALID` + `RAISE WARNING` (แถวใหม่ยังโดนตรวจ) ไม่งั้นเพิ่มแบบ validated
   - partial unique open application: ถ้ามีใบเปิดซ้ำ → `RAISE EXCEPTION` พร้อมวิธีแก้ (V2 มี UNIQUE(user_id) จึงไม่ควรเกิด)
@@ -71,7 +71,7 @@ Backup ก่อนแก้: `/workspace/ecommerce-schema_v3_backup_pre_authz/`
 - คอลัมน์ใหม่บนตาราง V1/V2 เป็น nullable หรือมี default → entity เดิม **ไม่พังจาก validate** เพราะ Hibernate ไม่ตรวจคอลัมน์เกิน
 - ควรเพิ่ม field: `UserAccount` (suspendedAt, suspendedBy, suspendReasonCode; role → @Deprecated), `MerchantApplication` (withdrawnAt) และเลิกพึ่ง unique(user_id) ใน service (ใช้ status open แทน)
 - ตารางใหม่ต้องมี entity เมื่อ implement (ShopCustomer, ShopOwnershipTransfer, MerchantApplicationReview; auth_* ใช้ read-only หรือไม่ map)
-- โค้ดที่ authorize ด้วย `users.role` ต้องย้ายไป `platform_roles` ก่อน step 2
+- โค้ดที่ authorize ด้วย `users.role` ต้องย้ายไป `platform_roles` ก่อน step 2 — ย้ายแล้ว: `UserAccount` ไม่มี field `role`, `/me.role` / JWT `roles` / authorities คำนวณจาก `platform_roles` + `shop_members`
 
 ## สถานะข้อกำหนด (67 ข้อ)
 

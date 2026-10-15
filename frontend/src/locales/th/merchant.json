@@ -325,7 +325,14 @@
     "dialogClose": "ปิด",
     "empty": "—"
   },
+  "shopMenu": {
+    "openFailed": "เปิดแบบฟอร์มร้านใหม่ไม่สำเร็จ"
+  },
   "catalog": {
+    "toggle": {
+      "on": "เปิด",
+      "off": "ปิด"
+    },
     "menu": {
       "searchPh": "ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า...",
       "help": "ช่วยเหลือ",
@@ -374,6 +381,10 @@
       "SKU_REQUIRED": "ต้องมีอย่างน้อย 1 รหัส SKU",
       "SKU_CODE_REQUIRED": "กรุณาระบุรหัส SKU",
       "PUBLISH_INCOMPLETE": "ข้อมูลยังไม่ครบสำหรับเผยแพร่",
+      "PUBLISH_SKU_REQUIRED": "ต้องมีรหัส SKU ที่เปิดขายอย่างน้อย 1 รายการก่อนเผยแพร่",
+      "PUBLISHED_SKU_REQUIRED": "สินค้าที่เผยแพร่อยู่ต้องมี SKU ที่เปิดขายอย่างน้อย 1 รายการ",
+      "BARCODE_INVALID": "บาร์โค้ดใช้ได้เฉพาะ A-Z ตัวเลข และขีด",
+      "SAFETY_STOCK_INVALID": "Safety Stock ต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 1,000,000",
       "SKU_CODE_DUPLICATE_IN_FORM": "รหัส SKU ซ้ำในฟอร์ม",
       "SKU_CODE_TAKEN": "รหัส SKU นี้ถูกใช้ในร้านแล้ว",
       "VARIANT_COMBINATION_DUPLICATE": "ชุดตัวเลือกซ้ำ",
@@ -381,7 +392,10 @@
       "SKU_HAS_STOCK": "มีตัวเลือกที่ยังมีสต็อกหรือยอดจอง",
       "OPTION_SCHEMA_INVALID": "ต้องมีกลุ่มตัวเลือก 1 ถึง 3 กลุ่ม",
       "OPTION_VALUES_MISMATCH": "ชุดตัวเลือกไม่ตรงกับกลุ่ม",
-      "IMAGE_NOT_ON_PRODUCT": "รูปนี้ไม่ใช่ของสินค้านี้"
+      "IMAGE_NOT_ON_PRODUCT": "รูปนี้ไม่ใช่ของสินค้านี้",
+      "OPTION_VALUE_UNUSED": "ค่าตัวเลือกนี้ยังไม่มี SKU ที่เปิดขาย",
+      "TRANSLATION_NOT_FOUND": "ไม่พบงานแปลของฟิลด์นี้",
+      "TRANSLATION_NOT_RETRYABLE": "เข้าคิวใหม่ได้เฉพาะงานที่กำลังรอหรือแปลไม่สำเร็จ"
     },
     "variants": {
       "title": "ตัวเลือกสินค้า",
@@ -396,6 +410,7 @@
       "selectMatching": "เลือกแถวที่ตรงกัน",
       "apply": "ใส่ให้ทุกแถวที่เลือก",
       "generate": "สร้างรหัสจากคำนำหน้า",
+      "fillCombinations": "สร้างคู่ตัวเลือกทั้งหมด",
       "prefix": "คำนำหน้ารหัส",
       "tooMany": "ชุดตัวเลือกเกิน 100 รายการ ลดค่าในกลุ่มก่อนสร้างตาราง",
       "optionUncovered": "มีค่าตัวเลือกที่ยังไม่มีรหัส SKU รองรับ",
@@ -407,7 +422,10 @@
       "barcode": "บาร์โค้ด",
       "weight": "น้ำหนัก",
       "stock": "สต็อก",
-      "active": "เปิดใช้งาน",
+      "safety": "Safety Stock",
+      "active": "เปิดขาย",
+      "selectRow": "เลือกแถว",
+      "removeValue": "ลบ {{name}}",
       "inactive": "ปิดใช้งาน",
       "image": "รูป",
       "imageN": "รูป {{n}}",
@@ -436,7 +454,8 @@
       "savePublish": "บันทึกและเผยแพร่",
       "clear": "ล้างตัวกรอง",
       "addFirst": "เพิ่มสินค้าชิ้นแรก",
-      "view": "ดูรายละเอียด"
+      "view": "ดูรายละเอียด",
+      "close": "ปิด"
     },
     "detail": {
       "gallery": "รูปภาพ",
@@ -451,6 +470,9 @@
       "onHand": "คงเหลือ",
       "reserved": "จองแล้ว",
       "available": "พร้อมขาย",
+      "safetyStock": "Safety Stock",
+      "reservedBefore": "จองก่อน",
+      "reservedAfter": "จองหลัง",
       "actor": "ผู้ทำ",
       "delta": "จำนวน",
       "reason": "เหตุผล",
@@ -539,6 +561,16 @@
     "title": "จัดการสินค้า",
     "add": "เพิ่มสินค้า",
     "export": "Export",
+    "downloadTemplate": "ดาวน์โหลด template",
+    "variantLine": "{{count}} ตัวเลือก · สต็อกรวม {{stock}}",
+    "importResult": {
+      "title": "ผลการนำเข้าสินค้า",
+      "summary": "สร้างสินค้า {{created}} รายการ · SKU {{skuCreated}} รายการ · ล้มเหลว {{failed}} รายการ",
+      "row": "แถว Excel",
+      "productKey": "productKey",
+      "skuCode": "skuCode",
+      "message": "ข้อความ"
+    },
     "import": "Import",
     "importHint": "กรอกแค่ภาษาไทยก็พอ ระบบแปล EN/ZH ให้เอง ถ้ากรอก nameEn, nameZh, descriptionEn หรือ descriptionZh จะใช้คำนั้น ไฟล์ Excel ใส่รูป JPG, PNG หรือ WEBP ในแถว หรือลิงก์ในคอลัมน์ image",
     "importDialogTitle": "กำลังนำเข้าสินค้า",

@@ -4,6 +4,10 @@ import com.thaishopfun.auth.AuthDtos;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.UserAccount;
 import com.thaishopfun.auth.UserAccountRepository;
+import com.thaishopfun.auth.authz.AuthorizationService;
+import com.thaishopfun.common.FieldViolation;
+import com.thaishopfun.common.ValidationException;
+import com.thaishopfun.common.ValidationMessages;
 import com.thaishopfun.merchant.MerchantStorageService;
 import com.thaishopfun.merchant.ProductCategoryRepository;
 import com.thaishopfun.merchant.Shop;
@@ -14,27 +18,34 @@ import com.thaishopfun.translation.ContentTranslationIndex;
 import com.thaishopfun.translation.TranslationEntityType;
 import com.thaishopfun.translation.TranslationService;
 import jakarta.persistence.EntityManager;
+import jakarta.validation.Validator;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class ProductService {
     private static final int MAX_IMAGES = 9;
+    static final int MAX_PAGE_SIZE = 100;
+    private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_SKUS = 100;
     private final ShopRepository shops;
     private final ProductRepository products;
@@ -47,6 +58,9 @@ public class ProductService {
     private final EntityManager entities;
     private final ContentTranslationBridge translationBridge;
     private final TranslationService translations;
+    private final AuthorizationService authorization;
+    private final Validator validator;
+    private final ProductVariantService variants;
     private final UserAccountRepository accounts;
 
     public ProductService(
@@ -61,6 +75,9 @@ public class ProductService {
         EntityManager entities,
         ContentTranslationBridge translationBridge,
         TranslationService translations,
+        AuthorizationService authorization,
+        Validator validator,
+        ProductVariantService variants,
         UserAccountRepository accounts
     ) {
         this.shops = shops;
@@ -74,15 +91,39 @@ public class ProductService {
         this.entities = entities;
         this.translationBridge = translationBridge;
         this.translations = translations;
+        this.authorization = authorization;
+        this.validator = validator;
+        this.variants = variants;
         this.accounts = accounts;
     }
 
     @Transactional(readOnly = true)
-    public CatalogDtos.PageResponse<CatalogDtos.MerchantProductResponse> list(UUID userId, Long shopId, String q, String status, Long categoryId, String stock, String sort, Integer page, Integer size) {
+    public CatalogDtos.PageResponse<CatalogDtos.MerchantProductResponse> list(UUID userId, Long shopId, String q, String status, Long categoryId, String brand, String stock, String sort, Integer page, Integer size) {
         var shop = requireSellableShop(userId, shopId);
-        var result = search(shop.getId(), q, parseStatus(status), categoryId, parseStock(stock), parseSort(sort), page, size, false, List.of());
-        var index = translations.loadIndex(TranslationEntityType.PRODUCT, result.items().stream().map(product -> product.getId().toString()).toList());
-        return new CatalogDtos.PageResponse<>(result.items().stream().map(product -> toMerchant(product, index)).toList(), result.page(), result.size(), result.total());
+        var result = search(shop.getId(), q, parseStatus(status), categoryId, blank(brand), parseStock(stock), parseSort(sort), page, size, false, List.of());
+        var ids = result.items().stream().map(Product::getId).toList();
+        var rollup = rollup(ids);
+        var index = translations.loadIndex(TranslationEntityType.PRODUCT, ids.stream().map(UUID::toString).toList());
+        return new CatalogDtos.PageResponse<>(result.items().stream().map(product -> toMerchant(product, index, rollup.get(product.getId()))).toList(), result.page(), result.size(), result.total());
+    }
+
+    /** Distinct brand names used by the shop's (non-deleted) products, case-insensitive like the brand filter. */
+    @Transactional(readOnly = true)
+    public List<CatalogDtos.BrandOption> brands(UUID userId, Long shopId) {
+        var shop = requireSellableShop(userId, shopId);
+        return entities.createQuery(
+                "select min(trim(p.brand)), count(p) from Product p where p.shop.shopId = :shopId and p.deletedAt is null"
+                    + " and p.brand is not null and trim(p.brand) <> '' group by lower(trim(p.brand)) order by lower(trim(p.brand))", Object[].class)
+            .setParameter("shopId", shop.getId())
+            .getResultList().stream()
+            .map(row -> new CatalogDtos.BrandOption((String) row[0], ((Number) row[1]).longValue()))
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] importTemplate(UUID userId, Long shopId) {
+        requireSellableShop(userId, shopId);
+        return ProductSpreadsheet.template();
     }
 
     @Transactional(readOnly = true)
@@ -117,14 +158,21 @@ public class ProductService {
     @Transactional
     public CatalogDtos.MerchantProductResponse create(UUID userId, Long shopId, CatalogDtos.ProductWriteRequest request) {
         var shop = requireSellableShop(userId, shopId);
+        request = normalizeBarcodes(request);
+        validate(shop.getId(), request, null);
         var type = requireType(request.productType());
         var name = requireName(request.nameTh());
         var product = new Product(shop, uniqueSlug(shop.getId(), request.slug(), request.nameEn(), name, null), name, type);
         product.stamp(userId);
         apply(product, request, userId);
-        product = products.save(product);
-        syncSkus(product, request, userId);
+        // Assigned UUID ids: repository.save() would merge() a copy and later changes to `product`
+        // (e.g. fillBasePrice) would never reach the database. persist() keeps this instance managed.
+        entities.persist(product);
+        var synced = syncSkus(product, request, userId);
+        variants.sync(product, request, synced.ordered(), userId);
+        storeOptionSchema(product);
         fillBasePrice(product);
+        applyOpeningStock(userId, shop.getId(), synced.opening());
         translationBridge.onProductSaved(product, request);
         var index = translations.loadIndex(TranslationEntityType.PRODUCT, List.of(product.getId().toString()));
         return toMerchant(product, index);
@@ -134,14 +182,26 @@ public class ProductService {
     public CatalogDtos.MerchantProductResponse update(UUID userId, Long shopId, UUID productId, CatalogDtos.ProductWriteRequest request) {
         requireSellableShop(userId, shopId);
         var product = requireProduct(shopId, productId);
+        request = normalizeBarcodes(request);
+        validate(shopId, request, product);
         product.stamp(userId);
         apply(product, request, userId);
         product.setSlug(uniqueSlug(shopId, request.slug(), request.nameEn(), product.getNameTh(), product.getId()));
-        syncSkus(product, request, userId);
+        var synced = syncSkus(product, request, userId);
+        variants.sync(product, request, synced.ordered(), userId);
+        storeOptionSchema(product);
         fillBasePrice(product);
+        applyOpeningStock(userId, shopId, synced.opening());
         translationBridge.onProductSaved(product, request);
         var index = translations.loadIndex(TranslationEntityType.PRODUCT, List.of(product.getId().toString()));
         return toMerchant(product, index);
+    }
+
+    /** All combinations of the given option groups with suggested SKU codes; nothing is saved. */
+    @Transactional(readOnly = true)
+    public List<CatalogDtos.VariantCombination> variantCombinations(UUID userId, Long shopId, CatalogDtos.VariantCombinationRequest request) {
+        requireSellableShop(userId, shopId);
+        return ProductVariantService.combinations(request);
     }
 
     @Transactional
@@ -178,10 +238,17 @@ public class ProductService {
         if (request == null || request.field() == null || request.locale() == null) {
             throw bad("TRANSLATION_INVALID", "ต้องระบุ field และ locale");
         }
-        if (!"name".equals(request.field()) && !"description".equals(request.field())) {
+        var field = request.field().trim();
+        var optionField = field.matches("n\\d+") || field.matches("v\\d+\\.\\d+");
+        if (!optionField && !"name".equals(field) && !"description".equals(field)) {
             throw bad("TRANSLATION_INVALID", "field ไม่รองรับ");
         }
-        translations.retry(TranslationEntityType.PRODUCT, product.getId().toString(), request.field(), request.locale());
+        var entity = optionField ? TranslationEntityType.PRODUCT_OPTION : TranslationEntityType.PRODUCT;
+        try {
+            translations.retry(entity, product.getId().toString(), field, request.locale().trim());
+        } catch (TranslationService.RetryRejected rejected) {
+            throw bad(rejected.code(), rejected.getMessage());
+        }
         return merchantView(product);
     }
 
@@ -190,12 +257,13 @@ public class ProductService {
         requireSellableShop(userId, shopId);
         var product = requireProduct(shopId, productId);
         if (product.getStatus() == ProductStatus.ARCHIVED) throw conflict("PRODUCT_ARCHIVED", "สินค้าที่เก็บถาวรต้องนำกลับมาก่อนเผยแพร่");
-        if (images.countByProduct_Id(product.getId()) < 1 || product.getBasePrice() == null) {
-            throw bad("PUBLISH_INCOMPLETE", "เผยแพร่ได้เมื่อมีรูปอย่างน้อย 1 รูปและมีราคา");
-        }
+        var missing = new ArrayList<FieldViolation>();
+        if (images.countByProduct_Id(product.getId()) < 1) missing.add(ValidationMessages.violation("images", "PUBLISH_IMAGE_REQUIRED"));
+        if (product.getBasePrice() == null) missing.add(ValidationMessages.violation("basePrice", "PUBLISH_PRICE_REQUIRED"));
         if (skus.findByProduct_IdAndDeletedAtIsNullOrderBySkuCodeAsc(product.getId()).stream().noneMatch(ProductSku::isActive)) {
-            throw bad("PUBLISH_INCOMPLETE", "เผยแพร่ได้เมื่อมีรหัสสินค้าที่เปิดขาย");
+            missing.add(ValidationMessages.violation("skus", "PUBLISH_SKU_REQUIRED"));
         }
+        if (!missing.isEmpty()) throw new ValidationException("PUBLISH_INCOMPLETE", missing);
         product.stamp(userId);
         product.setStatus(ProductStatus.PUBLISHED);
         product.setPublishedAt(Instant.now());
@@ -207,6 +275,7 @@ public class ProductService {
     public CatalogDtos.MerchantProductResponse archive(UUID userId, Long shopId, UUID productId) {
         requireSellableShop(userId, shopId);
         var product = requireProduct(shopId, productId);
+        if (product.getStatus() == ProductStatus.ARCHIVED) return merchantView(product);
         product.stamp(userId);
         product.setStatus(ProductStatus.ARCHIVED);
         product.setArchivedAt(Instant.now());
@@ -234,6 +303,7 @@ public class ProductService {
             throw bad("IMAGE_TYPE", "รองรับเฉพาะไฟล์ JPG, PNG หรือ WEBP");
         }
         var stored = storage.store(product.getId(), file, "PRODUCT");
+        deleteFileOnRollback(stored.path());
         rememberImage(userId, product, stored);
         return merchantView(product);
     }
@@ -243,7 +313,9 @@ public class ProductService {
         requireSellableShop(userId, shopId);
         var product = requireProduct(shopId, productId);
         if (images.countByProduct_Id(product.getId()) >= MAX_IMAGES) throw bad("IMAGE_LIMIT", "สินค้าหนึ่งรายการมีรูปได้ไม่เกิน 9 รูป");
-        return rememberImage(userId, product, storage.storeBytes(product.getId(), bytes, "PRODUCT")).getId();
+        var stored = storage.storeBytes(product.getId(), bytes, "PRODUCT");
+        deleteFileOnRollback(stored.path());
+        return rememberImage(userId, product, stored).getId();
     }
 
     private ProductImage rememberImage(UUID userId, Product product, MerchantStorageService.StoredFile stored) {
@@ -254,7 +326,34 @@ public class ProductService {
         var current = images.findByProduct_IdOrderBySortOrderAsc(product.getId());
         var image = new ProductImage(product, stored.path(), current.size(), current.stream().noneMatch(ProductImage::isPrimaryImage));
         image.stamp(userId);
-        return images.save(image);
+        entities.persist(image);
+        product.stamp(userId);
+        return image;
+    }
+
+    /** A stored file whose DB row never commits must not stay on disk. */
+    private void deleteFileOnRollback(String path) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) return;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) storage.deleteQuietly(path);
+            }
+        });
+    }
+
+    /** The file of a deleted image row is removed only once the delete has committed. */
+    private void deleteFileAfterCommit(String path) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            storage.deleteQuietly(path);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                storage.deleteQuietly(path);
+            }
+        });
     }
 
     @Transactional
@@ -262,8 +361,13 @@ public class ProductService {
         requireSellableShop(userId, shopId);
         var product = requireProduct(shopId, productId);
         var image = images.findByIdAndProduct_Id(imageId, product.getId()).orElseThrow(() -> notFound("IMAGE_NOT_FOUND", "ไม่พบรูปสินค้า"));
+        if (product.getStatus() == ProductStatus.PUBLISHED && images.countByProduct_Id(product.getId()) <= 1) {
+            throw new ValidationException("PUBLISHED_IMAGE_REQUIRED", List.of(new FieldViolation("images", "PUBLISHED_IMAGE_REQUIRED",
+                "สินค้าที่เผยแพร่อยู่ต้องมีรูปอย่างน้อย 1 รูป กรุณาอัปโหลดรูปใหม่ก่อนลบรูปนี้ หรือเก็บสินค้าถาวรก่อน")));
+        }
         var wasPrimary = image.isPrimaryImage();
-        storage.deleteQuietly(image.getStoragePath());
+        deleteFileAfterCommit(image.getStoragePath());
+        product.stamp(userId);
         images.delete(image);
         images.flush();
         var remaining = images.findByProduct_IdOrderBySortOrderAsc(product.getId());
@@ -301,13 +405,14 @@ public class ProductService {
         requireSellableShop(userId, shopId);
         var sku = skus.findByIdAndShop_ShopIdAndDeletedAtIsNull(skuId, shopId).orElseThrow(() -> notFound("SKU_NOT_FOUND", "ไม่พบรหัสสินค้า"));
         var type = request == null || request.entryType() == null ? "" : request.entryType().trim().toUpperCase(Locale.ROOT);
-        if (!type.equals("RECEIVE") && !type.equals("ADJUST") && !type.equals("RESERVE") && !type.equals("RELEASE")) {
-            throw bad("INVALID_ADJUSTMENT", "ปรับสต็อกได้เฉพาะ RECEIVE, ADJUST, RESERVE หรือ RELEASE");
+        if (!type.equals("RECEIVE") && !type.equals("ISSUE") && !type.equals("ADJUST") && !type.equals("RESERVE") && !type.equals("RELEASE")) {
+            throw bad("INVALID_ADJUSTMENT", "ปรับสต็อกได้เฉพาะ RECEIVE, ISSUE, ADJUST, RESERVE หรือ RELEASE");
         }
-        if ((type.equals("ADJUST") || type.equals("RESERVE") || type.equals("RELEASE")) && (request.reason() == null || request.reason().isBlank())) {
+        if ((type.equals("ISSUE") || type.equals("ADJUST") || type.equals("RESERVE") || type.equals("RELEASE")) && (request.reason() == null || request.reason().isBlank())) {
             throw bad("STOCK_REASON_REQUIRED", "กรุณาระบุเหตุผล");
         }
         if (type.equals("RECEIVE") && request.quantityDelta() <= 0) throw bad("INVALID_ADJUSTMENT", "รับเข้าต้องเป็นจำนวนมากกว่าศูนย์");
+        if (type.equals("ISSUE") && request.quantityDelta() <= 0) throw bad("INVALID_ADJUSTMENT", "เบิกออกต้องเป็นจำนวนมากกว่าศูนย์");
         if (type.equals("ADJUST") && request.quantityDelta() == 0) throw bad("INVALID_ADJUSTMENT", "จำนวนที่ปรับต้องไม่เป็นศูนย์");
         if ((type.equals("RESERVE") || type.equals("RELEASE")) && request.quantityDelta() <= 0) throw bad("INVALID_ADJUSTMENT", "จำนวนต้องมากกว่าศูนย์");
         var key = request.idempotencyKey() == null || request.idempotencyKey().isBlank() ? null : request.idempotencyKey().trim();
@@ -327,6 +432,11 @@ public class ProductService {
         var delta = request.quantityDelta();
         switch (type) {
             case "RECEIVE" -> onHandAfter = onHandBefore + delta;
+            case "ISSUE" -> {
+                onHandAfter = onHandBefore - delta;
+                if (onHandAfter < reservedBefore) throw bad("INSUFFICIENT_STOCK", "สต็อกไม่พอสำหรับการเบิกออก");
+                delta = -delta;
+            }
             case "ADJUST" -> {
                 onHandAfter = onHandBefore + delta;
                 if (onHandAfter < 0 || onHandAfter < reservedBefore) throw bad("INSUFFICIENT_STOCK", "สต็อกไม่พอสำหรับการปรับยอด");
@@ -340,7 +450,7 @@ public class ProductService {
                 reservedAfter = reservedBefore - delta;
                 delta = -delta;
             }
-            default -> throw bad("INVALID_ADJUSTMENT", "ปรับสต็อกได้เฉพาะ RECEIVE, ADJUST, RESERVE หรือ RELEASE");
+            default -> throw bad("INVALID_ADJUSTMENT", "ปรับสต็อกได้เฉพาะ RECEIVE, ISSUE, ADJUST, RESERVE หรือ RELEASE");
         }
         level.setOnHand(onHandAfter);
         level.setReservedQty(reservedAfter);
@@ -398,7 +508,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     public CatalogDtos.PageResponse<CatalogDtos.PublicProductResponse> publicList(String shopSlug, String q, Long categoryId, String sort, Integer page, Integer size, String priceBands, String locale) {
         var shop = requirePublicShop(shopSlug);
-        var result = search(shop.getId(), q, ProductStatus.PUBLISHED, categoryId, null, parseSort(sort), page, size, true, parsePriceBands(priceBands));
+        var result = search(shop.getId(), q, ProductStatus.PUBLISHED, categoryId, null, null, parseSort(sort), page, size, true, parsePriceBands(priceBands));
         var ids = result.items().stream().map(product -> product.getId().toString()).toList();
         var index = translations.loadIndex(TranslationEntityType.PRODUCT, ids);
         var options = translations.loadIndex(TranslationEntityType.PRODUCT_OPTION, ids);
@@ -441,38 +551,175 @@ public class ProductService {
         product.setWeightGrams(weight(request.weightGrams()));
         product.setCategory(category(request.categoryId()));
         product.stamp(userId);
-        if (product.getCompareAtPrice() != null && product.getBasePrice() != null && product.getCompareAtPrice().compareTo(product.getBasePrice()) <= 0) {
-            throw bad("COMPARE_PRICE_INVALID", "ราคาเปรียบเทียบต้องมากกว่าราคาขาย");
+        if (product.getCompareAtPrice() != null && product.getBasePrice() != null && product.getCompareAtPrice().compareTo(product.getBasePrice()) < 0) {
+            throw bad("COMPARE_PRICE_INVALID", ValidationMessages.text("COMPARE_PRICE_INVALID"));
         }
     }
 
-    private void syncSkus(Product product, CatalogDtos.ProductWriteRequest request, UUID userId) {
+    /**
+     * Every create/update check in one pass, before anything is written: Bean Validation on the request DTO
+     * (annotations in CatalogDtos) plus the business rules that need the database (category exists and is active,
+     * SKU code / barcode unique per shop, original price not below the sale price, SKU count per product type).
+     * Throws one 400 ValidationException listing every field problem.
+     */
+    private void validate(Long shopId, CatalogDtos.ProductWriteRequest request, Product current) {
+        if (request == null) throw new ValidationException(List.of(ValidationMessages.violation("nameTh", "NAME_REQUIRED")));
+        var problems = new java.util.LinkedHashMap<String, FieldViolation>();
+        java.util.function.Consumer<FieldViolation> add = violation -> problems.putIfAbsent(violation.field() + "|" + violation.code(), violation);
+        validator.validate(request).stream()
+            .sorted(java.util.Comparator.comparing(violation -> violation.getPropertyPath().toString()))
+            .forEach(violation -> add.accept(ValidationMessages.fromConstraint(violation.getPropertyPath().toString(), violation.getMessage())));
+        var type = ProductType.parse(request.productType());
+        if (type == null) add.accept(ValidationMessages.violation("productType", "PRODUCT_TYPE_INVALID"));
+        if (request.slug() != null && !request.slug().isBlank() && normalizeSlug(request.slug()) == null) add.accept(ValidationMessages.violation("slug", "SLUG_INVALID"));
+        if (request.currency() != null && !request.currency().isBlank() && !request.currency().trim().matches("[A-Za-z]{3}")) {
+            add.accept(ValidationMessages.violation("currency", "CURRENCY_INVALID"));
+        }
+        if (request.categoryId() != null) {
+            var category = categories.findByCategoryNo(request.categoryId()).orElse(null);
+            var unchanged = category != null && current != null && current.getCategory() != null && current.getCategory().getId().equals(category.getId());
+            if (category == null) add.accept(ValidationMessages.violation("categoryId", "UNKNOWN_CATEGORY"));
+            else if (!category.isActive() && !unchanged) add.accept(ValidationMessages.violation("categoryId", "CATEGORY_INACTIVE"));
+        }
+        var incoming = request.skus() == null ? List.<CatalogDtos.SkuWriteRequest>of() : request.skus();
+        // without a base price the product price becomes the lowest SKU price (fillBasePrice)
+        var effectiveBase = positive(request.basePrice()) ? request.basePrice() : incoming.stream()
+            .filter(java.util.Objects::nonNull).map(CatalogDtos.SkuWriteRequest::price).filter(ProductService::positive)
+            .min(BigDecimal::compareTo).orElse(null);
+        if (effectiveBase != null && positive(request.compareAtPrice()) && request.compareAtPrice().compareTo(effectiveBase) < 0) {
+            add.accept(ValidationMessages.violation("compareAtPrice", "COMPARE_PRICE_INVALID"));
+        }
+        if (type == ProductType.SIMPLE && incoming.size() != 1) add.accept(ValidationMessages.violation("skus", "SIMPLE_SKU_COUNT"));
+        if (type == ProductType.VARIABLE && incoming.isEmpty()) add.accept(ValidationMessages.violation("skus", "SKU_REQUIRED"));
+        variants.validate(request, type, current, add);
+        var existing = current == null ? List.<ProductSku>of() : skus.findByProduct_IdAndDeletedAtIsNullOrderBySkuCodeAsc(current.getId());
+        if (current != null && current.getStatus() == ProductStatus.PUBLISHED && !anyActiveSku(incoming, existing)) {
+            add.accept(ValidationMessages.violation("skus", "PUBLISHED_SKU_REQUIRED"));
+        }
+        var existingIds = existing.stream().map(ProductSku::getId).collect(java.util.stream.Collectors.toSet());
+        var codes = new HashMap<String, Integer>();
+        var barcodes = new HashMap<String, Integer>();
+        for (var index = 0; index < incoming.size(); index++) {
+            var sku = incoming.get(index);
+            var prefix = "skus[" + index + "].";
+            if (sku == null) {
+                add.accept(ValidationMessages.violation(prefix + "skuCode", "SKU_CODE_REQUIRED"));
+                continue;
+            }
+            var selfId = sku.id();
+            if (selfId != null && !existingIds.contains(selfId)) add.accept(ValidationMessages.violation(prefix + "id", "SKU_NOT_FOUND"));
+            // a SIMPLE product saved without the SKU id keeps editing its single existing SKU row (see syncSkus)
+            if (selfId == null && type == ProductType.SIMPLE && existing.size() == 1 && incoming.size() == 1) selfId = existing.get(0).getId();
+            if (positive(sku.price()) && positive(sku.compareAtPrice()) && sku.compareAtPrice().compareTo(sku.price()) < 0) {
+                add.accept(ValidationMessages.violation(prefix + "compareAtPrice", "COMPARE_PRICE_INVALID"));
+            }
+            var code = sku.skuCode() == null ? "" : sku.skuCode().trim();
+            if (!code.isEmpty() && code.length() <= 64) {
+                if (codes.putIfAbsent(code, index) != null) {
+                    add.accept(ValidationMessages.violation(prefix + "skuCode", "SKU_CODE_DUPLICATE_IN_FORM"));
+                } else if (codeTaken(shopId, code, current == null ? null : current.getId())) {
+                    add.accept(new FieldViolation(prefix + "skuCode", "SKU_CODE_TAKEN", "รหัสสินค้า " + code + " ซ้ำในร้าน"));
+                }
+            }
+            var barcode = normalizeBarcode(sku.barcode());
+            if (barcode != null && barcode.length() <= 64 && barcode.matches("[A-Z0-9-]+")) {
+                if (barcodes.putIfAbsent(barcode.toLowerCase(Locale.ROOT), index) != null) {
+                    add.accept(ValidationMessages.violation(prefix + "barcode", "BARCODE_DUPLICATE"));
+                } else if (barcodeTaken(shopId, barcode, current == null ? null : current.getId())) {
+                    add.accept(ValidationMessages.violation(prefix + "barcode", "BARCODE_TAKEN"));
+                }
+            }
+        }
+        if (!problems.isEmpty()) {
+            var list = List.copyOf(problems.values());
+            var code = ValidationException.topCode(list);
+            // only "code already used in the shop" -> 409 (team frontend contract); anything else -> 400
+            throw new ValidationException("SKU_CODE_TAKEN".equals(code) ? HttpStatus.CONFLICT : HttpStatus.BAD_REQUEST, code, list);
+        }
+    }
+
+    private static String normalizeBarcode(String value) {
+        if (value == null || value.isBlank()) return null;
+        return value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static CatalogDtos.ProductWriteRequest normalizeBarcodes(CatalogDtos.ProductWriteRequest request) {
+        if (request == null || request.skus() == null) return request;
+        var changed = false;
+        var next = new ArrayList<CatalogDtos.SkuWriteRequest>();
+        for (var sku : request.skus()) {
+            if (sku == null) {
+                next.add(null);
+                continue;
+            }
+            var barcode = normalizeBarcode(sku.barcode());
+            if (barcode == null ? sku.barcode() != null : !barcode.equals(sku.barcode())) changed = true;
+            next.add(new CatalogDtos.SkuWriteRequest(sku.id(), sku.skuCode(), barcode, sku.optionLabel(), sku.optionValues(),
+                sku.price(), sku.costPrice(), sku.compareAtPrice(), sku.weightGrams(), sku.initialStock(), sku.imageId(), sku.active(), sku.safetyStock()));
+        }
+        if (!changed) return request;
+        return new CatalogDtos.ProductWriteRequest(request.nameTh(), request.nameEn(), request.nameZh(),
+            request.descriptionTh(), request.descriptionEn(), request.descriptionZh(), request.categoryId(), request.slug(),
+            request.productType(), request.brand(), request.basePrice(), request.compareAtPrice(), request.currency(),
+            request.weightGrams(), next, request.optionGroups(), request.optionSchema(), request.confirmRemoveStocked());
+    }
+
+    /** A published product must keep at least one SKU on sale. A null active flag keeps the stored value; a new SKU is on sale. */
+    private static boolean anyActiveSku(List<CatalogDtos.SkuWriteRequest> incoming, List<ProductSku> existing) {
+        for (var sku : incoming) {
+            if (sku == null) continue;
+            if (sku.active() != null) {
+                if (sku.active()) return true;
+                continue;
+            }
+            if (sku.id() == null) return true;
+            var stored = existing.stream().filter(item -> item.getId().equals(sku.id())).findFirst().orElse(null);
+            if (stored == null || stored.isActive()) return true;
+        }
+        return false;
+    }
+
+    private static boolean positive(BigDecimal value) {
+        return value != null && value.signum() > 0;
+    }
+
+    /** Newly created SKU and the opening stock requested for it. */
+    private record OpeningStock(ProductSku sku, int quantity) {}
+
+    /** Opening stock of the new SKUs and the saved SKU row for each request SKU, in request order. */
+    private record SyncResult(List<OpeningStock> opening, List<ProductSku> ordered) {}
+
+    /**
+     * New SKUs get an inventory level and their opening stock through the ledger; SKUs left out of the request are
+     * soft-deleted (deleted_at, inactive) so their stock ledger and order history stay intact. Stock of kept SKUs is
+     * never changed here (use the stock adjustment endpoint).
+     */
+    private SyncResult syncSkus(Product product, CatalogDtos.ProductWriteRequest request, UUID userId) {
+        var opening = new ArrayList<OpeningStock>();
+        var ordered = new ArrayList<ProductSku>();
         var incoming = request == null || request.skus() == null ? List.<CatalogDtos.SkuWriteRequest>of() : request.skus();
-        var issues = new ArrayList<AuthDtos.ApiFieldError>();
-        var schema = normalizeSchema(request == null ? null : request.optionSchema(), product.getProductType(), issues);
-        validateSkus(product, incoming, schema, issues);
-        if (!issues.isEmpty()) throw fieldErrors(issues);
-        product.setOptionSchema(JsonMaps.writeGroups(product.getProductType() == ProductType.VARIABLE ? schema : List.of()));
         if (product.getProductType() == ProductType.SIMPLE && incoming.size() != 1) throw bad("SIMPLE_SKU_COUNT", "สินค้าแบบเดียวต้องมี 1 รหัสสินค้า");
         if (product.getProductType() == ProductType.VARIABLE && incoming.isEmpty()) throw bad("SKU_REQUIRED", "สินค้าแบบตัวเลือกต้องมีอย่างน้อย 1 รหัสสินค้า");
         var existing = skus.findByProduct_IdAndDeletedAtIsNullOrderBySkuCodeAsc(product.getId());
         var kept = new HashSet<UUID>();
         var reuseSimple = product.getProductType() == ProductType.SIMPLE && existing.size() == 1 && incoming.get(0).id() == null;
         if (reuseSimple) kept.add(existing.get(0).getId());
-        else incoming.stream().map(CatalogDtos.SkuWriteRequest::id).filter(java.util.Objects::nonNull).forEach(kept::add);
+        else incoming.stream().filter(java.util.Objects::nonNull).map(CatalogDtos.SkuWriteRequest::id).filter(java.util.Objects::nonNull).forEach(kept::add);
+        // SKUs left out of the request are soft-deleted (ledger/order history stay). Stocked ones need confirmRemoveStocked.
         var dropping = existing.stream().filter(sku -> !kept.contains(sku.getId())).toList();
-        var confirm = request != null && Boolean.TRUE.equals(request.confirmRemoveStocked());
-        releaseRemovedStock(dropping, confirm, userId, product.getShop().getId());
+        releaseRemovedStock(dropping, request != null && Boolean.TRUE.equals(request.confirmRemoveStocked()), userId, product.getShop().getId());
         var now = Instant.now();
         for (var sku : dropping) {
             sku.setDeletedAt(now);
             sku.setActive(false);
             sku.stamp(userId);
         }
-        if (!dropping.isEmpty()) skus.flush();
+        if (!dropping.isEmpty()) entities.flush();
         if (!reuseSimple) parkChangingCodes(existing, incoming);
         if (reuseSimple) {
             applySku(existing.get(0), incoming.get(0), product.getCurrency(), userId, 0);
+            applySafetyStock(existing.get(0), incoming.get(0).safetyStock(), userId);
+            ordered.add(existing.get(0));
         } else {
             for (var index = 0; index < incoming.size(); index++) {
                 var skuRequest = incoming.get(index);
@@ -480,56 +727,35 @@ public class ProductService {
                     var created = new ProductSku(product, requireSkuCode(product.getShop().getId(), skuRequest.skuCode(), null, index), requirePrice(skuRequest.price()));
                     created.stamp(userId);
                     applySku(created, skuRequest, product.getCurrency(), userId, index);
-                    created = skus.save(created);
+                    entities.persist(created);
                     var level = new InventoryLevel(created);
-                    applySafety(level, skuRequest.safetyStock(), userId);
-                    levels.save(level);
+                    if (skuRequest.safetyStock() != null) level.setSafetyStock(skuRequest.safetyStock());
+                    level.stamp(userId);
+                    entities.persist(level);
+                    ordered.add(created);
+                    if (skuRequest.initialStock() != null && skuRequest.initialStock() > 0) opening.add(new OpeningStock(created, skuRequest.initialStock()));
                 } else {
                     var sku = existing.stream().filter(item -> item.getId().equals(skuRequest.id())).findFirst()
                         .orElseThrow(() -> notFound("SKU_NOT_FOUND", "ไม่พบรหัสสินค้า"));
                     applySku(sku, skuRequest, product.getCurrency(), userId, index);
+                    applySafetyStock(sku, skuRequest.safetyStock(), userId);
+                    ordered.add(sku);
                 }
             }
         }
-        levels.flush();
-        applyOpeningStock(userId, product.getShop().getId(), product, incoming);
-        applyExistingSafety(existing, incoming, reuseSimple, userId);
+        return new SyncResult(opening, ordered);
     }
 
-    private void validateSkus(Product product, List<CatalogDtos.SkuWriteRequest> incoming, List<CatalogDtos.OptionGroup> schema, List<AuthDtos.ApiFieldError> issues) {
-        if (incoming.size() > MAX_SKUS) {
-            issues.add(field("skus", "SKU_LIMIT_EXCEEDED", "จำนวนรหัสสินค้าเกิน 100"));
+    /** products.option_schema (team frontend reads it) mirrors the option group tables after every save. */
+    private void storeOptionSchema(Product product) {
+        if (product.getProductType() != ProductType.VARIABLE) {
+            product.setOptionSchema("[]");
+            return;
         }
-        var seenCodes = new LinkedHashMap<String, Integer>();
-        var seenCombos = new LinkedHashMap<String, Integer>();
-        for (var index = 0; index < incoming.size(); index++) {
-            var sku = incoming.get(index);
-            var code = sku == null || sku.skuCode() == null ? "" : sku.skuCode().trim();
-            if (code.isBlank() || code.length() > 64) {
-                issues.add(field("skus[" + index + "].skuCode", "SKU_CODE_REQUIRED", "กรุณาระบุรหัสสินค้า"));
-            } else {
-                var previous = seenCodes.putIfAbsent(code, index);
-                if (previous != null) {
-                    issues.add(field("skus[" + index + "].skuCode", "SKU_CODE_DUPLICATE_IN_FORM", "รหัสสินค้า " + code + " ซ้ำในฟอร์ม"));
-                } else if (codeTaken(product.getShop().getId(), code, product.getId())) {
-                    issues.add(field("skus[" + index + "].skuCode", "SKU_CODE_TAKEN", "รหัสสินค้า " + code + " ซ้ำในร้าน"));
-                }
-            }
-            if (product.getProductType() == ProductType.VARIABLE) {
-                var values = sku == null || sku.optionValues() == null ? Map.<String, String>of() : sku.optionValues();
-                if (!combinationMatches(schema, values)) {
-                    issues.add(field("skus[" + index + "].optionValues", "OPTION_VALUES_MISMATCH", "ชุดตัวเลือกไม่ตรงกับกลุ่มตัวเลือก"));
-                } else if (!schema.isEmpty()) {
-                    var key = combinationKey(schema, values);
-                    if (seenCombos.putIfAbsent(key, index) != null) {
-                        issues.add(field("skus[" + index + "].optionValues", "VARIANT_COMBINATION_DUPLICATE", "ชุดตัวเลือกซ้ำ"));
-                    }
-                }
-            }
-            if (sku != null && sku.imageId() != null && images.findByIdAndProduct_Id(sku.imageId(), product.getId()).isEmpty()) {
-                issues.add(field("skus[" + index + "].imageId", "IMAGE_NOT_ON_PRODUCT", "รูปนี้ไม่ใช่ของสินค้านี้"));
-            }
-        }
+        var groups = variants.groupViews(product.getId()).stream()
+            .map(group -> new CatalogDtos.OptionGroup(group.name(), group.values().stream().map(CatalogDtos.OptionValueResponse::value).toList()))
+            .toList();
+        product.setOptionSchema(JsonMaps.writeGroups(groups));
     }
 
     private List<CatalogDtos.OptionGroup> normalizeSchema(List<CatalogDtos.OptionGroup> raw, ProductType type, List<AuthDtos.ApiFieldError> issues) {
@@ -577,9 +803,15 @@ public class ProductService {
         return key.toString();
     }
 
+    /** Barcode used by a live SKU of another product (this product's own SKUs are checked within the form). */
+    private boolean barcodeTaken(Long shopId, String barcode, UUID productId) {
+        return skus.findByShop_ShopIdAndBarcodeIgnoreCaseAndDeletedAtIsNull(shopId, barcode).stream()
+            .anyMatch(sku -> productId == null || !sku.getProduct().getId().equals(productId));
+    }
+
     private boolean codeTaken(Long shopId, String code, UUID productId) {
         return skus.findByShop_ShopIdAndSkuCodeInAndDeletedAtIsNull(shopId, List.of(code)).stream()
-            .anyMatch(sku -> !sku.getProduct().getId().equals(productId));
+            .anyMatch(sku -> productId == null || !sku.getProduct().getId().equals(productId));
     }
 
     private void parkChangingCodes(List<ProductSku> existing, List<CatalogDtos.SkuWriteRequest> incoming) {
@@ -620,10 +852,10 @@ public class ProductService {
         sku.setPrice(requirePrice(request.price()));
         sku.setCostPrice(money(request.costPrice(), true));
         sku.setCompareAtPrice(money(request.compareAtPrice(), true));
-        if (sku.getCompareAtPrice() != null && sku.getCompareAtPrice().compareTo(sku.getPrice()) <= 0) {
-            throw bad("COMPARE_PRICE_INVALID", "ราคาเปรียบเทียบต้องมากกว่าราคาขาย");
+        if (sku.getCompareAtPrice() != null && sku.getCompareAtPrice().compareTo(sku.getPrice()) < 0) {
+            throw bad("COMPARE_PRICE_INVALID", ValidationMessages.text("COMPARE_PRICE_INVALID"));
         }
-        sku.setBarcode(blank(request.barcode()));
+        sku.setBarcode(normalizeBarcode(request.barcode()));
         sku.setOptionLabel(blank(request.optionLabel()));
         sku.setOptionValues(JsonMaps.write(request.optionValues()));
         sku.setCurrency(currency);
@@ -634,37 +866,22 @@ public class ProductService {
         sku.stamp(userId);
     }
 
-    private void applyExistingSafety(List<ProductSku> existing, List<CatalogDtos.SkuWriteRequest> incoming, boolean reuseSimple, UUID userId) {
-        if (reuseSimple && !incoming.isEmpty()) {
-            var level = levels.findBySku_Id(existing.get(0).getId()).orElse(null);
-            if (level != null) applySafety(level, incoming.get(0).safetyStock(), userId);
-            return;
-        }
-        for (var skuRequest : incoming) {
-            if (skuRequest.id() == null) continue;
-            var level = levels.findBySku_Id(skuRequest.id()).orElse(null);
-            if (level != null) applySafety(level, skuRequest.safetyStock(), userId);
-        }
-    }
-
-    private void applySafety(InventoryLevel level, Integer safetyStock, UUID userId) {
-        if (safetyStock != null && safetyStock < 0) throw bad("INVALID_ADJUSTMENT", "Safety stock ต้องเป็นจำนวนไม่ติดลบ");
-        var current = level.getLowStockThreshold();
-        if (current == null ? safetyStock == null : current.equals(safetyStock)) return;
-        level.setLowStockThreshold(safetyStock);
+    /** null keeps the stored safety stock. New levels are created at 0 before this runs. */
+    private void applySafetyStock(ProductSku sku, Integer requested, UUID userId) {
+        if (requested == null) return;
+        var level = levels.findBySku_Id(sku.getId()).orElse(null);
+        if (level == null || level.getSafetyStock() == requested) return;
+        level.setSafetyStock(requested);
         level.stamp(userId);
     }
 
-    private void applyOpeningStock(UUID userId, Long shopId, Product product, List<CatalogDtos.SkuWriteRequest> requests) {
-        if (requests == null) return;
-        var saved = skus.findByProduct_IdAndDeletedAtIsNullOrderBySkuCodeAsc(product.getId());
-        for (var request : requests) {
-            if (request.id() != null || request.initialStock() == null || request.initialStock() <= 0 || request.skuCode() == null) continue;
-            var code = request.skuCode().trim();
-            var sku = saved.stream().filter(item -> item.getSkuCode().equals(code)).findFirst().orElse(null);
-            if (sku == null) continue;
-            adjustStock(userId, shopId, sku.getId(), new CatalogDtos.StockAdjustRequest(
-                "RECEIVE", request.initialStock(), "นำเข้า", 0, "import-" + sku.getId()
+    /** Opening stock of new SKUs goes through the ledger (RECEIVE) inside the same transaction as the product. */
+    private void applyOpeningStock(UUID userId, Long shopId, List<OpeningStock> opening) {
+        if (opening.isEmpty()) return;
+        entities.flush();
+        for (var item : opening) {
+            adjustStock(userId, shopId, item.sku().getId(), new CatalogDtos.StockAdjustRequest(
+                "RECEIVE", item.quantity(), "สต็อกเริ่มต้น", 0, "opening-" + item.sku().getId()
             ));
         }
     }
@@ -731,35 +948,45 @@ public class ProductService {
             .map(ProductSku::getPrice)
             .toList();
         if (!prices.isEmpty()) product.setBasePrice(prices.stream().min(BigDecimal::compareTo).orElseThrow());
-        if (product.getCompareAtPrice() != null && product.getBasePrice() != null && product.getCompareAtPrice().compareTo(product.getBasePrice()) <= 0) {
-            throw bad("COMPARE_PRICE_INVALID", "ราคาเปรียบเทียบต้องมากกว่าราคาขาย");
+        if (product.getCompareAtPrice() != null && product.getBasePrice() != null && product.getCompareAtPrice().compareTo(product.getBasePrice()) < 0) {
+            throw bad("COMPARE_PRICE_INVALID", ValidationMessages.text("COMPARE_PRICE_INVALID"));
         }
     }
 
-    private SearchResult search(Long shopId, String q, ProductStatus status, Long categoryId, String stock, String sort, Integer page, Integer size, boolean publishedOnly, List<String> priceBands) {
+    private SearchResult search(Long shopId, String q, ProductStatus status, Long categoryId, String brand, String stock, String sort, Integer page, Integer size, boolean publishedOnly, List<String> priceBands) {
         var pageNumber = page == null || page < 0 ? 0 : page;
-        var pageSize = size == null || size < 1 ? 20 : Math.min(size, 50);
+        var pageSize = size == null || size < 1 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
+        var term = q == null || q.isBlank() ? null : q.trim().toLowerCase(Locale.ROOT);
         var where = new StringBuilder(" where p.shop.shopId = :shopId and p.deletedAt is null");
         if (publishedOnly || status != null) where.append(" and p.status = :status");
-        if (categoryId != null) where.append(" and p.category.id = :categoryId");
-        if (q != null && !q.isBlank()) where.append(" and (lower(p.nameTh) like :q or lower(coalesce(p.nameEn, '')) like :q or lower(coalesce(p.nameZh, '')) like :q or lower(p.slug) like :q or exists (select s from ProductSku s where s.product = p and s.deletedAt is null and lower(s.skuCode) like :q))");
+        else where.append(" and p.status <> :archived");
+        if (categoryId != null) where.append(" and p.category.categoryNo = :categoryId");
+        if (brand != null) where.append(" and lower(trim(p.brand)) = :brand");
+        if (term != null) {
+            where.append(" and (lower(p.nameTh) like :q escape '!' or lower(coalesce(p.nameEn, '')) like :q escape '!'")
+                .append(" or lower(coalesce(p.nameZh, '')) like :q escape '!' or lower(p.slug) like :q escape '!'")
+                .append(" or exists (select s from ProductSku s where s.product = p and s.deletedAt is null")
+                .append(" and (lower(s.skuCode) like :q escape '!' or lower(coalesce(s.barcode, '')) like :q escape '!')))");
+        }
         where.append(stockClause(stock));
         where.append(priceClause(priceBands));
         var query = entities.createQuery("select p from Product p" + where + orderClause(sort), Product.class);
         var count = entities.createQuery("select count(p) from Product p" + where, Long.class);
-        bind(query, count, shopId, q, publishedOnly ? ProductStatus.PUBLISHED : status, categoryId);
+        for (var target : List.<jakarta.persistence.Query>of(query, count)) {
+            target.setParameter("shopId", shopId);
+            if (publishedOnly || status != null) target.setParameter("status", publishedOnly ? ProductStatus.PUBLISHED : status);
+            else target.setParameter("archived", ProductStatus.ARCHIVED);
+            if (categoryId != null) target.setParameter("categoryId", categoryId);
+            if (brand != null) target.setParameter("brand", brand.toLowerCase(Locale.ROOT));
+            if (term != null) target.setParameter("q", "%" + likeEscape(term) + "%");
+        }
         var total = count.getSingleResult();
         var items = query.setFirstResult(pageNumber * pageSize).setMaxResults(pageSize).getResultList();
         return new SearchResult(items, pageNumber, pageSize, total);
     }
 
-    private void bind(jakarta.persistence.Query query, jakarta.persistence.Query count, Long shopId, String q, ProductStatus status, Long categoryId) {
-        for (var target : List.of(query, count)) {
-            target.setParameter("shopId", shopId);
-            if (status != null) target.setParameter("status", status);
-            if (categoryId != null) target.setParameter("categoryId", categoryId);
-            if (q != null && !q.isBlank()) target.setParameter("q", "%" + q.trim().toLowerCase(Locale.ROOT) + "%");
-        }
+    private static String likeEscape(String value) {
+        return value.replace("!", "!!").replace("%", "!%").replace("_", "!_");
     }
 
     private CatalogDtos.MerchantProductResponse merchantView(Product product) {
@@ -768,9 +995,15 @@ public class ProductService {
     }
 
     private CatalogDtos.MerchantProductResponse toMerchant(Product product, ContentTranslationIndex index) {
+        return toMerchant(product, index, null);
+    }
+
+    private CatalogDtos.MerchantProductResponse toMerchant(Product product, ContentTranslationIndex index, SkuRollup rollup) {
         var entityId = product.getId().toString();
         var skuRows = skus.findByProduct_IdAndDeletedAtIsNullOrderBySkuCodeAsc(product.getId());
         var stock = skuRows.isEmpty() ? List.<InventoryLevel>of() : levels.findBySku_IdIn(skuRows.stream().map(ProductSku::getId).toList());
+        var options = variants.skuOptions(skuRows.stream().map(ProductSku::getId).toList());
+        var totals = rollup == null ? rollup(skuRows, stock) : rollup;
         return new CatalogDtos.MerchantProductResponse(
             product.getId(), product.getShop().getId(), product.getSlug(), product.getNameTh(),
             index.merchantValue(entityId, "name", "en", product.getNameEn(), product.getNameTh()),
@@ -786,24 +1019,72 @@ public class ProductService {
                 return new CatalogDtos.MerchantSkuResponse(sku.getId(), sku.getSkuCode(), sku.getBarcode(), sku.getOptionLabel(), JsonMaps.read(sku.getOptionValues()),
                     sku.getPrice(), sku.getCostPrice(), sku.getCompareAtPrice(), trim(sku.getCurrency()), sku.getWeightGrams(), sku.isActive(),
                     level == null ? 0 : level.getOnHand(), level == null ? 0 : level.getReservedQty(), level == null ? 0 : level.getAvailable(),
-                    level == null ? null : level.getLowStockThreshold(), level == null ? 0 : level.getVersion(),
-                    sku.getImage() == null ? null : sku.getImage().getId());
+                    level == null ? null : level.getLowStockThreshold(), level == null ? 0 : level.getSafetyStock(), level == null ? 0 : level.getVersion(),
+                    sku.getImage() == null ? null : sku.getImage().getId(), options.getOrDefault(sku.getId(), List.of()));
             }).toList(),
             imageResponses(product, true),
             toMeta(index.meta(entityId, "name", "en")),
             toMeta(index.meta(entityId, "name", "zh")),
             toMeta(index.meta(entityId, "description", "en")),
             toMeta(index.meta(entityId, "description", "zh")),
-            readSchema(product.getOptionSchema())
+            variants.groupViews(product.getId()),
+            readSchema(product.getOptionSchema()),
+            totals.count(), totals.stock(), totals.minPrice(), totals.maxPrice(), totals.lowStock()
         );
     }
 
-    private CatalogDtos.PublicProductResponse toPublic(Product product, ContentTranslationIndex index, ContentTranslationIndex options, String locale) {
+    private Map<UUID, SkuRollup> rollup(List<UUID> ids) {
+        if (ids.isEmpty()) return Map.of();
+        var totals = new HashMap<UUID, SkuRollup>();
+        for (var row : skus.summarizeActiveSkus(ids)) {
+            var id = row[0] instanceof UUID uuid ? uuid : UUID.fromString(String.valueOf(row[0]));
+            totals.put(id, new SkuRollup(number(row[1]), number(row[2]), decimal(row[3]), decimal(row[4]), number(row[5])));
+        }
+        return totals;
+    }
+
+    private static SkuRollup rollup(List<ProductSku> skuRows, List<InventoryLevel> stock) {
+        var count = 0;
+        var total = 0;
+        var low = 0;
+        BigDecimal min = null;
+        BigDecimal max = null;
+        for (var sku : skuRows) {
+            if (!sku.isActive()) continue;
+            count++;
+            var level = stock.stream().filter(item -> item.getSku().getId().equals(sku.getId())).findFirst().orElse(null);
+            var available = level == null ? 0 : level.getAvailable();
+            total += available;
+            var threshold = level == null ? null : level.getLowStockThreshold();
+            if (available > 0 && threshold != null && available <= threshold) low++;
+            if (sku.getPrice() == null) continue;
+            if (min == null || sku.getPrice().compareTo(min) < 0) min = sku.getPrice();
+            if (max == null || sku.getPrice().compareTo(max) > 0) max = sku.getPrice();
+        }
+        return new SkuRollup(count, total, min, max, low);
+    }
+
+    private static int number(Object value) {
+        return value instanceof Number number ? number.intValue() : 0;
+    }
+
+    private static BigDecimal decimal(Object value) {
+        if (value instanceof BigDecimal amount) return amount;
+        return value instanceof Number number ? BigDecimal.valueOf(number.doubleValue()) : null;
+    }
+
+    private record SkuRollup(int count, int stock, BigDecimal minPrice, BigDecimal maxPrice, int lowStock) {}
+
+    private CatalogDtos.PublicProductResponse toPublic(Product product, ContentTranslationIndex index, ContentTranslationIndex optionTranslations, String locale) {
         var entityId = product.getId().toString();
         var skuRows = skus.findByProduct_IdAndDeletedAtIsNullOrderBySkuCodeAsc(product.getId()).stream().filter(ProductSku::isActive).toList();
         var stock = skuRows.isEmpty() ? List.<InventoryLevel>of() : levels.findBySku_IdIn(skuRows.stream().map(ProductSku::getId).toList());
-        var sourceGroups = readSchema(product.getOptionSchema());
-        var localizedGroups = localizeGroups(entityId, sourceGroups, options, locale);
+        var options = variants.skuOptions(skuRows.stream().map(ProductSku::getId).toList());
+        var schema = readSchema(product.getOptionSchema());
+        var localized = localizeGroups(entityId, schema, optionTranslations, locale);
+        var used = optionKeys(skuRows);
+        var sourceGroups = filterOptionGroups(schema, used);
+        var localizedGroups = filterAlignedOptions(schema, localized, used);
         return new CatalogDtos.PublicProductResponse(
             product.getId(), product.getSlug(), product.getNameTh(),
             shown(index.resolve(entityId, "name", "en", product.getNameTh(), product.getNameEn()), product.getNameTh()),
@@ -818,58 +1099,12 @@ public class ProductService {
                 var label = values.isEmpty() ? sku.getOptionLabel() : String.join(" / ", values.values());
                 return new CatalogDtos.PublicSkuResponse(sku.getId(), sku.getSkuCode(), label, values,
                     sku.getPrice(), sku.getCompareAtPrice(), trim(sku.getCurrency()), level == null ? 0 : level.getAvailable(),
-                    sku.getImage() == null ? null : sku.getImage().getId());
+                    sku.getImage() == null ? null : sku.getImage().getId(), options.getOrDefault(sku.getId(), List.of()));
             }).toList(),
             imageResponses(product, false),
+            filterGroupViews(variants.groupViews(product.getId()), used),
             localizedGroups
         );
-    }
-
-    private static String shown(String resolved, String thai) {
-        if (resolved != null && !resolved.isBlank()) return resolved;
-        return thai == null ? "" : thai;
-    }
-
-    private static List<CatalogDtos.OptionGroup> localizeGroups(String entityId, List<CatalogDtos.OptionGroup> groups, ContentTranslationIndex options, String locale) {
-        if (groups.isEmpty() || locale == null || "th".equals(locale)) return groups;
-        var localized = new ArrayList<CatalogDtos.OptionGroup>();
-        for (var groupIndex = 0; groupIndex < groups.size(); groupIndex++) {
-            var group = groups.get(groupIndex);
-            var values = group.values() == null ? List.<String>of() : group.values();
-            var translatedValues = new ArrayList<String>();
-            for (var valueIndex = 0; valueIndex < values.size(); valueIndex++) {
-                translatedValues.add(shown(options.resolve(entityId, "v" + groupIndex + "." + valueIndex, locale, values.get(valueIndex), null), values.get(valueIndex)));
-            }
-            localized.add(new CatalogDtos.OptionGroup(
-                shown(options.resolve(entityId, "n" + groupIndex, locale, group.name(), null), group.name()),
-                translatedValues
-            ));
-        }
-        return localized;
-    }
-
-    private static Map<String, String> localizeOptionValues(List<CatalogDtos.OptionGroup> source, List<CatalogDtos.OptionGroup> localized, Map<String, String> values) {
-        if (values == null || values.isEmpty() || source.size() != localized.size()) return values == null ? Map.of() : values;
-        var translated = new LinkedHashMap<String, String>();
-        for (var entry : values.entrySet()) {
-            var groupIndex = -1;
-            for (var index = 0; index < source.size(); index++) {
-                if (source.get(index).name() != null && source.get(index).name().equals(entry.getKey())) {
-                    groupIndex = index;
-                    break;
-                }
-            }
-            var name = groupIndex >= 0 ? localized.get(groupIndex).name() : entry.getKey();
-            var value = entry.getValue();
-            if (groupIndex >= 0 && source.get(groupIndex).values() != null) {
-                var valueIndex = source.get(groupIndex).values().indexOf(entry.getValue());
-                if (valueIndex >= 0 && valueIndex < localized.get(groupIndex).values().size()) {
-                    value = localized.get(groupIndex).values().get(valueIndex);
-                }
-            }
-            translated.put(name, value);
-        }
-        return translated;
     }
 
     private static CatalogDtos.TranslationMeta toMeta(ContentTranslationIndex.TranslationFieldMeta meta) {
@@ -926,7 +1161,7 @@ public class ProductService {
     }
 
     private static CatalogDtos.StockResponse stockResponse(InventoryLevel level, String type) {
-        return new CatalogDtos.StockResponse(level.getSku().getId(), type, level.getOnHand(), level.getAvailable(), level.getVersion());
+        return new CatalogDtos.StockResponse(level.getSku().getId(), type, level.getOnHand(), level.getAvailable(), level.getSafetyStock(), level.getVersion());
     }
 
     public void requireImportAccess(UUID userId, Long shopId) {
@@ -935,9 +1170,17 @@ public class ProductService {
 
     private Shop requireSellableShop(UUID userId, Long shopId) {
         var shop = shops.findByShopId(shopId).orElseThrow(ProductService::missingShop);
-        if (shop.getUser() == null || shop.getUser().getId() == null || !shop.getUser().getId().equals(userId)) throw missingShop();
+        // Who may touch the shop is decided by the DB permission matrix (@RequireShopPermission already ran);
+        // here we only make sure the caller is an active member of THIS shop (or super admin), so a service
+        // call can never leak another shop's data. Non-members get the same 404 as a missing shop.
+        if (userId == null || !canAccessShop(userId, shop)) throw missingShop();
         if (shop.getStatus() != ShopStatus.APPROVED) throw new AuthException(HttpStatus.FORBIDDEN, "SHOP_NOT_APPROVED", "ร้านนี้ยังเปิดขายไม่ได้");
         return shop;
+    }
+
+    private boolean canAccessShop(UUID userId, Shop shop) {
+        var grants = authorization.grants(userId);
+        return grants.superAdmin() || grants.shopRoles().containsKey(shop.getId());
     }
 
     private Shop requirePublicShop(String slug) {
@@ -1062,23 +1305,36 @@ public class ProductService {
         return stock;
     }
 
+    /**
+     * Sort whitelist. Accepts the UI keys (newest, oldest, updated, name, name_desc, price_asc, price_desc, stock)
+     * and field,direction pairs for createdAt, updatedAt, name, price (e.g. "updatedAt,desc"). Anything else is 400.
+     */
     private static String parseSort(String value) {
         if (value == null || value.isBlank()) return "newest";
-        var sort = value.trim().toLowerCase(Locale.ROOT);
-        if (!sort.equals("newest") && !sort.equals("name") && !sort.equals("price_asc") && !sort.equals("price_desc") && !sort.equals("stock")) {
-            throw bad("INVALID_SORT", "การเรียงลำดับไม่ถูกต้อง");
-        }
-        return sort;
+        var sort = value.trim().toLowerCase(Locale.ROOT).replace(":", ",");
+        var mapped = switch (sort) {
+            case "newest", "createdat,desc", "createdat" -> "newest";
+            case "oldest", "createdat,asc" -> "oldest";
+            case "updated", "updatedat,desc", "updatedat" -> "updated";
+            case "updated_asc", "updatedat,asc" -> "updated_asc";
+            case "name", "name,asc" -> "name";
+            case "name_desc", "name,desc" -> "name_desc";
+            case "price_asc", "price,asc", "price" -> "price_asc";
+            case "price_desc", "price,desc" -> "price_desc";
+            case "stock", "stock,desc" -> "stock";
+            default -> null;
+        };
+        if (mapped == null) throw bad("INVALID_SORT", "การเรียงลำดับไม่ถูกต้อง");
+        return mapped;
     }
 
     private static String stockClause(String stock) {
         if (stock == null) return "";
         var active = "select l from InventoryLevel l where l.sku.product = p and l.sku.deletedAt is null and l.sku.active = true";
-        var net = "(l.onHand - l.reservedQty - coalesce(l.lowStockThreshold, 0))";
         return switch (stock) {
-            case "out" -> " and not exists (" + active + " and " + net + " > 0) and not exists (" + active + " and " + net + " <= 0 and l.onHand > 0)";
-            case "low" -> " and exists (" + active + " and " + net + " <= 0 and l.onHand > 0)";
-            default -> " and exists (" + active + " and " + net + " > 0) and not exists (" + active + " and " + net + " <= 0 and l.onHand > 0)";
+            case "out" -> " and not exists (" + active + " and l.available > 0)";
+            case "low" -> " and exists (" + active + " and l.available > 0 and l.lowStockThreshold is not null and l.available <= l.lowStockThreshold)";
+            default -> " and exists (" + active + " and l.available > 0 and (l.lowStockThreshold is null or l.available > l.lowStockThreshold))";
         };
     }
 
@@ -1109,14 +1365,120 @@ public class ProductService {
         return " and (" + String.join(" or ", parts) + ")";
     }
 
+    /** Every order ends with p.id so paging is stable when the main key ties. */
     private static String orderClause(String sort) {
         return switch (sort) {
-            case "name" -> " order by p.nameTh asc";
-            case "price_asc" -> " order by p.basePrice asc nulls last, p.createdDateTime desc";
-            case "price_desc" -> " order by p.basePrice desc nulls last, p.createdDateTime desc";
-            case "stock" -> " order by (select coalesce(sum(case when (l.onHand - l.reservedQty - coalesce(l.lowStockThreshold, 0)) < 0 then 0 else (l.onHand - l.reservedQty - coalesce(l.lowStockThreshold, 0)) end), 0) from InventoryLevel l where l.sku.product = p) desc, p.createdDateTime desc";
-            default -> " order by p.createdDateTime desc";
+            case "oldest" -> " order by p.createdDateTime asc, p.id asc";
+            case "updated" -> " order by p.modifiedDateTime desc, p.id asc";
+            case "updated_asc" -> " order by p.modifiedDateTime asc, p.id asc";
+            case "name" -> " order by lower(p.nameTh) asc, p.id asc";
+            case "name_desc" -> " order by lower(p.nameTh) desc, p.id asc";
+            case "price_asc" -> " order by p.basePrice asc nulls last, p.createdDateTime desc, p.id asc";
+            case "price_desc" -> " order by p.basePrice desc nulls last, p.createdDateTime desc, p.id asc";
+            case "stock" -> " order by (select coalesce(sum(l.available), 0) from InventoryLevel l where l.sku.product = p and l.sku.deletedAt is null) desc, p.createdDateTime desc, p.id asc";
+            default -> " order by p.createdDateTime desc, p.id asc";
         };
+    }
+
+    private static Set<String> optionKeys(List<ProductSku> skus) {
+        var used = new HashSet<String>();
+        for (var sku : skus) {
+            JsonMaps.read(sku.getOptionValues()).forEach((name, value) -> {
+                if (name != null && value != null) used.add(name.trim().toLowerCase(Locale.ROOT) + "\n" + value.trim().toLowerCase(Locale.ROOT));
+            });
+        }
+        return used;
+    }
+
+    private static List<CatalogDtos.OptionGroup> filterOptionGroups(List<CatalogDtos.OptionGroup> groups, Set<String> used) {
+        var out = new ArrayList<CatalogDtos.OptionGroup>();
+        for (var group : groups) {
+            if (group == null || group.name() == null || group.values() == null) continue;
+            var values = group.values().stream()
+                .filter(value -> value != null && used.contains(group.name().trim().toLowerCase(Locale.ROOT) + "\n" + value.trim().toLowerCase(Locale.ROOT)))
+                .toList();
+            if (!values.isEmpty()) out.add(new CatalogDtos.OptionGroup(group.name(), values));
+        }
+        return out;
+    }
+
+    /** Drops values with no active SKU while keeping source and translated lists aligned. */
+    private static List<CatalogDtos.OptionGroup> filterAlignedOptions(List<CatalogDtos.OptionGroup> source, List<CatalogDtos.OptionGroup> localized, Set<String> used) {
+        if (source.size() != localized.size()) return filterOptionGroups(localized, used);
+        var out = new ArrayList<CatalogDtos.OptionGroup>();
+        for (var groupIndex = 0; groupIndex < source.size(); groupIndex++) {
+            var group = source.get(groupIndex);
+            var translated = localized.get(groupIndex);
+            if (group == null || group.name() == null || group.values() == null || translated == null) continue;
+            var values = new ArrayList<String>();
+            var localValues = translated.values() == null ? List.<String>of() : translated.values();
+            for (var valueIndex = 0; valueIndex < group.values().size(); valueIndex++) {
+                var value = group.values().get(valueIndex);
+                if (value == null || !used.contains(group.name().trim().toLowerCase(Locale.ROOT) + "\n" + value.trim().toLowerCase(Locale.ROOT))) continue;
+                if (valueIndex < localValues.size()) values.add(localValues.get(valueIndex));
+            }
+            if (!values.isEmpty()) out.add(new CatalogDtos.OptionGroup(translated.name(), List.copyOf(values)));
+        }
+        return out;
+    }
+
+    private static List<CatalogDtos.OptionGroupResponse> filterGroupViews(List<CatalogDtos.OptionGroupResponse> groups, Set<String> used) {
+        var out = new ArrayList<CatalogDtos.OptionGroupResponse>();
+        for (var group : groups) {
+            if (group == null || group.name() == null || group.values() == null) continue;
+            var values = group.values().stream()
+                .filter(value -> value != null && value.value() != null && used.contains(group.name().trim().toLowerCase(Locale.ROOT) + "\n" + value.value().trim().toLowerCase(Locale.ROOT)))
+                .toList();
+            if (!values.isEmpty()) out.add(new CatalogDtos.OptionGroupResponse(group.id(), group.name(), group.sortOrder(), values));
+        }
+        return out;
+    }
+
+    private static List<CatalogDtos.OptionGroup> localizeGroups(String entityId, List<CatalogDtos.OptionGroup> groups, ContentTranslationIndex options, String locale) {
+        if (groups.isEmpty() || locale == null || "th".equals(locale)) return groups;
+        var localized = new ArrayList<CatalogDtos.OptionGroup>();
+        for (var groupIndex = 0; groupIndex < groups.size(); groupIndex++) {
+            var group = groups.get(groupIndex);
+            var values = group.values() == null ? List.<String>of() : group.values();
+            var translatedValues = new ArrayList<String>();
+            for (var valueIndex = 0; valueIndex < values.size(); valueIndex++) {
+                translatedValues.add(shown(options.resolve(entityId, "v" + groupIndex + "." + valueIndex, locale, values.get(valueIndex), null), values.get(valueIndex)));
+            }
+            localized.add(new CatalogDtos.OptionGroup(
+                shown(options.resolve(entityId, "n" + groupIndex, locale, group.name(), null), group.name()),
+                translatedValues
+            ));
+        }
+        return localized;
+    }
+
+    private static Map<String, String> localizeOptionValues(List<CatalogDtos.OptionGroup> source, List<CatalogDtos.OptionGroup> localized, Map<String, String> values) {
+        if (values == null || values.isEmpty() || source.size() != localized.size()) return values == null ? Map.of() : values;
+        var translated = new LinkedHashMap<String, String>();
+        for (var entry : values.entrySet()) {
+            var groupIndex = -1;
+            for (var index = 0; index < source.size(); index++) {
+                if (source.get(index).name() != null && source.get(index).name().equals(entry.getKey())) {
+                    groupIndex = index;
+                    break;
+                }
+            }
+            var name = groupIndex >= 0 ? localized.get(groupIndex).name() : entry.getKey();
+            var value = entry.getValue();
+            if (groupIndex >= 0 && source.get(groupIndex).values() != null) {
+                var valueIndex = source.get(groupIndex).values().indexOf(entry.getValue());
+                if (valueIndex >= 0 && valueIndex < localized.get(groupIndex).values().size()) {
+                    value = localized.get(groupIndex).values().get(valueIndex);
+                }
+            }
+            translated.put(name, value);
+        }
+        return translated;
+    }
+
+    private static String shown(String resolved, String thai) {
+        if (resolved != null && !resolved.isBlank()) return resolved;
+        return thai == null ? "" : thai;
     }
 
     private static String actorLabel(UserAccount user) {

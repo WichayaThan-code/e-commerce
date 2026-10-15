@@ -8,5 +8,24 @@
   "shopCount": "shops",
   "empty": "No shops are waiting",
   "waiting": "Awaiting approval",
-  "unknownOwner": "Owner not set"
+  "unknownOwner": "Owner not set",
+  "confirm": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "deactivateRoleTitle": "Deactivate role",
+    "deactivateRoleBody": "Deactivate {{name}} and remove this role from every user?",
+    "removeMemberTitle": "Remove from shop",
+    "removeMemberBody": "Remove {{name}} from this shop?",
+    "suspendStoreTitle": "Suspend shop",
+    "suspendStoreBody": "Suspend {{name}}?",
+    "reactivateStoreTitle": "Reactivate shop",
+    "reactivateStoreBody": "Reactivate {{name}}?",
+    "appealNote": "Reinstatement request: {{appeal}}",
+    "suspendUserTitle": "Suspend account",
+    "suspendUserBody": "Suspend this account and sign it out of every device?",
+    "restoreUserTitle": "Restore account",
+    "restoreUserBody": "Restore this account?",
+    "deleteUserTitle": "Delete account",
+    "deleteUserBody": "Delete {{name}}? This keeps a history record and cannot be undone."
+  }
 }

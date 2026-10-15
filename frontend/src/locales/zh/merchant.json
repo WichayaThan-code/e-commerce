@@ -325,7 +325,14 @@
     "dialogClose": "Close",
     "empty": "—"
   },
+  "shopMenu": {
+    "openFailed": "无法打开新店铺表单"
+  },
   "catalog": {
+    "toggle": {
+      "on": "开",
+      "off": "关"
+    },
     "menu": {
       "searchPh": "搜索商品、订单、客户...",
       "help": "帮助",
@@ -374,6 +381,10 @@
       "SKU_REQUIRED": "至少需要一个 SKU",
       "SKU_CODE_REQUIRED": "请填写 SKU 编码",
       "PUBLISH_INCOMPLETE": "发布前请补全必填信息",
+      "PUBLISH_SKU_REQUIRED": "发布前至少要有 1 个在售 SKU",
+      "PUBLISHED_SKU_REQUIRED": "已发布的商品至少要有 1 个在售 SKU",
+      "BARCODE_INVALID": "条码只能使用 A-Z、数字和连字符",
+      "SAFETY_STOCK_INVALID": "安全库存必须是 0 到 1,000,000 的整数",
       "SKU_CODE_DUPLICATE_IN_FORM": "表单中的 SKU 编码重复",
       "SKU_CODE_TAKEN": "店内已使用此 SKU 编码",
       "VARIANT_COMBINATION_DUPLICATE": "选项组合重复",
@@ -381,7 +392,10 @@
       "SKU_HAS_STOCK": "该规格仍有库存或预留",
       "OPTION_SCHEMA_INVALID": "请添加 1 到 3 个选项组",
       "OPTION_VALUES_MISMATCH": "选项值与选项组不一致",
-      "IMAGE_NOT_ON_PRODUCT": "这张图片不属于此商品"
+      "IMAGE_NOT_ON_PRODUCT": "这张图片不属于此商品",
+      "OPTION_VALUE_UNUSED": "此选项值没有正在销售的 SKU",
+      "TRANSLATION_NOT_FOUND": "找不到此字段的翻译任务",
+      "TRANSLATION_NOT_RETRYABLE": "只有等待中或翻译失败的任务可以重新排队"
     },
     "variants": {
       "title": "商品规格",
@@ -396,6 +410,7 @@
       "selectMatching": "选择匹配行",
       "apply": "填入所有选中行",
       "generate": "按前缀生成 SKU",
+      "fillCombinations": "生成全部选项组合",
       "prefix": "SKU 前缀",
       "tooMany": "选项组合超过 100 个，请先减少选项值再生成表格",
       "optionUncovered": "有选项值没有对应的 SKU",
@@ -407,7 +422,10 @@
       "barcode": "条码",
       "weight": "重量",
       "stock": "库存",
-      "active": "启用",
+      "safety": "安全库存",
+      "active": "在售",
+      "selectRow": "选择行",
+      "removeValue": "删除 {{name}}",
       "inactive": "停用",
       "image": "图片",
       "imageN": "图片 {{n}}",
@@ -436,7 +454,8 @@
       "savePublish": "保存并发布",
       "clear": "清除筛选",
       "addFirst": "添加第一件商品",
-      "view": "查看详情"
+      "view": "查看详情",
+      "close": "关闭"
     },
     "detail": {
       "gallery": "图片",
@@ -451,6 +470,9 @@
       "onHand": "现存量",
       "reserved": "已预留",
       "available": "可售",
+      "safetyStock": "安全库存",
+      "reservedBefore": "预留前",
+      "reservedAfter": "预留后",
       "actor": "操作人",
       "delta": "数量",
       "reason": "原因",
@@ -539,6 +561,16 @@
     "title": "商品管理",
     "add": "添加商品",
     "export": "Export",
+    "downloadTemplate": "下载 template",
+    "variantLine": "{{count}} 个选项 · 总库存 {{stock}}",
+    "importResult": {
+      "title": "导入结果",
+      "summary": "已创建商品 {{created}} 个 · SKU {{skuCreated}} 个 · 失败 {{failed}} 个",
+      "row": "Excel 行",
+      "productKey": "productKey",
+      "skuCode": "skuCode",
+      "message": "说明"
+    },
     "import": "Import",
     "importHint": "只填泰语即可。EN/ZH 会自动翻译。若填写 nameEn、nameZh、descriptionEn 或 descriptionZh，将保留该译文。可在该行放入 JPG、PNG 或 WEBP，或在 image 列填写图片链接",
     "importDialogTitle": "正在导入商品",

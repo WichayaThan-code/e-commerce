@@ -8,5 +8,24 @@
   "shopCount": "家",
   "empty": "没有待审核的店铺",
   "waiting": "等待审核",
-  "unknownOwner": "未填写店主"
+  "unknownOwner": "未填写店主",
+  "confirm": {
+    "cancel": "取消",
+    "confirm": "确认",
+    "deactivateRoleTitle": "停用角色",
+    "deactivateRoleBody": "停用角色 {{name}}，并从所有用户撤销该角色？",
+    "removeMemberTitle": "移出店铺",
+    "removeMemberBody": "将 {{name}} 移出此店铺？",
+    "suspendStoreTitle": "停用店铺",
+    "suspendStoreBody": "停用店铺 {{name}}？",
+    "reactivateStoreTitle": "重新启用店铺",
+    "reactivateStoreBody": "重新启用店铺 {{name}}？",
+    "appealNote": "解除停用申请：{{appeal}}",
+    "suspendUserTitle": "停用账户",
+    "suspendUserBody": "停用此账户并退出所有设备？",
+    "restoreUserTitle": "恢复账户",
+    "restoreUserBody": "恢复此账户？",
+    "deleteUserTitle": "删除账户",
+    "deleteUserBody": "删除账户 {{name}}？删除会保留历史记录且无法撤销。"
+  }
 }

@@ -34,6 +34,8 @@ public class InventoryLevel extends AuditedEntity {
     private int reservedQty;
     @Column(nullable = false)
     private int available;
+    @Column(name = "safety_stock", nullable = false)
+    private int safetyStock;
     @Column(name = "low_stock_threshold")
     private Integer lowStockThreshold;
     @Version
@@ -48,6 +50,7 @@ public class InventoryLevel extends AuditedEntity {
         this.shop = sku.getShop();
         this.onHand = 0;
         this.reservedQty = 0;
+        this.safetyStock = 0;
         this.available = 0;
     }
 
@@ -64,21 +67,16 @@ public class InventoryLevel extends AuditedEntity {
         this.reservedQty = reservedQty;
         refreshAvailable();
     }
-    public int getAvailable() {
-        return Math.max(0, onHand - reservedQty - safetyQty());
-    }
-    public Integer getLowStockThreshold() { return lowStockThreshold; }
-    public void setLowStockThreshold(Integer lowStockThreshold) {
-        this.lowStockThreshold = lowStockThreshold;
+    public int getSafetyStock() { return safetyStock; }
+    public void setSafetyStock(int safetyStock) {
+        this.safetyStock = safetyStock;
         refreshAvailable();
     }
-    public int getVersion() { return version; }
-
-    private int safetyQty() {
-        return lowStockThreshold == null ? 0 : Math.max(0, lowStockThreshold);
-    }
+    public int getAvailable() { return Math.max(0, onHand - reservedQty - safetyStock); }
+    public Integer getLowStockThreshold() { return lowStockThreshold; }
 
     private void refreshAvailable() {
-        this.available = getAvailable();
+        this.available = Math.max(0, onHand - reservedQty - safetyStock);
     }
+    public int getVersion() { return version; }
 }

@@ -135,6 +135,18 @@ public class AuthorizationService {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM shops WHERE shop_no = ?)", Boolean.class, shopNo));
     }
 
+    /**
+     * Role codes the user holds, straight from the role tables: active platform_roles plus the roles of active
+     * shop memberships (distinct, sorted). Used for the informational "roles" JWT claim and Spring authorities;
+     * never for permission decisions (those go through the matrix).
+     */
+    public List<String> roleCodes(UUID userId) {
+        var grants = grants(userId);
+        var codes = new TreeSet<>(grants.platformRoles());
+        codes.addAll(grants.shopRoles().values());
+        return List.copyOf(codes);
+    }
+
     /** Grants of the user, loaded once per HTTP request. */
     public Grants grants(UUID userId) {
         var attributes = RequestContextHolder.getRequestAttributes();

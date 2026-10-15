@@ -30,7 +30,7 @@ public class ShopController {
 
     @GetMapping("/{slug}")
     public MerchantDtos.PublicShopResponse get(@PathVariable String slug, @AuthenticationPrincipal Jwt jwt) {
-        return shops.publicView(slug, RequestUser.id(jwt), RequestUser.admin(jwt));
+        return shops.publicView(slug, RequestUser.id(jwt));
     }
 
     @GetMapping("/{slug}/logo")

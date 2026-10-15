@@ -54,8 +54,10 @@ public class ProductSku extends AuditedEntity {
     private boolean active = true;
     @Column(name = "deleted_at")
     private Instant deletedAt;
+    /** Variant image: one of the product's images; cleared by the DB when that image is deleted. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "image_id")
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     private ProductImage image;
 
     protected ProductSku() {}

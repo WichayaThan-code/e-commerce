@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   BarChart3, Bell, Check, ChevronDown, ChevronLeft, ChevronRight,
@@ -7,6 +8,7 @@ import {
   ReceiptText, Search, Settings, ShoppingBag, SlidersHorizontal, Store,
   Tags, TrendingUp, UserCog, UsersRound, WalletCards,
 } from 'lucide-react'
+import ConfirmDialog from '../components/form/ConfirmDialog'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
@@ -80,6 +82,7 @@ function mapStore(item: AdminStoreApplication): StoreRecord {
 }
 
 export default function AdminStoresPage(){
+  const { t } = useTranslation('admin')
   const {user,loading}=useAuth()
   const {can,deniedTitle}=usePermissions()
   // pending/rejected stores open the application review; active stores are suspended, suspended ones restored
@@ -88,6 +91,7 @@ export default function AdminStoresPage(){
   const [rows,setRows]=useState<StoreRecord[]>([])
   const [loaded,setLoaded]=useState(false)
   const [busyId,setBusyId]=useState<number|null>(null)
+  const [storeConfirm,setStoreConfirm]=useState<StoreRecord|null>(null)
   const [query,setQuery]=useState('')
   const [status,setStatus]=useState('ทั้งหมด')
   const [category,setCategory]=useState('ทั้งหมด')
@@ -145,9 +149,13 @@ export default function AdminStoresPage(){
       return
     }
     if(busyId)return
+    setStoreConfirm(store)
+  }
+  const applyStoreStatus=async()=>{
+    const store=storeConfirm
+    if(!store||busyId)return
     const reactivate=store.status==='ถูกระงับ'
-    const appealNote = reactivate && store.appeal ? `\n\nคำร้องปลดระงับ: ${store.appeal}` : ''
-    if(!window.confirm(reactivate?`เปิดใช้งานร้าน ${store.name} อีกครั้ง?${appealNote}`:`ระงับร้าน ${store.name}?`))return
+    setStoreConfirm(null)
     setBusyId(store.id)
     try {
       const updated=reactivate?await adminApplicationApi.reactivate(store.id):await adminApplicationApi.suspend(store.id)
@@ -211,5 +219,20 @@ export default function AdminStoresPage(){
       </section>
     </div>
     {notice&&<div className="admin-toast" role="status">{notice}</div>}
+    {storeConfirm && (
+      <ConfirmDialog
+        title={t(storeConfirm.status === 'ถูกระงับ' ? 'confirm.reactivateStoreTitle' : 'confirm.suspendStoreTitle')}
+        message={[
+          t(storeConfirm.status === 'ถูกระงับ' ? 'confirm.reactivateStoreBody' : 'confirm.suspendStoreBody', { name: storeConfirm.name }),
+          storeConfirm.status === 'ถูกระงับ' && storeConfirm.appeal ? t('confirm.appealNote', { appeal: storeConfirm.appeal }) : '',
+        ].filter(Boolean).join(' ')}
+        cancelLabel={t('confirm.cancel')}
+        confirmLabel={t('confirm.confirm')}
+        danger={storeConfirm.status !== 'ถูกระงับ'}
+        confirmDisabled={busyId === storeConfirm.id}
+        onCancel={() => setStoreConfirm(null)}
+        onConfirm={() => void applyStoreStatus()}
+      />
+    )}
   </main>
 }

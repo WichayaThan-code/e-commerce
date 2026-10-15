@@ -15,8 +15,10 @@ import java.util.UUID;
 public class MerchantOrderController {
     private final OrderQueryService queries;
     private final OrderTransitionService transitions;
+    private final com.thaishopfun.payment.RefundService refunds;
 
-    public MerchantOrderController(OrderQueryService queries, OrderTransitionService transitions) {
+    public MerchantOrderController(OrderQueryService queries, OrderTransitionService transitions, com.thaishopfun.payment.RefundService refunds) {
+        this.refunds = refunds;
         this.queries = queries;
         this.transitions = transitions;
     }
@@ -103,20 +105,29 @@ public class MerchantOrderController {
         return act(jwt, shopId, orderId, OrderTransitionService.Action.CANCEL, request);
     }
 
-    /** body.restock (default true) applies when the order was already shipped. */
+    /**
+     * Approve the order's open refund request (REQUESTED → APPROVED). The order becomes REFUNDED only after the shop
+     * uploads its refund proof (POST …/refunds/{refundId}/proof). body.restock (default true) applies after dispatch.
+     */
     @RequireShopPermission("ORDER_REFUND")
     @PostMapping("/{orderId}/refund/approve")
-    public OrderDtos.TransitionResponse approveRefund(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID orderId,
-                                                      @RequestBody(required = false) OrderDtos.TransitionRequest request) {
-        return act(jwt, shopId, orderId, OrderTransitionService.Action.APPROVE_REFUND, request);
+    public com.thaishopfun.payment.PaymentDtos.RefundActionResponse approveRefund(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID orderId,
+                                                      @RequestBody(required = false) com.thaishopfun.payment.PaymentDtos.RefundActionRequest request) {
+        var actor = actor(jwt, shopId);
+        return refunds.approve(actor, orderId, refunds.openRefundId(actor, orderId), request, fileBase(shopId, orderId));
     }
 
-    /** body.reason required; the order goes back to the status it had before the request. */
+    /** body.reason required; the open refund is rejected and the order goes back to the status it had before the request. */
     @RequireShopPermission("ORDER_REFUND")
     @PostMapping("/{orderId}/refund/reject")
-    public OrderDtos.TransitionResponse rejectRefund(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID orderId,
-                                                     @RequestBody(required = false) OrderDtos.TransitionRequest request) {
-        return act(jwt, shopId, orderId, OrderTransitionService.Action.REJECT_REFUND, request);
+    public com.thaishopfun.payment.PaymentDtos.RefundActionResponse rejectRefund(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID orderId,
+                                                     @RequestBody(required = false) com.thaishopfun.payment.PaymentDtos.RefundActionRequest request) {
+        var actor = actor(jwt, shopId);
+        return refunds.reject(actor, orderId, refunds.openRefundId(actor, orderId), request, fileBase(shopId, orderId));
+    }
+
+    private static String fileBase(Long shopId, UUID orderId) {
+        return "/api/merchant/shops/" + shopId + "/orders/" + orderId;
     }
 
     private OrderActor actor(Jwt jwt, Long shopId) {

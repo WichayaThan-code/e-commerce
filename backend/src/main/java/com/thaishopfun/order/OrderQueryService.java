@@ -42,9 +42,11 @@ public class OrderQueryService {
     private final ShipmentRepository shipments;
     private final ShopRepository shops;
     private final AuthorizationService authz;
+    private final OrderMoneyLedger ledger;
 
     public OrderQueryService(OrderRepository orders, OrderStatusHistoryRepository history, ShipmentRepository shipments,
-                             ShopRepository shops, AuthorizationService authz) {
+                             ShopRepository shops, AuthorizationService authz, OrderMoneyLedger ledger) {
+        this.ledger = ledger;
         this.orders = orders;
         this.history = history;
         this.shipments = shipments;
@@ -172,7 +174,8 @@ public class OrderQueryService {
             .orElse(null);
         var address = order.getAddresses().stream().filter(a -> "SHIPPING".equals(a.getAddressType())).findFirst()
             .map(a -> address(a, masked(order, actor, shop))).orElse(null);
-        var items = order.getItems().stream().map(item -> new OrderDtos.Item(item.getId(), item.getProductId(), item.getSkuId(),
+        boolean itemsHidden = MerchantVisibility.itemsHidden(order, actor);
+        var items = itemsHidden ? null : order.getItems().stream().map(item -> new OrderDtos.Item(item.getId(), item.getProductId(), item.getSkuId(),
             item.getProductNameSnapshot(), item.getOptionLabelSnapshot(), item.getSkuCodeSnapshot(), item.getBarcodeSnapshot(),
             item.getImageUrlSnapshot(), item.getUnitPrice(), item.getCompareAtPriceSnapshot(), staff ? item.getCostSnapshot() : null,
             item.getQuantity(), item.getDiscountAmount(), item.getLineTotal())).toList();
@@ -186,7 +189,9 @@ public class OrderQueryService {
             new OrderDtos.ShippingSnapshot(order.getShippingMethodId(), order.getShippingMethodNameSnapshot(), order.getShippingCarrierCodeSnapshot()),
             shipment, address, order.getBuyerNote(), staff ? order.getBuyerUserId() : null, staff ? order.getShopCustomerId() : null,
             order.getCancelReason(), order.getStatusBeforeRefund(), order.getPlacedAt(), order.getPaidAt(), order.getMerchantConfirmedAt(),
-            order.getCancelledAt(), order.getCompletedAt(), order.getRowVersion(), items, allowed);
+            order.getCancelledAt(), order.getCompletedAt(), order.getRowVersion(), items, allowed,
+            itemsHidden, order.getItems().size(), order.getItems().stream().mapToInt(OrderItem::getQuantity).sum(),
+            ledger.captured(order.getId()), ledger.refunded(order.getId()), ledger.refundable(order.getId()));
     }
 
     /** Merchants see the full address only after confirming the order and with SHIPMENT_ADDRESS_READ (V1 design: reveal after confirm). */

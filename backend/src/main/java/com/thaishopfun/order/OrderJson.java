@@ -7,12 +7,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** Timeline metadata stored as JSON text in order_status_history.metadata_json. */
-final class OrderJson {
+public final class OrderJson {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private OrderJson() {}
 
-    static String write(Map<String, Object> map) {
+    public static String write(Map<String, Object> map) {
         if (map == null || map.isEmpty()) return null;
         try {
             return JSON.writeValueAsString(map);
@@ -21,7 +21,7 @@ final class OrderJson {
         }
     }
 
-    static Map<String, Object> read(String json) {
+    public static Map<String, Object> read(String json) {
         if (json == null || json.isBlank()) return null;
         try {
             return JSON.readValue(json, new TypeReference<LinkedHashMap<String, Object>>() {});

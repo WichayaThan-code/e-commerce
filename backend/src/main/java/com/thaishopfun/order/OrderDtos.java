@@ -28,6 +28,7 @@ public final class OrderDtos {
      * provider / amount / paymentReference: mark-paid. restock: approve refund after dispatch (default true).
      * expectedVersion: optional optimistic check against orders.row_version (409 ORDER_VERSION_CONFLICT).
      */
+    /* amount: mark-paid (must equal the order total) or refund request (partial allowed, default = all refundable). */
     public record TransitionRequest(String reason, String carrierCode, String trackingNumber, String status,
                                     String provider, BigDecimal amount, String paymentReference, Boolean restock,
                                     Integer expectedVersion) {
@@ -54,7 +55,11 @@ public final class OrderDtos {
         String couponCode, ShippingSnapshot shipping, ShipmentView shipment, AddressView shippingAddress,
         String buyerNote, UUID buyerUserId, UUID shopCustomerId, String cancelReason, String statusBeforeRefund,
         Instant placedAt, Instant paidAt, Instant merchantConfirmedAt, Instant cancelledAt, Instant completedAt,
-        int version, List<Item> items, List<String> allowedTransitions
+        int version, List<Item> items, List<String> allowedTransitions,
+        /* true = seller has not confirmed yet: line items are withheld (V1 design), counts below still shown */
+        boolean itemsHidden, int itemCount, int totalQuantity,
+        /* money summary: captured payment, refunded with proof, still refundable */
+        BigDecimal paidAmount, BigDecimal refundedAmount, BigDecimal refundableAmount
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

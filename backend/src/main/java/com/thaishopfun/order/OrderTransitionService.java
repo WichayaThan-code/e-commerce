@@ -51,6 +51,15 @@ public class OrderTransitionService {
 
     public record Result(boolean changed, OrderStatus from, OrderStatus to, Order order) {}
 
+    /**
+     * Internal options for callers inside the backend (payment / refund services), never from a request body.
+     * receivedAmount: captured amount when it differs from the order total (shop accepted a mismatch);
+     * skipAmountCheck: the caller already validated the amount; event: timeline event name override.
+     */
+    public record Internal(BigDecimal receivedAmount, boolean skipAmountCheck, String event) {
+        public static Internal none() { return new Internal(null, false, null); }
+    }
+
     private final OrderRepository orders;
     private final OrderStatusHistoryRepository history;
     private final OrderInventoryService inventory;
@@ -58,10 +67,17 @@ public class OrderTransitionService {
     private final PaymentRepository payments;
     private final RefundRepository refunds;
     private final OrderPromotionUsageRepository usages;
+    private final OrderMoneyLedger ledger;
+    private final OrderItemRevealLogRepository revealLogs;
+    private final PaymentProofRepository proofs;
 
     public OrderTransitionService(OrderRepository orders, OrderStatusHistoryRepository history, OrderInventoryService inventory,
                                   ShipmentRepository shipments, PaymentRepository payments, RefundRepository refunds,
-                                  OrderPromotionUsageRepository usages) {
+                                  OrderPromotionUsageRepository usages, OrderMoneyLedger ledger, OrderItemRevealLogRepository revealLogs,
+                                  PaymentProofRepository proofs) {
+        this.ledger = ledger;
+        this.revealLogs = revealLogs;
+        this.proofs = proofs;
         this.orders = orders;
         this.history = history;
         this.inventory = inventory;
@@ -73,6 +89,12 @@ public class OrderTransitionService {
 
     @Transactional
     public Result transition(UUID orderId, OrderActor actor, Action action, OrderDtos.TransitionRequest body) {
+        return transition(orderId, actor, action, body, Internal.none());
+    }
+
+    @Transactional
+    public Result transition(UUID orderId, OrderActor actor, Action action, OrderDtos.TransitionRequest body, Internal internal) {
+        var opts = internal == null ? Internal.none() : internal;
         var req = body == null ? OrderDtos.TransitionRequest.empty() : body;
         var order = orders.lockById(orderId).filter(actor::canSee)
             .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "ไม่พบออเดอร์"));
@@ -128,25 +150,35 @@ public class OrderTransitionService {
             if (!PAYMENT_PROVIDERS.contains(provider)) {
                 violations.add(new FieldViolation("provider", "INVALID", "ช่องทางชำระเงินต้องเป็น " + String.join(", ", PAYMENT_PROVIDERS.stream().sorted().toList())));
             }
-            if (req.amount() != null && req.amount().setScale(2, RoundingMode.HALF_UP).compareTo(order.getGrandTotal()) != 0) {
+            if (!opts.skipAmountCheck() && req.amount() != null && req.amount().setScale(2, RoundingMode.HALF_UP).compareTo(order.getGrandTotal()) != 0) {
                 violations.add(new FieldViolation("amount", "AMOUNT_MISMATCH", "ยอดชำระต้องเท่ากับยอดออเดอร์ ฿" + order.getGrandTotal()));
             }
             var ref = clean(req.paymentReference());
             if (ref != null && ref.length() > 120) violations.add(new FieldViolation("paymentReference", "MAX_LENGTH", "เลขอ้างอิงยาวเกิน 120 ตัวอักษร"));
         }
+        if (to == OrderStatus.REFUND_REQUESTED && req.amount() != null && req.amount().signum() <= 0) {
+            violations.add(new FieldViolation("amount", "INVALID", "ยอดคืนเงินต้องมากกว่า 0"));
+        }
         if (!violations.isEmpty()) throw new ValidationException(violations);
-        if (to == OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM && clean(req.paymentReference()) != null
-            && payments.existsByProviderAndProviderPaymentId(provider, clean(req.paymentReference()))) {
+        var reference = to == OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM ? clean(req.paymentReference()) : null;
+        if (reference != null && (payments.existsByProviderAndProviderPaymentId(provider, reference)
+            || proofs.findLiveByReference(order.getShopId(), reference).stream().anyMatch(p -> !p.getOrderId().equals(order.getId())))) {
             throw new AuthException(HttpStatus.CONFLICT, "PAYMENT_REFERENCE_DUPLICATE", "เลขอ้างอิงการชำระเงินนี้ถูกใช้กับออเดอร์อื่นแล้ว");
+        }
+        if (to == OrderStatus.CANCELLED && from == OrderStatus.PENDING_PAYMENT && actor.type() != OrderActorType.ADMIN
+            && ledger.hasPendingReview(order.getId())) {
+            throw new AuthException(HttpStatus.CONFLICT, "PAYMENT_UNDER_REVIEW",
+                "มีสลิปชำระเงินรอร้านตรวจสอบ — ร้านต้องยืนยันหรือปฏิเสธสลิปก่อนยกเลิก");
         }
 
         var metadata = new LinkedHashMap<String, Object>();
         if (reject) {
             // back to where the order was; no forward side effects (stock / shipment untouched)
             order.setStatusBeforeRefund(null);
-            metadata.put("event", "REFUND_REJECTED");
+            if (opts.event() == null) ledger.rejectOpen(order, actor, reason);
+            metadata.put("event", opts.event() == null ? "REFUND_REJECTED" : opts.event());
         } else {
-            apply(order, from, to, actor, req, reason, carrier, tracking, provider, metadata);
+            apply(order, from, to, actor, req, opts, reason, carrier, tracking, provider, metadata);
         }
         order.setStatus(to);
         order.stamp(actor.userId());
@@ -156,6 +188,7 @@ public class OrderTransitionService {
         entry.setMetadataJson(OrderJson.write(metadata));
         entry.stamp(actor.userId());
         history.save(entry);
+        ledger.snapshot(order);
         return new Result(true, from, to, order);
     }
 
@@ -183,32 +216,26 @@ public class OrderTransitionService {
     }
 
     private void apply(Order order, OrderStatus from, OrderStatus to, OrderActor actor, OrderDtos.TransitionRequest req,
-                       String reason, String carrier, String tracking, String provider, Map<String, Object> metadata) {
+                       Internal opts, String reason, String carrier, String tracking, String provider, Map<String, Object> metadata) {
         var now = Instant.now();
         switch (to) {
             case PAID_AWAITING_MERCHANT_CONFIRM -> {
                 order.setPaymentStatus(PaymentStatus.PAID);
                 order.setPaidAt(now);
                 order.setMerchantConfirmStatus("AWAITING");
-                var ref = clean(req.paymentReference());
-                var payment = new Payment(order.getId(), order.getShopId(), provider, order.getGrandTotal(), ref, now);
-                payment.stamp(actor.userId());
-                payments.save(payment);
+                ledger.capture(order, actor, provider, clean(req.paymentReference()), opts.receivedAmount(), reason, metadata);
                 inventory.markPaid(order);
-                metadata.put("event", "PAYMENT_CAPTURED");
-                metadata.put("provider", provider);
-                metadata.put("amount", order.getGrandTotal());
-                if (ref != null) metadata.put("paymentReference", ref);
             }
             case MERCHANT_CONFIRMED -> {
                 order.setMerchantConfirmStatus("CONFIRMED");
                 order.setMerchantConfirmedAt(now);
+                reveal(order, actor, now);
             }
             case READY_TO_PACK, PACKING, PACKED -> {
                 var shipment = shipment(order, actor);
                 shipment.setStatus(to.name());
                 if (to == OrderStatus.PACKED) shipment.setPackedAt(now, actor.userId());
-                ensureConfirmed(order, now);
+                ensureConfirmed(order, actor, now);
                 metadata.put("event", "FULFILLMENT_" + to.name());
             }
             case DISPATCHED -> {
@@ -218,7 +245,7 @@ public class OrderTransitionService {
                 shipment.setTrackingNumber(tracking);
                 if (shipment.getPackedAt() == null) shipment.setPackedAt(now, actor.userId());
                 shipment.setDispatchedAt(now, actor.userId());
-                ensureConfirmed(order, now);
+                ensureConfirmed(order, actor, now);
                 order.setFulfillmentStatus(FulfillmentStatus.FULFILLED);
                 inventory.commit(order, actor.type(), actor.userId());
                 metadata.put("event", "SHIPPED");
@@ -252,8 +279,14 @@ public class OrderTransitionService {
                     shipment.setStatus("CANCELLED");
                     shipment.stamp(actor.userId());
                 });
-                if (order.getPaymentStatus() == PaymentStatus.PAID) {
-                    refundPayment(order, actor, reason == null ? "ยกเลิกออเดอร์" : reason, metadata);
+                if (from == OrderStatus.PENDING_PAYMENT) {
+                    ledger.cancelPendingPayment(order, actor, reason == null ? "ยกเลิกออเดอร์" : reason);
+                    if (order.getPaymentStatus() == PaymentStatus.PENDING || order.getPaymentStatus() == PaymentStatus.FAILED) {
+                        order.setPaymentStatus(PaymentStatus.UNPAID);
+                    }
+                } else {
+                    // the shop owes the money back: an APPROVED refund awaiting the shop's transfer proof
+                    ledger.openForCancellation(order, actor, reason == null ? "ยกเลิกออเดอร์" : reason, metadata);
                 }
                 int coupons = usages.deleteByOrderId(order.getId());
                 metadata.put("event", "CANCELLED");
@@ -262,11 +295,14 @@ public class OrderTransitionService {
             }
             case REFUND_REQUESTED -> {
                 order.setStatusBeforeRefund(from.name());
+                ledger.openRequest(order, actor, req.amount(), reason, metadata);
                 metadata.put("event", "REFUND_REQUESTED");
                 metadata.put("previousStatus", from.name());
             }
             case REFUNDED -> {
-                refundPayment(order, actor, reason == null ? "อนุมัติคืนเงิน" : reason, metadata);
+                ledger.requireFullyRefunded(order);
+                ledger.syncPaymentStatus(order, actor);
+                order.setStatusBeforeRefund(null);
                 if (!order.isStockCommitted()) {
                     metadata.put("releasedQuantity", inventory.release(order, actor.type(), actor.userId(), "คืนเงินออเดอร์ " + order.getOrderNumber()));
                 } else {
@@ -287,27 +323,22 @@ public class OrderTransitionService {
         }
     }
 
-    private void ensureConfirmed(Order order, Instant now) {
+    private void ensureConfirmed(Order order, OrderActor actor, Instant now) {
         if (order.getMerchantConfirmedAt() == null) {
             order.setMerchantConfirmStatus("CONFIRMED");
             order.setMerchantConfirmedAt(now);
+            reveal(order, actor, now);
         }
     }
 
-    private void refundPayment(Order order, OrderActor actor, String reason, Map<String, Object> metadata) {
-        if (order.getPaymentStatus() != PaymentStatus.PAID) return;
-        var payment = payments.findByOrderId(order.getId()).stream().findFirst().orElse(null);
-        if (payment != null) {
-            payment.setStatus("REFUNDED");
-            payment.stamp(actor.userId());
-        }
-        if (order.getGrandTotal().compareTo(BigDecimal.ZERO) > 0 && refunds.findByOrderId(order.getId()).isEmpty()) {
-            var refund = new Refund(order.getId(), payment == null ? null : payment.getId(), order.getShopId(), order.getGrandTotal(), actor.userId(), reason);
-            refund.stamp(actor.userId());
-            refunds.save(refund);
-            metadata.put("refundAmount", order.getGrandTotal());
-        }
-        order.setPaymentStatus(PaymentStatus.REFUNDED);
+    /** V1 order_item_reveal_logs: line items become visible to the seller at merchant confirm. */
+    private void reveal(Order order, OrderActor actor, Instant now) {
+        var reason = switch (actor.type()) {
+            case ADMIN -> "ADMIN_OVERRIDE";
+            case SYSTEM -> "SYSTEM";
+            default -> "MERCHANT_CONFIRM";
+        };
+        revealLogs.save(new OrderItemRevealLog(order.getId(), order.getShopId(), actor.userId(), reason, now));
     }
 
     private Shipment shipment(Order order, OrderActor actor) {

@@ -72,12 +72,14 @@ public class OrderCheckoutService {
     private final OrderInventoryService inventory;
     private final OrderQueryService views;
     private final JdbcTemplate jdbc;
+    private final OrderMoneyLedger ledger;
 
     public OrderCheckoutService(CartService carts, CartRepository cartRows, CartItemRepository cartItems, CouponRepository coupons,
                                 OrderPromotionLockRepository promotionLocks, OrderPromotionUsageRepository usages,
                                 CartInventoryRepository levels, ProductSkuRepository skus, ShopRepository shops, OrderRepository orders,
                                 OrderStatusHistoryRepository history, OrderInventoryService inventory, OrderQueryService views,
-                                JdbcTemplate jdbc) {
+                                JdbcTemplate jdbc, OrderMoneyLedger ledger) {
+        this.ledger = ledger;
         this.carts = carts;
         this.cartRows = cartRows;
         this.cartItems = cartItems;
@@ -244,6 +246,7 @@ public class OrderCheckoutService {
             entry.setMetadataJson(OrderJson.write(metadata));
             entry.stamp(buyerId);
             history.save(entry);
+            ledger.snapshot(order);
             created.add(order);
         }
         if (created.isEmpty()) {

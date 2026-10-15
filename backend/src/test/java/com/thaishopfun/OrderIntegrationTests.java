@@ -125,7 +125,9 @@ class OrderIntegrationTests {
     }
 
     private void wipeOrders() {
-        for (var t : List.of("order_status_history", "refunds", "payments", "shipments", "inventory_reservations",
+        for (var t : List.of("order_item_reveal_logs", "order_financial_snapshots", "refund_status_history", "payment_status_history",
+                "payment_webhook_events", "payment_proofs", "refunds", "payments", "media_files", "shop_payment_gateways",
+                "order_status_history", "inventory_reservations",
                 "promotion_usages", "order_items", "order_addresses")) jdbc.update("DELETE FROM " + t);
         ledger.deleteAll();
         jdbc.update("DELETE FROM orders");
@@ -252,8 +254,10 @@ class OrderIntegrationTests {
         jdbc.update("UPDATE product_skus SET price = 999 WHERE id = ?", UUID.fromString(blkS));
         call(get("/api/orders/" + id), buyer).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].unitPrice").value(200.0));
         var mo = base(shop) + "/orders/" + id;
+        // V1 rule: items hidden from the shop until it confirms the order
         call(get(mo), shop.token).andExpect(status().isOk())
-            .andExpect(jsonPath("$.items[0].costPrice").value(80.0))
+            .andExpect(jsonPath("$.itemsHidden").value(true))
+            .andExpect(jsonPath("$.itemCount").value(1))
             .andExpect(jsonPath("$.shippingAddress.masked").value(true));
 
         // mark paid: amount must match
@@ -270,6 +274,8 @@ class OrderIntegrationTests {
             .andExpect(jsonPath("$.allowed").isArray());
         call(post(mo + "/confirm"), shop.token, "{}").andExpect(status().isOk()).andExpect(jsonPath("$.order.status").value("MERCHANT_CONFIRMED"));
         call(get(mo), shop.token).andExpect(jsonPath("$.shippingAddress.masked").value(false))
+            .andExpect(jsonPath("$.itemsHidden").value(false))
+            .andExpect(jsonPath("$.items[0].costPrice").value(80.0))
             .andExpect(jsonPath("$.shippingAddress.phone").value("0812345678"));
         call(post(mo + "/process"), shop.token, "{\"status\":\"PACKED\"}").andExpect(status().isOk()).andExpect(jsonPath("$.order.status").value("PACKED"));
         // ship needs tracking
@@ -326,11 +332,16 @@ class OrderIntegrationTests {
         call(post(base(shop) + "/orders/" + id2 + "/mark-paid"), shop.token, "{}").andExpect(status().isOk());
         call(post("/api/orders/" + id2 + "/cancel"), buyer, "{\"reason\":\"x\"}").andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"));
-        // merchant cancel of paid order refunds automatically
+        // merchant cancel of paid order opens an APPROVED refund; money is returned by the shop (proof upload)
         call(post(base(shop) + "/orders/" + id2 + "/cancel"), shop.token, "{\"reason\":\"หมด\"}").andExpect(status().isOk())
-            .andExpect(jsonPath("$.order.paymentStatus").value("REFUNDED"));
+            .andExpect(jsonPath("$.order.paymentStatus").value("PAID"));
         assertArrayEquals(new int[]{5, 0}, level(blkS));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM refunds", Integer.class));
+        assertEquals("APPROVED", jdbc.queryForObject("SELECT status FROM refunds", String.class));
+        var rid = refundId(shop, id2);
+        call(post(base(shop) + "/orders/" + id2 + "/refunds/" + rid + "/reject"), shop.token, "{\"reason\":\"no\"}").andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("REFUND_CANNOT_REJECT"));
+        proof(shop, id2, rid).andExpect(status().isOk()).andExpect(jsonPath("$.order.paymentStatus").value("REFUNDED"))
+            .andExpect(jsonPath("$.order.status").value("CANCELLED"));
     }
 
     @Test
@@ -353,6 +364,9 @@ class OrderIntegrationTests {
         assertArrayEquals(new int[]{5, 1}, level(blkS));
         call(post("/api/orders/" + a + "/refund-request"), buyer, "{\"reason\":\"อีกครั้ง\"}").andExpect(status().isOk());
         call(post(ma + "/refund/approve"), shop.token, "{}").andExpect(status().isOk())
+            .andExpect(jsonPath("$.refund.status").value("APPROVED"))
+            .andExpect(jsonPath("$.order.status").value("REFUND_REQUESTED"));
+        proof(shop, a, refundId(shop, a)).andExpect(status().isOk())
             .andExpect(jsonPath("$.order.status").value("REFUNDED"))
             .andExpect(jsonPath("$.order.paymentStatus").value("REFUNDED"));
         assertArrayEquals(new int[]{5, 0}, level(blkS));
@@ -366,9 +380,10 @@ class OrderIntegrationTests {
         call(post(mb + "/ship"), shop.token, "{\"carrierCode\":\"TH\",\"trackingNumber\":\"EX1\"}").andExpect(status().isOk());
         assertArrayEquals(new int[]{3, 0}, level(blkS));
         call(post("/api/orders/" + b + "/refund-request"), buyer, "{\"reason\":\"ชำรุด\"}").andExpect(status().isOk());
-        call(post(mb + "/refund/approve"), shop.token, "{}").andExpect(status().isOk())
-            .andExpect(jsonPath("$.order.fulfillmentStatus").value("RETURNED"));
+        call(post(mb + "/refund/approve"), shop.token, "{}").andExpect(status().isOk());
         call(post(mb + "/refund/approve"), shop.token, "{}").andExpect(status().isOk()).andExpect(jsonPath("$.changed").value(false));
+        proof(shop, b, refundId(shop, b)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.order.fulfillmentStatus").value("RETURNED"));
         assertArrayEquals(new int[]{5, 0}, level(blkS));
         assertEquals(1, countLedger(blkS, "RESTOCK_REFUND"));
     }
@@ -682,4 +697,16 @@ class OrderIntegrationTests {
     }
 
     private record OpenShop(String token, long shopId) {}
+
+    private String refundId(OpenShop shop, String orderId) throws Exception {
+        var r = call(get(base(shop) + "/orders/" + orderId + "/refunds"), shop.token).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        List<String> open = JsonPath.read(r, "$.refunds[?(@.status in ['REQUESTED','APPROVED'])].id");
+        return open.get(0);
+    }
+
+    private ResultActions proof(OpenShop shop, String orderId, String refundId) throws Exception {
+        return mvc.perform(multipart(base(shop) + "/orders/" + orderId + "/refunds/" + refundId + "/proof")
+            .file(new MockMultipartFile("file", "refund.png", "image/png", PNG)).param("reference", "RF-" + refundId.substring(0, 8))
+            .header("Authorization", "Bearer " + shop.token));
+    }
 }

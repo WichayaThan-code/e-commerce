@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.List;
 
-/** Order-specific error bodies. Scoped to the order controllers so other APIs keep their behaviour. */
-@RestControllerAdvice(assignableTypes = {BuyerOrderController.class, MerchantOrderController.class, AdminOrderController.class, CheckoutController.class})
+/** Order-specific error bodies. Scoped to the order and payment controllers so other APIs keep their behaviour. */
+@RestControllerAdvice(basePackages = {"com.thaishopfun.order", "com.thaishopfun.payment"})
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class OrderExceptionHandler {
     public record TransitionError(String code, String message, String from, String to, List<String> allowed) {}

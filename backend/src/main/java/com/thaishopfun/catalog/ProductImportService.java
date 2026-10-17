@@ -111,11 +111,11 @@ public class ProductImportService {
             try {
                 for (var picture : pictures) products.addImportedImage(userId, shopId, saved.id(), picture.data());
             } catch (AuthException exception) {
-                return new RowOutcome(true, new CatalogDtos.ProductImportError(row.row(), "บันทึกสินค้าแล้ว แต่ใส่รูปไม่สำเร็จ: " + exception.getMessage()));
+                return new RowOutcome(true, new CatalogDtos.ProductImportError(row.row(), "บันทึกสินค้าแล้ว แต่ใส่รูปไม่สำเร็จ: " + exception.getMessage(), row.productKey(), row.skuCode()));
             }
             return new RowOutcome(true, null);
         } catch (AuthException | IllegalArgumentException exception) {
-            return new RowOutcome(false, new CatalogDtos.ProductImportError(row.row(), exception.getMessage()));
+            return new RowOutcome(false, new CatalogDtos.ProductImportError(row.row(), exception.getMessage(), row.productKey(), row.skuCode()));
         }
     }
 
@@ -248,7 +248,7 @@ public class ProductImportService {
         try {
             pictures = picturesFor(rows);
         } catch (RowFailure exception) {
-            blockers.add(new CatalogDtos.ProductImportError(exception.row, coded(exception.code, exception.getMessage())));
+            blockers.add(errorOnRow(rows, exception.row, coded(exception.code, exception.getMessage())));
             blockers.addAll(warnings);
             return new GroupOutcome(false, 0, rows.size(), blockers);
         }
@@ -281,7 +281,7 @@ public class ProductImportService {
                 products.update(userId, shopId, saved.id(), withImages(request, saved, imageIds, firstImage));
             }
         } catch (AuthException | IllegalArgumentException exception) {
-            warnings.add(0, new CatalogDtos.ProductImportError(rows.get(0).row(), "บันทึกสินค้าแล้ว แต่ใส่รูปไม่สำเร็จ: " + exception.getMessage()));
+            warnings.add(0, errorOnRow(rows, rows.get(0).row(), "บันทึกสินค้าแล้ว แต่ใส่รูปไม่สำเร็จ: " + exception.getMessage()));
         }
         return new GroupOutcome(true, request.skus().size(), rows.size(), warnings);
     }
@@ -382,7 +382,7 @@ public class ProductImportService {
         differ(fields, "category", head.category(), row.category());
         differ(fields, "brand", head.brand(), row.brand());
         if (!fields.isEmpty()) {
-            warnings.add(new CatalogDtos.ProductImportError(row.row(), coded("PRODUCT_FIELD_MISMATCH", "ข้อมูลสินค้าไม่ตรงกับแถวแรกของกลุ่ม: " + String.join(", ", fields))));
+            warnings.add(new CatalogDtos.ProductImportError(row.row(), coded("PRODUCT_FIELD_MISMATCH", "ข้อมูลสินค้าไม่ตรงกับแถวแรกของกลุ่ม: " + String.join(", ", fields)), row.productKey(), row.skuCode()));
         }
     }
 
@@ -464,11 +464,40 @@ public class ProductImportService {
 
     private static Integer rowForField(String field, List<ProductSpreadsheet.SheetRow> rows) {
         if (field == null) return null;
-        Matcher matcher = Pattern.compile("skus\\[(\\d+)]").matcher(field);
-        if (!matcher.find()) return null;
-        var index = Integer.parseInt(matcher.group(1));
-        if (index < 0 || index >= rows.size()) return null;
-        return rows.get(index).row();
+        Matcher sku = Pattern.compile("skus\\[(\\d+)]|skus\\.(\\d+)").matcher(field);
+        if (sku.find()) {
+            var index = Integer.parseInt(sku.group(1) != null ? sku.group(1) : sku.group(2));
+            if (index < 0 || index >= rows.size()) return null;
+            return rows.get(index).row();
+        }
+        Matcher option = Pattern.compile("optionGroups\\[(\\d+)]\\.values\\[(\\d+)]|optionSchema\\[(\\d+)]\\.values\\[(\\d+)]|optionGroups\\.(\\d+)\\.values\\.(\\d+)").matcher(field);
+        if (!option.find()) return null;
+        var groupIndex = option.group(1) != null ? option.group(1) : option.group(3) != null ? option.group(3) : option.group(5);
+        var valueIndex = option.group(2) != null ? option.group(2) : option.group(4) != null ? option.group(4) : option.group(6);
+        if (groupIndex == null || valueIndex == null) return null;
+        return rowForOption(rows, Integer.parseInt(groupIndex), Integer.parseInt(valueIndex));
+    }
+
+    private static Integer rowForOption(List<ProductSpreadsheet.SheetRow> rows, int groupIndex, int valueIndex) {
+        var schema = schema(rows, new ArrayList<>());
+        if (groupIndex < 0 || groupIndex >= schema.size()) return null;
+        var slot = schema.get(groupIndex);
+        if (valueIndex < 0 || valueIndex >= slot.values().size()) return null;
+        var wanted = slot.values().get(valueIndex);
+        for (var row : rows) {
+            var value = switch (slot.index()) {
+                case 0 -> row.option1Value();
+                case 1 -> row.option2Value();
+                default -> row.option3Value();
+            };
+            if (value != null && wanted.equals(value.trim())) return row.row();
+        }
+        return null;
+    }
+
+    private static CatalogDtos.ProductImportError errorOnRow(List<ProductSpreadsheet.SheetRow> rows, int excelRow, String message) {
+        var source = rows.stream().filter(row -> row.row() == excelRow).findFirst().orElse(rows.get(0));
+        return new CatalogDtos.ProductImportError(excelRow, message, source.productKey(), source.skuCode());
     }
 
     private static CatalogDtos.ProductImportError issue(List<ProductSpreadsheet.SheetRow> rows, Integer row, String code, String message) {
@@ -477,7 +506,9 @@ public class ProductImportService {
         if (row == null && rows.size() > 1) {
             text = "แถว " + rows.get(0).row() + "-" + rows.get(rows.size() - 1).row() + ": " + text;
         }
-        return new CatalogDtos.ProductImportError(excelRow, text);
+        var source = rows.stream().filter(item -> item.row() == excelRow).findFirst().orElse(rows.get(0));
+        var skuCode = row == null && rows.size() > 1 ? null : source.skuCode();
+        return new CatalogDtos.ProductImportError(excelRow, text, source.productKey(), skuCode);
     }
 
     private static String coded(String code, String message) {

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { ApiError, merchantApi, type StoreAccess } from "../services/api";
 import { writeMerchantDraft } from "../services/merchantDraft";
+import "../styles/product-management.css";
 
 const STATUS_LABEL: Record<NonNullable<StoreAccess["status"]>, string> = {
   APPROVED: "ใช้งาน",
@@ -13,10 +15,12 @@ const STATUS_LABEL: Record<NonNullable<StoreAccess["status"]>, string> = {
 };
 
 export default function MerchantShopMenu() {
+  const { t } = useTranslation("merchant");
   const { user } = useAuth();
   const { shops, shopId, setShopId, ready } = useActiveShop();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
   const root = useRef<HTMLDivElement>(null);
   const current = shops.find((shop) => shop.shopId === shopId);
 
@@ -39,11 +43,13 @@ export default function MerchantShopMenu() {
       window.location.assign("/merchant/register");
     } catch (error) {
       setBusy(false);
-      window.alert(error instanceof ApiError ? error.message : "เปิดแบบฟอร์มร้านใหม่ไม่สำเร็จ");
+      setNotice(error instanceof ApiError ? error.message : t("shopMenu.openFailed"));
+      window.setTimeout(() => setNotice(""), 2200);
     }
   };
 
   return (
+    <>
     <div className="merchant-shop-menu" ref={root}>
       <button className="merchant-profile" type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
         <span>🏪</span>
@@ -78,5 +84,7 @@ export default function MerchantShopMenu() {
         </div>
       )}
     </div>
+    {notice ? <div className="catalog-toast fail" role="status">{notice}</div> : null}
+    </>
   );
 }

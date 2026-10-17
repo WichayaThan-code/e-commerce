@@ -28,6 +28,17 @@ final class TranslationTextSupport {
         return value.trim();
     }
 
+    /** Thai prose is translated. Size and capacity codes such as S, XL, 40, and 128GB are kept as written. */
+    static boolean translatable(String value) {
+        var text = blankToNull(value);
+        if (text == null) return false;
+        for (var index = 0; index < text.length(); index++) {
+            var character = text.charAt(index);
+            if (character >= '\u0E00' && character <= '\u0E7F') return true;
+        }
+        return false;
+    }
+
     static MaskedText mask(String text, List<String> glossary) {
         if (text == null || text.isBlank()) {
             return new MaskedText(text, List.of(), List.of());

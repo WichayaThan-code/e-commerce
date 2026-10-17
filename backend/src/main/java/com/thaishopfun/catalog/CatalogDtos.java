@@ -89,7 +89,7 @@ public final class CatalogDtos {
     public record SkuWriteRequest(
         UUID id,
         @NotBlank(message = "SKU_CODE_REQUIRED") @Size(max = 64, message = "SKU_CODE_TOO_LONG") String skuCode,
-        @Size(max = 64, message = "BARCODE_INVALID") @Pattern(regexp = "^[A-Za-z0-9-]*$", message = "BARCODE_INVALID") String barcode,
+        @Size(max = 64, message = "BARCODE_INVALID") @Pattern(regexp = "^[A-Z0-9-]*$", message = "BARCODE_INVALID") String barcode,
         @Size(max = 255, message = "OPTION_LABEL_TOO_LONG") String optionLabel,
         Map<String, String> optionValues,
         @NotNull(message = "PRICE_REQUIRED") @DecimalMin(value = "0.01", message = "PRICE_INVALID") BigDecimal price,
@@ -100,16 +100,23 @@ public final class CatalogDtos {
         /** Variant image: id of one of this product's images (upload first, then save). */
         UUID imageId,
         /** null keeps the current active flag (new SKUs are active). */
-        Boolean active
+        Boolean active,
+        /** null keeps the current safety stock (new levels start at 0). Must be >= 0 when sent. */
+        @PositiveOrZero(message = "SAFETY_STOCK_INVALID") @Max(value = 1_000_000, message = "SAFETY_STOCK_INVALID") Integer safetyStock
     ) {
         public SkuWriteRequest(UUID id, String skuCode, String barcode, String optionLabel, Map<String, String> optionValues,
                                BigDecimal price, BigDecimal costPrice, BigDecimal compareAtPrice, Integer weightGrams, Integer initialStock) {
-            this(id, skuCode, barcode, optionLabel, optionValues, price, costPrice, compareAtPrice, weightGrams, initialStock, null, null);
+            this(id, skuCode, barcode, optionLabel, optionValues, price, costPrice, compareAtPrice, weightGrams, initialStock, null, null, null);
         }
 
         public SkuWriteRequest(UUID id, String skuCode, String barcode, String optionLabel, Map<String, String> optionValues,
                                BigDecimal price, BigDecimal costPrice, BigDecimal compareAtPrice, Integer weightGrams, Integer initialStock, UUID imageId) {
-            this(id, skuCode, barcode, optionLabel, optionValues, price, costPrice, compareAtPrice, weightGrams, initialStock, imageId, null);
+            this(id, skuCode, barcode, optionLabel, optionValues, price, costPrice, compareAtPrice, weightGrams, initialStock, imageId, null, null);
+        }
+
+        public SkuWriteRequest(UUID id, String skuCode, String barcode, String optionLabel, Map<String, String> optionValues,
+                               BigDecimal price, BigDecimal costPrice, BigDecimal compareAtPrice, Integer weightGrams, Integer initialStock, UUID imageId, Boolean active) {
+            this(id, skuCode, barcode, optionLabel, optionValues, price, costPrice, compareAtPrice, weightGrams, initialStock, imageId, active, null);
         }
     }
 
@@ -132,7 +139,11 @@ public final class CatalogDtos {
 
     public record SkuCodeCheck(List<String> taken) {}
 
-    public record ProductImportError(int row, String message) {}
+    public record ProductImportError(int row, String message, String productKey, String skuCode) {
+        public ProductImportError(int row, String message) {
+            this(row, message, null, null);
+        }
+    }
 
     public record ProductImportResult(int created, int failed, List<ProductImportError> errors, int skuCreated) {}
 
@@ -188,7 +199,12 @@ public final class CatalogDtos {
         TranslationMeta descriptionEnMeta,
         TranslationMeta descriptionZhMeta,
         List<OptionGroupResponse> optionGroups,
-        List<OptionGroup> optionSchema
+        List<OptionGroup> optionSchema,
+        int variantCount,
+        int totalStock,
+        BigDecimal minPrice,
+        BigDecimal maxPrice,
+        int lowStockCount
     ) {}
 
     public record OptionGroupResponse(UUID id, String name, int sortOrder, List<OptionValueResponse> values) {}
@@ -213,6 +229,7 @@ public final class CatalogDtos {
         int reservedQty,
         int available,
         Integer lowStockThreshold,
+        int safetyStock,
         int version,
         UUID imageId,
         List<SkuOptionResponse> options
@@ -253,7 +270,7 @@ public final class CatalogDtos {
         List<SkuOptionResponse> options
     ) {}
 
-    public record StockResponse(UUID skuId, String entryType, int onHand, int available, int version) {}
+    public record StockResponse(UUID skuId, String entryType, int onHand, int available, int safetyStock, int version) {}
 
     public record LedgerEntryResponse(
         Long id,
@@ -264,6 +281,9 @@ public final class CatalogDtos {
         int onHandBefore,
         int onHandAfter,
         String reason,
-        Instant createdAt
+        Instant createdAt,
+        String actorName,
+        int reservedBefore,
+        int reservedAfter
     ) {}
 }

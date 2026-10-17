@@ -24,7 +24,7 @@ public class AdminTranslationController {
     public TranslationService.BackfillResult backfill(@RequestParam String entityType) {
         var type = TranslationEntityType.parse(entityType);
         if (type == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "entityType must be PRODUCT, PRODUCT_CATEGORY, or SHOP");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "entityType must be PRODUCT, PRODUCT_OPTION, PRODUCT_CATEGORY, or SHOP");
         }
         return translations.backfill(type, backfillSource);
     }

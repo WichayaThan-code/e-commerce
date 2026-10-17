@@ -6,8 +6,10 @@ import java.util.regex.Pattern;
 /**
  * Thai text for validation codes. Bean Validation annotations on request DTOs carry a code as their message
  * (e.g. {@code @NotBlank(message = "NAME_REQUIRED")}); the code is returned as {@code fieldErrors[].code} and the
- * Thai text below as {@code fieldErrors[].message}. Annotations that carry plain Thai text keep working:
- * they get the generic code {@code INVALID}.
+ * Thai text below as {@code fieldErrors[].message}. Field paths use brackets:
+ * {@code skus[0].skuCode}, {@code optionGroups[0].name}, {@code optionGroups[0].values[1].value},
+ * {@code optionSchema[0].name}, {@code optionSchema[0].values[1].value}.
+ * Annotations that carry plain Thai text keep working: they get the generic code {@code INVALID}.
  */
 public final class ValidationMessages {
     private static final Pattern CODE = Pattern.compile("^[A-Z][A-Z0-9_]+$");
@@ -39,9 +41,11 @@ public final class ValidationMessages {
         Map.entry("BARCODE_TAKEN", "บาร์โค้ดนี้มีอยู่แล้วในร้าน"),
         Map.entry("OPTION_LABEL_TOO_LONG", "ชื่อตัวเลือกยาวเกิน 255 ตัวอักษร"),
         Map.entry("STOCK_INVALID", "สต็อกเริ่มต้นต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 1,000,000"),
+        Map.entry("SAFETY_STOCK_INVALID", "Safety Stock ต้องเป็นจำนวนเต็มตั้งแต่ 0 ถึง 1,000,000"),
         Map.entry("PUBLISH_IMAGE_REQUIRED", "อัปโหลดรูปสินค้าอย่างน้อย 1 รูปก่อนเผยแพร่"),
         Map.entry("PUBLISH_PRICE_REQUIRED", "ต้องมีราคาก่อนเผยแพร่"),
         Map.entry("PUBLISH_SKU_REQUIRED", "ต้องมีรหัส SKU ที่เปิดขายอย่างน้อย 1 รายการก่อนเผยแพร่"),
+        Map.entry("PUBLISHED_SKU_REQUIRED", "สินค้าที่เผยแพร่อยู่ต้องมี SKU ที่เปิดขายอย่างน้อย 1 รายการ"),
         Map.entry("OPTION_GROUP_REQUIRED", "สินค้าแบบตัวเลือกต้องมีกลุ่มตัวเลือก 1-3 กลุ่ม"),
         Map.entry("OPTION_GROUP_LIMIT", "มีกลุ่มตัวเลือกได้ไม่เกิน 3 กลุ่ม"),
         Map.entry("OPTION_GROUPS_NOT_ALLOWED", "สินค้าเดี่ยวไม่มีกลุ่มตัวเลือก"),
@@ -57,6 +61,7 @@ public final class ValidationMessages {
         Map.entry("OPTION_VALUE_NOT_FOUND", "ไม่พบค่าตัวเลือกนี้ในสินค้า"),
         Map.entry("OPTION_VALUE_UNKNOWN", "ค่าตัวเลือกนี้ไม่มีในกลุ่มตัวเลือก"),
         Map.entry("OPTION_VALUE_IN_USE", "ลบค่าตัวเลือกนี้ไม่ได้ เพราะยังมี SKU ที่ใช้อยู่ ให้ลบหรือเปลี่ยน SKU นั้นก่อน"),
+        Map.entry("OPTION_VALUE_UNUSED", "ค่าตัวเลือกนี้ยังไม่มี SKU ที่เปิดขาย"),
         Map.entry("VARIANT_OPTION_REQUIRED", "ต้องเลือกค่าตัวเลือกให้ครบทุกกลุ่ม"),
         Map.entry("VARIANT_COMBINATION_DUPLICATE", "มี SKU ที่ใช้ตัวเลือกชุดนี้แล้ว"),
         Map.entry("VARIANT_IMAGE_INVALID", "รูปของตัวเลือกต้องเป็นรูปของสินค้านี้")

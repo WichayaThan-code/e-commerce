@@ -1,0 +1,10 @@
+.sale-types{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sale-types>button{height:67px;border:1.5px solid #cbd9ea;border-radius:8px;background:#fff;color:#08245e;display:flex;align-items:center;text-align:left;padding:9px 12px;gap:9px}
+.sale-types>button.active{border-color:#0878f5;background:#f3f9ff}
+.sale-types>button>i{width:19px;height:19px;border:1.5px solid #9db0ca;border-radius:50%;display:grid;place-items:center;flex:none}
+.sale-types>button.active>i{background:#0878f5;border-color:#0878f5;color:#fff}
+.sale-types>button>i svg{width:13px}
+.sale-types>button>svg{width:28px;height:28px;color:#124786}
+.sale-types b,.sale-types small{display:block}
+.sale-types b{font-size:12px}
+.sale-types small{font-size:9px;margin-top:3px}

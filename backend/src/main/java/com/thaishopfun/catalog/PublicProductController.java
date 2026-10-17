@@ -36,9 +36,10 @@ public class PublicProductController {
         @RequestParam(required = false) Integer size,
         @RequestParam(required = false) String priceBands,
         @RequestParam(required = false) String lang,
+        @RequestParam(required = false) String locale,
         @RequestHeader(value = "Accept-Language", required = false) String acceptLanguage
     ) {
-        return products.publicList(slug, q, categoryId, sort, page, size, priceBands);
+        return products.publicList(slug, q, categoryId, sort, page, size, priceBands, ContentLocale.resolve(locale != null ? locale : lang, acceptLanguage));
     }
 
     @GetMapping("/{productSlug}")
@@ -46,10 +47,10 @@ public class PublicProductController {
         @PathVariable String slug,
         @PathVariable String productSlug,
         @RequestParam(required = false) String lang,
+        @RequestParam(required = false) String locale,
         @RequestHeader(value = "Accept-Language", required = false) String acceptLanguage
     ) {
-        ContentLocale.resolve(lang, acceptLanguage);
-        return products.publicGet(slug, productSlug);
+        return products.publicGet(slug, productSlug, ContentLocale.resolve(locale != null ? locale : lang, acceptLanguage));
     }
 
     @GetMapping("/{productId}/images/{imageId}")

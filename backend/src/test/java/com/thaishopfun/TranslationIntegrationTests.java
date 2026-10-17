@@ -18,7 +18,9 @@ import com.thaishopfun.merchant.OwnerRepository;
 import com.thaishopfun.merchant.ShopMemberRepository;
 import com.thaishopfun.merchant.ShopReinstatementRequestRepository;
 import com.thaishopfun.merchant.ShopRepository;
+import com.thaishopfun.catalog.ProductSpreadsheet;
 import com.thaishopfun.translation.ContentTranslationRepository;
+import com.thaishopfun.translation.FakeTranslationProvider;
 import com.thaishopfun.translation.TranslationEntityType;
 import com.thaishopfun.translation.TranslationOrigin;
 import com.thaishopfun.translation.TranslationService;
@@ -30,6 +32,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+
+import java.math.BigDecimal;
+import java.util.List;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -127,7 +132,7 @@ class TranslationIntegrationTests {
                 {"nameTh":"ชาไทย","nameEn":"Thai Tea","productType":"SIMPLE","basePrice":45.00,"skus":[{"skuCode":"TEA-TH","price":45.00}]}
                 """))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.nameEnMeta.origin").value("HUMAN"))
+            .andExpect(jsonPath("$.nameEnMeta.origin").value("MANUAL"))
             .andReturn();
         productSlug = JsonPath.read(humanUpdate.getResponse().getContentAsString(), "$.slug");
 
@@ -139,8 +144,26 @@ class TranslationIntegrationTests {
                 && "name".equals(row.getFieldName()))
             .findFirst()
             .orElseThrow();
-        assertEquals(TranslationOrigin.HUMAN, humanEnglish.getOrigin());
+        assertEquals(TranslationOrigin.MANUAL, humanEnglish.getOrigin());
         assertEquals("Thai Tea", humanEnglish.getTranslatedText());
+
+        var renamed = mvc.perform(put("/api/merchant/shops/" + shop.shopId + "/products/" + productId).header("Authorization", "Bearer " + shop.token)
+            .contentType(MediaType.APPLICATION_JSON).content(thaiOnlyProduct("ชาเขียว", "TEA-TH", "45.00")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.nameEnMeta.status").value("PENDING"))
+            .andExpect(jsonPath("$.nameEnMeta.origin").value("MACHINE"))
+            .andReturn();
+        productSlug = JsonPath.read(renamed.getResponse().getContentAsString(), "$.slug");
+        translationService.processPendingForTests();
+        var refreshed = translations.findAll().stream()
+            .filter(row -> row.getEntityType() == TranslationEntityType.PRODUCT
+                && productId.equals(row.getEntityId())
+                && "en".equals(row.getLocale())
+                && "name".equals(row.getFieldName()))
+            .findFirst()
+            .orElseThrow();
+        assertEquals(TranslationStatus.DONE, refreshed.getStatus());
+        assertEquals("EN:ชาเขียว", refreshed.getTranslatedText());
 
         var file = new MockMultipartFile("file", "tea.png", "image/png", PNG);
         mvc.perform(multipart("/api/merchant/shops/" + shop.shopId + "/products/" + productId + "/images").file(file).header("Authorization", "Bearer " + shop.token))
@@ -150,7 +173,141 @@ class TranslationIntegrationTests {
 
         mvc.perform(get("/api/shops/" + shop.slug + "/products/" + productSlug).header("Accept-Language", "en"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.nameEn").value("Thai Tea"));
+            .andExpect(jsonPath("$.nameEn").value("EN:ชาเขียว"));
+    }
+
+    @Test
+    void thaiOnlyProductPublishesAndPublicLocaleFallsBackUntilTranslated() throws Exception {
+        var shop = openShop("publish-th@example.com", "0899999998", "ร้านไทย", "Thai Only", true);
+        var created = mvc.perform(post("/api/merchant/shops/" + shop.shopId + "/products").header("Authorization", "Bearer " + shop.token)
+            .contentType(MediaType.APPLICATION_JSON).content(thaiOnlyProduct("ชาไทย", "TEA-PUB", "45.00")))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.nameEnMeta.status").value("PENDING"))
+            .andExpect(jsonPath("$.nameZhMeta.status").value("PENDING"))
+            .andReturn();
+        String productId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+        String productSlug = JsonPath.read(created.getResponse().getContentAsString(), "$.slug");
+        var pending = translations.findAll().stream()
+            .filter(row -> productId.equals(row.getEntityId()) && "name".equals(row.getFieldName()) && row.getStatus() == TranslationStatus.PENDING)
+            .map(row -> row.getLocale())
+            .sorted()
+            .toList();
+        assertEquals(List.of("en", "zh"), pending);
+
+        var file = new MockMultipartFile("file", "tea.png", "image/png", PNG);
+        mvc.perform(multipart("/api/merchant/shops/" + shop.shopId + "/products/" + productId + "/images").file(file).header("Authorization", "Bearer " + shop.token))
+            .andExpect(status().isOk());
+        mvc.perform(post("/api/merchant/shops/" + shop.shopId + "/products/" + productId + "/publish").header("Authorization", "Bearer " + shop.token))
+            .andExpect(status().isOk());
+
+        translationService.processPendingForTests();
+        mvc.perform(get("/api/shops/" + shop.slug + "/products/" + productSlug + "?locale=en"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.nameEn").value("EN:ชาไทย"));
+    }
+
+    @Test
+    void providerFailureKeepsTheProductAndFallsBackToThai() throws Exception {
+        FakeTranslationProvider.fail.set(true);
+        try {
+            var shop = openShop("fail-tr@example.com", "0899999997", "ร้านล้ม", "Fail Shop", true);
+            var created = mvc.perform(post("/api/merchant/shops/" + shop.shopId + "/products").header("Authorization", "Bearer " + shop.token)
+                .contentType(MediaType.APPLICATION_JSON).content(thaiOnlyProduct("ชาไทย", "TEA-FAIL", "45.00")))
+                .andExpect(status().isOk())
+                .andReturn();
+            String productId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+            String productSlug = JsonPath.read(created.getResponse().getContentAsString(), "$.slug");
+            translationService.processPendingForTests();
+            var english = translations.findAll().stream()
+                .filter(row -> productId.equals(row.getEntityId()) && "en".equals(row.getLocale()) && "name".equals(row.getFieldName()))
+                .findFirst()
+                .orElseThrow();
+            assertEquals(TranslationStatus.PENDING, english.getStatus());
+            assertTrue(english.getAttempts() >= 1);
+            assertTrue(english.getErrorMessage() != null && !english.getErrorMessage().isBlank());
+
+            var file = new MockMultipartFile("file", "tea.png", "image/png", PNG);
+            mvc.perform(multipart("/api/merchant/shops/" + shop.shopId + "/products/" + productId + "/images").file(file).header("Authorization", "Bearer " + shop.token))
+                .andExpect(status().isOk());
+            mvc.perform(post("/api/merchant/shops/" + shop.shopId + "/products/" + productId + "/publish").header("Authorization", "Bearer " + shop.token))
+                .andExpect(status().isOk());
+            mvc.perform(get("/api/shops/" + shop.slug + "/products/" + productSlug + "?locale=en"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nameEn").value("ชาไทย"));
+        } finally {
+            FakeTranslationProvider.fail.set(false);
+        }
+    }
+
+    @Test
+    void optionCodesStayUntranslated() throws Exception {
+        var shop = openShop("option-tr@example.com", "0899999996", "ร้านตัวเลือก", "Option Shop", true);
+        var created = mvc.perform(post("/api/merchant/shops/" + shop.shopId + "/products").header("Authorization", "Bearer " + shop.token)
+            .contentType(MediaType.APPLICATION_JSON).content("""
+                {"nameTh":"เสื้อ","productType":"VARIABLE","basePrice":100.00,
+                 "optionSchema":[{"name":"สี","values":["แดง","S"]},{"name":"ไซซ์","values":["XL","128GB"]}],
+                 "skus":[{"skuCode":"SHIRT-1","price":100.00,"optionValues":{"สี":"แดง","ไซซ์":"XL"},"optionLabel":"แดง / XL"}]}
+                """))
+            .andExpect(status().isOk())
+            .andReturn();
+        String productId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+        String productSlug = JsonPath.read(created.getResponse().getContentAsString(), "$.slug");
+        translationService.processPendingForTests();
+        var optionFields = translations.findAll().stream()
+            .filter(row -> row.getEntityType() == TranslationEntityType.PRODUCT_OPTION && productId.equals(row.getEntityId()) && "en".equals(row.getLocale()))
+            .map(row -> row.getFieldName())
+            .sorted()
+            .toList();
+        assertEquals(List.of("n0", "n1", "v0.0"), optionFields);
+
+        var file = new MockMultipartFile("file", "shirt.png", "image/png", PNG);
+        mvc.perform(multipart("/api/merchant/shops/" + shop.shopId + "/products/" + productId + "/images").file(file).header("Authorization", "Bearer " + shop.token))
+            .andExpect(status().isOk());
+        mvc.perform(post("/api/merchant/shops/" + shop.shopId + "/products/" + productId + "/publish").header("Authorization", "Bearer " + shop.token))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/shops/" + shop.slug + "/products/" + productSlug + "?locale=en"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.optionSchema[0].name").value("EN:สี"))
+            .andExpect(jsonPath("$.optionSchema[0].values[0]").value("EN:แดง"))
+            .andExpect(jsonPath("$.optionSchema[0].values[1]").value("S"))
+            .andExpect(jsonPath("$.optionSchema[1].values[0]").value("XL"))
+            .andExpect(jsonPath("$.optionSchema[1].values[1]").value("128GB"));
+    }
+
+    @Test
+    void importWithOnlyThaiNameQueuesTranslation() throws Exception {
+        var shop = openShop("import-th@example.com", "0899999995", "ร้านนำเข้า", "Import Shop", true);
+        var bytes = ProductSpreadsheet.write(List.of(new ProductSpreadsheet.SheetRow(
+            2, "ชาไทย", null, null, "ชาหอม", null, null, null, null, "TEA-IMP", null, null,
+            new BigDecimal("45"), null, null, 3, null, List.of(), null, null, null, null, null, null, null, null, null
+        )));
+        var file = new MockMultipartFile("file", "products.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes);
+        var accepted = mvc.perform(multipart("/api/merchant/shops/" + shop.shopId + "/products/import").file(file).header("Authorization", "Bearer " + shop.token))
+            .andExpect(status().isAccepted())
+            .andReturn();
+        String jobId = JsonPath.read(accepted.getResponse().getContentAsString(), "$.jobId");
+        String body = "";
+        for (var attempt = 0; attempt < 50; attempt++) {
+            body = mvc.perform(get("/api/merchant/shops/" + shop.shopId + "/products/import/" + jobId).header("Authorization", "Bearer " + shop.token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+            String jobStatus = JsonPath.read(body, "$.status");
+            if ("COMPLETED".equals(jobStatus) || "FAILED".equals(jobStatus)) break;
+            Thread.sleep(100);
+        }
+        assertEquals(1, ((Number) JsonPath.read(body, "$.created")).intValue());
+        assertEquals(0, ((Number) JsonPath.read(body, "$.failed")).intValue());
+        var listed = mvc.perform(get("/api/merchant/shops/" + shop.shopId + "/products").header("Authorization", "Bearer " + shop.token))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        String productId = JsonPath.read(listed, "$.items[0].id");
+        var saved = mvc.perform(get("/api/merchant/shops/" + shop.shopId + "/products/" + productId).header("Authorization", "Bearer " + shop.token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.nameTh").value("ชาไทย"))
+            .andExpect(jsonPath("$.nameEnMeta.origin").value("MACHINE"))
+            .andReturn();
+        String translationStatus = JsonPath.read(saved.getResponse().getContentAsString(), "$.nameEnMeta.status");
+        assertTrue("PENDING".equals(translationStatus) || "DONE".equals(translationStatus));
     }
 
     private OpenShop openShop(String email, String phone, String shopName, String shopNameEn, boolean approve) throws Exception {

@@ -24,6 +24,7 @@ type ImportActivityValue = {
   notice: ImportNotice | null;
   attention: number;
   finishedTick: number;
+  job: ProductImportJob | null;
   startImport: (file: File) => Promise<void>;
   dismiss: () => void;
 };
@@ -143,7 +144,7 @@ export function ImportActivityProvider({ children }: { children: ReactNode }) {
   const busy = busyOf(uploadPercent, job, error);
 
   return (
-    <ImportActivityContext.Provider value={{ busy, notice, attention, finishedTick, startImport, dismiss }}>
+    <ImportActivityContext.Provider value={{ busy, notice, attention, finishedTick, job, startImport, dismiss }}>
       {children}
     </ImportActivityContext.Provider>
   );

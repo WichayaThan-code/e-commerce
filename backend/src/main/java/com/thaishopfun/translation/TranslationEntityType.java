@@ -2,6 +2,7 @@ package com.thaishopfun.translation;
 
 public enum TranslationEntityType {
     PRODUCT,
+    PRODUCT_OPTION,
     PRODUCT_CATEGORY,
     SHOP;
 

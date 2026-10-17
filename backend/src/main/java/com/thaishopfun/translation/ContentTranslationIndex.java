@@ -21,7 +21,7 @@ public final class ContentTranslationIndex {
 
     public String resolve(String entityId, String fieldName, String locale, String thai, String legacy) {
         var row = get(entityId, fieldName, locale);
-        if (row != null && row.getOrigin() == TranslationOrigin.HUMAN && row.getTranslatedText() != null && !row.getTranslatedText().isBlank()) {
+        if (row != null && row.getOrigin().manual() && row.getTranslatedText() != null && !row.getTranslatedText().isBlank()) {
             return row.getTranslatedText().trim();
         }
         if (row != null && row.getOrigin() == TranslationOrigin.MACHINE && row.getStatus() == TranslationStatus.DONE && row.getTranslatedText() != null && !row.getTranslatedText().isBlank()) {
@@ -46,7 +46,7 @@ public final class ContentTranslationIndex {
 
     public String merchantValue(String entityId, String fieldName, String locale, String columnValue, String thai) {
         var row = get(entityId, fieldName, locale);
-        if (row != null && row.getOrigin() == TranslationOrigin.HUMAN && row.getTranslatedText() != null && !row.getTranslatedText().isBlank()) {
+        if (row != null && row.getOrigin().manual() && row.getTranslatedText() != null && !row.getTranslatedText().isBlank()) {
             return row.getTranslatedText().trim();
         }
         if (columnValue != null && !columnValue.isBlank()) {

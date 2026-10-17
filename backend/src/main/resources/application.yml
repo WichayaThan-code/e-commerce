@@ -39,6 +39,7 @@ app:
     glossary: ${TRANSLATION_GLOSSARY:ThaiShopFun,SKU,mg,ml}
     batch-size: 40
     max-attempts: 5
+    retry-backoff-ms: 30000
     poll-delay-ms: 60000
   security:
     jwt-secret: ${JWT_SECRET:thaishopfun-local-development-secret-change-before-production}

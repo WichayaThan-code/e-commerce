@@ -13,6 +13,11 @@ public class NoopTranslationProvider implements TranslationProvider {
     }
 
     @Override
+    public boolean configured() {
+        return false;
+    }
+
+    @Override
     public List<String> translate(List<String> texts, String from, String to) {
         return new ArrayList<>(texts);
     }

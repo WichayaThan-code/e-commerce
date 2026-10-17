@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Archive, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Download, Eye, LoaderCircle, Pencil, Plus, RotateCcw, Search, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useImportActivity } from "../contexts/ImportActivityContext";
+import ConfirmDialog from "../components/form/ConfirmDialog";
 import MerchantShell from "../components/merchant/MerchantShell";
 import AuthImage from "../components/merchant/AuthImage";
 import SearchableSelect from "../components/SearchableSelect";
@@ -23,11 +24,29 @@ const tabs = [
 ] as const;
 
 function stockBadge(product: Product) {
+  if (product.totalStock != null) {
+    if (product.totalStock <= 0) return "out" as const;
+    if ((product.lowStockCount || 0) > 0) return "low" as const;
+    return "in" as const;
+  }
   const rows = product.skus.filter((sku) => sku.active);
   const available = rows.reduce((sum, sku) => sum + sku.available, 0);
   if (available <= 0) return "out" as const;
   if (rows.some((sku) => sku.lowStockThreshold != null && sku.available > 0 && sku.available <= sku.lowStockThreshold)) return "low" as const;
   return "in" as const;
+}
+
+function stockTotal(product: Product) {
+  if (product.totalStock != null) return product.totalStock;
+  return product.skus.filter((sku) => sku.active).reduce((sum, sku) => sum + sku.available, 0);
+}
+
+function priceLabel(product: Product, locale: Locale, format: (value: number | string | null | undefined, locale: Locale) => string) {
+  if (product.productType === "VARIABLE" && product.minPrice != null && product.maxPrice != null) {
+    if (Number(product.minPrice) === Number(product.maxPrice)) return format(product.minPrice, locale);
+    return `${format(product.minPrice, locale)} – ${format(product.maxPrice, locale)}`;
+  }
+  return format(product.basePrice ?? product.skus[0]?.price, locale);
 }
 
 export default function ProductManagementPage() {
@@ -63,14 +82,16 @@ export default function ProductManagementPage() {
   const [busy, setBusy] = useState(false);
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
   const [reload, setReload] = useState(0);
-  const [transfer, setTransfer] = useState<"export" | "import" | null>(null);
-  const { busy: importBusy, finishedTick, startImport } = useImportActivity();
+  const [transfer, setTransfer] = useState<"export" | "import" | "template" | null>(null);
+  const { busy: importBusy, finishedTick, startImport, job: importJob } = useImportActivity();
   const importRef = useRef<HTMLInputElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => { setQuery(q); }, [q]);
   useEffect(() => {
     if (finishedTick === 0) return;
     setReload((value) => value + 1);
+    setImportOpen(true);
   }, [finishedTick]);
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -131,6 +152,17 @@ export default function ProductManagementPage() {
       if (!("page" in updates)) next.delete("page");
       return next;
     });
+  };
+  const downloadTemplate = async () => {
+    if (shopId == null || transfer) return;
+    setTransfer("template");
+    try {
+      await productApi.downloadTemplate(shopId);
+    } catch (caught) {
+      toast(catalogMessage(t, caught), "fail");
+    } finally {
+      setTransfer(null);
+    }
   };
   const exportProducts = async () => {
     if (shopId == null || transfer) return;
@@ -243,6 +275,10 @@ export default function ProductManagementPage() {
             {transfer === "export" ? <LoaderCircle className="pm-spin" /> : <Download />}
             {t("catalog.export")}
           </button>
+          <button type="button" className="primary" title={deniedTitle(canImport)} disabled={shopId == null || transfer != null || importBusy || !canImport} onClick={() => void downloadTemplate()}>
+            {transfer === "template" ? <LoaderCircle className="pm-spin" /> : <Download />}
+            {t("catalog.downloadTemplate")}
+          </button>
           <button type="button" className="primary" title={deniedTitle(canImport) ?? t("catalog.importHint")} disabled={shopId == null || transfer != null || importBusy || !canImport} onClick={() => importRef.current?.click()}>
             {importBusy ? <LoaderCircle className="pm-spin" /> : <Upload />}
             {t("catalog.import")}
@@ -344,7 +380,10 @@ export default function ProductManagementPage() {
                   {items.map((product) => {
                     const badge = stockBadge(product);
                     const image = product.images.find((item) => item.primary) || product.images[0];
-                    const available = product.skus.reduce((sum, sku) => sum + sku.available, 0);
+                    const available = stockTotal(product);
+                    const variantText = product.productType === "VARIABLE"
+                      ? t("catalog.variantLine", { count: product.variantCount ?? product.skus.filter((sku) => sku.active).length, stock: available })
+                      : product.skus.length > 1 ? product.skus.map((sku) => sku.skuCode).join(", ") : product.skus[0]?.skuCode || "—";
                     return (
                       <tr key={product.id}>
                         <td><input aria-label={product.nameTh} type="checkbox" checked={selected.includes(product.id)} onChange={() => setSelected((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id])} /></td>
@@ -354,9 +393,9 @@ export default function ProductManagementPage() {
                             <p><b title={product.nameTh}>{product.nameTh}</b><small title={product.nameEn || product.slug}>{product.nameEn || product.slug}</small></p>
                           </div>
                         </td>
-                        <td className="pm-clip" title={product.skus.map((sku) => sku.skuCode).join(", ")}>{product.skus.length > 1 ? product.skus.map((sku) => sku.skuCode).join(", ") : product.skus[0]?.skuCode || "—"}</td>
+                        <td className="pm-clip" title={variantText}>{variantText}</td>
                         <td className="pm-clip">{categoryName(product.categoryId)}</td>
-                        <td><b>{formatMoney(product.basePrice ?? product.skus[0]?.price, locale)}</b></td>
+                        <td><b>{priceLabel(product, locale, formatMoney)}</b></td>
                         <td>
                           <div className="pm-stock">
                             <b className={badge === "out" ? "stock-zero" : badge === "low" ? "stock-low" : "stock-ok"}>{available}</b>
@@ -387,15 +426,18 @@ export default function ProductManagementPage() {
               {items.map((product) => {
                 const badge = stockBadge(product);
                 const image = product.images.find((item) => item.primary) || product.images[0];
-                const available = product.skus.reduce((sum, sku) => sum + sku.available, 0);
+                const available = stockTotal(product);
+                const variantText = product.productType === "VARIABLE"
+                  ? t("catalog.variantLine", { count: product.variantCount ?? product.skus.filter((sku) => sku.active).length, stock: available })
+                  : product.skus.map((sku) => sku.skuCode).join(", ") || "—";
                 return (
                   <article key={product.id}>
                     <AuthImage path={image?.url} alt="" />
                     <div>
                       <b>{product.nameTh}</b>
-                      <small>{product.skus.map((sku) => sku.skuCode).join(", ") || "—"}</small>
+                      <small>{variantText}</small>
                       <small>{categoryName(product.categoryId)}</small>
-                      <span>{formatMoney(product.basePrice ?? product.skus[0]?.price, locale)} · {available}</span>
+                      <span>{priceLabel(product, locale, formatMoney)} · {available}</span>
                       <em className={badge === "out" ? "pm-status empty" : badge === "low" ? "pm-status low" : "pm-status ready"}>{badge === "in" ? t(`catalog.status.${product.status}`) : t(`catalog.badges.${badge}`)}</em>
                       <small>{formatWhen(product.modifiedAt, locale)}</small>
                       <div className="pm-row-actions">
@@ -438,17 +480,52 @@ export default function ProductManagementPage() {
           </nav>
         </div>
       </section>
-      {confirmIds && (
-        <div className="pm-dialog" role="dialog" aria-modal="true" aria-labelledby="archive-title">
-          <section>
-            <h2 id="archive-title">{confirmIds.length > 1 ? t("catalog.archiveBulk", { count: confirmIds.length }) : t("catalog.archiveTitle")}</h2>
-            <p>{t("catalog.archiveBody")}</p>
-            <div>
-              <button type="button" onClick={() => setConfirmIds(null)}>{t("catalog.actions.cancel")}</button>
-              <button type="button" className="primary" disabled={busy || !canArchive} title={deniedTitle(canArchive)} onClick={() => void runMany(confirmIds, "archive")}>{busy ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.confirm")}</button>
+      {importOpen && importJob && (
+        <ConfirmDialog
+          title={t("catalog.importResult.title")}
+          message={t("catalog.importResult.summary", { created: importJob.created, skuCreated: importJob.skuCreated ?? 0, failed: importJob.failed })}
+          cancelLabel={t("catalog.actions.cancel")}
+          confirmLabel={t("catalog.actions.close")}
+          onCancel={() => setImportOpen(false)}
+          onConfirm={() => setImportOpen(false)}
+        >
+          {importJob.errors.length > 0 ? (
+            <div className="pm-import-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t("catalog.importResult.row")}</th>
+                    <th>{t("catalog.importResult.productKey")}</th>
+                    <th>{t("catalog.importResult.skuCode")}</th>
+                    <th>{t("catalog.importResult.message")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {importJob.errors.map((item, index) => (
+                    <tr key={`${item.row}-${index}`}>
+                      <td>{item.row}</td>
+                      <td>{item.productKey || "—"}</td>
+                      <td>{item.skuCode || "—"}</td>
+                      <td>{item.message}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </section>
-        </div>
+          ) : null}
+        </ConfirmDialog>
+      )}
+      {confirmIds && (
+        <ConfirmDialog
+          title={confirmIds.length > 1 ? t("catalog.archiveBulk", { count: confirmIds.length }) : t("catalog.archiveTitle")}
+          message={t("catalog.archiveBody")}
+          cancelLabel={t("catalog.actions.cancel")}
+          confirmLabel={<>{busy ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.confirm")}</>}
+          confirmDisabled={busy || !canArchive}
+          confirmTitle={deniedTitle(canArchive)}
+          onCancel={() => setConfirmIds(null)}
+          onConfirm={() => void runMany(confirmIds, "archive")}
+        />
       )}
     </MerchantShell>
   );

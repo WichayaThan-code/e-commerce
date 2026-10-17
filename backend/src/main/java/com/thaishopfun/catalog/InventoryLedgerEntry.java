@@ -38,6 +38,10 @@ public class InventoryLedgerEntry extends AuditedEntity {
     private int onHandBefore;
     @Column(name = "on_hand_after", nullable = false)
     private int onHandAfter;
+    @Column(name = "reserved_qty_before")
+    private Integer reservedQtyBefore;
+    @Column(name = "reserved_qty_after")
+    private Integer reservedQtyAfter;
     @Column(length = 500)
     private String reason;
     @Column(name = "reference_type", length = 40)
@@ -61,13 +65,15 @@ public class InventoryLedgerEntry extends AuditedEntity {
 
     protected InventoryLedgerEntry() {}
 
-    public InventoryLedgerEntry(ProductSku sku, String entryType, int quantityDelta, int onHandBefore, int onHandAfter, String reason, String idempotencyKey, UUID actorId) {
+    public InventoryLedgerEntry(ProductSku sku, String entryType, int quantityDelta, int onHandBefore, int onHandAfter, int reservedQtyBefore, int reservedQtyAfter, String reason, String idempotencyKey, UUID actorId) {
         this.shop = sku.getShop();
         this.sku = sku;
         this.entryType = entryType;
         this.quantityDelta = quantityDelta;
         this.onHandBefore = onHandBefore;
         this.onHandAfter = onHandAfter;
+        this.reservedQtyBefore = reservedQtyBefore;
+        this.reservedQtyAfter = reservedQtyAfter;
         this.reason = reason;
         this.idempotencyKey = idempotencyKey;
         this.actorId = actorId;
@@ -97,5 +103,8 @@ public class InventoryLedgerEntry extends AuditedEntity {
     public int getQuantityDelta() { return quantityDelta; }
     public int getOnHandBefore() { return onHandBefore; }
     public int getOnHandAfter() { return onHandAfter; }
+    public Integer getReservedQtyBefore() { return reservedQtyBefore; }
+    public Integer getReservedQtyAfter() { return reservedQtyAfter; }
+    public UUID getActorId() { return actorId; }
     public String getIdempotencyKey() { return idempotencyKey; }
 }

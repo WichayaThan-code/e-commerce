@@ -111,7 +111,7 @@ export type MerchantOwner = {
   id:string; ownerType:'PERSON'|'COMPANY'; title:string; firstName:string; lastName:string
   citizenIdMasked?:string|null; phone:string; email:string; sensitiveReview:string
 }
-export type TranslationMeta = { origin: 'MACHINE' | 'HUMAN'; status: 'PENDING' | 'DONE' | 'FAILED' }
+export type TranslationMeta = { origin: 'MACHINE' | 'HUMAN' | 'MANUAL'; status: 'PENDING' | 'DONE' | 'FAILED' }
 
 export type PublicShop = {
   name:string;nameEn?:string;nameZh?:string;description?:string;descriptionEn?:string;descriptionZh?:string;category:string
@@ -324,6 +324,7 @@ export type ProductSku = {
   reservedQty: number
   available: number
   lowStockThreshold?: number | null
+  safetyStock?: number
   version: number
   imageId?: string | null
 }
@@ -356,6 +357,11 @@ export type Product = {
   descriptionEnMeta?: TranslationMeta | null
   descriptionZhMeta?: TranslationMeta | null
   optionSchema?: { name: string; values: string[] }[]
+  variantCount?: number
+  totalStock?: number
+  minPrice?: number | string | null
+  maxPrice?: number | string | null
+  lowStockCount?: number
 }
 export type PublicSku = {
   id: string
@@ -387,7 +393,8 @@ export type PublicProduct = {
   optionSchema?: { name: string; values: string[] }[]
 }
 export type ProductPage<T> = { items: T[]; page: number; size: number; total: number }
-export type ProductImportResult = { created: number; failed: number; skuCreated?: number; errors: { row: number; message: string }[] }
+export type ProductImportError = { row: number; message: string; productKey?: string | null; skuCode?: string | null }
+export type ProductImportResult = { created: number; failed: number; skuCreated?: number; errors: ProductImportError[] }
 export type ProductImportAccepted = { jobId: string; total: number }
 export type ProductImportJob = {
   jobId: string
@@ -399,7 +406,7 @@ export type ProductImportJob = {
   created: number
   skuCreated?: number
   failed: number
-  errors: { row: number; message: string }[]
+  errors: ProductImportError[]
   currentRow: number | null
   startedAt: string | null
   finishedAt: string | null
@@ -417,6 +424,7 @@ export type SkuWrite = {
   costPrice?: number | null
   imageId?: string | null
   active?: boolean
+  safetyStock?: number | null
 }
 export type ProductWrite = {
   nameTh: string
@@ -435,7 +443,7 @@ export type ProductWrite = {
   confirmRemoveStocked?: boolean
   skus: SkuWrite[]
 }
-export type StockAdjustment = { skuId: string; entryType: string; onHand: number; available: number; version: number }
+export type StockAdjustment = { skuId: string; entryType: string; onHand: number; available: number; safetyStock: number; version: number }
 export type LedgerEntry = {
   id: number
   skuId: string
@@ -446,6 +454,9 @@ export type LedgerEntry = {
   onHandAfter: number
   reason?: string | null
   createdAt?: string | null
+  actorName?: string | null
+  reservedBefore?: number
+  reservedAfter?: number
 }
 
 function productQuery(query: ProductListQuery) {
@@ -539,6 +550,8 @@ export const productApi = {
   update: (shopId: number, productId: string, payload: ProductWrite) => request<Product>(shopProducts(shopId, `/products/${productId}`), { method: 'PUT', body: JSON.stringify(payload) }, true),
   useAutoTranslation: (shopId: number, productId: string, payload: { field: 'name' | 'description'; locale: 'en' | 'zh' }) =>
     request<Product>(shopProducts(shopId, `/products/${productId}/translations/use-auto`), { method: 'POST', body: JSON.stringify(payload) }, true),
+  retryTranslation: (shopId: number, productId: string, payload: { field: string; locale: 'en' | 'zh' }) =>
+    request<Product>(shopProducts(shopId, `/products/${productId}/translations/retry`), { method: 'POST', body: JSON.stringify(payload) }, true),
   publish: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/publish`), { method: 'POST' }, true),
   archive: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/archive`), { method: 'POST' }, true),
   unarchive: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/unarchive`), { method: 'POST' }, true),
@@ -549,8 +562,10 @@ export const productApi = {
   },
   deleteImage: (shopId: number, productId: string, imageId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/images/${imageId}`), { method: 'DELETE' }, true),
   orderImages: (shopId: number, productId: string, imageIds: string[], primaryImageId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/images/order`), { method: 'PUT', body: JSON.stringify({ imageIds, primaryImageId }) }, true),
-  adjustStock: (shopId: number, skuId: string, payload: { entryType: 'RECEIVE' | 'ADJUST'; quantityDelta: number; reason?: string; version: number; idempotencyKey?: string }) => request<StockAdjustment>(shopProducts(shopId, `/skus/${skuId}/stock-adjustments`), { method: 'POST', body: JSON.stringify(payload) }, true),
-  adjustStockBulk: (shopId: number, productId: string, payload: { idempotencyKey?: string; items: { skuId: string; entryType: 'RECEIVE' | 'ADJUST'; quantityDelta: number; version: number; reason?: string }[] }) => request<StockAdjustment[]>(shopProducts(shopId, `/products/${productId}/stock-adjustments/bulk`), { method: 'POST', body: JSON.stringify(payload) }, true),
+  adjustStock: (shopId: number, skuId: string, payload: { entryType: 'RECEIVE' | 'ISSUE' | 'ADJUST' | 'RESERVE' | 'RELEASE'; quantityDelta: number; reason?: string; version: number; idempotencyKey?: string }) => request<StockAdjustment>(shopProducts(shopId, `/skus/${skuId}/stock-adjustments`), { method: 'POST', body: JSON.stringify(payload) }, true),
+  adjustStockBulk: (shopId: number, productId: string, payload: { idempotencyKey?: string; items: { skuId: string; entryType: 'RECEIVE' | 'ISSUE' | 'ADJUST' | 'RESERVE' | 'RELEASE'; quantityDelta: number; version: number; reason?: string }[] }) => request<StockAdjustment[]>(shopProducts(shopId, `/products/${productId}/stock-adjustments/bulk`), { method: 'POST', body: JSON.stringify(payload) }, true),
+  variantCombinations: (shopId: number, payload: { skuPrefix?: string; optionGroups: { name: string; values: { value: string }[] }[] }) =>
+    request<{ optionLabel: string; optionValues: Record<string, string>; skuCode: string }[]>(shopProducts(shopId, '/products/variant-combinations'), { method: 'POST', body: JSON.stringify(payload) }, true),
   checkSkus: (shopId: number, codes: string[], excludeProductId?: string) => {
     const search = new URLSearchParams()
     if (codes.length) search.set('codes', codes.join(','))
@@ -564,6 +579,15 @@ export const productApi = {
     const link = document.createElement('a')
     link.href = url
     link.download = 'products.xlsx'
+    link.click()
+    URL.revokeObjectURL(url)
+  },
+  downloadTemplate: async (shopId: number) => {
+    const blob = await authorizedBlob(shopProducts(shopId, '/products/import-template'))
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'product-import-template.xlsx'
     link.click()
     URL.revokeObjectURL(url)
   },

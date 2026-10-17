@@ -33,14 +33,16 @@ class ProductVariantService {
     private final ProductOptionValueRepository values;
     private final ProductSkuOptionValueRepository mappings;
     private final ProductImageRepository images;
+    private final ProductSkuRepository skus;
     private final EntityManager entities;
 
     ProductVariantService(ProductOptionGroupRepository groups, ProductOptionValueRepository values,
-                          ProductSkuOptionValueRepository mappings, ProductImageRepository images, EntityManager entities) {
+                          ProductSkuOptionValueRepository mappings, ProductImageRepository images, ProductSkuRepository skus, EntityManager entities) {
         this.groups = groups;
         this.values = values;
         this.mappings = mappings;
         this.images = images;
+        this.skus = skus;
         this.entities = entities;
     }
 
@@ -110,7 +112,7 @@ class ProductVariantService {
         var keptValueIds = new HashSet<UUID>();
         for (var g = 0; g < requested.size(); g++) {
             var group = requested.get(g);
-            var prefix = "optionGroups." + g + ".";
+            var prefix = optionPath(request, g) + ".";
             if (group == null) {
                 add.accept(ValidationMessages.violation(prefix + "name", "OPTION_GROUP_NAME_REQUIRED"));
                 continue;
@@ -126,7 +128,7 @@ class ProductVariantService {
             var seen = new HashSet<String>();
             for (var v = 0; v < groupValues.size(); v++) {
                 var item = groupValues.get(v);
-                var valuePrefix = prefix + "values." + v + ".";
+                var valuePrefix = prefix + "values[" + v + "].";
                 var value = item == null ? null : clean(item.value());
                 if (item != null && item.id() != null) {
                     var known = valueById.get(item.id());
@@ -191,6 +193,41 @@ class ProductVariantService {
             var combination = allowed.keySet().stream().map(group -> group + "=" + chosen.get(group)).collect(Collectors.joining("|"));
             if (combinations.putIfAbsent(combination, index) != null) add.accept(ValidationMessages.violation(prefix, "VARIANT_COMBINATION_DUPLICATE"));
         }
+
+        var existingActive = new HashMap<UUID, Boolean>();
+        if (current != null) {
+            for (var sku : skus.findByProduct_IdAndDeletedAtIsNullOrderBySkuCodeAsc(current.getId())) existingActive.put(sku.getId(), sku.isActive());
+        }
+        var covered = new HashSet<String>();
+        for (var sku : incoming) {
+            if (sku == null || !skuActive(sku, existingActive) || sku.optionValues() == null) continue;
+            for (var entry : sku.optionValues().entrySet()) {
+                var group = clean(entry.getKey());
+                var value = clean(entry.getValue());
+                if (group == null || value == null) continue;
+                covered.add(key(group) + "\n" + key(value));
+            }
+        }
+        for (var g = 0; g < requested.size(); g++) {
+            var group = requested.get(g);
+            if (group == null || group.values() == null) continue;
+            var groupName = clean(group.name());
+            if (groupName == null) continue;
+            for (var v = 0; v < group.values().size(); v++) {
+                var item = group.values().get(v);
+                var value = item == null ? null : clean(item.value());
+                if (value == null) continue;
+                if (!covered.contains(key(groupName) + "\n" + key(value))) {
+                    add.accept(ValidationMessages.violation(optionPath(request, g) + ".values[" + v + "].value", "OPTION_VALUE_UNUSED"));
+                }
+            }
+        }
+    }
+
+    private static boolean skuActive(CatalogDtos.SkuWriteRequest sku, Map<UUID, Boolean> existingActive) {
+        if (sku.active() != null) return sku.active();
+        if (sku.id() != null && existingActive.containsKey(sku.id())) return existingActive.get(sku.id());
+        return true;
     }
 
     /**
@@ -335,18 +372,20 @@ class ProductVariantService {
         for (var g = 0; g < specs.size(); g++) {
             var spec = specs.get(g);
             var name = spec == null ? null : clean(spec.name());
-            if (name == null) problems.put("optionGroups." + g + ".name", ValidationMessages.violation("optionGroups." + g + ".name", "OPTION_GROUP_NAME_REQUIRED"));
-            else if (!names.add(key(name))) problems.put("optionGroups." + g + ".name", ValidationMessages.violation("optionGroups." + g + ".name", "OPTION_GROUP_DUPLICATE"));
+            var nameField = "optionGroups[" + g + "].name";
+            if (name == null) problems.put(nameField, ValidationMessages.violation(nameField, "OPTION_GROUP_NAME_REQUIRED"));
+            else if (!names.add(key(name))) problems.put(nameField, ValidationMessages.violation(nameField, "OPTION_GROUP_DUPLICATE"));
             var seen = new LinkedHashMap<String, String>();
             if (spec != null && spec.values() != null) {
                 for (var v = 0; v < spec.values().size(); v++) {
                     var value = spec.values().get(v) == null ? null : clean(spec.values().get(v).value());
-                    var field = "optionGroups." + g + ".values." + v + ".value";
+                    var field = "optionGroups[" + g + "].values[" + v + "].value";
                     if (value == null) problems.put(field, ValidationMessages.violation(field, "OPTION_VALUE_REQUIRED"));
                     else if (seen.putIfAbsent(key(value), value) != null) problems.put(field, ValidationMessages.violation(field, "OPTION_VALUE_DUPLICATE"));
                 }
             }
-            if (seen.isEmpty()) problems.putIfAbsent("optionGroups." + g + ".values", ValidationMessages.violation("optionGroups." + g + ".values", "OPTION_VALUE_REQUIRED"));
+            var valuesField = "optionGroups[" + g + "].values";
+            if (seen.isEmpty()) problems.putIfAbsent(valuesField, ValidationMessages.violation(valuesField, "OPTION_VALUE_REQUIRED"));
             lists.add(List.copyOf(seen.values()));
         }
         var total = lists.stream().mapToLong(List::size).reduce(1, (a, b) -> a * b);
@@ -383,6 +422,12 @@ class ProductVariantService {
 
     private static <T> List<UUID> ids(Collection<T> rows, java.util.function.Function<T, UUID> id) {
         return rows.stream().map(id).filter(Objects::nonNull).toList();
+    }
+
+    /** {@code optionGroups} when the body sent groups; {@code optionSchema} when the form sent only the schema. */
+    private static String optionPath(CatalogDtos.ProductWriteRequest request, int group) {
+        var root = request.optionGroups() == null && request.optionSchema() != null ? "optionSchema" : "optionGroups";
+        return root + "[" + group + "]";
     }
 
     static String clean(String value) {

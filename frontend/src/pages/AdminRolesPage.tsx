@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type ComponentType, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Crown, Eye, FileCheck2, Headphones, LockKeyhole, MoreVertical, Package, Pencil, Plus, Search, Shield, ShieldCheck, ShoppingBag, Store, UserRound, UsersRound } from 'lucide-react'
+import ConfirmDialog from '../components/form/ConfirmDialog'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
@@ -29,6 +31,7 @@ const COUNT_HINT: Record<AdminRoleSummary['assignment'], string> = {
 const errorText = (error: unknown) => error instanceof ApiError ? error.message : 'โหลดข้อมูลไม่สำเร็จ'
 
 export default function AdminRolesPage() {
+  const { t } = useTranslation('admin')
   const { user, loading } = useAuth()
   const { can } = usePermissions()
   const allowed = !!user && hasPlatformAccess(user)
@@ -54,6 +57,7 @@ export default function AdminRolesPage() {
   const [showAllActivity, setShowAllActivity] = useState(false)
   const [permissionCatalog, setPermissionCatalog] = useState<AdminPermissionInfo[]>([])
   const [roleDialog, setRoleDialog] = useState<'create' | 'edit' | null>(null)
+  const [roleConfirm, setRoleConfirm] = useState(false)
   const [roleDraft, setRoleDraft] = useState<AdminRoleMutation>({ context: 'PLATFORM', nameTh: '', descriptionTh: '', permissions: [] })
   const [roleSaving, setRoleSaving] = useState(false)
   const [roleActionError, setRoleActionError] = useState('')
@@ -148,7 +152,8 @@ export default function AdminRolesPage() {
     }
   }
   const deactivateRole = async () => {
-    if (!selected || !window.confirm(`ปิดใช้งานบทบาท ${selected.nameTh ?? selected.code} และเพิกถอนบทบาทนี้จากผู้ใช้ทั้งหมดหรือไม่?`)) return
+    if (!selected) return
+    setRoleConfirm(false)
     setRoleSaving(true)
     setRoleActionError('')
     try {
@@ -202,7 +207,7 @@ export default function AdminRolesPage() {
       </section>
       <section className="security-tip"><i><ShieldCheck/></i><div><b>เคล็ดลับความปลอดภัย</b><span>ควรกำหนดสิทธิ์ตามหน้าที่ที่จำเป็น และตรวจสอบบัญชีผู้ใช้งานเป็นประจำ</span></div><button disabled title={NOT_ENABLED}>ดูแนวทางความปลอดภัย →</button></section>
     </div>
-    <aside className="role-detail"><header><h2>รายละเอียดบทบาท</h2><div>{canUpdateRole && selected?.assignable && !selected.superAdmin && selected.policyVersion === 'CUSTOM' && <button onClick={() => openRoleDialog('edit')}><Pencil/>แก้ไข</button>}{canDeleteRole && selected?.assignable && !selected.superAdmin && selected.policyVersion === 'CUSTOM' && selected.active && <button className="role-deactivate" onClick={deactivateRole} disabled={roleSaving}><LockKeyhole/>ปิดใช้งาน</button>}<ChevronDown/></div></header>
+    <aside className="role-detail"><header><h2>รายละเอียดบทบาท</h2><div>{canUpdateRole && selected?.assignable && !selected.superAdmin && selected.policyVersion === 'CUSTOM' && <button onClick={() => openRoleDialog('edit')}><Pencil/>แก้ไข</button>}{canDeleteRole && selected?.assignable && !selected.superAdmin && selected.policyVersion === 'CUSTOM' && selected.active && <button className="role-deactivate" onClick={() => setRoleConfirm(true)} disabled={roleSaving}><LockKeyhole/>ปิดใช้งาน</button>}<ChevronDown/></div></header>
       {roleActionError && <p className="role-action-error" role="alert">{roleActionError}</p>}
       {!selected ? <section className="role-detail-summary"><div><small>{rolesError || 'เลือกบทบาทเพื่อดูรายละเอียด'}</small></div></section> : <>
         <section className="role-detail-summary"><i className={tone}><SelectedIcon/></i><div><b>{selected.nameTh ?? selected.code}</b><small>{selected.code} · {selected.context}{selected.assignable ? '' : ' · กำหนดโดยระบบ'}</small></div><span className={`role-status ${selected.active ? 'on' : 'off'}`}><small/>{selected.active ? 'ใช้งาน' : 'ไม่ใช้งาน'}</span></section>
@@ -249,5 +254,17 @@ export default function AdminRolesPage() {
         <footer><button type="button" onClick={() => setRoleDialog(null)} disabled={roleSaving}>ยกเลิก</button><button type="submit" disabled={roleSaving || !permissionCatalog.some(permission => permission.scope === roleDraft.context)}>{roleSaving ? 'กำลังบันทึก...' : 'บันทึกบทบาท'}</button></footer>
       </form>
     </div>}
+    {roleConfirm && selected && (
+      <ConfirmDialog
+        title={t('confirm.deactivateRoleTitle')}
+        message={t('confirm.deactivateRoleBody', { name: selected.nameTh ?? selected.code })}
+        cancelLabel={t('confirm.cancel')}
+        confirmLabel={t('confirm.confirm')}
+        danger
+        confirmDisabled={roleSaving}
+        onCancel={() => setRoleConfirm(false)}
+        onConfirm={() => void deactivateRole()}
+      />
+    )}
   </main>
 }

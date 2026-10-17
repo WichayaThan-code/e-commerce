@@ -13,6 +13,7 @@ spring:
 app:
   translation:
     provider: fake
+    retry-backoff-ms: 0
   merchant:
     storage-root: ./target/test-uploads
     data-encryption-secret: integration-test-data-encryption-secret

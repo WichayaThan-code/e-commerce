@@ -12,6 +12,7 @@ export type SkuDraft = {
   costPrice: string;
   weightGrams: string;
   initialStock: string;
+  safetyStock: string;
   active: boolean;
   imageId?: string;
   imageLocalKey?: string;
@@ -57,6 +58,7 @@ export function emptySku(partial: Partial<SkuDraft> = {}): SkuDraft {
     costPrice: "",
     weightGrams: "",
     initialStock: "0",
+    safetyStock: "0",
     active: true,
     ...partial,
     clientKey: partial.clientKey || optionKey(),
@@ -112,6 +114,7 @@ export function fromProduct(product: Product): ProductDraft {
           costPrice: sku.costPrice == null ? "" : String(sku.costPrice),
           weightGrams: sku.weightGrams == null ? "" : String(sku.weightGrams),
           initialStock: String(sku.onHand ?? 0),
+          safetyStock: String(sku.safetyStock ?? 0),
           active: sku.active,
           imageId: sku.imageId || undefined,
           stockBaseline: sku.onHand ?? 0,
@@ -152,6 +155,17 @@ export function axesFromSkus(skus: SkuDraft[]): OptionAxis[] {
 }
 
 const GROUP_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+export function englishStem(nameEn: string) {
+  const letters = nameEn.toUpperCase().replace(/[^A-Z]/g, "");
+  return letters.length >= 3 ? letters.slice(0, 6) : "";
+}
+
+export function randomStem() {
+  let stem = "";
+  for (let index = 0; index < 4; index += 1) stem += GROUP_LETTERS[Math.floor(Math.random() * GROUP_LETTERS.length)];
+  return stem;
+}
 
 export function latinToken(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9]+/g, "");
@@ -217,7 +231,7 @@ export function applyGeneratedSkuCodes(
     if (code) used.add(code);
   });
   return skus.map((sku, index) => {
-    if (!targets.has(index)) return sku;
+    if (!targets.has(index) || sku.id) return sku;
     const base = composeSkuCode(prefix, segmentsForOptionValues(groups, sku.optionValues));
     return { ...sku, skuCode: dedupeSkuCode(base, used) };
   });
@@ -243,6 +257,7 @@ export function reconcileVariants(
   next: OptionGroupDraft[],
   skus: SkuDraft[],
   price: string,
+  stem = "",
 ): { skus: SkuDraft[]; error?: "TOO_MANY" } {
   const usable = next
     .map((group) => ({
@@ -303,7 +318,7 @@ export function reconcileVariants(
     .filter((sku, index) => !used.has(index) && (sku.id || sku.skuCode || sku.removed))
     .map((sku) => ({ ...sku, removed: true }));
   const axes = usable.map((group) => ({ name: group.name, values: group.values.map((value) => value.label) }));
-  const coded = applyGeneratedSkuCodes(active, axes, "", fresh, removed.map((sku) => sku.skuCode));
+  const coded = applyGeneratedSkuCodes(active, axes, stem, fresh, removed.map((sku) => sku.skuCode));
   return { skus: [...coded, ...removed] };
 }
 
@@ -338,17 +353,24 @@ export function validateDraft(draft: ProductDraft, publishing: boolean, imageCou
   if (draft.productType === "VARIABLE" && active.length < 1) errors.skus = "SKU_REQUIRED";
   draft.skus.forEach((sku, index) => {
     if (sku.removed) return;
-    if (!sku.skuCode.trim()) errors[`skus.${index}.skuCode`] = "SKU_CODE_REQUIRED";
+    if (!sku.skuCode.trim()) errors[`skus[${index}].skuCode`] = "SKU_CODE_REQUIRED";
     const skuPrice = money(sku.price);
     const skuCompare = money(sku.compareAtPrice);
     const skuCost = money(sku.costPrice);
-    if (skuPrice == null || Number.isNaN(skuPrice) || skuPrice < 0) errors[`skus.${index}.price`] = "PRICE_INVALID";
+    if (skuPrice == null || Number.isNaN(skuPrice) || skuPrice < 0) errors[`skus[${index}].price`] = "PRICE_INVALID";
     if (skuCompare != null && (Number.isNaN(skuCompare) || (skuPrice != null && !Number.isNaN(skuPrice) && skuCompare <= skuPrice))) {
-      errors[`skus.${index}.compareAtPrice`] = "COMPARE_PRICE_INVALID";
+      errors[`skus[${index}].compareAtPrice`] = "COMPARE_PRICE_INVALID";
     }
-    if (skuCost != null && (Number.isNaN(skuCost) || skuCost < 0)) errors[`skus.${index}.costPrice`] = "PRICE_INVALID";
+    if (skuCost != null && (Number.isNaN(skuCost) || skuCost < 0)) errors[`skus[${index}].costPrice`] = "PRICE_INVALID";
+    const barcode = sku.barcode.trim().toUpperCase();
+    if (barcode && !/^[A-Z0-9-]+$/.test(barcode)) errors[`skus[${index}].barcode`] = "BARCODE_INVALID";
     const opening = Number(sku.initialStock || "0");
-    if (!sku.id && (!Number.isInteger(opening) || opening < 0)) errors[`skus.${index}.initialStock`] = "INVALID_ADJUSTMENT";
+    if (!sku.id && (!Number.isInteger(opening) || opening < 0)) errors[`skus[${index}].initialStock`] = "INVALID_ADJUSTMENT";
+    const safetyText = sku.safetyStock.trim();
+    if (safetyText) {
+      const safety = Number(safetyText);
+      if (!Number.isInteger(safety) || safety < 0 || safety > 1_000_000) errors[`skus[${index}].safetyStock`] = "SAFETY_STOCK_INVALID";
+    }
   });
   if (publishing && imageCount < 1) errors.images = "PUBLISH_INCOMPLETE";
   if (publishing && (price == null || Number.isNaN(price)) && draft.skus.some((sku) => !sku.removed && money(sku.price) == null)) errors.basePrice = "PUBLISH_INCOMPLETE";
@@ -362,7 +384,7 @@ export function toWrite(draft: ProductDraft): ProductWrite {
   const skus: SkuWrite[] = draft.skus.filter((sku) => !sku.removed).map((sku) => ({
     id: sku.id,
     skuCode: sku.skuCode.trim(),
-    barcode: sku.barcode.trim() || null,
+    barcode: sku.barcode.trim().toUpperCase() || null,
     optionLabel: sku.optionLabel.trim() || null,
     optionValues: sku.optionValues,
     price: money(sku.price) ?? 0,
@@ -372,6 +394,7 @@ export function toWrite(draft: ProductDraft): ProductWrite {
     initialStock: sku.id ? null : Number(sku.initialStock || "0"),
     imageId: sku.imageId || null,
     active: sku.active,
+    safetyStock: sku.safetyStock.trim() === "" ? null : Number(sku.safetyStock),
   }));
   return {
     nameTh: draft.nameTh.trim(),

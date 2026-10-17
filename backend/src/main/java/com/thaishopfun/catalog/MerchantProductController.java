@@ -65,6 +65,16 @@ public class MerchantProductController {
         return products.brands(RequestUser.id(jwt), shopId);
     }
 
+    @RequireShopPermission("PRODUCT_IMPORT")
+    @GetMapping(value = "/products/import-template", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    public ResponseEntity<byte[]> importTemplate(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId) {
+        var body = products.importTemplate(RequestUser.id(jwt), shopId);
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("product-import-template.xlsx").build().toString())
+            .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+            .body(body);
+    }
+
     @RequireShopPermission("PRODUCT_READ")
     @GetMapping(value = "/products/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     public ResponseEntity<byte[]> export(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId) {
@@ -159,6 +169,17 @@ public class MerchantProductController {
         @RequestBody CatalogDtos.RevertAutoTranslationRequest request
     ) {
         return products.revertAutoTranslation(RequestUser.id(jwt), shopId, productId, request);
+    }
+
+    @RequireShopPermission("PRODUCT_UPDATE")
+    @PostMapping("/products/{productId}/translations/retry")
+    public CatalogDtos.MerchantProductResponse retryTranslation(
+        @AuthenticationPrincipal Jwt jwt,
+        @PathVariable Long shopId,
+        @PathVariable UUID productId,
+        @RequestBody CatalogDtos.RevertAutoTranslationRequest request
+    ) {
+        return products.retryTranslation(RequestUser.id(jwt), shopId, productId, request);
     }
 
     @RequireShopPermission("PRODUCT_UPDATE")

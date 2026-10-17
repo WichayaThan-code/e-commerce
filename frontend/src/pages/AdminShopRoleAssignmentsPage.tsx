@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, Search, ShieldCheck, Trash2, UsersRound } from 'lucide-react'
+import ConfirmDialog from '../components/form/ConfirmDialog'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
@@ -16,6 +18,7 @@ const errorText = (error: unknown) => error instanceof ApiError ? error.message 
 const fullName = (member: Pick<AdminShopRoleMember, 'firstName' | 'lastName'>) => `${member.firstName} ${member.lastName}`.trim()
 
 export default function AdminShopRoleAssignmentsPage() {
+  const { t } = useTranslation('admin')
   const { user, loading } = useAuth()
   const { can } = usePermissions()
   const allowed = !!user && hasPlatformAccess(user)
@@ -32,6 +35,7 @@ export default function AdminShopRoleAssignmentsPage() {
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [reload, setReload] = useState(0)
+  const [memberConfirm, setMemberConfirm] = useState<AdminShopRoleMember | null>(null)
 
   const storeRoles = useMemo(() => roles.filter(role =>
     role.context === 'STORE' && role.assignable && role.active && role.code !== 'STORE_OWNER'), [roles])
@@ -102,7 +106,8 @@ export default function AdminShopRoleAssignmentsPage() {
   }
 
   const removeMember = async (member: AdminShopRoleMember) => {
-    if (!canAssign || !window.confirm(`นำ ${fullName(member)} ออกจากร้านนี้หรือไม่?`)) return
+    if (!canAssign) return
+    setMemberConfirm(null)
     setBusy(true)
     setError('')
     setNotice('')
@@ -173,7 +178,7 @@ export default function AdminShopRoleAssignmentsPage() {
             <span className={member.active ? 'member-active' : 'member-inactive'}>{member.active ? 'ใช้งาน' : 'นำออกแล้ว'}</span>
             <span className="role-assignment-actions">
               {member.role !== 'STORE_OWNER' && <button type="button" disabled={busy || !canAssign} onClick={() => selectMember(member)}>{member.active ? 'เปลี่ยน role' : 'กำหนดใหม่'}</button>}
-              {member.active && member.role !== 'STORE_OWNER' && <button type="button" className="remove-member" disabled={busy || !canAssign} onClick={() => removeMember(member)} aria-label={`นำ ${fullName(member)} ออกจากร้าน`}><Trash2/></button>}
+              {member.active && member.role !== 'STORE_OWNER' && <button type="button" className="remove-member" disabled={busy || !canAssign} onClick={() => setMemberConfirm(member)} aria-label={`นำ ${fullName(member)} ออกจากร้าน`}><Trash2/></button>}
               {member.role === 'STORE_OWNER' && <small>เจ้าของร้าน</small>}
             </span>
           </div>)}
@@ -181,5 +186,17 @@ export default function AdminShopRoleAssignmentsPage() {
         </div>
       </section>
     </div>
+    {memberConfirm && (
+      <ConfirmDialog
+        title={t('confirm.removeMemberTitle')}
+        message={t('confirm.removeMemberBody', { name: fullName(memberConfirm) })}
+        cancelLabel={t('confirm.cancel')}
+        confirmLabel={t('confirm.confirm')}
+        danger
+        confirmDisabled={busy}
+        onCancel={() => setMemberConfirm(null)}
+        onConfirm={() => void removeMember(memberConfirm)}
+      />
+    )}
   </main>
 }

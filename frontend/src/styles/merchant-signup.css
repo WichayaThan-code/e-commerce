@@ -1,3 +1,4 @@
+@import "./sale-types.css";
 .merchant-social-section{border:0;margin:18px 0 0;padding:0}
 .merchant-social-section legend{font-size:15px;font-weight:800;color:#08245e;margin-bottom:6px}
 .merchant-social-hint{margin:0 0 12px;font-size:13px;color:#5a7394;line-height:1.45}
@@ -89,16 +90,6 @@
 .compact-row{margin-bottom:18px}
 .merchant-card fieldset{border:0;padding:0;margin:0 0 17px}
 .merchant-card legend{margin-bottom:8px;font-size:16px}
-.sale-types{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.sale-types>button{height:67px;border:1.5px solid #cbd9ea;border-radius:8px;background:#fff;color:#08245e;display:flex;align-items:center;text-align:left;padding:9px 12px;gap:9px}
-.sale-types>button.active{border-color:#0878f5;background:#f3f9ff}
-.sale-types>button>i{width:19px;height:19px;border:1.5px solid #9db0ca;border-radius:50%;display:grid;place-items:center;flex:none}
-.sale-types>button.active>i{background:#0878f5;border-color:#0878f5;color:#fff}
-.sale-types>button>i svg{width:13px}
-.sale-types>button>svg{width:28px;height:28px;color:#124786}
-.sale-types b,.sale-types small{display:block}
-.sale-types b{font-size:12px}
-.sale-types small{font-size:9px;margin-top:3px}
 .merchant-card form>label{margin-bottom:15px}
 
 /* ==========================================

@@ -77,6 +77,10 @@ public final class ProductSpreadsheet {
     }
 
     public static byte[] write(List<SheetRow> rows) {
+        return write(rows, null);
+    }
+
+    public static byte[] write(List<SheetRow> rows, String readme) {
         try (var book = new XSSFWorkbook(); var out = new ByteArrayOutputStream()) {
             var sheet = book.createSheet("products");
             var header = sheet.createRow(0);
@@ -110,6 +114,12 @@ public final class ProductSpreadsheet {
                 writeText(row, 23, source.option3Value());
             }
             for (var index = 0; index < HEADERS.length; index++) sheet.autoSizeColumn(index);
+            if (readme != null && !readme.isBlank()) {
+                var note = book.createSheet("readme");
+                var lines = readme.split("\n", -1);
+                for (var index = 0; index < lines.length; index++) note.createRow(index).createCell(0).setCellValue(lines[index]);
+                note.setColumnWidth(0, 120 * 256);
+            }
             book.write(out);
             return out.toByteArray();
         } catch (IOException exception) {
@@ -119,9 +129,36 @@ public final class ProductSpreadsheet {
 
     public static byte[] template() {
         return write(List.of(
-            new SheetRow(2, "เสื้อตัวอย่าง", "Sample shirt", null, "เสื้อหลายตัวเลือก", null, null, null, "ThaiShopFun", "SAMPLE-RED-S", null, "แดง / S", new BigDecimal("390"), new BigDecimal("590"), 280, 8, null, List.of(), null, "SAMPLE-SHIRT", "VARIABLE", "สี", "แดง", "ไซซ์", "S", null, null),
-            new SheetRow(3, "เสื้อตัวอย่าง", "Sample shirt", null, null, null, null, null, "ThaiShopFun", "SAMPLE-BLK-S", null, "ดำ / S", new BigDecimal("390"), new BigDecimal("590"), 280, 6, null, List.of(), null, "SAMPLE-SHIRT", "VARIABLE", "สี", "ดำ", "ไซซ์", "S", null, null)
-        ));
+            new SheetRow(2, "เสื้อตัวอย่าง", null, null, "เสื้อหลายตัวเลือก", null, null, null, "ThaiShopFun", "SAMPLE-RED-S", null, "แดง / S", new BigDecimal("390"), new BigDecimal("590"), 280, 8, null, List.of(), null, "SAMPLE-SHIRT", "VARIABLE", "สี", "แดง", "ไซซ์", "S", null, null),
+            new SheetRow(3, "ชาไทย", null, null, "ชาไทยหอม", null, null, null, "ThaiShopFun", "TEA-1", null, null, new BigDecimal("45"), null, 100, 5, null, List.of(), null, null, "SIMPLE", null, null, null, null, null, null)
+        ), """
+            ไฟล์นี้อธิบายคอลัมน์ในชีต products มี 24 คอลัมน์
+            nameTh ชื่อสินค้าภาษาไทย บังคับ
+            nameEn ชื่อภาษาอังกฤษ ไม่บังคับ ถ้าว่างระบบแปลให้ ถ้ากรอกจะใช้คำนั้น
+            nameZh ชื่อภาษาจีน ไม่บังคับ กติกาเดียวกับ nameEn
+            descriptionTh คำอธิบายภาษาไทย
+            descriptionEn คำอธิบายภาษาอังกฤษ ไม่บังคับ ถ้าว่างระบบแปลให้
+            descriptionZh คำอธิบายภาษาจีน ไม่บังคับ กติกาเดียวกับ descriptionEn
+            category ชื่อหมวดสินค้า ต้องตรงกับหมวดที่มีในระบบ ว่างได้
+            brand แบรนด์ ว่างได้
+            skuCode รหัส SKU บังคับ ห้ามซ้ำกับ SKU ที่ยังไม่ถูกลบในร้าน
+            barcode บาร์โค้ด ว่างได้
+            optionLabel ป้ายตัวเลือก เช่น แดง / S ว่างได้
+            price ราคาขาย บังคับ และต้องมากกว่า 0
+            compareAtPrice ราคาเดิม ว่างได้ ถ้ากรอกต้องมากกว่าราคาขาย
+            weightGrams น้ำหนักกรัม ว่างได้
+            stock สต็อกเริ่มต้นของแถวนี้ ว่างได้
+            image ลิงก์รูป หรือวางรูป JPG PNG WEBP ในแถว ได้ไม่เกิน 9 รูปต่อสินค้า
+            productKey รหัสกลุ่มสินค้า ถ้าว่างแต่ละแถวเป็นสินค้าคนละตัวและไม่ถูกรวมกลุ่ม ถ้าใส่ค่าเดียวกันหลายแถว แถวเหล่านั้นเป็นสินค้าตัวเดียวกัน หนึ่งแถวต่อหนึ่ง SKU
+            productType SIMPLE หรือ VARIABLE ถ้าว่าง ระบบถือเป็น SIMPLE เมื่อ productKey ว่างและไม่มีตัวเลือก และถือเป็น VARIABLE เมื่อมี productKey หรือมีคอลัมน์ตัวเลือก
+            option1Name ชื่อกลุ่มตัวเลือกที่ 1 เช่น สี ใช้กับสินค้า VARIABLE
+            option1Value ค่าตัวเลือกที่ 1 เช่น แดง ทุกค่าต้องมี SKU ที่เปิดขายอย่างน้อย 1 แถว
+            option2Name ชื่อกลุ่มตัวเลือกที่ 2 ว่างได้
+            option2Value ค่าตัวเลือกที่ 2 ว่างได้
+            option3Name ชื่อกลุ่มตัวเลือกที่ 3 ว่างได้
+            option3Value ค่าตัวเลือกที่ 3 ว่างได้
+            ตัวอย่างแถวแรกเป็นสินค้า VARIABLE หนึ่งตัว แถวที่สองเป็นสินค้า SIMPLE หนึ่งตัว
+            """);
     }
 
     public static List<SheetRow> read(InputStream input) {

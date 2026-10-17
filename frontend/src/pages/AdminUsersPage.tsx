@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Download, KeyRound, Mail,
   MoreVertical, Plus, Search, Settings, ShieldCheck, Store, Trash2, UserRound, UsersRound, X,
 } from 'lucide-react'
+import ConfirmDialog from '../components/form/ConfirmDialog'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
@@ -43,6 +45,7 @@ function pageWindow(current: number, total: number): (number | '…')[] {
 }
 
 export default function AdminUsersPage() {
+  const { t } = useTranslation('admin')
   const { user, loading } = useAuth()
   const { can } = usePermissions()
   const allowed = !!user && hasPlatformAccess(user)
@@ -76,6 +79,7 @@ export default function AdminUsersPage() {
   const [platformRoles, setPlatformRoles] = useState<AdminRoleSummary[]>([])
   const [roleChoice, setRoleChoice] = useState('')
   const [saving, setSaving] = useState(false)
+  const [userConfirm, setUserConfirm] = useState<'suspend' | 'restore' | 'delete' | null>(null)
   const [actionError, setActionError] = useState('')
 
   const notify = useCallback((message: string) => { setNotice(message); window.setTimeout(() => setNotice(''), 2400) }, [])
@@ -199,8 +203,7 @@ export default function AdminUsersPage() {
   }
   const setUserStatus = async (action: 'suspend' | 'restore') => {
     if (!detail) return
-    const message = action === 'suspend' ? 'ระงับบัญชีนี้และออกจากระบบทุกอุปกรณ์หรือไม่?' : 'คืนสถานะบัญชีนี้หรือไม่?'
-    if (!window.confirm(message)) return
+    setUserConfirm(null)
     setSaving(true)
     setActionError('')
     try {
@@ -217,7 +220,8 @@ export default function AdminUsersPage() {
     }
   }
   const deleteSelectedUser = async () => {
-    if (!detail || !window.confirm(`ลบบัญชี ${fullName(detail)} หรือไม่? การลบเป็นแบบเก็บประวัติและไม่สามารถยกเลิกได้`)) return
+    if (!detail) return
+    setUserConfirm(null)
     setSaving(true)
     setActionError('')
     try {
@@ -357,9 +361,9 @@ export default function AdminUsersPage() {
             </select>
             <button onClick={saveRole} disabled={saving || detail.status !== 'ACTIVE' || roleChoice === selectedPlatformRole}>บันทึกบทบาท</button>
           </label>}
-          {headStatus === 'ACTIVE' && canSuspend && <button className="suspend" onClick={() => setUserStatus('suspend')} disabled={saving || detail.superAdmin || detail.id === user.id}><AlertTriangle/>ระงับการใช้งาน</button>}
-          {headStatus === 'SUSPENDED' && canRestore && <button onClick={() => setUserStatus('restore')} disabled={saving || detail.superAdmin || detail.id === user.id}><Check/>คืนสถานะ</button>}
-          {canDelete && <button className="delete" onClick={deleteSelectedUser} disabled={saving || detail.superAdmin || detail.id === user.id}><Trash2/>ลบผู้ใช้งาน</button>}
+          {headStatus === 'ACTIVE' && canSuspend && <button className="suspend" onClick={() => setUserConfirm('suspend')} disabled={saving || detail.superAdmin || detail.id === user.id}><AlertTriangle/>ระงับการใช้งาน</button>}
+          {headStatus === 'SUSPENDED' && canRestore && <button onClick={() => setUserConfirm('restore')} disabled={saving || detail.superAdmin || detail.id === user.id}><Check/>คืนสถานะ</button>}
+          {canDelete && <button className="delete" onClick={() => setUserConfirm('delete')} disabled={saving || detail.superAdmin || detail.id === user.id}><Trash2/>ลบผู้ใช้งาน</button>}
         </footer>}
       </>}
     </aside>
@@ -377,5 +381,17 @@ export default function AdminUsersPage() {
     </div>}
     {showTip && <aside className="user-tip"><button aria-label="ปิดคำแนะนำ" onClick={() => setShowTip(false)}>×</button><h2>💡 คำแนะนำ</h2><p>คุณสามารถกำหนดบทบาทและสิทธิ์การใช้งานให้กับผู้ใช้งาน เพื่อควบคุมการเข้าถึงข้อมูลในระบบได้อย่างปลอดภัย</p></aside>}
     {notice && <div className="admin-toast" role="status">{notice}</div>}
+    {userConfirm && detail && (
+      <ConfirmDialog
+        title={t(userConfirm === 'delete' ? 'confirm.deleteUserTitle' : userConfirm === 'suspend' ? 'confirm.suspendUserTitle' : 'confirm.restoreUserTitle')}
+        message={t(userConfirm === 'delete' ? 'confirm.deleteUserBody' : userConfirm === 'suspend' ? 'confirm.suspendUserBody' : 'confirm.restoreUserBody', { name: fullName(detail) })}
+        cancelLabel={t('confirm.cancel')}
+        confirmLabel={t('confirm.confirm')}
+        danger={userConfirm !== 'restore'}
+        confirmDisabled={saving}
+        onCancel={() => setUserConfirm(null)}
+        onConfirm={() => void (userConfirm === 'delete' ? deleteSelectedUser() : setUserStatus(userConfirm))}
+      />
+    )}
   </main>
 }

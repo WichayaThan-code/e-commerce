@@ -180,7 +180,7 @@ Schema ทั้งหมดอยู่ใน **ไฟล์เดียว**: 
 | ไฟล์ | หน้าที่ |
 |------|---------|
 | `V1__init_schema.sql` | สร้าง schema ทั้งหมด (รวม V1+V2+V3 เดิมเป็นไฟล์เดียว) — **ไม่มี** ข้อมูลอ้างอิง (ดู Seed ด้านล่าง) |
-| `V3__authz_platform_admin_backfill.sql` | สิทธิ์ผู้ดูแลระบบย้ายไปอ่านจาก `platform_roles`: คัดลอก user ที่ `users.role = 'ADMIN'` (ยังไม่ถูกลบ และยังไม่มีแถว active) เป็น `PLATFORM_ADMIN` — idempotent, INSERT อย่างเดียว ไม่ลบ/แก้ข้อมูลเดิม |
+| `V3__authz_platform_admin_backfill.sql` | สิทธิ์ผู้ดูแลระบบย้ายไปอ่านจาก `platform_roles`: คัดลอก user ที่ `users.role = 'ADMIN'` (ยังไม่ถูกลบ และยังไม่มีแถว active) เป็น `PLATFORM_ADMIN` — idempotent, INSERT อย่างเดียว ไม่ลบ/แก้ข้อมูลเดิม |
 | `V18__drop_users_role.sql` | authz step 2: ลบคอลัมน์ `users.role` (+ CHECK `ck_users_role` ถ้ามี) — คัดลอกค่าเดิมไว้ที่ `users_role_legacy_v18` ก่อน และ `RAISE NOTICE` บัญชีที่ `users.role` บอกสิทธิ์มากกว่าที่ `platform_roles` / `shop_members` ให้ (ไม่ grant ให้อัตโนมัติ) — idempotent |
 | `V2__shop_onboarding_owners_categories_reinstatement.sql` | ส่วนต่อจาก branch ร้านค้า (7f730e8): ตาราง `owners`, `shop_reinstatement_requests`, คอลัมน์ร้าน/ใบสมัคร (`shop_no`, `owner_id`, social links, `opening_hours`, `citizen_id_hash`), `hub_categories.category_no`/`name_zh`, สถานะร้าน `PENDING_REVIEW/ACTIVE/REJECTED/SUSPENDED/CLOSED` — เขียนแบบ defensive (`IF NOT EXISTS`) |
 
@@ -293,6 +293,19 @@ psql -U postgres -d TSF_DB -v ON_ERROR_STOP=1 -c "SELECT set_config('app.admin_e
 ### Response shapes (summary)
 - Auth session: `{ "accessToken", "expiresIn", "user": { id, firstName, lastName, email, phone, role, emailVerified, phoneVerified, roleCodes, permissions, shopPermissions } }` + Set-Cookie `tsf_refresh` (ฟิลด์สิทธิ์ 3 ตัวท้ายเป็นฟิลด์ใหม่ ดูหัวข้อ "ระบบสิทธิ์" — ฟิลด์เดิมไม่เปลี่ยน)
 - Errors: `{ "code", "message" }` — malformed JSON / wrong parameter types → 400 `VALIDATION_ERROR`; unique-constraint races → 409 `CONFLICT`
+
+## นำเข้าสินค้าจาก Excel
+
+คอลัมน์ `nameTh` และ `descriptionTh` พอสำหรับสร้างและเผยแพร่สินค้า ระบบจะเข้าคิวแปล EN/ZH ให้เอง คอลัมน์ `nameEn`, `nameZh`, `descriptionEn`, `descriptionZh` ไม่บังคับ ถ้าว่างจะแปลอัตโนมัติ ถ้ากรอกมาจะเก็บเป็นคำแปลที่ร้านค้าแก้เองและไม่ถูกเขียนทับจนกว่าข้อความภาษาไทยจะเปลี่ยน ไฟล์ตัวอย่างมีชีต `readme` อธิบายไว้เช่นกัน
+
+## สินค้าของร้าน
+
+- `GET /api/merchant/shops/{shopId}/skus/check?codes=a,b&excludeProductId=` สิทธิ์ `PRODUCT_UPDATE` ตรวจรหัส SKU ที่ยังไม่ถูกลบในร้าน (`deleted_at IS NULL`) ยกเว้นสินค้า `excludeProductId` ตอบ `{ "taken": ["..."] }`
+- `POST /api/merchant/shops/{shopId}/products/variant-combinations` body `{ "skuPrefix", "optionGroups" }` สร้างคู่ตัวเลือกทั้งหมดพร้อมรหัส SKU ที่แนะนำ ไม่บันทึกข้อมูล
+- `POST /api/merchant/shops/{shopId}/products/{productId}/publish` ต้องมี `basePrice` รูปอย่างน้อย 1 รูป และ SKU ที่ `active=true` อย่างน้อย 1 รายการ SKU ที่ `active=false` ไม่ถูกนับและไม่แสดงให้ผู้ซื้อเลือก ถ้าปิดทุก SKU ของสินค้าที่เผยแพร่อยู่ ตอบ `PUBLISHED_SKU_REQUIRED`
+- สินค้าที่สถานะ `PUBLISHED` ลบรูปสุดท้ายไม่ได้ ตอบ `PUBLISHED_IMAGE_REQUIRED`
+- path ของ field error ใช้วงเล็บเหลี่ยม เช่น `skus[0].skuCode`, `optionGroups[0].values[1].value`, `optionSchema[0].name`
+- บาร์โค้ดถูกตัดช่องว่างและแปลงเป็นตัวพิมพ์ใหญ่ก่อนตรวจ ใช้ได้เฉพาะ `A-Z`, `0-9` และ `-` การเช็กซ้ำในร้านไม่สนตัวพิมพ์
 
 ## Merchant / shop API (from branch 7f730e8)
 

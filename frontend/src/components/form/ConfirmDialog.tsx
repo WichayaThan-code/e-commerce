@@ -64,7 +64,7 @@ export default function ConfirmDialog({
         <h2 id={titleId}>{title}</h2>
         <p>{message}</p>
         {children}
-        <div>
+        <div className="pm-dialog-actions">
           <button ref={firstButtonRef} type="button" className="secondary" onClick={onCancel}>{cancelLabel}</button>
           <button type="button" className={danger ? "danger" : "primary"} disabled={confirmDisabled} title={confirmTitle} onClick={onConfirm}>{confirmLabel}</button>
         </div>

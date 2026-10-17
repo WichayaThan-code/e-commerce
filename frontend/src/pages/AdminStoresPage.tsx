@@ -8,7 +8,9 @@ import {
   ReceiptText, Search, Settings, ShoppingBag, SlidersHorizontal, Store,
   Tags, TrendingUp, UserCog, UsersRound, WalletCards,
 } from 'lucide-react'
+import { SkeletonTable, LoadError } from '../components/feedback/Skeleton'
 import ConfirmDialog from '../components/form/ConfirmDialog'
+import { useDelayedLoading } from '../hooks/useDelayedLoading'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
@@ -131,7 +133,13 @@ export default function AdminStoresPage(){
   useEffect(() => { setPage(1) }, [query, status, category, province, pageSize])
   useEffect(() => { if (page > pageCount) setPage(pageCount) }, [page, pageCount])
 
-  if(loading||(hasPlatformAccess(user)&&!loaded))return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
+  const listLoading = Boolean(user && hasPlatformAccess(user) && !loaded)
+  const { showSkeleton, markHasData } = useDelayedLoading(listLoading, 150)
+  useEffect(() => {
+    if (loaded) markHasData()
+  }, [loaded, markHasData])
+
+  if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
   if(!user){window.location.replace('/login');return null}
   if(!hasPlatformAccess(user)){window.location.replace('/dashboard');return null}
 
@@ -202,14 +210,16 @@ export default function AdminStoresPage(){
         <header><h2>รายการร้านค้า ({rows.length.toLocaleString('th-TH')} รายการ)</h2><div><button onClick={()=>notify('เตรียมส่งออกข้อมูลร้านค้า')}><Download/>ส่งออกข้อมูล<ChevronDown/></button><button onClick={()=>notify('เปิดการจัดการคอลัมน์')}><SlidersHorizontal/>จัดการคอลัมน์</button></div></header>
         <div className="stores-table-scroll"><div className="stores-table">
           <div className="stores-tr stores-th"><input type="checkbox" aria-label="เลือกร้านค้าทั้งหมด" checked={visible.length>0&&visible.every(store=>selected.includes(store.id))} onChange={toggleAll}/><b>#</b><b>ร้านค้า</b><b>เจ้าของร้าน</b><b>หมวดหมู่</b><b>จังหวัด</b><b>สถานะ</b><b>วันที่สมัคร</b><b>ยอดขาย (30 วัน)</b><b>การดำเนินการ</b><span/></div>
+          {showSkeleton && listLoading && rows.length === 0 ? <SkeletonTable rows={8} cols={9} /> : null}
+          {loaded && rows.length === 0 && notice ? <LoadError message={notice} onRetry={() => window.location.reload()} /> : null}
           {visible.map(store=><div className="stores-tr" key={store.id}>
-            <input type="checkbox" aria-label={`เลือก ${store.name}`} checked={selected.includes(store.id)} onChange={()=>toggle(store.id)}/><span>{store.id}</span>
+            <input type="checkbox" aria-label={`เลือก ${store.name}`} checked={selected.includes(store.id)} onChange={()=>toggle(store.id)}/><span className="num">{store.id}</span>
             <div className="store-identity"><i className={store.logoClass}>{store.logoUrl?<img src={mediaUrl(store.logoUrl)} alt="" />:store.logo}</i><p><b>{store.name}{store.status==='ใช้งาน'&&<small className="verified">✓</small>}</b><span>{store.handle} | {store.products} สินค้า</span>{store.appeal&&<em className="reinstatement-flag">มีคำร้องปลดระงับ</em>}</p></div>
             <p className="owner"><b>{store.owner}</b><span>{store.phone}</span>{store.otherShops ? <small className="owner-siblings">ร้านอื่น: {store.otherShops}</small> : null}</p>
             <span><i className={`category-pill ${store.categoryClass}`}>{store.category}</i></span><span>{store.province}</span>
             <span><i className={`status-pill ${store.status==='ใช้งาน'?'active':store.status==='รออนุมัติ'?'waiting':'blocked'}`}><small/>{store.status}</i></span>
             <span className="registered">{store.registeredAt}</span>
-            <span className="sales"><b>฿{store.sales.toLocaleString()}</b>{store.trend!==null&&<em className={store.trend<0?'down':''}>{store.trend>0?'↑':'↓'} {Math.abs(store.trend)}%</em>}</span>
+            <span className="sales"><b className="num">฿{store.sales.toLocaleString()}</b>{store.trend!==null&&<em className={`num ${store.trend<0?'down':''}`}>{store.trend>0?'↑':'↓'} {Math.abs(store.trend)}%</em>}</span>
             <button className="manage" disabled={busyId===store.id||!canManage(store)} title={deniedTitle(canManage(store))} onClick={()=>void manage(store)}>{store.status==='รออนุมัติ'||store.status==='ปฏิเสธ'?'ตรวจสอบ':'จัดการ'}</button>
             <button className="more" aria-label={`เมนู ${store.name}`} onClick={()=>notify(`เมนูเพิ่มเติม: ${store.name}`)}><MoreVertical/></button>
           </div>)}

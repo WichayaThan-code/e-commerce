@@ -684,5 +684,164 @@
     "stepDocuments": "必要文件未齐，请返回上传后再提交",
     "goFix": "去修改",
     "checking": "正在检查..."
+  },
+  "storeTheme": {
+    "tab": "店铺主题",
+    "title": "店铺主题",
+    "lead": "选择模板，并调整颜色、字体和店铺页面各板块的顺序。",
+    "unsaved": "有未保存的更改",
+    "saved": "店铺主题已保存",
+    "resetDone": "已重置为模板默认值（尚未保存）",
+    "loadError": "无法加载店铺主题",
+    "retry": "重试",
+    "templates": {
+      "title": "模板",
+      "GENERAL": {
+        "name": "通用",
+        "desc": "适合各类店铺的标准店铺页面"
+      },
+      "FASHION": {
+        "name": "时尚",
+        "desc": "大图商品展示，配色典雅"
+      },
+      "FOOD_BEVERAGE": {
+        "name": "餐饮",
+        "desc": "显示营业时间，商品以菜单列表呈现"
+      }
+    },
+    "media": {
+      "title": "店铺标志和封面图",
+      "hint": "上传后立即保存，无需再保存主题。"
+    },
+    "colors": {
+      "title": "店铺颜色",
+      "primary": "主色",
+      "secondary": "辅助色",
+      "background": "背景色",
+      "text": "文字颜色",
+      "contrastWarn": "部分颜色组合未达到 WCAG AA 对比度（4.5:1）。背景文字、按钮或条幅标题可能难以阅读。"
+    },
+    "style": {
+      "title": "外观与疏密度",
+      "radius": "圆角",
+      "cardStyle": "卡片样式",
+      "density": "间距",
+      "buttonShape": "按钮形状",
+      "card": {
+        "FLAT": "扁平",
+        "BORDERED": "描边",
+        "SHADOW": "轻阴影"
+      },
+      "densityOpts": {
+        "COMPACT": "紧凑",
+        "COMFORTABLE": "舒适"
+      },
+      "button": {
+        "ROUNDED": "圆角",
+        "PILL": "胶囊",
+        "SQUARE": "直角"
+      }
+    },
+    "font": {
+      "title": "字体",
+      "label": "店铺字体",
+      "sample": "字体示例 ThaiShopFun 0123456789",
+      "NOTO_SANS_THAI": "Noto Sans Thai",
+      "NOTO_SERIF_THAI": "Noto Serif Thai",
+      "PROMPT": "Prompt",
+      "MITR": "Mitr",
+      "IBM_PLEX_SANS_THAI": "IBM Plex Sans Thai"
+    },
+    "hero": {
+      "title": "店铺头部",
+      "layout": "头部样式",
+      "heroTitle": "标题",
+      "subtitle": "副标题",
+      "ctaLabel": "按钮文字",
+      "ctaLink": "按钮链接",
+      "ctaHint": "链接必须是本站路径（如 /shops）或 https:// 地址。留空则不显示按钮。"
+    },
+    "variants": {
+      "FULL": "全屏",
+      "STRIP": "横幅",
+      "GRID": "网格",
+      "LARGE": "大卡片",
+      "MENU": "菜单列表"
+    },
+    "sections": {
+      "title": "页面板块",
+      "hint": "拖动或使用箭头按钮调整顺序，并可开启或关闭各板块。",
+      "HERO": "店铺头部",
+      "BANNERS": "促销横幅",
+      "CATEGORIES": "分类磁贴",
+      "TRUST": "信任条",
+      "INTRO": "店铺信息",
+      "FEATURED": "推荐商品",
+      "BESTSELLERS": "热销商品",
+      "NEW_ARRIVALS": "新品上架",
+      "CATALOG": "全部商品",
+      "HOURS": "营业时间",
+      "bannersTitle": "横幅图片",
+      "bannersHint": "填写图片 URL（https 或站内路径）。留空则在店铺页隐藏横幅区。",
+      "bannerImage": "图片 URL",
+      "bannerTitle": "说明文字",
+      "bannerLink": "链接",
+      "bannerAdd": "添加横幅",
+      "bannerRemove": "移除",
+      "trustTitle": "信任条项目",
+      "trustEnabled": "显示信任条",
+      "trustLabel": "文案",
+      "trustIcon": "图标",
+      "trustIcons": {
+        "AUTHENTIC": "正品",
+        "FAST_SHIP": "速递",
+        "RETURNS": "可退货",
+        "SECURE_PAY": "安全支付",
+        "CUSTOM": "自定义"
+      },
+      "variant": "样式",
+      "on": "显示",
+      "off": "隐藏",
+      "moveUp": "上移",
+      "moveDown": "下移"
+    },
+    "preview": {
+      "title": "店铺预览",
+      "devices": "预览设备",
+      "mobile": "手机",
+      "tablet": "平板",
+      "desktop": "桌面",
+      "hint": "以 {{width}}px 宽度预览当前编辑的主题",
+      "shopName": "店铺名称"
+    },
+    "actions": {
+      "save": "保存主题",
+      "saving": "保存中...",
+      "reset": "重置模板"
+    },
+    "confirm": {
+      "cancel": "取消",
+      "template": {
+        "title": "更换模板？",
+        "message": "更换模板会用新模板的默认值替换你调整过的颜色、字体、头部和板块顺序。",
+        "confirm": "更换模板"
+      },
+      "reset": {
+        "title": "重置模板？",
+        "message": "你的所有调整将恢复为此模板的默认值（点击保存主题前不会生效）。",
+        "confirm": "重置"
+      },
+      "leave": {
+        "title": "不保存直接离开？",
+        "message": "你有尚未保存的主题更改，现在离开这些更改将丢失。",
+        "confirm": "不保存离开",
+        "stay": "留下"
+      }
+    },
+    "errors": {
+      "hex": "请输入 6 位颜色值，如 #087bf5",
+      "validation": "请检查高亮的字段",
+      "save": "主题保存失败，请重试。"
+    }
   }
 }

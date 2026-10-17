@@ -33,6 +33,11 @@ public class ShopController {
         return shops.publicView(slug, RequestUser.id(jwt));
     }
 
+    @GetMapping("/{slug}/categories")
+    public List<MerchantDtos.PublicShopCategoryResponse> categories(@PathVariable String slug, @AuthenticationPrincipal Jwt jwt) {
+        return shops.publicCategories(slug, RequestUser.id(jwt));
+    }
+
     @GetMapping("/{slug}/logo")
     public ResponseEntity<Resource> logo(@PathVariable String slug) {
         return image(shops.logoFile(slug));

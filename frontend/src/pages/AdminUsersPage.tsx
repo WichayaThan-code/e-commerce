@@ -4,7 +4,9 @@ import {
   AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Download, KeyRound, Mail,
   MoreVertical, Plus, Search, Settings, ShieldCheck, Store, Trash2, UserRound, UsersRound, X,
 } from 'lucide-react'
+import { SkeletonForm, SkeletonTable, SkeletonText, SkeletonBusy, LoadError } from '../components/feedback/Skeleton'
 import ConfirmDialog from '../components/form/ConfirmDialog'
+import { useDelayedLoading } from '../hooks/useDelayedLoading'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
@@ -154,6 +156,11 @@ export default function AdminUsersPage() {
     setRoleChoice(detail?.roles.find(role => role.context === 'PLATFORM')?.code ?? '')
   }, [detail])
 
+  const { showSkeleton, markHasData, isRefetching } = useDelayedLoading(listLoading, 150)
+  useEffect(() => {
+    if (!listLoading && result) markHasData()
+  }, [listLoading, result, markHasData])
+
   if (loading) return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
   if (!user) { window.location.replace('/login'); return null }
   if (!hasPlatformAccess(user)) { window.location.replace('/dashboard'); return null }
@@ -301,9 +308,11 @@ export default function AdminUsersPage() {
       <section className="users-table-card"><header><h2>รายการผู้ใช้งาน ({formatNumber(totalItems)} รายการ)</h2><div><button onClick={exportCsv} disabled={exporting || listLoading || totalItems === 0} title={totalItems > 10000 ? 'นำออกได้สูงสุด 10,000 รายการ' : 'นำออกรายการตามตัวกรองปัจจุบันเป็นไฟล์ CSV'}><Download/>{exporting ? 'กำลังนำออก...' : 'นำออก (Export)'}</button><button disabled title={NOT_ENABLED}><Settings/>จัดการคอลัมน์</button></div></header>
         <div className="users-table-scroll"><div className="users-table">
           <div className="users-tr users-th"><input type="checkbox" aria-label="เลือกทั้งหมด" checked={items.length > 0 && selectedRows.length === items.length} onChange={() => setSelectedRows(selectedRows.length === items.length ? [] : items.map(item => item.id))}/><b>#</b><b>ชื่อ-นามสกุล</b><b>บทบาท</b><b>ร้านค้า</b><b>เบอร์โทร</b><b>วันที่สมัคร</b><b>สถานะ</b><b>การดำเนินการ</b><span/></div>
-          {!listLoading && !listError && items.map((item, index) => <div className={`users-tr ${selectedId === item.id ? 'selected' : ''}`} key={item.id} onClick={() => setSelectedId(item.id)}>
+          {showSkeleton && listLoading && !result?.items.length ? <SkeletonTable rows={8} cols={8} /> : null}
+          <SkeletonBusy refetching={isRefetching} busy={isRefetching}>
+          {!listError && items.map((item, index) => <div className={`users-tr ${selectedId === item.id ? 'selected' : ''}`} key={item.id} onClick={() => setSelectedId(item.id)}>
             <input type="checkbox" aria-label={`เลือก ${fullName(item)}`} checked={selectedRows.includes(item.id)} onClick={event => event.stopPropagation()} onChange={() => toggle(item.id)}/>
-            <span>{page * size + index + 1}</span>
+            <span className="num">{page * size + index + 1}</span>
             <div className="user-name"><i className={avatarTone(item)}>{initialOf(item.firstName)}</i><span><b>{fullName(item)}</b><small>{item.email}</small></span></div>
             <span><i className={`user-role ${roleTone(item.primaryRole.context, item.primaryRole.code)}`} title={item.roleCodes.join(', ') || item.primaryRole.code}>{item.primaryRole.nameTh ?? item.primaryRole.code}{item.roleCodes.length > 1 ? ` +${item.roleCodes.length - 1}` : ''}</i></span>
             <span title={item.shops.map(shop => shop.shopName).join(', ')}>{shopsLabel(item)}</span>
@@ -313,8 +322,8 @@ export default function AdminUsersPage() {
             <button className="user-detail-button" onClick={event => { event.stopPropagation(); setSelectedId(item.id) }}>ดูรายละเอียด</button>
             <button className="user-more" aria-label={`เมนู ${fullName(item)}`} disabled title={NOT_ENABLED} onClick={event => event.stopPropagation()}><MoreVertical/></button>
           </div>)}
-          {listLoading && <div className="users-empty">กำลังโหลดรายชื่อผู้ใช้งาน...</div>}
-          {!listLoading && listError && <div className="users-empty"><span>{listError} <button type="button" className="user-retry" onClick={() => setReloadKey(key => key + 1)}>ลองใหม่</button></span></div>}
+          </SkeletonBusy>
+          {!listLoading && listError && <LoadError message={listError} onRetry={() => setReloadKey(key => key + 1)} />}
           {!listLoading && !listError && items.length === 0 && <div className="users-empty">{totalItems === 0 && !Object.values(filters).some(Boolean) ? 'ยังไม่มีผู้ใช้งานในระบบ' : 'ไม่พบผู้ใช้งานที่ตรงกับตัวกรอง'}</div>}
         </div></div>
         <footer><div>แสดง <select aria-label="จำนวนรายการต่อหน้า" value={size} onChange={event => { setSize(Number(event.target.value)); setPage(0) }}>{PAGE_SIZES.map(value => <option key={value} value={value}>{value}</option>)}</select> รายการต่อหน้า</div><span>{formatNumber(start)} - {formatNumber(end)} จาก {formatNumber(totalItems)} รายการ</span>
@@ -326,7 +335,7 @@ export default function AdminUsersPage() {
       {!selectedId ? <div className="user-detail-body user-detail-empty">เลือกผู้ใช้งานจากตารางเพื่อดูรายละเอียด</div> : <>
         <section className="user-summary"><i className={selectedRow ? avatarTone(selectedRow) : 'gray'}>{initialOf(head?.firstName ?? selectedRow?.firstName)}</i><div><b>{headName || '…'}</b>{headStatus && <span className={`user-status ${headStatus === 'ACTIVE' ? 'active' : 'suspended'}`}><small/>{STATUS_LABEL[headStatus] ?? headStatus}</span>}{headRole && <em className={`user-role ${roleTone(headRole.context, headRole.code)}`}>{headRole.nameTh ?? headRole.code}</em>}<p>{headShops}</p></div></section>
         <nav className="user-tabs">{(['ข้อมูลผู้ใช้', 'สิทธิ์การใช้งาน', 'ประวัติ'] as const).map(value => <button className={tab === value ? 'active' : ''} key={value} onClick={() => setTab(value)}>{value}</button>)}</nav>
-        {detailState === 'loading' && !detail ? <div className="user-detail-body">กำลังโหลด...</div>
+        {detailState === 'loading' && !detail ? <div className="user-detail-body"><SkeletonForm fields={5} /></div>
           : detailState === 'error' ? <div className="user-detail-body" role="alert">โหลดรายละเอียดไม่สำเร็จ: {detailError}</div>
           : !detail ? <div className="user-detail-body"/>
           : tab === 'ข้อมูลผู้ใช้' ? <div className="user-detail-body"><dl>
@@ -347,7 +356,7 @@ export default function AdminUsersPage() {
           : <div className="user-history">
               {!canAudit ? <p><span>ไม่มีสิทธิ์ดูประวัติ (ต้องมี PLATFORM_AUDIT_READ)</span></p>
                 : historyError ? <p><span>{historyError}</span></p>
-                : history === null ? <p><span>กำลังโหลด...</span></p>
+                : history === null ? <p><SkeletonText lines={3} /></p>
                 : history.length === 0 ? <p><span>ยังไม่มีประวัติ</span></p>
                 : history.map((event, index) => <p key={`${event.type}-${event.at}-${index}`}><span>{event.title}{event.shopName && !event.title.includes(event.shopName) ? ` · ${event.shopName}` : ''}</span><small>{formatDateTime(event.at)}{event.actorName && event.actorName !== event.subjectName ? ` · โดย ${event.actorName}` : ''}</small></p>)}
             </div>}

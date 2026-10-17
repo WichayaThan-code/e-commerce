@@ -1,0 +1,47 @@
+/* HERO STRIP — text colors from --shop-on-secondary (same on every breakpoint) */
+.shop-hero-strip{
+  position:relative;min-height:120px;margin:0 auto var(--shop-gap,16px);
+  border-radius:var(--shop-radius,16px);overflow:hidden;background:var(--shop-secondary);
+  box-shadow:var(--shop-card-shadow,0 14px 32px color-mix(in srgb,var(--shop-text) 12%,transparent));
+  color:var(--shop-on-secondary,#fff);
+}
+.shop-hero-strip-body{position:relative;display:flex;align-items:center;gap:var(--shop-gap,16px);padding:18px 22px}
+.shop-hero-strip .shop-profile-mark{
+  width:72px;height:72px;flex:none;border-radius:calc(var(--shop-radius,16px) + 2px);
+  background:var(--shop-bg,#fff);border:3px solid var(--shop-bg,#fff);
+  box-shadow:0 8px 20px color-mix(in srgb,var(--shop-secondary) 35%,transparent);
+}
+.shop-hero-strip .shop-hero-copy{flex:1;min-width:0;color:var(--shop-on-secondary,#fff)}
+.shop-hero-strip .shop-hero-copy h1{
+  margin:6px 0 0;font-size:24px;line-height:1.2;font-weight:600;color:var(--shop-on-secondary,#fff);
+}
+.shop-hero-strip .shop-profile-en{
+  margin:4px 0 0;font-size:14px;color:color-mix(in srgb,var(--shop-on-secondary,#fff) 78%,transparent);
+}
+.shop-hero-strip .shop-hero-sub{
+  margin:4px 0 0;font-size:14px;line-height:1.5;
+  color:color-mix(in srgb,var(--shop-on-secondary,#fff) 85%,transparent);
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+}
+.shop-hero-strip .shop-chip{
+  background:color-mix(in srgb,var(--shop-bg,#fff) 94%,transparent);color:var(--color-success);
+  font-size:12px;padding:3px 9px;margin-top:6px;
+}
+.shop-hero-strip .shop-hero-actions{margin:0;flex:none}
+.shop-hero-strip .shop-hero-cta{border-radius:var(--shop-btn-radius,999px)}
+.shop-hero-strip .shop-hero-stats{color:color-mix(in srgb,var(--shop-on-secondary,#fff) 80%,transparent)}
+.shop-hero-strip .shop-hero-stats .num{color:var(--shop-on-secondary,#fff)}
+.shop-hero-strip .shop-hero-more{color:var(--shop-on-secondary,#fff)}
+
+@container shop (max-width:767px){
+  .shop-hero-strip{
+    width:100cqw;margin-left:calc(50% - 50cqw);margin-right:calc(50% - 50cqw);
+    border-radius:0;min-height:0;margin-bottom:var(--shop-gap,16px);
+  }
+  .shop-hero-strip-body{flex-direction:column;align-items:stretch;gap:0;padding:16px}
+  .shop-hero-strip .shop-profile-mark{width:72px;height:72px;margin-bottom:10px}
+  .shop-hero-strip .shop-hero-copy h1{font-size:20px}
+  .shop-hero-strip .shop-hero-sub{-webkit-line-clamp:2}
+  .shop-hero-strip .shop-hero-actions{flex:1 0 auto;width:100%;margin-top:12px}
+  .shop-hero-strip .shop-hero-cta{width:100%}
+}

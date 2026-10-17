@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { SkeletonTable, SkeletonBusy, LoadError } from "../components/feedback/Skeleton";
+import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { Link, useSearchParams } from "react-router-dom";
 import { Archive, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Download, Eye, LoaderCircle, Pencil, Plus, RotateCcw, Search, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -237,6 +239,11 @@ export default function ProductManagementPage() {
     ["stock", t("catalog.sortStock")],
   ] as const;
   const selectedCategory = categories.find((category) => String(category.id) === categoryId);
+  const { showSkeleton, markHasData, isRefetching } = useDelayedLoading(loading, 150, shopId ?? "none");
+
+  useEffect(() => {
+    if (!loading && !error) markHasData();
+  }, [loading, error, markHasData]);
 
   if (authLoading) return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
   if (!user) {
@@ -344,15 +351,14 @@ export default function ProductManagementPage() {
             <button type="button" disabled={busy || !canArchive} title={deniedTitle(canArchive)} onClick={() => setConfirmIds(selected)}><Archive />{t("catalog.bulkArchive")}</button>
           </div>
         )}
-        {loading ? (
-          <div className="pm-skeleton-list" aria-busy="true" aria-label={t("catalog.loading")}>
-            {Array.from({ length: 6 }, (_, index) => <span key={index} />)}
-          </div>
+        {showSkeleton && loading && items.length === 0 ? (
+          <div aria-busy="true" aria-label={t("catalog.loading")}><SkeletonTable rows={6} cols={9} /></div>
         ) : error ? (
-          <div className="pm-state">
-            <p>{catalogMessage(t, error)}</p>
-            <button type="button" onClick={() => setReload((value) => value + 1)}>{t("catalog.actions.retry")}</button>
-          </div>
+          <LoadError
+            message={catalogMessage(t, error)}
+            onRetry={() => setReload((value) => value + 1)}
+            retryLabel={t("catalog.actions.retry")}
+          />
         ) : items.length === 0 ? (
           <div className="pm-state">
             <h2>{t(filtered ? "catalog.empty.filterTitle" : "catalog.empty.noneTitle")}</h2>
@@ -360,7 +366,7 @@ export default function ProductManagementPage() {
             {filtered ? <button type="button" onClick={() => setParams({})}>{t("catalog.actions.clear")}</button> : canCreate ? <Link className="primary" to="/merchant/products/new">{t("catalog.actions.addFirst")}</Link> : <button type="button" className="primary" disabled title={deniedTitle(false)}>{t("catalog.actions.addFirst")}</button>}
           </div>
         ) : (
-          <>
+          <SkeletonBusy refetching={isRefetching} busy={isRefetching}>
             <div className="pm-table-wrap">
               <table>
                 <thead>
@@ -393,12 +399,12 @@ export default function ProductManagementPage() {
                             <p><b title={product.nameTh}>{product.nameTh}</b><small title={product.nameEn || product.slug}>{product.nameEn || product.slug}</small></p>
                           </div>
                         </td>
-                        <td className="pm-clip" title={variantText}>{variantText}</td>
+                        <td className="pm-clip num" title={variantText}>{variantText}</td>
                         <td className="pm-clip">{categoryName(product.categoryId)}</td>
-                        <td><b>{priceLabel(product, locale, formatMoney)}</b></td>
+                        <td><b className="num">{priceLabel(product, locale, formatMoney)}</b></td>
                         <td>
                           <div className="pm-stock">
-                            <b className={badge === "out" ? "stock-zero" : badge === "low" ? "stock-low" : "stock-ok"}>{available}</b>
+                            <b className={`num ${badge === "out" ? "stock-zero" : badge === "low" ? "stock-low" : "stock-ok"}`}>{available}</b>
                             {badge !== "in" ? <span className={badge === "out" ? "pm-status empty" : "pm-status low"}>{t(`catalog.badges.${badge}`)}</span> : null}
                           </div>
                         </td>
@@ -435,9 +441,9 @@ export default function ProductManagementPage() {
                     <AuthImage path={image?.url} alt="" />
                     <div>
                       <b>{product.nameTh}</b>
-                      <small>{variantText}</small>
+                      <small className="num">{variantText}</small>
                       <small>{categoryName(product.categoryId)}</small>
-                      <span>{priceLabel(product, locale, formatMoney)} · {available}</span>
+                      <span><span className="num">{priceLabel(product, locale, formatMoney)}</span> · <span className="num">{available}</span></span>
                       <em className={badge === "out" ? "pm-status empty" : badge === "low" ? "pm-status low" : "pm-status ready"}>{badge === "in" ? t(`catalog.status.${product.status}`) : t(`catalog.badges.${badge}`)}</em>
                       <small>{formatWhen(product.modifiedAt, locale)}</small>
                       <div className="pm-row-actions">
@@ -455,7 +461,7 @@ export default function ProductManagementPage() {
                 );
               })}
             </div>
-          </>
+          </SkeletonBusy>
         )}
         <div className="pm-pagination">
           <span>{t("catalog.showing", { from, to, total })}</span>

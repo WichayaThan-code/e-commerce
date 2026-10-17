@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
+import { Skeleton } from "./feedback/Skeleton";
 import { FieldError } from "./form/FormField";
 import "../styles/thai-address.css";
 
@@ -15,6 +16,7 @@ interface SearchableSelectProps {
   field?: string;
   error?: string;
   onBlur?: () => void;
+  loading?: boolean;
 }
 
 export default function SearchableSelect({
@@ -29,6 +31,7 @@ export default function SearchableSelect({
   field,
   error,
   onBlur,
+  loading = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -107,7 +110,13 @@ export default function SearchableSelect({
             )}
           </div>
           <ul className="dropdown-options-list">
-            {filteredOptions.length > 0 ? (
+            {loading ? (
+              Array.from({ length: 3 }, (_, index) => (
+                <li key={index} className="dropdown-skeleton" aria-hidden="true">
+                  <Skeleton height={14} width="85%" />
+                </li>
+              ))
+            ) : filteredOptions.length > 0 ? (
               filteredOptions.map((opt) => (
                 <li
                   key={opt}

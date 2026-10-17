@@ -481,7 +481,7 @@ export default function OrderManagementPage() {
                       />
                     </td>
                     <td>
-                      <b>{o.id}</b>
+                      <b className="num">{o.id}</b>
                     </td>
                     <td>
                       <span className="om-customer">
@@ -499,7 +499,7 @@ export default function OrderManagementPage() {
                       </div>
                     </td>
                     <td>
-                      <strong>฿ {o.amount.toLocaleString()}</strong>
+                      <strong className="num">฿ {o.amount.toLocaleString()}</strong>
                     </td>
                     <td>
                       <span

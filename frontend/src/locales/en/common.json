@@ -93,6 +93,8 @@
   },
   "back": "",
   "help": "",
+  "loading": "Loading…",
+  "retry": "Try again",
   "catalog": {
     "errors": {
       "REQUEST_FAILED": ""

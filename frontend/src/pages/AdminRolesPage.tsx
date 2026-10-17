@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState, type ComponentType, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Crown, Eye, FileCheck2, Headphones, LockKeyhole, MoreVertical, Package, Pencil, Plus, Search, Shield, ShieldCheck, ShoppingBag, Store, UserRound, UsersRound } from 'lucide-react'
+import { SkeletonForm, SkeletonTable, SkeletonText } from '../components/feedback/Skeleton'
 import ConfirmDialog from '../components/form/ConfirmDialog'
+import { useDelayedLoading } from '../hooks/useDelayedLoading'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
@@ -106,6 +108,14 @@ export default function AdminRolesPage() {
   }, [allowed, activeTab, selectedCode, listable])
 
   const filtered = useMemo(() => (roles ?? []).filter(role => `${role.nameTh ?? ''} ${role.code} ${role.descriptionTh ?? ''}`.toLowerCase().includes(query.trim().toLowerCase())), [roles, query])
+  const rolesLoading = roles === null && !rolesError
+  const { showSkeleton: showRolesSkeleton, markHasData: markRolesLoaded } = useDelayedLoading(rolesLoading, 150)
+  const detailLoading = Boolean(selectedCode && !detail && !detailError)
+  const { showSkeleton: showDetailSkeleton } = useDelayedLoading(detailLoading, 150, selectedCode ?? '')
+
+  useEffect(() => {
+    if (roles) markRolesLoaded()
+  }, [roles, markRolesLoaded])
 
   if (loading) return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
   if (!user) { window.location.replace('/login'); return null }
@@ -180,16 +190,16 @@ export default function AdminRolesPage() {
         {activeTab === 'บทบาท' ? <>
           <h2>รายการบทบาท ({formatNumber(filtered.length)} รายการ)</h2>
           <div className="roles-table"><div className="roles-tr roles-th"><b>#</b><b>ชื่อบทบาท</b><b>คำอธิบาย</b><b>จำนวนผู้ใช้งาน</b><b>สถานะ</b><b>การดำเนินการ</b><span/></div>
-            {visible.map((role, index) => { const [roleTone, RoleIcon] = lookOf(role); return <div className={`roles-tr ${selectedCode === role.code ? 'selected' : ''}`} key={role.code} onClick={() => setSelectedCode(role.code)}>
-              <span>{currentPage * PAGE_SIZE + index + 1}</span>
+            {roles && visible.map((role, index) => { const [roleTone, RoleIcon] = lookOf(role); return <div className={`roles-tr ${selectedCode === role.code ? 'selected' : ''}`} key={role.code} onClick={() => setSelectedCode(role.code)}>
+              <span className="num">{currentPage * PAGE_SIZE + index + 1}</span>
               <div className="role-name"><i className={roleTone}><RoleIcon/></i><span><b>{role.nameTh ?? role.code}</b><small>{role.code}</small></span></div>
               <p><span>{role.descriptionTh ?? '-'}</span></p>
-              <strong title={COUNT_HINT[role.assignment]}>{formatNumber(role.userCount)}</strong>
+              <strong className="num" title={COUNT_HINT[role.assignment]}>{formatNumber(role.userCount)}</strong>
               <span><i className={`role-status ${role.active ? 'on' : 'off'}`} title={role.superAdmin ? 'super admin: ได้รับทุกสิทธิ์' : `สิทธิ์ที่ผูกไว้ ${role.permissionCount} รายการ`}><small/>{role.active ? 'ใช้งาน' : 'ไม่ใช้งาน'}</i></span>
               <button className="role-manage" onClick={event => { event.stopPropagation(); setSelectedCode(role.code) }}>จัดการ</button>
               <button className="role-more" aria-label={`เมนู ${role.nameTh ?? role.code}`} disabled title={NOT_ENABLED} onClick={event => event.stopPropagation()}><MoreVertical/></button>
             </div> })}
-            {!roles && !rolesError && <div className="roles-empty">กำลังโหลดบทบาท...</div>}
+            {showRolesSkeleton && rolesLoading ? <SkeletonTable rows={6} cols={6} /> : null}
             {rolesError && <div className="roles-empty">{rolesError} <button type="button" onClick={() => setReloadKey(key => key + 1)}>ลองใหม่</button></div>}
             {roles && filtered.length === 0 && <div className="roles-empty">{roles.length === 0 ? 'ยังไม่มีบทบาทในตาราง auth_roles' : 'ไม่พบบทบาทที่ตรงกับคำค้นหา'}</div>}
           </div>
@@ -199,7 +209,7 @@ export default function AdminRolesPage() {
           {!selected ? <p>เลือกบทบาทเพื่อดูรายชื่อผู้ใช้งาน</p>
             : !listable ? <p>{COUNT_HINT[selected.assignment]}</p>
             : membersError ? <p>{membersError}</p>
-            : !members ? <p>กำลังโหลด...</p>
+            : !members ? <SkeletonText lines={3} />
             : members.items.length === 0 ? <p>ยังไม่มีผู้ใช้งานในบทบาทนี้</p>
             : <ul className="role-user-list">{members.items.map(item => <li key={item.id}><b>{`${item.firstName} ${item.lastName}`.trim()}</b><small>{item.email}{item.shops.length ? ` · ${[...new Set(item.shops.map(shop => shop.shopName))].join(', ')}` : ''}</small></li>)}{members.totalItems > members.items.length && <li><small>และอีก {formatNumber(members.totalItems - members.items.length)} คน</small></li>}</ul>}
           <button onClick={() => window.location.assign(listable && selected ? `/admin/users?role=${encodeURIComponent(selected.code)}` : '/admin/users')}>เปิดหน้าผู้ใช้งาน</button>
@@ -214,7 +224,7 @@ export default function AdminRolesPage() {
         <h3>สิทธิ์การใช้งาน{detail ? ` (${formatNumber(selected.superAdmin ? detail.catalogPermissionCount : permissionTotal)})` : ''}</h3>
         <ul>
           {detailError && <li>{detailError}</li>}
-          {!detail && !detailError && <li>กำลังโหลด...</li>}
+          {showDetailSkeleton && detailLoading && <li aria-hidden="true"><SkeletonText lines={4} /></li>}
           {detail && selected.superAdmin && <li className="role-perm-all"><Check/>ได้รับทุกสิทธิ์ในระบบ ({formatNumber(detail.catalogPermissionCount)} รายการ) ทั้งปัจจุบันและที่เพิ่มในอนาคต — super admin</li>}
           {detail && !selected.superAdmin && permissionTotal === 0 && <li>ยังไม่มีสิทธิ์ที่ผูกกับบทบาทนี้</li>}
           {detail?.groups.map(group => [<li className="role-perm-group" key={`g-${group.module}`}>{group.module}{selected.superAdmin ? ' (ผูกไว้ใน seed)' : ''}</li>, ...group.permissions.map(permission => <li key={permission.code} title={permission.code}><Check/>{permission.descriptionTh ?? permission.code}{permission.active ? '' : ' (เลิกใช้)'}</li>)])}
@@ -224,7 +234,7 @@ export default function AdminRolesPage() {
     <aside className={`role-history ${showAllActivity ? 'expanded' : ''}`}><header><h2>ประวัติการดำเนินการล่าสุด</h2><button onClick={() => setShowAllActivity(value => !value)} disabled={!activity || activity.length <= 3}>{showAllActivity ? 'ย่อ ↑' : 'ดูทั้งหมด →'}</button></header>
       {!canAudit ? <p className="role-history-empty">ไม่มีสิทธิ์ดูประวัติ (ต้องมี PLATFORM_AUDIT_READ)</p>
         : activityError ? <p className="role-history-empty">{activityError}</p>
-        : !activity ? <p className="role-history-empty">กำลังโหลด...</p>
+        : !activity ? <p className="role-history-empty"><SkeletonText lines={3} /></p>
         : activity.length === 0 ? <p className="role-history-empty">ยังไม่มีประวัติการดำเนินการ</p>
         : shownActivity.map((event, index) => <div key={`${event.type}-${event.at}-${index}`}><i>{initialOf(event.subjectName)}</i><p><b>{event.subjectName ?? '-'}</b><span>{event.title}{event.actorName && event.actorName !== event.subjectName ? ` · โดย ${event.actorName}` : ''}</span></p><small>{formatDateTime(event.at)}</small></div>)}
     </aside>

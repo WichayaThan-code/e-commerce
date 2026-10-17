@@ -450,23 +450,23 @@ export default function VariantEditor({
         />
         <label>
           <span className="pm-lang-label">{t("catalog.variants.price")}</span>
-          <input inputMode="decimal" value={bulk.price} placeholder={t("catalog.variants.price")} onChange={(event) => setBulk({ ...bulk, price: event.target.value })} />
+          <input className="num" inputMode="decimal" value={bulk.price} placeholder={t("catalog.variants.price")} onChange={(event) => setBulk({ ...bulk, price: event.target.value })} />
         </label>
         <label>
           <span className="pm-lang-label">{t("catalog.variants.compare")}</span>
-          <input inputMode="decimal" value={bulk.compareAtPrice} placeholder={t("catalog.variants.compare")} onChange={(event) => setBulk({ ...bulk, compareAtPrice: event.target.value })} />
+          <input className="num" inputMode="decimal" value={bulk.compareAtPrice} placeholder={t("catalog.variants.compare")} onChange={(event) => setBulk({ ...bulk, compareAtPrice: event.target.value })} />
         </label>
         <label>
           <span className="pm-lang-label">{t("catalog.variants.cost")}</span>
-          <input inputMode="decimal" value={bulk.costPrice} placeholder={t("catalog.variants.cost")} onChange={(event) => setBulk({ ...bulk, costPrice: event.target.value })} />
+          <input className="num" inputMode="decimal" value={bulk.costPrice} placeholder={t("catalog.variants.cost")} onChange={(event) => setBulk({ ...bulk, costPrice: event.target.value })} />
         </label>
         <label>
           <span className="pm-lang-label">{t("catalog.variants.stock")}</span>
-          <input inputMode="numeric" value={bulk.initialStock} placeholder={t("catalog.variants.stock")} onChange={(event) => setBulk({ ...bulk, initialStock: event.target.value })} />
+          <input className="num" inputMode="numeric" value={bulk.initialStock} placeholder={t("catalog.variants.stock")} onChange={(event) => setBulk({ ...bulk, initialStock: event.target.value })} />
         </label>
         <label>
           <span className="pm-lang-label">{t("catalog.variants.weight")}</span>
-          <input inputMode="numeric" value={bulk.weightGrams} placeholder={t("catalog.variants.weight")} onChange={(event) => setBulk({ ...bulk, weightGrams: event.target.value })} />
+          <input className="num" inputMode="numeric" value={bulk.weightGrams} placeholder={t("catalog.variants.weight")} onChange={(event) => setBulk({ ...bulk, weightGrams: event.target.value })} />
         </label>
         <SearchableSelect
           label={t("catalog.variants.image")}
@@ -547,35 +547,35 @@ export default function VariantEditor({
                     {sku.removed ? <div className="pm-actions"><button type="button" onClick={() => restore(index)}>{t("catalog.variants.restore")}</button></div> : null}
                   </td>
                   <td>
-                    <input aria-label={named(t("catalog.variants.sku"))} aria-invalid={Boolean(skuError)} value={sku.skuCode} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "skuCode")} onChange={(event) => { touch(sku.clientKey, "skuCode"); patchSku(index, { skuCode: event.target.value }); }} />
+                    <input className="num" aria-label={named(t("catalog.variants.sku"))} aria-invalid={Boolean(skuError)} value={sku.skuCode} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "skuCode")} onChange={(event) => { touch(sku.clientKey, "skuCode"); patchSku(index, { skuCode: event.target.value }); }} />
                     <FieldError text={message(skuError)} />
                   </td>
                   <td>
-                    <input inputMode="decimal" aria-label={named(t("catalog.variants.price"))} aria-invalid={Boolean(priceError)} value={sku.price} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "price")} onChange={(event) => { touch(sku.clientKey, "price"); patchSku(index, { price: event.target.value }); }} />
+                    <input className="num" inputMode="decimal" aria-label={named(t("catalog.variants.price"))} aria-invalid={Boolean(priceError)} value={sku.price} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "price")} onChange={(event) => { touch(sku.clientKey, "price"); patchSku(index, { price: event.target.value }); }} />
                     <FieldError text={message(priceError)} />
                   </td>
                   <td>
-                    <input inputMode="decimal" aria-label={named(t("catalog.variants.compare"))} aria-invalid={Boolean(compareError)} value={sku.compareAtPrice} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "compareAtPrice")} onChange={(event) => { touch(sku.clientKey, "compareAtPrice"); patchSku(index, { compareAtPrice: event.target.value }); }} />
+                    <input className="num" inputMode="decimal" aria-label={named(t("catalog.variants.compare"))} aria-invalid={Boolean(compareError)} value={sku.compareAtPrice} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "compareAtPrice")} onChange={(event) => { touch(sku.clientKey, "compareAtPrice"); patchSku(index, { compareAtPrice: event.target.value }); }} />
                     <FieldError text={message(compareError)} />
                   </td>
                   <td>
-                    <input inputMode="decimal" aria-label={named(t("catalog.variants.cost"))} aria-invalid={Boolean(costError)} value={sku.costPrice} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "costPrice")} onChange={(event) => { touch(sku.clientKey, "costPrice"); patchSku(index, { costPrice: event.target.value }); }} />
+                    <input className="num" inputMode="decimal" aria-label={named(t("catalog.variants.cost"))} aria-invalid={Boolean(costError)} value={sku.costPrice} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "costPrice")} onChange={(event) => { touch(sku.clientKey, "costPrice"); patchSku(index, { costPrice: event.target.value }); }} />
                     <FieldError text={message(costError)} />
                   </td>
                   <td>
-                    <input aria-label={named(t("catalog.variants.barcode"))} aria-invalid={Boolean(barcodeError)} value={sku.barcode} disabled={sku.removed} onBlur={() => { touch(sku.clientKey, "barcode"); patchSku(index, { barcode: sku.barcode.trim().toUpperCase() }); }} onChange={(event) => { touch(sku.clientKey, "barcode"); patchSku(index, { barcode: event.target.value.toUpperCase() }); }} />
+                    <input className="num" aria-label={named(t("catalog.variants.barcode"))} aria-invalid={Boolean(barcodeError)} value={sku.barcode} disabled={sku.removed} onBlur={() => { touch(sku.clientKey, "barcode"); patchSku(index, { barcode: sku.barcode.trim().toUpperCase() }); }} onChange={(event) => { touch(sku.clientKey, "barcode"); patchSku(index, { barcode: event.target.value.toUpperCase() }); }} />
                     <FieldError text={message(barcodeError)} />
                   </td>
                   <td>
-                    <input inputMode="numeric" aria-label={named(t("catalog.variants.weight"))} aria-invalid={Boolean(weightError)} value={sku.weightGrams} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "weightGrams")} onChange={(event) => { touch(sku.clientKey, "weightGrams"); patchSku(index, { weightGrams: event.target.value }); }} />
+                    <input className="num" inputMode="numeric" aria-label={named(t("catalog.variants.weight"))} aria-invalid={Boolean(weightError)} value={sku.weightGrams} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "weightGrams")} onChange={(event) => { touch(sku.clientKey, "weightGrams"); patchSku(index, { weightGrams: event.target.value }); }} />
                     <FieldError text={message(weightError)} />
                   </td>
                   <td>
-                    <input inputMode="numeric" aria-label={named(t("catalog.variants.stock"))} aria-invalid={Boolean(stockError)} value={sku.initialStock} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "initialStock")} onChange={(event) => { touch(sku.clientKey, "initialStock"); patchSku(index, { initialStock: event.target.value }); }} />
+                    <input className="num" inputMode="numeric" aria-label={named(t("catalog.variants.stock"))} aria-invalid={Boolean(stockError)} value={sku.initialStock} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "initialStock")} onChange={(event) => { touch(sku.clientKey, "initialStock"); patchSku(index, { initialStock: event.target.value }); }} />
                     <FieldError text={message(stockError)} />
                   </td>
                   <td>
-                    <input inputMode="numeric" aria-label={named(t("catalog.variants.safety"))} aria-invalid={Boolean(safetyError)} value={sku.safetyStock} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "safetyStock")} onChange={(event) => { touch(sku.clientKey, "safetyStock"); patchSku(index, { safetyStock: event.target.value }); }} />
+                    <input className="num" inputMode="numeric" aria-label={named(t("catalog.variants.safety"))} aria-invalid={Boolean(safetyError)} value={sku.safetyStock} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "safetyStock")} onChange={(event) => { touch(sku.clientKey, "safetyStock"); patchSku(index, { safetyStock: event.target.value }); }} />
                     <FieldError text={message(safetyError)} />
                   </td>
                   <td>

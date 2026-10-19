@@ -286,4 +286,9 @@ public final class CatalogDtos {
         int reservedBefore,
         int reservedAfter
     ) {}
+
+    /** Marketplace search (GET /api/search): product card data plus the minimum shop reference needed to link it. */
+    public record PublicSearchShopRef(String slug, String name, String nameEn) {}
+    public record PublicSearchProductResponse(PublicProductResponse product, PublicSearchShopRef shop) {}
+    public record PublicBrandResponse(String name, long productCount) {}
 }

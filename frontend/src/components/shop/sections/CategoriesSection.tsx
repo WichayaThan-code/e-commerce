@@ -1,16 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Skeleton } from "../../feedback/Skeleton";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { localizedText } from "../../../services/catalogText";
 import { shopApi, type PublicShopCategory } from "../../../services/api";
 import { useRevealOnScroll } from "../../../hooks/useRevealOnScroll";
+import { categoryIcon } from "../categoryIcons";
+import { resolveStorefrontTheme } from "../ShopThemeShell";
 import type { ShopSectionProps } from "./types";
+import "../../../styles/shop-category-icons.css";
 
 export default function CategoriesSection({ shop, catalog, preview }: ShopSectionProps) {
   const { tp, localeTag } = usePublicTranslation();
   const revealRef = useRevealOnScroll<HTMLElement>();
   const [rows, setRows] = useState<PublicShopCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const templateKey = useMemo(() => resolveStorefrontTheme(shop).templateKey, [shop]);
 
   useEffect(() => {
     if (!shop.slug || preview) {
@@ -38,7 +42,7 @@ export default function CategoriesSection({ shop, catalog, preview }: ShopSectio
         <div className="shop-category-grid" aria-hidden="true">
           {Array.from({ length: 8 }, (_, index) => (
             <div className="shop-category-tile" key={index}>
-              <Skeleton width={64} height={64} radius={999} />
+              <Skeleton className="shop-category-skel" />
               <Skeleton width="70%" height={12} />
             </div>
           ))}
@@ -49,6 +53,7 @@ export default function CategoriesSection({ shop, catalog, preview }: ShopSectio
             {rows.map((row) => {
               const name = localizedText(localeTag, row.nameTh, row.nameEn, row.nameZh) || row.nameTh;
               const selected = catalog.categoryId === row.id;
+              const Icon = categoryIcon(row, templateKey);
               return (
                 <button
                   type="button"
@@ -56,7 +61,7 @@ export default function CategoriesSection({ shop, catalog, preview }: ShopSectio
                   className={`shop-category-tile ${selected ? "is-active" : ""}`}
                   onClick={() => catalog.onCategory?.(selected ? null : row.id)}
                 >
-                  <span className="shop-category-icon" aria-hidden="true">{name.slice(0, 1)}</span>
+                  <span className="shop-category-icon" aria-hidden="true"><Icon /></span>
                   <span className="shop-category-name">{name}</span>
                 </button>
               );

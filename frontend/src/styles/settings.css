@@ -7,3 +7,47 @@
 .hours-list input[type=time]{width:100%;height:36px;border:1px solid #d5e3f2;border-radius:8px;padding:0 8px;font:600 13px var(--font-sans);color:#12366e;background:#fff}
 .hours-list input[type=time]:disabled{opacity:.45}
 .hours-list li>span{text-align:center;color:#6780a3;font-size:12px}
+
+/* Store policies editor (ShopPoliciesEditor) — extends existing .policy-card/.policy-row */
+.policy-editor>header{gap:16px;margin-bottom:10px}
+.policy-editor>header>div{display:grid;gap:4px;min-width:0}
+.policy-editor .policy-count{font-size:11px;color:#6780a3}
+.policy-editor .policy-item{border-bottom:1px solid #e2ebf4}
+.policy-editor .policy-item:last-child{border-bottom:0}
+.policy-editor .policy-row{height:auto;min-height:52px;grid-template-columns:170px minmax(0,1fr) auto;gap:12px;padding:8px 0;border-bottom:0;font-size:12px}
+.policy-editor .policy-row>b{font-size:13px}
+.policy-editor .policy-row>button{min-width:72px;height:32px;padding:0 10px;border-radius:6px;cursor:pointer;font:600 12px var(--font-sans)}
+.policy-editor .policy-row>button:hover{background:#eef6ff}
+.policy-editor .policy-row>button:focus-visible{outline:2px solid #087bf5;outline-offset:1px}
+.policy-status{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0}
+.policy-status em{font-style:normal;font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;white-space:nowrap}
+.policy-status em.is-filled{background:#dff8ed;color:#09a56c}
+.policy-status em.is-empty{background:#eef2f7;color:#6780a3}
+.policy-status em.is-dirty{background:#fff2d8;color:#c76f00}
+.policy-status .policy-title{color:#113971;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
+.policy-status small{color:#6780a3;font-size:11px}
+.policy-updated{font-family:var(--font-mono),ui-monospace,monospace;font-variant-numeric:tabular-nums;color:#113971}
+.policy-edit{display:grid;gap:10px;padding:4px 0 16px}
+.policy-edit label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:#113971}
+.policy-edit input,.policy-edit textarea{border:1px solid #cbddef;border-radius:6px;color:#13396f;font:500 13px var(--font-sans);padding:9px 12px;background:#fff}
+.policy-edit textarea{min-height:220px;line-height:1.7;resize:vertical}
+.policy-edit input:focus,.policy-edit textarea:focus{outline:2px solid #087bf533;border-color:#087bf5}
+.policy-edit label>small{align-self:flex-end;font-weight:500;font-size:10px;color:#6480a7;font-family:var(--font-mono),ui-monospace,monospace}
+.policy-hint{margin:0;font-size:11px;color:#6780a3}
+.policy-revert{justify-self:start;border:0;background:none;color:#087bf5;font:600 12px var(--font-sans);cursor:pointer;padding:0}
+.policy-errors{list-style:none;margin:0 0 8px;padding:10px 12px;border-radius:8px;background:#ffe9ec;color:#c62845;font-size:12px}
+@media(max-width:720px){
+  .policy-editor>header{flex-direction:column}
+  .policy-editor .policy-row{grid-template-columns:minmax(0,1fr) auto}
+  .policy-editor .policy-row>.policy-status{grid-column:1/-1;grid-row:2}
+}
+
+/* Settings tabs: grouped + scrollable (9 tabs) */
+.settings-tabs{overflow-x:auto;scrollbar-width:thin}
+.settings-tabs button{min-width:max-content;padding:0 14px}
+.settings-tabs .settings-tab-sep{flex:0 0 1px;align-self:stretch;margin:10px 0;background:#d5e3f2}
+.settings-soon{display:grid;gap:10px}
+.settings-soon a{justify-self:start;color:#087bf5;font:600 12px var(--font-sans);text-decoration:none}
+.settings-soon a:hover{text-decoration:underline}
+.settings-note{margin:10px 0 0;font-size:11px;color:#6780a3}
+.settings-note a{color:#087bf5}

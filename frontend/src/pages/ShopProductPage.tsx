@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Skeleton, SkeletonText, LoadError } from "../components/feedback/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
-import { shopThemeFontStack } from "../theme/shopThemeFonts";
+import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, ShoppingCart, Store, Truck, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
+import { useShopCrumb, useShopPublic } from "../contexts/ShopPublicContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
-import { labelForCategory } from "../services/categories";
 import { localizedText } from "../services/catalogText";
-import { ApiError, catalogApi, mediaUrl, shopApi, type ProductCategory, type PublicProduct, type PublicShop, type PublicSku } from "../services/api";
+import { ApiError, mediaUrl, shopApi, type PublicProduct, type PublicShopCategory, type PublicSku } from "../services/api";
+import { shopCategoryPath, shopPath, shopProductPath } from "../services/shopRoutes";
+import NotFoundPage from "./NotFoundPage";
 import "../styles/recommended-products.css";
 import "../styles/shop-page.css";
 
@@ -60,15 +62,15 @@ function skuMatches(sku: PublicSku, groups: Group[], picked: Record<string, stri
 export default function ShopProductPage() {
   const { slug = "", productSlug = "" } = useParams();
   const navigate = useNavigate();
+  const { shop } = useShopPublic();
   const { user, loading: authLoading } = useAuth();
   const { addLine } = useCart();
   const { tp, localeTag } = usePublicTranslation();
   const lang = localeTag.startsWith("en") ? "en" : localeTag.startsWith("zh") ? "zh" : "th";
   const [product, setProduct] = useState<PublicProduct | null>(null);
-  const [shop, setShop] = useState<PublicShop | null>(null);
   const [others, setOthers] = useState<PublicProduct[]>([]);
   const [productTotal, setProductTotal] = useState<number | null>(null);
-  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [categories, setCategories] = useState<PublicShopCategory[]>([]);
   const [state, setState] = useState<"loading" | "error" | "missing" | "ok">("loading");
   const pageLoading = state === "loading";
   const { showSkeleton, markHasData, isRefetching } = useDelayedLoading(pageLoading, 150, `${slug}/${productSlug}`);
@@ -84,7 +86,6 @@ export default function ShopProductPage() {
 
   const load = () => {
     setState("loading");
-    setShop(null);
     setOthers([]);
     setProductTotal(null);
     shopApi.product(slug, productSlug)
@@ -97,7 +98,6 @@ export default function ShopProductPage() {
         setState("ok");
       })
       .catch((error) => setState(error instanceof ApiError && error.status === 404 ? "missing" : "error"));
-    shopApi.getBySlug(slug).then(setShop).catch(() => setShop(null));
     shopApi.products(slug, { size: 12, sort: "newest" }).then((page) => {
       setProductTotal(page.total);
       setOthers(page.items.filter((item) => item.slug !== productSlug).slice(0, 6));
@@ -105,7 +105,7 @@ export default function ShopProductPage() {
       setProductTotal(null);
       setOthers([]);
     });
-    catalogApi.categories().then(setCategories).catch(() => setCategories([]));
+    shopApi.categories(slug).then(setCategories).catch(() => setCategories([]));
   };
 
   useEffect(() => { load(); }, [slug, productSlug]);
@@ -222,11 +222,16 @@ export default function ShopProductPage() {
   const description = product ? localizedText(localeTag, product.descriptionTh, product.descriptionEn, product.descriptionZh) : "";
   const image = product?.images[active] || product?.images[0];
   const category = categories.find((item) => item.id === product?.categoryId);
-  const shopName = shop ? (lang === "en" && shop.nameEn ? shop.nameEn : shop.name) : "";
+  const categoryLabel = category
+    ? localizedText(localeTag, category.nameTh, category.nameEn, category.nameZh) || category.nameTh
+    : "";
+  const shopName = lang === "en" && shop.nameEn ? shop.nameEn : shop.name;
+  useShopCrumb(name || null);
+  useDocumentMeta({ title: name ? `${name} · ${shopName}` : null, description: description || null });
   const stats = [
     productTotal != null ? [tp("shop.view.productCount"), String(productTotal)] : null,
-    shop?.category ? [tp("shop.view.category"), shop.category] : null,
-    shop?.province ? [tp("common.area"), shop.province] : null,
+    shop.category ? [tp("shop.view.category"), shop.category] : null,
+    shop.province ? [tp("common.area"), shop.province] : null,
   ].filter((item): item is [string, string] => Boolean(item));
 
   const scrollThumbs = (direction: number) => thumbsRef.current?.scrollBy({ left: direction * 180, behavior: "smooth" });
@@ -235,18 +240,12 @@ export default function ShopProductPage() {
     return own === value && sku.available > 0 && skuMatches(sku, groups, picked, group.key);
   });
 
-  const storefrontFont = { "--font-sans": shopThemeFontStack(undefined) } as CSSProperties;
+  if (state === "missing") {
+    return <NotFoundPage kind="product" bare />;
+  }
 
   return (
-    <div className="recommend-page shop-directory buyer-product" style={storefrontFont}>
-      <section className="recommend-intro recommend-width">
-        <p className="recommend-breadcrumb">
-          <Link to="/">{tp("common.home")}</Link>
-          <span>›</span>
-          <Link to={`/shop/${slug}`}>{shopName || tp("shop.productBack")}</Link>
-          {name ? <><span>›</span><b>{name}</b></> : null}
-        </p>
-      </section>
+    <div className="buyer-product">
       {showSkeleton && pageLoading && !product && (
         <section className="recommend-width buyer-skeleton" aria-label={tp("shop.productLoading")}>
           <article className="buyer-card buyer-hero">
@@ -259,7 +258,6 @@ export default function ShopProductPage() {
           </article>
         </section>
       )}
-      {state === "missing" && <section className="recommend-width"><article className="shop-list-empty">{tp("shop.productMissing")}</article></section>}
       {state === "error" && (
         <section className="recommend-width">
           <LoadError message={tp("shop.productError")} onRetry={load} retryLabel={tp("shop.productsRetry")} />
@@ -282,7 +280,7 @@ export default function ShopProductPage() {
                 }}>
                   {product.images.map((item) => <img key={item.id} src={mediaUrl(item.url)} alt="" />)}
                 </div>
-                {product.images.length > 0 ? <span className="buyer-count">{tp("shop.view.imageIndex", { current: active + 1, total: product.images.length })}</span> : null}
+                {product.images.length > 0 ? <span className="buyer-count">{tp("shop.view.imageIndex", { index: active + 1, total: product.images.length })}</span> : null}
               </div>
               {product.images.length > 0 && (
                 <div className="buyer-thumbs">
@@ -352,26 +350,29 @@ export default function ShopProductPage() {
               </div>
             </div>
           </article>
-          {shop && (
-            <section className="buyer-card buyer-shop">
-              <div className="buyer-shop-id">
-                <span className="buyer-shop-logo">{shop.logoUrl ? <img src={mediaUrl(shop.logoUrl)} alt={tp("shop.view.logoAlt", { name: shopName })} /> : <Store />}</span>
-                <div>
-                  <b>{shopName}</b>
-                  <Link to={`/shop/${slug}`}>{tp("shop.view.viewShop")}</Link>
-                </div>
+          <section className="buyer-card buyer-shop">
+            <div className="buyer-shop-id">
+              <span className="buyer-shop-logo">{shop.logoUrl ? <img src={mediaUrl(shop.logoUrl)} alt={tp("shop.view.logoAlt", { name: shopName })} /> : <Store />}</span>
+              <div>
+                <b>{shopName}</b>
+                <Link to={shopPath(slug)}>{tp("shop.view.viewShop")}</Link>
               </div>
-              {stats.length > 0 && (
-                <dl className="buyer-shop-stats" style={{ "--shop-stats": stats.length } as CSSProperties}>
-                  {stats.map(([label, value]) => <div key={label}><dt>{label}</dt><dd className={/^\d/.test(value) ? "num" : undefined}>{value}</dd></div>)}
-                </dl>
-              )}
-            </section>
-          )}
+            </div>
+            {stats.length > 0 && (
+              <dl className="buyer-shop-stats" style={{ "--shop-stats": stats.length } as CSSProperties}>
+                {stats.map(([label, value]) => <div key={label}><dt>{label}</dt><dd className={/^\d/.test(value) ? "num" : undefined}>{value}</dd></div>)}
+              </dl>
+            )}
+          </section>
           <section className="buyer-card buyer-detail">
             <h2>{tp("shop.view.specs")}</h2>
             <dl>
-              {category ? <div><dt>{tp("shop.view.category")}</dt><dd>{labelForCategory(category, lang)}</dd></div> : null}
+              {categoryLabel && category ? (
+                <div>
+                  <dt>{tp("shop.view.category")}</dt>
+                  <dd><Link to={shopCategoryPath(slug, category)}>{categoryLabel}</Link></dd>
+                </div>
+              ) : null}
               {selectedSku ? <div><dt>{tp("shop.view.sku")}</dt><dd className="num">{selectedSku.skuCode}</dd></div> : null}
               {product.brand ? <div><dt>{tp("shop.productBrand")}</dt><dd>{product.brand}</dd></div> : null}
             </dl>
@@ -386,7 +387,7 @@ export default function ShopProductPage() {
                   const title = localizedText(localeTag, item.nameTh, item.nameEn, item.nameZh);
                   const price = amount(item.basePrice) ?? amount(item.skus[0]?.price);
                   return (
-                    <Link key={item.id} to={`/shop/${slug}/product/${item.slug}`}>
+                    <Link key={item.id} to={shopProductPath(slug, item.slug)}>
                       {photo ? <img src={mediaUrl(photo.url)} alt="" /> : <span />}
                       <b>{title}</b>
                       {price != null ? <strong className="num">{money(price, localeTag)}</strong> : null}

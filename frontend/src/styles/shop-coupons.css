@@ -1,0 +1,20 @@
+/* Storefront coupon strip (N2). Theme colours from --shop-* (ShopThemeShell); fallbacks keep it readable outside a theme. */
+.shop-coupons{margin-top:var(--shop-gap,16px);scroll-margin-top:calc(var(--shop-tabs-h,44px) + 12px);min-width:0}
+.shop-coupons-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;margin-bottom:10px}
+.shop-coupons-head h2{margin:0;font-size:18px;color:var(--shop-text,#08245d)}
+.shop-coupons-head p{margin:0;font-size:12px;color:var(--shop-muted,#5f7ca8)}
+.shop-coupons-list{list-style:none;margin:0;padding:0 0 4px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(260px,320px);gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory}
+.shop-coupon{scroll-snap-align:start;display:grid;grid-template-columns:40px minmax(0,1fr);grid-template-rows:auto auto;gap:8px 12px;padding:14px;background:var(--shop-card-bg,#fff);border:1px dashed var(--shop-primary,#0878f5);border-radius:var(--shop-radius,12px);color:var(--shop-text,#08245d);min-width:0}
+.shop-coupon-icon{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--shop-primary-soft,#e4f1ff);color:var(--shop-primary,#0878f5)}
+.shop-coupon-icon svg{width:22px;height:22px}
+.shop-coupon-body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.shop-coupon-body b{font-size:16px;color:var(--shop-primary,#0878f5);font-family:var(--font-mono),ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.shop-coupon-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shop-coupon-terms{font-size:11px;color:var(--shop-muted,#5f7ca8);font-family:var(--font-mono),ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.shop-coupon-code{grid-column:1/-1;display:flex;align-items:center;gap:8px;min-width:0}
+.shop-coupon-code code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:8px 10px;border-radius:var(--shop-btn-radius,8px);background:var(--shop-surface,#f3f8fe);border:1px solid var(--shop-border,#d7e5f3);font:700 14px var(--font-mono),ui-monospace,monospace;letter-spacing:.04em;color:var(--shop-text,#08245d)}
+.shop-coupon-code button{flex:0 0 auto;min-height:44px;display:inline-flex;align-items:center;gap:6px;padding:0 14px;border:0;border-radius:var(--shop-btn-radius,8px);background:var(--shop-primary,#0878f5);color:var(--shop-on-primary,#fff);font:700 13px inherit;cursor:pointer}
+.shop-coupon-code button svg{width:15px;height:15px}
+.shop-coupon-code button:focus-visible{outline:2px solid var(--shop-primary,#0878f5);outline-offset:2px}
+@container (max-width:520px){.shop-coupons-list{grid-auto-columns:minmax(240px,86%)}}
+@media (max-width:520px){.shop-coupons-list{grid-auto-columns:minmax(240px,86%)}}

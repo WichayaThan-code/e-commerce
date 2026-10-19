@@ -515,6 +515,82 @@ public class ProductService {
         return new CatalogDtos.PageResponse<>(result.items().stream().map(product -> toPublic(product, index, options, locale)).toList(), result.page(), result.size(), result.total());
     }
 
+    /** Public sort keys accepted by the marketplace search (no stock/updated ordering for guests). */
+    private static final Set<String> PUBLIC_SEARCH_SORTS = Set.of("newest", "price_asc", "price_desc", "name");
+    private static final int SEARCH_TERM_MAX = 100;
+
+    /**
+     * Marketplace-wide product search: PUBLISHED, not deleted, in APPROVED shops only. Matches the same fields as the
+     * in-shop search (name th/en/zh, slug, SKU code, barcode) plus brand; LIKE wildcards in the term are literal.
+     * The per-shop search ({@link #publicList}) is intentionally untouched.
+     */
+    @Transactional(readOnly = true)
+    public CatalogDtos.PageResponse<CatalogDtos.PublicSearchProductResponse> publicSearch(String q, String brand, String sort, Integer page, Integer size, String locale) {
+        var term = searchTerm(q);
+        var brandKey = brand == null || brand.isBlank() ? null : brand.trim().toLowerCase(Locale.ROOT);
+        var pageNumber = page == null || page < 0 ? 0 : page;
+        var pageSize = size == null || size < 1 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
+        if (term == null && brandKey == null) return new CatalogDtos.PageResponse<>(List.of(), pageNumber, pageSize, 0);
+        var mapped = parseSort(sort);
+        var order = orderClause(PUBLIC_SEARCH_SORTS.contains(mapped) ? mapped : "newest");
+        var where = new StringBuilder(" where p.deletedAt is null and p.status = :status and p.shop.status = :approved");
+        if (brandKey != null) where.append(" and lower(trim(p.brand)) = :brand");
+        if (term != null) {
+            where.append(" and (lower(p.nameTh) like :q escape '!' or lower(coalesce(p.nameEn, '')) like :q escape '!'")
+                .append(" or lower(coalesce(p.nameZh, '')) like :q escape '!' or lower(p.slug) like :q escape '!'")
+                .append(" or lower(coalesce(p.brand, '')) like :q escape '!'")
+                .append(" or exists (select s from ProductSku s where s.product = p and s.deletedAt is null")
+                .append(" and (lower(s.skuCode) like :q escape '!' or lower(coalesce(s.barcode, '')) like :q escape '!')))");
+        }
+        var query = entities.createQuery("select p from Product p" + where + order, Product.class);
+        var count = entities.createQuery("select count(p) from Product p" + where, Long.class);
+        for (var target : List.<jakarta.persistence.Query>of(query, count)) {
+            target.setParameter("status", ProductStatus.PUBLISHED);
+            target.setParameter("approved", ShopStatus.APPROVED);
+            if (brandKey != null) target.setParameter("brand", brandKey);
+            if (term != null) target.setParameter("q", "%" + likeEscape(term) + "%");
+        }
+        var total = count.getSingleResult();
+        var items = query.setFirstResult(pageNumber * pageSize).setMaxResults(pageSize).getResultList();
+        var ids = items.stream().map(product -> product.getId().toString()).toList();
+        var index = translations.loadIndex(TranslationEntityType.PRODUCT, ids);
+        var options = translations.loadIndex(TranslationEntityType.PRODUCT_OPTION, ids);
+        var hits = items.stream().map(product -> {
+            var shop = product.getShop();
+            return new CatalogDtos.PublicSearchProductResponse(
+                toPublic(product, index, options, locale),
+                new CatalogDtos.PublicSearchShopRef(shop.getSlug(), shop.getName(), shop.getNameEn())
+            );
+        }).toList();
+        return new CatalogDtos.PageResponse<>(hits, pageNumber, pageSize, total);
+    }
+
+    /** Distinct brands (case/space-insensitive) of PUBLISHED products in APPROVED shops whose name contains the term. */
+    @Transactional(readOnly = true)
+    public List<CatalogDtos.PublicBrandResponse> publicBrandSearch(String q, int limit) {
+        var term = searchTerm(q);
+        if (term == null) return List.of();
+        var rows = entities.createQuery(
+                "select min(trim(p.brand)), count(p) from Product p"
+                    + " where p.deletedAt is null and p.status = :status and p.shop.status = :approved"
+                    + " and p.brand is not null and trim(p.brand) <> '' and lower(p.brand) like :q escape '!'"
+                    + " group by lower(trim(p.brand)) order by count(p) desc, lower(trim(p.brand)) asc",
+                Object[].class)
+            .setParameter("status", ProductStatus.PUBLISHED)
+            .setParameter("approved", ShopStatus.APPROVED)
+            .setParameter("q", "%" + likeEscape(term) + "%")
+            .setMaxResults(Math.max(1, Math.min(limit, 50)))
+            .getResultList();
+        return rows.stream().map(row -> new CatalogDtos.PublicBrandResponse(String.valueOf(row[0]), ((Number) row[1]).longValue())).toList();
+    }
+
+    private static String searchTerm(String q) {
+        if (q == null || q.isBlank()) return null;
+        var trimmed = q.trim();
+        if (trimmed.length() > SEARCH_TERM_MAX) trimmed = trimmed.substring(0, SEARCH_TERM_MAX);
+        return trimmed.toLowerCase(Locale.ROOT);
+    }
+
     @Transactional(readOnly = true)
     public CatalogDtos.PublicProductResponse publicGet(String shopSlug, String productSlug, String locale) {
         var shop = requirePublicShop(shopSlug);

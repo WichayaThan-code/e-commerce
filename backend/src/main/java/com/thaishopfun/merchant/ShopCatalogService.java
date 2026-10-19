@@ -79,21 +79,65 @@ public class ShopCatalogService {
         return approved.stream().map(shop -> toPublic(shop, index)).toList();
     }
 
+    /** Marketplace search: APPROVED shops whose name (th/en) or slug contains the term. Public card fields only. */
+    @Transactional(readOnly = true)
+    public List<MerchantDtos.PublicShopSearchResponse> searchPublic(String q, int limit) {
+        if (q == null || q.isBlank()) return List.of();
+        var trimmed = q.trim();
+        var term = (trimmed.length() > 100 ? trimmed.substring(0, 100) : trimmed).toLowerCase(java.util.Locale.ROOT)
+            .replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        var found = entities.createQuery(
+                "select s from Shop s where s.status = :approved and (lower(s.name) like :q escape '!'"
+                    + " or lower(coalesce(s.nameEn, '')) like :q escape '!' or lower(s.slug) like :q escape '!')"
+                    + " order by s.createdAt desc",
+                Shop.class)
+            .setParameter("approved", ShopStatus.APPROVED)
+            .setParameter("q", "%" + term + "%")
+            .setMaxResults(Math.max(1, Math.min(limit, 50)))
+            .getResultList();
+        var index = translations.loadIndex(TranslationEntityType.SHOP, found.stream().map(shop -> String.valueOf(shop.getId())).toList());
+        return found.stream().map(shop -> {
+            var entityId = String.valueOf(shop.getId());
+            var logo = storage.openPublicImage(shop.getLogoPath()).isPresent() ? "/api/shops/" + shop.getSlug() + "/logo" : null;
+            long productCount = entities.createQuery(
+                    "select count(p) from Product p where p.shop.shopId = :shopId and p.deletedAt is null and p.status = :status", Long.class)
+                .setParameter("shopId", shop.getId())
+                .setParameter("status", ProductStatus.PUBLISHED)
+                .getSingleResult();
+            return new MerchantDtos.PublicShopSearchResponse(
+                shop.getSlug(), shop.getName(),
+                index.resolve(entityId, "name", "en", shop.getName(), shop.getNameEn()),
+                index.resolve(entityId, "name", "zh", shop.getName(), null),
+                shop.getCategory(), shop.getProvince(), logo, productCount
+            );
+        }).toList();
+    }
+
     @Transactional(readOnly = true)
     public MerchantDtos.PublicShopResponse publicView(String slug, UUID viewerId) {
+        var shop = requireVisibleShop(slug, viewerId);
+        var index = translations.loadIndex(TranslationEntityType.SHOP, List.of(String.valueOf(shop.getId())));
+        return toPublic(shop, index);
+    }
+
+    /**
+     * Resolve a storefront shop that is APPROVED, or visible to the viewer as a preview.
+     * Shared by public catalog and policy endpoints so visibility rules stay in one place.
+     */
+    @Transactional(readOnly = true)
+    public Shop requireVisibleShop(String slug, UUID viewerId) {
         var shop = shops.findBySlug(slug).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า"));
         if (shop.getStatus() != ShopStatus.APPROVED && !canPreview(shop, viewerId)) {
             throw new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า");
         }
-        var index = translations.loadIndex(TranslationEntityType.SHOP, List.of(String.valueOf(shop.getId())));
-        return toPublic(shop, index);
+        return shop;
     }
 
     /**
      * A shop that is not APPROVED is visible only to its owner, its active members and platform staff with
      * PLATFORM_SHOP_READ (super admin included), all read from the role tables (no JWT role claim).
      */
-    private boolean canPreview(Shop shop, UUID viewerId) {
+    boolean canPreview(Shop shop, UUID viewerId) {
         if (viewerId == null) return false;
         if (shop.getUser() != null && viewerId.equals(shop.getUser().getId())) return true;
         if (authorization.grants(viewerId).shopRoles().containsKey(shop.getId())) return true;
@@ -114,14 +158,11 @@ public class ShopCatalogService {
 
     @Transactional(readOnly = true)
     public List<MerchantDtos.PublicShopCategoryResponse> publicCategories(String slug, UUID viewerId) {
-        var shop = shops.findBySlug(slug).orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า"));
-        if (shop.getStatus() != ShopStatus.APPROVED && !canPreview(shop, viewerId)) {
-            throw new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้า");
-        }
+        var shop = requireVisibleShop(slug, viewerId);
         var rows = entities.createQuery(
-            "select c.categoryNo, c.nameTh, c.nameEn, c.nameZh, count(p) from Product p join p.category c "
+            "select c.categoryNo, c.nameTh, c.nameEn, c.nameZh, count(p), c.slug from Product p join p.category c "
                 + "where p.shop.shopId = :shopId and p.deletedAt is null and p.status = :status "
-                + "group by c.categoryNo, c.nameTh, c.nameEn, c.nameZh, c.sortOrder order by c.sortOrder asc, c.nameTh asc",
+                + "group by c.categoryNo, c.nameTh, c.nameEn, c.nameZh, c.sortOrder, c.slug order by c.sortOrder asc, c.nameTh asc",
             Object[].class
         )
             .setParameter("shopId", shop.getId())
@@ -133,7 +174,8 @@ public class ShopCatalogService {
                 (String) row[1],
                 (String) row[2],
                 (String) row[3],
-                (Long) row[4]
+                (Long) row[4],
+                (String) row[5]
             ))
             .toList();
     }
@@ -172,7 +214,14 @@ public class ShopCatalogService {
             openingHours(shop),
             themes.publicTheme(shop),
             shop.getCreatedAt(),
-            productCount
+            productCount,
+            shop.getPublicPhone(),
+            shop.getPublicEmail(),
+            shop.getWebsite(),
+            shop.getLineId(),
+            shop.getFacebookUrl(),
+            shop.getInstagramUrl(),
+            shop.getTiktokUrl()
         );
     }
 

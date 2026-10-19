@@ -11,6 +11,7 @@ import FormTextarea from "../form/FormTextarea";
 import ToggleSwitch from "../form/ToggleSwitch";
 import { LoadError, SkeletonForm } from "../feedback/Skeleton";
 import ShopStorefront from "../shop/ShopStorefront";
+import { isShopSectionAvailable } from "../shop/sections/availability";
 import { previewCatalogControls } from "../shop/sections/types";
 import {
   ApiError, merchantApi, shopApi,
@@ -707,7 +708,13 @@ export default function ShopThemeEditor({
                   }}
                 >
                   <span className="theme-section-grip" aria-hidden="true"><GripVertical /></span>
-                  <b className="theme-section-name">{t(`storeTheme.sections.${section.key as ShopSectionKey}`)}</b>
+                  <b
+                    className="theme-section-name"
+                    title={isShopSectionAvailable(section.key) ? undefined : t("storeTheme.sections.comingSoonHint")}
+                  >
+                    {t(`storeTheme.sections.${section.key as ShopSectionKey}`)}
+                    {isShopSectionAvailable(section.key) ? null : ` · ${t("storeTheme.sections.comingSoon")}`}
+                  </b>
                   {variants.length ? (
                     <select
                       aria-label={`${t(`storeTheme.sections.${section.key}`)} · ${t("storeTheme.sections.variant")}`}

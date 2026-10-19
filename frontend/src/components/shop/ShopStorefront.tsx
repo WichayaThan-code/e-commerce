@@ -1,20 +1,12 @@
-import { useEffect, useMemo, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import { SkeletonBusy } from "../feedback/Skeleton";
+import { Fragment, type ReactNode } from "react";
 import type { PublicProduct, PublicShop } from "../../services/api";
-import {
-  ensureThemeFontLink,
-  normalizeTheme,
-  themeCssVars,
-  type ShopTheme,
-} from "../../theme/shopTheme";
+import { isShopSectionAvailable } from "./sections/availability";
 import { SHOP_SECTION_COMPONENTS } from "./sections/registry";
 import type { ShopCatalogControls } from "./sections/types";
-import "../../styles/recommended-products.css";
-import "../../styles/shop-page.css";
-import "../../styles/shop-variants/hero-strip.css";
-import "../../styles/shop-variants/products-large.css";
-import "../../styles/shop-variants/products-menu.css";
-import "../../styles/shop-mall.css";
+import ShopThemeShell, { resolveStorefrontTheme } from "./ShopThemeShell";
+import { hasPromoBanners } from "./promoTargets";
+
+export { resolveStorefrontTheme };
 
 type ShopStorefrontProps = {
   shop: PublicShop;
@@ -30,67 +22,60 @@ type ShopStorefrontProps = {
   previewWidth?: number;
 };
 
-/** Resolve the theme a storefront should render; shops without a saved theme keep the original page. */
-export function resolveStorefrontTheme(shop: PublicShop) {
-  const theme = normalizeTheme(shop.theme as Partial<ShopTheme> | null | undefined);
-  if (shop.theme) return theme;
-  return {
-    ...theme,
-    config: {
-      ...theme.config,
-      sections: theme.config.sections.map((section) =>
-        section.key === "FEATURED" || section.key === "HOURS" ? { ...section, enabled: false } : section,
-      ),
-    },
-  };
+type ShopSectionsProps = {
+  shop: PublicShop;
+  products: PublicProduct[];
+  catalog: ShopCatalogControls;
+  preview?: boolean;
+  /**
+   * Storefront-only coupon strip (ShopPage). Inserted after BANNERS when banners render, else after HERO,
+   * else first. Never passed by the theme editor preview.
+   */
+  couponStrip?: ReactNode;
+};
+
+/** Enabled theme sections only — Fragment so `.shop-mall-tabs` stays a direct child of `.skeleton-busy`. */
+export function ShopSections({ shop, products, catalog, preview = false, couponStrip }: ShopSectionsProps) {
+  const { config } = resolveStorefrontTheme(shop);
+  const visible = config.sections.filter((section) => section.enabled && isShopSectionAvailable(section.key));
+  const anchorKey = couponStrip
+    ? hasPromoBanners(shop) ? "BANNERS" : visible.some((section) => section.key === "HERO") ? "HERO" : null
+    : null;
+  return (
+    <>
+      {couponStrip && anchorKey === null && <Fragment key="coupon-strip">{couponStrip}</Fragment>}
+      {visible.map((section) => {
+        const Component = SHOP_SECTION_COMPONENTS[section.key];
+        return (
+          <Fragment key={section.key}>
+            <Component
+              shop={shop}
+              config={config}
+              section={section}
+              products={products}
+              catalog={catalog}
+              preview={preview}
+            />
+            {couponStrip && anchorKey === section.key && couponStrip}
+          </Fragment>
+        );
+      })}
+    </>
+  );
 }
 
-export default function ShopStorefront({ shop, products, catalog, header, children, refetching = false, previewWidth }: ShopStorefrontProps) {
-  const theme = useMemo(() => resolveStorefrontTheme(shop), [shop]);
-  const { config, templateKey } = theme;
-
-  useEffect(() => {
-    ensureThemeFontLink(config.font);
-  }, [config.font]);
-
-  const preview = previewWidth != null;
-  const classes = ["recommend-page", "shop-directory", "shop-themed", "shop-storefront-cq"];
-  if (preview) classes.push("shop-preview-frame");
-
-  const style = {
-    ...themeCssVars(config),
-    ...(preview ? { maxWidth: previewWidth, width: "100%" } : {}),
-  } as CSSProperties;
-
-  // Links inside the merchant preview must not navigate away from the editor.
-  const blockNavigation = preview
-    ? (event: MouseEvent<HTMLDivElement>) => {
-        if ((event.target as HTMLElement).closest("a")) event.preventDefault();
-      }
-    : undefined;
-
+export default function ShopStorefront({
+  shop,
+  products,
+  catalog,
+  header,
+  children,
+  refetching = false,
+  previewWidth,
+}: ShopStorefrontProps) {
   return (
-    <div className={classes.join(" ")} style={style} data-template={templateKey} onClickCapture={blockNavigation}>
-      {header}
-      <SkeletonBusy refetching={refetching} busy={refetching}>
-        {config.sections
-          .filter((section) => section.enabled)
-          .map((section) => {
-            const Component = SHOP_SECTION_COMPONENTS[section.key];
-            return (
-              <Component
-                key={section.key}
-                shop={shop}
-                config={config}
-                section={section}
-                products={products}
-                catalog={catalog}
-                preview={preview}
-              />
-            );
-          })}
-      </SkeletonBusy>
-      {children}
-    </div>
+    <ShopThemeShell shop={shop} header={header} refetching={refetching} previewWidth={previewWidth} after={children}>
+      <ShopSections shop={shop} products={products} catalog={catalog} preview={previewWidth != null} />
+    </ShopThemeShell>
   );
 }

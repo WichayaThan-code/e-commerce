@@ -1,5 +1,6 @@
 package com.thaishopfun.merchant;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -67,9 +68,19 @@ public final class MerchantDtos {
         List<ShopHour> openingHours,
         ShopThemeResponse theme,
         Instant createdAt,
-        Long productCount
+        Long productCount,
+        String phone,String email,String website,String lineId,String facebookUrl,String instagramUrl,String tiktokUrl
     ){}
-    public record PublicShopCategoryResponse(Long id, String nameTh, String nameEn, String nameZh, long productCount) {}
+    public record PublicShopCategoryResponse(Long id, String nameTh, String nameEn, String nameZh, long productCount, String slug) {}
+    public record ShopPolicyResponse(String type, String title, String body, Instant updatedAt) {}
+    public record ShopPolicyItemRequest(
+        @NotBlank @Pattern(regexp = "(?i)shipping|returns|privacy|terms") String type,
+        @Size(max = 150) String title,
+        @Size(max = 20000) String body
+    ) {}
+    public record ShopPoliciesUpdateRequest(
+        @NotNull @Size(max = 4) List<@Valid ShopPolicyItemRequest> policies
+    ) {}
     public record ShopThemeResponse(String templateKey, Map<String, Object> config) {}
     public record ShopThemeUpdateRequest(
         @NotBlank String templateKey,
@@ -95,7 +106,8 @@ public final class MerchantDtos {
         String phone, String email,
         String website, String lineId, String facebookUrl, String instagramUrl, String tiktokUrl,
         String address, String province, String district, String subdistrict, String postalCode,
-        String coverUrl, String logoUrl, String slug, Instant createdAt, List<ShopHour> openingHours
+        String coverUrl, String logoUrl, String slug, Instant createdAt, List<ShopHour> openingHours,
+        String publicPhone, String publicEmail
     ) {}
     public record ShopHour(
         boolean open,
@@ -120,9 +132,16 @@ public final class MerchantDtos {
         @NotBlank @Size(max=100) String province,
         @NotBlank @Size(max=100) String district,
         @NotBlank @Size(max=100) String subdistrict,
-        @NotBlank @Pattern(regexp="^[0-9]{5}$") String postalCode
+        @NotBlank @Pattern(regexp="^[0-9]{5}$") String postalCode,
+        @Pattern(regexp="^$|^[0-9+ -]{9,20}$") String publicPhone,
+        @Email @Size(max=255) String publicEmail
     ) {}
     public record BulkShopRequest(@NotEmpty List<Long> shopIds){}
     public record BulkShopResponse(int updated,int skipped,List<AdminStoreApplicationResponse> applications){}
+    /** Marketplace search shop hit: public card fields only (no contact, address, owner or theme data). */
+    public record PublicShopSearchResponse(
+        String slug, String name, String nameEn, String nameZh, String category, String province,
+        String logoUrl, long productCount
+    ){}
 }
 

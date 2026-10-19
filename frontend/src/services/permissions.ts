@@ -28,7 +28,7 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   '/merchant/products': { permission: 'PRODUCT_READ', scope: 'shop' },
   '/merchant/orders': { permission: 'ORDER_READ', scope: 'shop' },
   '/merchant/customers': { permission: 'CUSTOMER_READ', scope: 'shop' },
-  '/merchant/promotions': { permission: 'SHOP_READ', scope: 'shop' }, // interim: no PROMOTION_* code yet
+  '/merchant/promotions': { permission: 'PROMOTION_READ', scope: 'shop' }, // V27
   '/merchant/reports': { permission: 'REPORT_READ', scope: 'shop' },
   '/merchant/finance': { permission: 'REPORT_READ', scope: 'shop' }, // interim: no FINANCE_* code yet
   '/merchant/shipping': { permission: 'SHIPMENT_READ', scope: 'shop' },
@@ -54,7 +54,6 @@ export const MERCHANT_MENU_PATHS: Record<string, string> = {
 /** Shop actions without a dedicated code in the seed (interim mapping, see backend/README.md). */
 export const INTERIM_PERMISSIONS = {
   ORDER_CONFIRM: 'ORDER_UPDATE',
-  PROMOTION_MANAGE: 'SHOP_UPDATE',
 } as const
 
 /** Active PLATFORM_ADMIN: the backend grants every permission in every shop, including codes added later. */

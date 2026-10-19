@@ -14,7 +14,6 @@ import {
   Home,
   Lightbulb,
   Package,
-  Search,
   Settings,
   ShoppingBag,
   ShoppingCart,
@@ -25,6 +24,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import MerchantBell from "../components/merchant/MerchantBell";
+import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
@@ -85,7 +85,7 @@ export default function ReportsPage() {
   };
 
   return <main className="merchant-shell pm-shell report-shell">
-    <header className="merchant-topbar"><Brand /><form onSubmit={(event) => { event.preventDefault(); notify("ค้นหาข้อมูลร้านค้าแล้ว"); }}><Search /><input aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..." /></form><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
+    <header className="merchant-topbar"><Brand /><MerchantTopbarSearch /><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
     <aside className="merchant-sidebar pm-sidebar report-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon, label, href, badge]) => <a className={label === "รายงาน" ? "active" : ""} href={href} key={label} onClick={(event) => { if ((href as string) === "#") { event.preventDefault(); notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`); } }}><Icon />{label}{badge && <i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown /><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br />ได้มากกว่าเดิม</p><button onClick={() => notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp />ศูนย์ช่วยเหลือ</a><button onClick={() => notify("กำลังติดต่อทีมงาน")}><Headphones />ติดต่อทีมงาน</button></div></aside>
 
     <section className="pm-content report-content">

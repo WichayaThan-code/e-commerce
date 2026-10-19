@@ -1,4 +1,12 @@
 {
+  "notFound": {
+    "title": "Page not found",
+    "pageBody": "This link may be wrong, or the page may have moved.",
+    "shopBody": "This shop could not be found, or it may no longer be available.",
+    "productBody": "This product could not be found, or it may have been removed from the shop.",
+    "backHome": "Back to home",
+    "backShop": "Back to shop"
+  },
   "common": {
     "home": "Home",
     "all": "All",
@@ -12,6 +20,36 @@
     "noAddress": "Address not provided",
     "defaultShopBlurb": "A Thai shop on ThaiShopFun",
     "shopPlaceholder": "Shop"
+  },
+  "marketplaceSearch": {
+    "breadcrumb": "Search results",
+    "title": "Search “{{q}}”",
+    "titleEmpty": "Search products, brands and shops",
+    "prompt": "Type a product, brand or shop name in the search box above",
+    "summary": "{{products}} products · {{shops}} shops · {{brands}} brands",
+    "shops": "Shops",
+    "brands": "Brands",
+    "products": "Products",
+    "productCount": "{{count}} products",
+    "enterShop": "Visit shop",
+    "brandFilter": "Brand: {{brand}}",
+    "clearBrand": "Clear brand filter",
+    "noShops": "No shops match your search",
+    "noBrands": "No brands match your search",
+    "noProducts": "No products match “{{q}}”",
+    "empty": "No results for “{{q}}”. Try a shorter or different spelling",
+    "error": "Could not load search results",
+    "retry": "Try again",
+    "sortAria": "Sort search results",
+    "sortNewest": "Newest",
+    "sortPriceAsc": "Price: low → high",
+    "sortPriceDesc": "Price: high → low",
+    "sortName": "Name",
+    "pageAria": "Search result pages",
+    "pagePrev": "Previous page",
+    "pageNext": "Next page",
+    "pageOf": "Page {{page}} / {{pages}}",
+    "soldBy": "by {{shop}}"
   },
   "footer": {
     "tagline": "A space for Thai people, for every Thai shop",
@@ -117,6 +155,7 @@
     "featuredTitle": "Featured products",
     "featuredTitleForYou": "Featured for you",
     "bestsellersTitle": "Best sellers",
+    "sortPriceHigh": "Highest price",
     "newArrivalsTitle": "New arrivals",
     "categoriesTitle": "Shop categories",
     "mallBadge": "Mall",
@@ -128,7 +167,83 @@
       "home": "Home",
       "products": "All products",
       "categories": "Categories",
-      "promos": "Promotions"
+      "promos": "Promotions",
+      "promosSoon": "Shop promotions are coming soon",
+      "contact": "Contact",
+      "policies": "Policies"
+    },
+    "promotions": {
+      "title": "Shop coupons",
+      "checkoutSoon": "Copy a code for later — using coupons at checkout is coming soon",
+      "percentOff": "{{value}}% off",
+      "amountOff": "฿{{value}} off",
+      "freeShipping": "Free shipping",
+      "minSpend": "Min. spend ฿{{value}}",
+      "noMin": "No minimum spend",
+      "maxDiscount": "Up to ฿{{value}} off",
+      "until": "Valid until {{date}}",
+      "noExpiry": "No expiry date",
+      "copy": "Copy",
+      "copyAria": "Copy code {{code}}",
+      "copied": "Copied code {{code}}",
+      "copyFailed": "Coupon code: {{code}}"
+    },
+    "search": {
+      "title": "Search this shop",
+      "placeholder": "Search products in this shop",
+      "prompt": "Enter a keyword to find products in this shop",
+      "empty": "No products found for “{{q}}”"
+    },
+    "contact": {
+      "title": "Contact",
+      "subtitle": "Official contact channels of this shop",
+      "channelsTitle": "Contact channels",
+      "addressTitle": "Shop address",
+      "openMap": "Open in Maps",
+      "copy": "Copy",
+      "copyAria": "Copy {{label}}",
+      "copied": "Copied",
+      "copyFailed": "Could not copy",
+      "emptyHint": "Meanwhile, browse products or read the shop policies",
+      "channelsPending": "This shop has not published contact channels yet",
+      "channels": {
+        "phone": "Phone",
+        "email": "Email",
+        "line": "LINE",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "tiktok": "TikTok",
+        "website": "Website"
+      },
+      "actions": {
+        "call": "Call shop",
+        "email": "Send email",
+        "line": "Chat on LINE",
+        "profile": "View profile",
+        "visit": "Visit website"
+      }
+    },
+    "policies": {
+      "title": "Shop policies",
+      "subtitle": "Policies and terms for shopping with {{name}}",
+      "countLabel": "policies",
+      "updated": "Last updated",
+      "navAria": "Policy types",
+      "all": "All",
+      "notSet": "Not set",
+      "openOne": "Open {{title}}",
+      "empty": "This shop has not published its policies yet",
+      "emptyOne": "This shop has not published a {{type}} policy yet",
+      "emptyHint": "If you have questions, contact the shop directly",
+      "contactCta": "Contact shop",
+      "ctaTitle": "Questions about these policies?",
+      "ctaText": "Ask the shop directly about shipping, returns or your order",
+      "types": {
+        "shipping": "Shipping",
+        "returns": "Returns",
+        "privacy": "Privacy",
+        "terms": "Terms of service"
+      }
     },
     "seeAll": "See all",
     "seeMore": "See more",
@@ -145,6 +260,15 @@
     "andUp": "and up",
     "brandMore": "Show more ({{count}})",
     "clearAll": "Clear all",
+    "filters": {
+      "category": "Category",
+      "services": "Services & promotions",
+      "inStock": "In stock",
+      "onSale": "On sale",
+      "comingSoon": "Coming soon",
+      "comingSoonNotice": "This filter is coming soon",
+      "brandPending": "Brands will appear once this filter is available"
+    },
     "hoursTitle": "Opening hours",
     "hoursClosed": "Closed",
     "hours": {

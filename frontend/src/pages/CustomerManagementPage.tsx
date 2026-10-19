@@ -32,6 +32,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import MerchantBell from "../components/merchant/MerchantBell";
+import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
@@ -273,18 +274,7 @@ export default function CustomerManagementPage() {
     <main className="merchant-shell cm-shell">
       <header className="merchant-topbar">
         <Brand />
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            notify("ค้นหาข้อมูลร้านค้าแล้ว");
-          }}
-        >
-          <Search />
-          <input
-            aria-label="ค้นหาทั้งระบบ"
-            placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..."
-          />
-        </form>
+        <MerchantTopbarSearch />
         <LanguageSwitcher /> <MerchantBell />
         <MerchantShopMenu />
       </header>

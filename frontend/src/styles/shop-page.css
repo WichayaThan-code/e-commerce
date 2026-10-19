@@ -765,3 +765,57 @@
   header .nav{margin-top:0}
   .shop-themed .recommend-toast,.shop-toast{bottom:calc(16px + env(safe-area-inset-bottom,0px))}
 }
+
+/* PDP under shop theme shell — scoped only; do not alter base .buyer-* rules above */
+.shop-themed .buyer-product{background:transparent}
+.shop-themed .buyer-card{
+  background:var(--shop-card-bg);border-radius:var(--shop-radius);border:1px solid var(--shop-card-border);
+  box-shadow:var(--shop-card-shadow);
+}
+.shop-themed .buyer-info h1,
+.shop-themed .buyer-detail h2,
+.shop-themed .buyer-more h2,
+.shop-themed .buyer-shop-id b,
+.shop-themed .buyer-info dd,
+.shop-themed .buyer-detail dd,
+.shop-themed .buyer-detail p{color:var(--shop-text)}
+.shop-themed .buyer-info dt,
+.shop-themed .buyer-detail dt,
+.shop-themed .buyer-shop-stats dt,
+.shop-themed .buyer-qty span,
+.shop-themed .buyer-share,
+.shop-themed .buyer-empty{color:var(--shop-muted)}
+.shop-themed .buyer-chips button,
+.shop-themed .buyer-qty button,
+.shop-themed .buyer-qty input,
+.shop-themed .buyer-shop-id a{border-color:var(--shop-border)}
+.shop-themed .buyer-shop-stats,
+.shop-themed .buyer-shop-stats div+div{border-color:var(--shop-border)}
+.shop-themed .buyer-price b,
+.shop-themed .buyer-price em,
+.shop-themed .buyer-chips button.active,
+.shop-themed .buyer-thumbs>div>button.active,
+.shop-themed .buyer-thumbs>div>button:hover,
+.shop-themed .buyer-more strong,
+.shop-themed .buyer-actions .cart,
+.shop-themed .buyer-actions .buy,
+.shop-themed .buyer-shop-stats dd{color:var(--shop-primary)}
+.shop-themed .buyer-chips button.active{border-color:var(--shop-primary)}
+.shop-themed .buyer-chips button.active svg{background:var(--shop-primary)}
+.shop-themed .buyer-thumbs>div>button.active,
+.shop-themed .buyer-thumbs>div>button:hover{border-color:var(--shop-primary)}
+.shop-themed .buyer-price em{background:var(--shop-primary-soft);color:var(--shop-primary)}
+.shop-themed .buyer-actions .cart{
+  border-color:var(--shop-primary);background:var(--shop-primary-soft);color:var(--shop-primary);
+  border-radius:var(--shop-btn-radius);
+}
+.shop-themed .buyer-actions .buy{
+  background:var(--shop-primary);color:var(--shop-on-primary);border-radius:var(--shop-btn-radius);
+}
+.shop-themed .buyer-actions button{border-radius:var(--shop-btn-radius)}
+@media(max-width:767px){
+  .shop-themed .buyer-actions{background:var(--shop-card-bg)}
+  .shop-themed .buyer-shop-stats,
+  .shop-themed .buyer-shop-stats div+div{border-color:var(--shop-border)}
+}
+

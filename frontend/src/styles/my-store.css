@@ -150,3 +150,12 @@
   .theme-section-row .toggle-switch{grid-column:2}
   .theme-section-move{grid-column:3}
 }
+/* ??????????: save button in card header (MerchantSaveButton) + policies link + hours tab */
+.my-store-shell .store-form-card>header{align-items:flex-start;gap:16px}
+.store-head-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:auto}
+.store-cancel{height:40px;padding:0 16px;border:1px solid #cbddef;border-radius:6px;background:#fff;color:#12366e;font:600 12px var(--font-sans);cursor:pointer}
+.store-cancel:hover:not(:disabled){border-color:#087bf5;color:#087bf5}
+.store-cancel:disabled{opacity:.6;cursor:wait}
+.store-policy-link{margin:6px 0 0;font-size:11px;line-height:1.6;color:#6480a7}
+.store-hours{max-width:880px}
+@media(max-width:720px){.store-head-actions{margin-left:0;width:100%}.store-head-actions .merchant-save-btn{flex:1}}

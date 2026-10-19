@@ -32,6 +32,7 @@ public class MerchantStoreController {
     private final ShopReinstatementService reinstatements;
     private final OwnerAccountService ownerAccounts;
     private final com.thaishopfun.merchant.theme.ShopThemeService themes;
+    private final com.thaishopfun.merchant.policy.ShopPolicyService policies;
 
     public MerchantStoreController(
         StoreReviewService reviews,
@@ -39,7 +40,8 @@ public class MerchantStoreController {
         MerchantApplicationService applications,
         ShopReinstatementService reinstatements,
         OwnerAccountService ownerAccounts,
-        com.thaishopfun.merchant.theme.ShopThemeService themes
+        com.thaishopfun.merchant.theme.ShopThemeService themes,
+        com.thaishopfun.merchant.policy.ShopPolicyService policies
     ) {
         this.reviews = reviews;
         this.shopSettings = shopSettings;
@@ -47,6 +49,7 @@ public class MerchantStoreController {
         this.reinstatements = reinstatements;
         this.ownerAccounts = ownerAccounts;
         this.themes = themes;
+        this.policies = policies;
     }
 
     @FilterByShopPermission(SHOP_LIST_PERMISSION)
@@ -159,7 +162,26 @@ public class MerchantStoreController {
 
     @RequireShopPermission(value = "SHOP_READ", defaultShop = true)
     @GetMapping("/settings/theme/presets")
-    public List<MerchantDtos.ShopThemePresetResponse> themePresets() {
+    public List<MerchantDtos.ShopThemePresetResponse> themePresets(@RequestParam(required = false) Long shopId) {
         return themes.presets();
+    }
+
+    @RequireShopPermission(value = "SHOP_READ", defaultShop = true)
+    @GetMapping("/settings/policies")
+    public List<MerchantDtos.ShopPolicyResponse> readPolicies(
+        @AuthenticationPrincipal Jwt jwt,
+        @RequestParam(required = false) Long shopId
+    ) {
+        return policies.merchantList(UUID.fromString(jwt.getSubject()), shopId);
+    }
+
+    @RequireShopPermission(value = "SHOP_UPDATE", defaultShop = true)
+    @PutMapping("/settings/policies")
+    public List<MerchantDtos.ShopPolicyResponse> savePolicies(
+        @AuthenticationPrincipal Jwt jwt,
+        @RequestParam(required = false) Long shopId,
+        @Valid @RequestBody MerchantDtos.ShopPoliciesUpdateRequest request
+    ) {
+        return policies.merchantSave(UUID.fromString(jwt.getSubject()), shopId, request);
     }
 }

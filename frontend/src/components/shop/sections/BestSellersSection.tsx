@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { shopApi, type PublicProduct } from "../../../services/api";
+import { shopProductsPath } from "../../../services/shopRoutes";
 import { resolveVariant } from "./sectionClasses";
 import ProductRail from "./ProductRail";
 import type { ProductCardVariant } from "../ProductCard";
@@ -46,7 +47,7 @@ export default function BestSellersSection({ shop, section, products, catalog, p
       shop={shop}
       products={items}
       title={tp("shop.bestsellersTitle")}
-      seeAllHref="#shop-catalog"
+      seeAllHref={shopProductsPath(shop.slug)}
       cardVariant={cardVariantFor(variant)}
       loading={loading}
       favorites={catalog.favorites}

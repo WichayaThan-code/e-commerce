@@ -334,7 +334,7 @@
       "off": "Off"
     },
     "menu": {
-      "searchPh": "Search products, orders, customers...",
+      "searchPh": "Search your products (name, SKU, barcode)",
       "help": "Help",
       "upgradeTitle": "Upgrade your shop",
       "upgradeBody": "Unlock more sales features",
@@ -781,6 +781,8 @@
       "NEW_ARRIVALS": "New arrivals",
       "CATALOG": "All products",
       "HOURS": "Opening hours",
+      "comingSoon": "Coming soon",
+      "comingSoonHint": "Not shown on the storefront until real sales data is available",
       "bannersTitle": "Banner images",
       "bannersHint": "Add https or site-path image URLs. Leave empty to hide the banner section on the storefront.",
       "bannerImage": "Image URL",
@@ -842,6 +844,39 @@
       "hex": "Enter a 6-digit color such as #087bf5",
       "validation": "Please check the highlighted fields",
       "save": "Could not save the theme. Please try again."
+    }
+  },
+  "storePolicies": {
+    "title": "Shop policies",
+    "lead": "Write the policy text shown on your storefront: shipping, returns, privacy, and terms.",
+    "save": "Save policies",
+    "saving": "Saving...",
+    "saved": "Shop policies saved",
+    "saveError": "Could not save policies. Please try again.",
+    "loadError": "Could not load shop policies",
+    "retry": "Retry",
+    "titleLabel": "Title (optional)",
+    "bodyLabel": "Body",
+    "count": "{{filled}}/{{total}} policies set",
+    "status": {
+      "filled": "Set",
+      "empty": "Not set",
+      "unsaved": "Unsaved"
+    },
+    "updated": "Updated",
+    "edit": "Edit",
+    "view": "View",
+    "close": "Close",
+    "formatHint": "Format: blank line = new paragraph · short first line = heading · start with • or - = bullet · 1. = numbered step",
+    "removeHint": "Clear the content and save to remove this policy from the storefront",
+    "revert": "Revert to saved",
+    "bodyRequired": "Add content for the {{type}} policy or clear its title",
+    "nothingToSave": "No changes yet",
+    "types": {
+      "shipping": "Shipping",
+      "returns": "Returns",
+      "privacy": "Privacy",
+      "terms": "Terms of service"
     }
   }
 }

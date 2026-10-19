@@ -123,6 +123,14 @@ export type ThemeTrust = { enabled:boolean; items:ThemeTrustItem[] }
 export type ThemeConfig = { colors:ThemeColors; font:string; style?:ThemeStyle; hero:ThemeHero; banners?:ThemeBanner[]; trust?:ThemeTrust; sections:SectionConfig[] }
 export type ShopTheme = { templateKey:'GENERAL'|'FASHION'|'FOOD_BEVERAGE'; config:ThemeConfig }
 
+export type ShopPolicyType = 'shipping' | 'returns' | 'privacy' | 'terms'
+export type ShopPolicyDto = {
+  type: ShopPolicyType
+  title?: string | null
+  body: string
+  updatedAt?: string | null
+}
+
 export type PublicShop = {
   name:string;nameEn?:string;nameZh?:string;description?:string;descriptionEn?:string;descriptionZh?:string;category:string
   address:string;province:string;district:string;subdistrict:string;postalCode:string
@@ -132,8 +140,15 @@ export type PublicShop = {
   theme?: ShopTheme | null
   createdAt?: string | null
   productCount?: number | null
+  phone?: string | null
+  email?: string | null
+  website?: string | null
+  lineId?: string | null
+  facebookUrl?: string | null
+  instagramUrl?: string | null
+  tiktokUrl?: string | null
 }
-export type PublicShopCategory = { id:number; nameTh:string; nameEn?:string|null; nameZh?:string|null; productCount:number }
+export type PublicShopCategory = { id:number; nameTh:string; nameEn?:string|null; nameZh?:string|null; productCount:number; slug?:string|null }
 export type AdminDocument = { id:string; type:DocumentType; label:string; filename:string; fileSize:number }
 export type AdminStoreApplication = {
   shopId:number; shopName:string; ownerName:string; phone:string; email:string
@@ -153,6 +168,8 @@ export type MerchantSettings = {
   address:string; province:string; district:string; subdistrict:string; postalCode:string
   coverUrl?:string|null; logoUrl?:string|null; slug?:string|null; createdAt?:string|null
   openingHours?: ShopHour[]
+  publicPhone?: string | null
+  publicEmail?: string | null
 }
 export type ShopHour = { open:boolean; start:string; end:string }
 export type MerchantSettingsPayload = {
@@ -160,6 +177,10 @@ export type MerchantSettingsPayload = {
   phone:string; email:string
   website:string; lineId:string; facebookUrl:string; instagramUrl:string; tiktokUrl:string
   address:string; province:string; district:string; subdistrict:string; postalCode:string
+  publicPhone:string; publicEmail:string
+}
+export type ShopPoliciesPayload = {
+  policies: { type: ShopPolicyType; title: string; body: string }[]
 }
 export function mediaUrl(path?:string|null) {
   if (!path) return ''
@@ -194,6 +215,8 @@ export const merchantApi = {
   getTheme: (shopId?:number|null) => request<ShopTheme>(withShop('/api/merchant/settings/theme', shopId), {}, true),
   saveTheme: (payload: ShopTheme, shopId?:number|null) => request<ShopTheme>(withShop('/api/merchant/settings/theme', shopId), { method: 'PUT', body: JSON.stringify(payload) }, true),
   getThemePresets: (shopId?:number|null) => request<ShopTheme[]>(withShop('/api/merchant/settings/theme/presets', shopId), {}, true),
+  getPolicies: (shopId?:number|null) => request<ShopPolicyDto[]>(withShop('/api/merchant/settings/policies', shopId), {}, true),
+  savePolicies: (payload: ShopPoliciesPayload, shopId?:number|null) => request<ShopPolicyDto[]>(withShop('/api/merchant/settings/policies', shopId), { method: 'PUT', body: JSON.stringify(payload) }, true),
   openAnotherShop: (ownerId:string) => request<MerchantApplication>(`/api/merchant/shops?ownerId=${ownerId}`, { method: 'POST' }, true),
   reinstatement: (shopId:number) => request<ReinstatementRequest>(`/api/merchant/reinstatement?shopId=${shopId}`, {}, true),
   submitReinstatement: (shopId:number, message:string) => request<ReinstatementRequest>(`/api/merchant/reinstatement?shopId=${shopId}`, { method: 'POST', body: JSON.stringify({ message }) }, true),
@@ -310,6 +333,38 @@ export const shopApi = {
   categories: (slug:string) => request<PublicShopCategory[]>(`/api/shops/${encodeURIComponent(slug)}/categories`, { cache: 'no-store' }),
   products: (slug:string, query: Pick<ProductListQuery, 'q' | 'categoryId' | 'sort' | 'page' | 'size' | 'priceBands'> = {}) => request<ProductPage<PublicProduct>>(`/api/shops/${encodeURIComponent(slug)}/products${productQuery(query)}`),
   product: (slug:string, productSlug:string) => request<PublicProduct>(`/api/shops/${encodeURIComponent(slug)}/products/${encodeURIComponent(productSlug)}`),
+  policies: (slug:string) => request<ShopPolicyDto[]>(`/api/shops/${encodeURIComponent(slug)}/policies`, { cache: 'no-store' }),
+  /** GET /api/shops/{slug}/promotions — active, in-date promotions shown on the storefront (no usage data). */
+  promotions: (slug:string) => request<PublicPromotion[]>(`/api/shops/${encodeURIComponent(slug)}/promotions`, { cache: 'no-store' }),
+}
+
+export type MarketplaceSearchShop = {
+  slug: string; name: string; nameEn?: string | null; nameZh?: string | null
+  category?: string | null; province?: string | null; logoUrl?: string | null; productCount: number
+}
+export type MarketplaceSearchBrand = { name: string; productCount: number }
+export type MarketplaceSearchShopRef = { slug: string; name: string; nameEn?: string | null }
+export type MarketplaceSearchProduct = { product: PublicProduct; shop: MarketplaceSearchShopRef }
+export type MarketplaceSearchSort = 'newest' | 'price_asc' | 'price_desc' | 'name'
+export type MarketplaceSearchQuery = { q: string; brand?: string; sort?: MarketplaceSearchSort; page?: number; size?: number }
+export type MarketplaceSearchResponse = {
+  q: string
+  brand?: string | null
+  shops: MarketplaceSearchShop[]
+  brands: MarketplaceSearchBrand[]
+  products: ProductPage<MarketplaceSearchProduct> & { totalPages?: number }
+}
+
+export const searchApi = {
+  search: ({ q, brand, sort, page, size }: MarketplaceSearchQuery, signal?: AbortSignal) => {
+    const params = new URLSearchParams()
+    params.set('q', q)
+    if (brand) params.set('brand', brand)
+    if (sort) params.set('sort', sort)
+    if (page != null) params.set('page', String(page))
+    if (size != null) params.set('size', String(size))
+    return request<MarketplaceSearchResponse>(`/api/search?${params.toString()}`, { signal })
+  },
 }
 
 export type ProductStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
@@ -617,4 +672,92 @@ export const productApi = {
   },
   importStatus: (shopId: number, jobId: string) => request<ProductImportJob>(shopProducts(shopId, `/products/import/${jobId}`), {}, true),
   importBatch: (shopId: number, payloads: ProductWrite[]) => request<ProductImportResult>(shopProducts(shopId, '/products/batch'), { method: 'POST', body: JSON.stringify(payloads) }, true),
+}
+
+/* ---------------------------------------------------------------- promotions (V27) */
+
+export type PromotionType = 'PERCENT' | 'FIXED_AMOUNT' | 'FREE_SHIPPING'
+/** Computed by the backend in Asia/Bangkok: EXPIRED > PAUSED > UPCOMING > ACTIVE. */
+export type PromotionStatus = 'UPCOMING' | 'ACTIVE' | 'PAUSED' | 'EXPIRED'
+
+export type Promotion = {
+  id: string
+  code: string | null
+  name: string
+  type: PromotionType
+  value: number
+  minOrderAmount: number | null
+  maxDiscountAmount: number | null
+  /** ISO instant (UTC). */
+  startsAt: string
+  endsAt: string | null
+  usageLimitTotal: number | null
+  usageLimitPerBuyer: number | null
+  showOnStorefront: boolean
+  active: boolean
+  status: PromotionStatus
+  usedCount: number
+  discountTotal: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type PromotionSummary = {
+  total: number; active: number; upcoming: number; paused: number; expired: number
+  percent: number; fixedAmount: number; freeShipping: number
+  usageCount: number; discountTotal: number
+}
+
+export type PromotionList = { items: Promotion[]; page: number; size: number; total: number; totalPages: number; summary: PromotionSummary }
+
+export type PromotionQuery = { q?: string; status?: PromotionStatus | ''; type?: PromotionType[]; page?: number; size?: number }
+
+/** Dates: local "YYYY-MM-DDTHH:mm" (read as Asia/Bangkok) or ISO with offset. FREE_SHIPPING ignores value. */
+export type PromotionWrite = {
+  name: string
+  code: string
+  type: PromotionType
+  value: number | null
+  minOrderAmount: number | null
+  maxDiscountAmount: number | null
+  startsAt: string
+  endsAt: string | null
+  usageLimitTotal: number | null
+  usageLimitPerBuyer: number | null
+  showOnStorefront: boolean
+  active?: boolean
+}
+
+/** Storefront coupon card: safe fields only. */
+export type PublicPromotion = {
+  code: string
+  name: string
+  type: PromotionType
+  value: number
+  minOrderAmount: number | null
+  maxDiscountAmount: number | null
+  startsAt: string
+  endsAt: string | null
+}
+
+function promotionQuery({ q, status, type, page, size }: PromotionQuery) {
+  const search = new URLSearchParams()
+  if (q?.trim()) search.set('q', q.trim())
+  if (status) search.set('status', status)
+  if (type?.length) search.set('type', type.join(','))
+  if (page) search.set('page', String(page))
+  if (size) search.set('size', String(size))
+  const text = search.toString()
+  return text ? `?${text}` : ''
+}
+
+/** /api/merchant/shops/{shopId}/promotions ? PROMOTION_READ (reads) / PROMOTION_MANAGE (writes). */
+export const promotionApi = {
+  list: (shopId: number, query: PromotionQuery = {}) => request<PromotionList>(shopProducts(shopId, `/promotions${promotionQuery(query)}`), { cache: 'no-store' }, true),
+  get: (shopId: number, id: string) => request<Promotion>(shopProducts(shopId, `/promotions/${id}`), { cache: 'no-store' }, true),
+  create: (shopId: number, payload: PromotionWrite) => request<Promotion>(shopProducts(shopId, '/promotions'), { method: 'POST', body: JSON.stringify(payload) }, true),
+  update: (shopId: number, id: string, payload: PromotionWrite) => request<Promotion>(shopProducts(shopId, `/promotions/${id}`), { method: 'PUT', body: JSON.stringify(payload) }, true),
+  pause: (shopId: number, id: string) => request<Promotion>(shopProducts(shopId, `/promotions/${id}/pause`), { method: 'POST' }, true),
+  resume: (shopId: number, id: string) => request<Promotion>(shopProducts(shopId, `/promotions/${id}/resume`), { method: 'POST' }, true),
+  remove: (shopId: number, id: string) => request<void>(shopProducts(shopId, `/promotions/${id}`), { method: 'DELETE' }, true),
 }

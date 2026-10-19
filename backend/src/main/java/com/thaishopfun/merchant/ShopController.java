@@ -2,6 +2,7 @@ package com.thaishopfun.merchant;
 
 import com.thaishopfun.auth.RequestUser;
 import com.thaishopfun.auth.authz.PublicEndpoint;
+import com.thaishopfun.merchant.policy.ShopPolicyService;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -23,7 +24,12 @@ import java.util.List;
 @RequestMapping("/api/shops")
 public class ShopController {
     private final ShopCatalogService shops;
-    public ShopController(ShopCatalogService shops) { this.shops = shops; }
+    private final ShopPolicyService policies;
+
+    public ShopController(ShopCatalogService shops, ShopPolicyService policies) {
+        this.shops = shops;
+        this.policies = policies;
+    }
 
     @GetMapping
     public List<MerchantDtos.PublicShopResponse> list() { return shops.list(); }
@@ -36,6 +42,20 @@ public class ShopController {
     @GetMapping("/{slug}/categories")
     public List<MerchantDtos.PublicShopCategoryResponse> categories(@PathVariable String slug, @AuthenticationPrincipal Jwt jwt) {
         return shops.publicCategories(slug, RequestUser.id(jwt));
+    }
+
+    @GetMapping("/{slug}/policies")
+    public List<MerchantDtos.ShopPolicyResponse> policies(@PathVariable String slug, @AuthenticationPrincipal Jwt jwt) {
+        return policies.publicList(slug, RequestUser.id(jwt));
+    }
+
+    @GetMapping("/{slug}/policies/{type}")
+    public MerchantDtos.ShopPolicyResponse policy(
+        @PathVariable String slug,
+        @PathVariable String type,
+        @AuthenticationPrincipal Jwt jwt
+    ) {
+        return policies.publicOne(slug, type, RequestUser.id(jwt));
     }
 
     @GetMapping("/{slug}/logo")

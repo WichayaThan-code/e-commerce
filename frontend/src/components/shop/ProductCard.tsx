@@ -101,10 +101,16 @@ export default function ProductCard({
     </button>
   );
 
+  const showRank = rank != null && rank >= 1 && rank <= 10;
+  const showMall = mallBadge && !menu;
   const badges = (
     <>
-      {rank != null && rank >= 1 && rank <= 10 && <span className="shop-rank-badge num" aria-hidden="true">{rank}</span>}
-      {mallBadge && !menu && <span className="shop-mall-badge">{tp("shop.mallBadge")}</span>}
+      {(showRank || showMall) && (
+        <div className="shop-card-badges" aria-hidden="true">
+          {showRank && <span className="shop-rank-badge num">{rank}</span>}
+          {showMall && <span className="shop-mall-badge">{tp("shop.mallBadge")}</span>}
+        </div>
+      )}
       {discount != null && <span className="shop-discount-badge num">-{discount}%</span>}
     </>
   );

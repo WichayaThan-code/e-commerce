@@ -1,4 +1,12 @@
 {
+  "notFound": {
+    "title": "未找到页面",
+    "pageBody": "链接可能有误，或页面已被移动。",
+    "shopBody": "未找到该店铺，或店铺可能已不可用。",
+    "productBody": "未找到该商品，或商品可能已从店铺中移除。",
+    "backHome": "返回首页",
+    "backShop": "返回店铺"
+  },
   "common": {
     "home": "首页",
     "all": "全部",
@@ -12,6 +20,36 @@
     "noAddress": "未填写地址",
     "defaultShopBlurb": "ThaiShopFun 上的泰国店铺",
     "shopPlaceholder": "店铺"
+  },
+  "marketplaceSearch": {
+    "breadcrumb": "搜索结果",
+    "title": "搜索“{{q}}”",
+    "titleEmpty": "搜索商品、品牌和店铺",
+    "prompt": "在上方搜索框输入商品、品牌或店铺名称",
+    "summary": "{{products}} 件商品 · {{shops}} 家店铺 · {{brands}} 个品牌",
+    "shops": "店铺",
+    "brands": "品牌",
+    "products": "商品",
+    "productCount": "{{count}} 件商品",
+    "enterShop": "进入店铺",
+    "brandFilter": "品牌：{{brand}}",
+    "clearBrand": "清除品牌筛选",
+    "noShops": "没有匹配的店铺",
+    "noBrands": "没有匹配的品牌",
+    "noProducts": "没有与“{{q}}”匹配的商品",
+    "empty": "没有“{{q}}”的结果，请尝试更短或不同的关键词",
+    "error": "搜索结果加载失败",
+    "retry": "重试",
+    "sortAria": "排序搜索结果",
+    "sortNewest": "最新",
+    "sortPriceAsc": "价格从低到高",
+    "sortPriceDesc": "价格从高到低",
+    "sortName": "名称",
+    "pageAria": "搜索结果分页",
+    "pagePrev": "上一页",
+    "pageNext": "下一页",
+    "pageOf": "第 {{page}} / {{pages}} 页",
+    "soldBy": "店铺 {{shop}}"
   },
   "footer": {
     "tagline": "泰国人的空间，服务每一家泰国店铺",
@@ -117,6 +155,7 @@
     "featuredTitle": "推荐商品",
     "featuredTitleForYou": "为你推荐的商品",
     "bestsellersTitle": "热销商品",
+    "sortPriceHigh": "价格最高",
     "newArrivalsTitle": "新品上架",
     "categoriesTitle": "店铺分类",
     "mallBadge": "官方旗舰",
@@ -128,7 +167,83 @@
       "home": "首页",
       "products": "全部商品",
       "categories": "分类",
-      "promos": "促销"
+      "promos": "促销",
+      "promosSoon": "店铺促销即将上线",
+      "contact": "联系店铺",
+      "policies": "店铺政策"
+    },
+    "promotions": {
+      "title": "店铺优惠券",
+      "checkoutSoon": "先复制优惠码 — 结账使用优惠券功能即将上线",
+      "percentOff": "{{value}}% 折扣",
+      "amountOff": "立减 ฿{{value}}",
+      "freeShipping": "免运费",
+      "minSpend": "满 ฿{{value}} 可用",
+      "noMin": "无最低消费",
+      "maxDiscount": "最高减 ฿{{value}}",
+      "until": "有效期至 {{date}}",
+      "noExpiry": "长期有效",
+      "copy": "复制",
+      "copyAria": "复制优惠码 {{code}}",
+      "copied": "已复制优惠码 {{code}}",
+      "copyFailed": "优惠码：{{code}}"
+    },
+    "search": {
+      "title": "店内搜索",
+      "placeholder": "搜索本店商品",
+      "prompt": "输入关键词以查找本店商品",
+      "empty": "未找到与“{{q}}”相关的商品"
+    },
+    "contact": {
+      "title": "联系店铺",
+      "subtitle": "店铺官方联系方式",
+      "channelsTitle": "联系方式",
+      "addressTitle": "店铺地址",
+      "openMap": "在地图中打开",
+      "copy": "复制",
+      "copyAria": "复制{{label}}",
+      "copied": "已复制",
+      "copyFailed": "复制失败",
+      "emptyHint": "您可以先浏览商品或查看店铺政策",
+      "channelsPending": "店铺尚未公布公开联系方式",
+      "channels": {
+        "phone": "电话",
+        "email": "邮箱",
+        "line": "LINE",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "tiktok": "TikTok",
+        "website": "网站"
+      },
+      "actions": {
+        "call": "致电店铺",
+        "email": "发送邮件",
+        "line": "LINE 聊天",
+        "profile": "查看主页",
+        "visit": "访问网站"
+      }
+    },
+    "policies": {
+      "title": "店铺政策",
+      "subtitle": "在 {{name}} 购物的政策与条款",
+      "countLabel": "项政策",
+      "updated": "最后更新",
+      "navAria": "政策类型",
+      "all": "全部",
+      "notSet": "未设置",
+      "openOne": "打开{{title}}",
+      "empty": "店铺尚未公布政策",
+      "emptyOne": "店铺尚未公布{{type}}政策",
+      "emptyHint": "如有疑问，请直接联系店铺",
+      "contactCta": "联系店铺",
+      "ctaTitle": "对政策有疑问？",
+      "ctaText": "可直接向店铺咨询配送、退货或订单相关问题",
+      "types": {
+        "shipping": "配送",
+        "returns": "退货",
+        "privacy": "隐私",
+        "terms": "服务条款"
+      }
     },
     "seeAll": "查看全部",
     "seeMore": "查看更多",
@@ -145,6 +260,15 @@
     "andUp": "及以上",
     "brandMore": "查看更多 ({{count}})",
     "clearAll": "全部清除",
+    "filters": {
+      "category": "分类",
+      "services": "服务与促销",
+      "inStock": "有现货",
+      "onSale": "促销商品",
+      "comingSoon": "即将推出",
+      "comingSoonNotice": "此筛选即将推出",
+      "brandPending": "品牌列表将在此筛选开放后显示"
+    },
     "hoursTitle": "营业时间",
     "hoursClosed": "休息",
     "hours": {

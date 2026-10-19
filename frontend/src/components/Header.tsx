@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useMatch, useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
 import { accountKind } from "../services/permissions";
+import { marketplaceSearchPath, shopSearchPath } from "../services/shopRoutes";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import {
@@ -39,10 +40,23 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
   const { count } = useCart();
   const { t } = useTranslation("common");
   const { t: ta } = useTranslation("auth");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const shopExact = useMatch("/shop/:slug");
+  const shopNested = useMatch("/shop/:slug/*");
+  const shopMatch = shopNested ?? shopExact;
   const homeAria = t("brand.homeAria");
   const accountRef = useRef<HTMLDivElement>(null);
   const accountButton = useRef<HTMLButtonElement>(null);
   const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => {
+    const onShopSearch = Boolean(shopMatch?.params.slug) && location.pathname.includes("/search");
+    const onMarketplaceSearch = location.pathname === "/search";
+    if (!onShopSearch && !onMarketplaceSearch) return;
+    const q = new URLSearchParams(location.search).get("q") ?? "";
+    setQuery(q);
+  }, [shopMatch?.params.slug, location.pathname, location.search]);
 
   useEffect(() => {
     if (!accountOpen) return;
@@ -72,8 +86,20 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
         <Brand homeAria={homeAria} />
 
         {!hideSearch && (
-          <form className="search" onSubmit={(e) => e.preventDefault()}>
+          <form
+            className="search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const shopSlug = shopMatch?.params.slug;
+              const trimmed = query.trim();
+              if (!trimmed) return;
+              // inside a storefront the header keeps searching that shop; everywhere else it searches the marketplace
+              navigate(shopSlug ? shopSearchPath(shopSlug, trimmed) : marketplaceSearchPath(trimmed));
+            }}
+          >
             <input
+              enterKeyHint="search"
+              aria-label={t('search.action')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('search.placeholder')}

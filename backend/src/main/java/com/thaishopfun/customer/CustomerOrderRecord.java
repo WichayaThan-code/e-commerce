@@ -10,7 +10,8 @@ import java.util.UUID;
 
 /**
  * Read view of V1 {@code orders} for customer order history and merge re-pointing. Only the columns needed here are
- * mapped; no order API exists yet, so nothing in the app writes orders through this entity except shop_customer_id.
+ * mapped. Orders are created / changed through {@link com.thaishopfun.order.Order} (checkout links shop_customer_id
+ * to the buyer's CRM record); this view only writes shop_customer_id when customers are merged.
  */
 @Entity(name = "CustomerOrderRecord")
 @Table(name = "orders")

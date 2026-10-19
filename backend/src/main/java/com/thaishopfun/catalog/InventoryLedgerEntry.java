@@ -52,10 +52,17 @@ public class InventoryLedgerEntry extends AuditedEntity {
     private String idempotencyKey;
     @Column(name = "actor_id")
     private UUID actorId;
+    @Column(name = "order_item_id")
+    private UUID orderItemId;
+    @Column(name = "reservation_id")
+    private UUID reservationId;
+    @Column(name = "actor_type", length = 30)
+    private String actorType;
 
     protected InventoryLedgerEntry() {}
 
-    public InventoryLedgerEntry(ProductSku sku, String entryType, int quantityDelta, int onHandBefore, int onHandAfter, int reservedQtyBefore, int reservedQtyAfter, String reason, String idempotencyKey, UUID actorId) {
+    public InventoryLedgerEntry(ProductSku sku, String entryType, int quantityDelta, int onHandBefore, int onHandAfter,
+                                int reservedQtyBefore, int reservedQtyAfter, String reason, String idempotencyKey, UUID actorId) {
         this.shop = sku.getShop();
         this.sku = sku;
         this.entryType = entryType;
@@ -69,15 +76,30 @@ public class InventoryLedgerEntry extends AuditedEntity {
         this.actorId = actorId;
     }
 
+    /** Order stock movements (RESERVE / RELEASE / COMMIT_SALE / RESTOCK_REFUND): link the order line and reservation. */
+    public InventoryLedgerEntry forOrder(String orderId, UUID orderItemId, UUID reservationId, int reservedBefore, int reservedAfter, String actorType) {
+        this.referenceType = "ORDER";
+        this.referenceId = orderId;
+        this.orderItemId = orderItemId;
+        this.reservationId = reservationId;
+        this.reservedQtyBefore = reservedBefore;
+        this.reservedQtyAfter = reservedAfter;
+        this.actorType = actorType;
+        return this;
+    }
+
     public Long getId() { return id; }
+    public String getReferenceType() { return referenceType; }
+    public String getReferenceId() { return referenceId; }
+    public UUID getOrderItemId() { return orderItemId; }
+    public Integer getReservedQtyBefore() { return reservedQtyBefore; }
+    public Integer getReservedQtyAfter() { return reservedQtyAfter; }
     public ProductSku getSku() { return sku; }
     public String getReason() { return reason; }
     public String getEntryType() { return entryType; }
     public int getQuantityDelta() { return quantityDelta; }
     public int getOnHandBefore() { return onHandBefore; }
     public int getOnHandAfter() { return onHandAfter; }
-    public Integer getReservedQtyBefore() { return reservedQtyBefore; }
-    public Integer getReservedQtyAfter() { return reservedQtyAfter; }
     public UUID getActorId() { return actorId; }
     public String getIdempotencyKey() { return idempotencyKey; }
 }

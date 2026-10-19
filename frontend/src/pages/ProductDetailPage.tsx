@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { SkeletonForm, SkeletonTable, SkeletonBusy, LoadError } from "../components/feedback/Skeleton";
+import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { Link, useParams } from "react-router-dom";
 import { Archive, ExternalLink, LoaderCircle, Pencil, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -46,6 +48,12 @@ export default function ProductDetailPage() {
   };
 
   useEffect(() => { load(); }, [shopId, productId]);
+
+  const { showSkeleton, markHasData, isRefetching } = useDelayedLoading(loading, 150, productId);
+
+  useEffect(() => {
+    if (!loading && product) markHasData();
+  }, [loading, product, markHasData]);
 
   const toast = (text: string, next: "ok" | "fail" = "ok") => {
     setTone(next);
@@ -95,8 +103,13 @@ export default function ProductDetailPage() {
     }
   };
 
-  if (loading) {
-    return <MerchantShell><div className="pm-skeleton-list" aria-label={t("catalog.loading")}>{Array.from({ length: 4 }, (_, index) => <span key={index} />)}</div></MerchantShell>;
+  if (showSkeleton && loading && !product) {
+    return (
+      <MerchantShell>
+        <SkeletonForm fields={6} />
+        <SkeletonTable rows={4} cols={7} className="pm-detail" />
+      </MerchantShell>
+    );
   }
   if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
     return (
@@ -112,10 +125,11 @@ export default function ProductDetailPage() {
   if (error || !product) {
     return (
       <MerchantShell>
-        <section className="pm-state">
-          <p>{catalogMessage(t, error)}</p>
-          <button type="button" onClick={() => load()}>{t("catalog.actions.retry")}</button>
-        </section>
+        <LoadError
+          message={catalogMessage(t, error)}
+          onRetry={() => load()}
+          retryLabel={t("catalog.actions.retry")}
+        />
       </MerchantShell>
     );
   }
@@ -137,6 +151,7 @@ export default function ProductDetailPage() {
   const descriptions = { th: product.descriptionTh, en: product.descriptionEn, zh: product.descriptionZh };
   return (
     <MerchantShell notice={notice} tone={tone}>
+      <SkeletonBusy refetching={isRefetching} busy={isRefetching}>
       <header className="pm-heading">
         <div>
           <h1>{product.nameTh}</h1>
@@ -173,11 +188,11 @@ export default function ProductDetailPage() {
           <section className="pm-summary">
             <h2>{t("catalog.form.general")}</h2>
             <dl className="pm-facts">
-              <div><dt>{t("catalog.form.price")}</dt><dd>{formatMoney(product.basePrice, locale)}{product.compareAtPrice ? <s>{formatMoney(product.compareAtPrice, locale)}</s> : null}</dd></div>
-              <div><dt>{t("catalog.columns.stock")}</dt><dd>{stockTotal}</dd></div>
+              <div><dt>{t("catalog.form.price")}</dt><dd><span className="num">{formatMoney(product.basePrice, locale)}</span>{product.compareAtPrice ? <s className="num">{formatMoney(product.compareAtPrice, locale)}</s> : null}</dd></div>
+              <div><dt>{t("catalog.columns.stock")}</dt><dd className="num">{stockTotal}</dd></div>
               <div><dt>{t("catalog.form.type")}</dt><dd>{t(product.productType === "VARIABLE" ? "catalog.form.variable" : "catalog.form.simple")}</dd></div>
               <div><dt>{t("catalog.form.brand")}</dt><dd>{product.brand || "—"}</dd></div>
-              <div><dt>{t("catalog.form.weight")}</dt><dd>{product.weightGrams ?? "—"}</dd></div>
+              <div><dt>{t("catalog.form.weight")}</dt><dd className="num">{product.weightGrams ?? "—"}</dd></div>
               <div><dt>{t("catalog.columns.updated")}</dt><dd>{product.modifiedAt ? formatWhen(product.modifiedAt, locale) : "—"}</dd></div>
             </dl>
             <div className="pm-langs">
@@ -201,13 +216,13 @@ export default function ProductDetailPage() {
                   const mark = stockMark(sku);
                   return (
                   <tr key={sku.id} className={sku.id === adjust.skuId ? "is-selected" : ""}>
-                    <td>{sku.skuCode}</td>
+                    <td className="num">{sku.skuCode}</td>
                     <td>{sku.optionLabel || "—"}</td>
-                    <td>{formatMoney(sku.price, locale)}</td>
-                    <td>{sku.onHand}</td>
-                    <td>{sku.reservedQty}</td>
-                    <td>{sku.safetyStock ?? 0}</td>
-                    <td>{sku.available}{mark === "out" ? <span className="pm-status empty">{t("catalog.badges.out")}</span> : mark === "low" ? <span className="pm-status low">{t("catalog.badges.low")}</span> : null}</td>
+                    <td className="num">{formatMoney(sku.price, locale)}</td>
+                    <td className="num">{sku.onHand}</td>
+                    <td className="num">{sku.reservedQty}</td>
+                    <td className="num">{sku.safetyStock ?? 0}</td>
+                    <td className="num">{sku.available}{mark === "out" ? <span className="pm-status empty">{t("catalog.badges.out")}</span> : mark === "low" ? <span className="pm-status low">{t("catalog.badges.low")}</span> : null}</td>
                   </tr>
                   );
                 })}
@@ -236,7 +251,7 @@ export default function ProductDetailPage() {
               }}
             />
             <label>{t("catalog.detail.delta")}
-              <input inputMode="numeric" value={adjust.quantityDelta} onChange={(event) => setAdjust({ ...adjust, quantityDelta: event.target.value })} />
+              <input className="num" inputMode="numeric" value={adjust.quantityDelta} onChange={(event) => setAdjust({ ...adjust, quantityDelta: event.target.value })} />
             </label>
             {adjust.entryType !== "RECEIVE" ? (
               <label>{t("catalog.detail.reason")}
@@ -256,13 +271,13 @@ export default function ProductDetailPage() {
                   {ledger.map((entry) => (
                     <tr key={entry.id}>
                       <td>{formatWhen(entry.createdAt, locale)}</td>
-                      <td>{entry.skuCode}</td>
+                      <td className="num">{entry.skuCode}</td>
                       <td>{movementLabel(entry)}</td>
-                      <td className={entry.quantityDelta < 0 ? "is-down" : "is-up"}>{entry.quantityDelta > 0 ? `+${entry.quantityDelta}` : entry.quantityDelta}</td>
-                      <td>{entry.onHandBefore}</td>
-                      <td>{entry.onHandAfter}</td>
-                      <td>{entry.reservedBefore ?? "—"}</td>
-                      <td>{entry.reservedAfter ?? "—"}</td>
+                      <td className={`num ${entry.quantityDelta < 0 ? "is-down" : "is-up"}`}>{entry.quantityDelta > 0 ? `+${entry.quantityDelta}` : entry.quantityDelta}</td>
+                      <td className="num">{entry.onHandBefore}</td>
+                      <td className="num">{entry.onHandAfter}</td>
+                      <td className="num">{entry.reservedBefore ?? "—"}</td>
+                      <td className="num">{entry.reservedAfter ?? "—"}</td>
                       <td>{entry.actorName || "—"}</td>
                       <td>{entry.reason || "—"}</td>
                     </tr>
@@ -284,6 +299,7 @@ export default function ProductDetailPage() {
           onConfirm={() => void act("archive")}
         />
       )}
+      </SkeletonBusy>
     </MerchantShell>
   );
 }

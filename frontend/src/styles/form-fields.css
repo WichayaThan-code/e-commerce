@@ -87,20 +87,29 @@
   min-height: 96px;
   padding: 12px 14px;
   resize: vertical;
+  line-height: 1.5;
 }
 
 .form-control-area {
   height: auto;
+  min-height: 0;
   align-items: stretch;
   padding: 0;
+  overflow: visible;
 }
 
 .form-control-area textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
   border: 0;
   border-radius: 10px;
-  min-height: 116px;
+  min-height: 96px;
   padding: 12px 14px;
   background: transparent;
+  resize: vertical;
+  line-height: 1.5;
 }
 
 .form-field.flush {
@@ -114,7 +123,7 @@
 .form-field > textarea:focus {
   outline: none;
   border-color: #1671de;
-  box-shadow: 0 0 3px #1671de16;
+  box-shadow: var(--focus-ring);
 }
 
 .form-control input:focus,
@@ -145,14 +154,14 @@
   margin: 0 0 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #fff4f4;
-  color: #b42318;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
   font-size: 13px;
   line-height: 1.6;
 }
 
 .form-alert a {
-  color: #9f1239;
+  color: var(--color-danger);
   font-weight: 700;
 }
 
@@ -162,7 +171,7 @@
   align-items: flex-start;
   gap: 6px;
   margin-top: 8px;
-  color: #a4471b;
+  color: var(--color-danger);
   font-size: 11px;
   font-weight: 400;
   line-height: 1.7;
@@ -172,7 +181,27 @@
 .signup-field-error svg {
   flex-shrink: 0;
   margin-top: 2px;
-  color: #d46b2e;
+  color: var(--color-danger);
+}
+
+.form-field-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.form-field-warn svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-warning);
 }
 
 .form-control:has([aria-invalid="true"]),
@@ -181,7 +210,7 @@
 .form-field > select[aria-invalid="true"],
 .form-field > textarea[aria-invalid="true"] {
   border-color: #e8a477;
-  background: #fffcf9;
+  background: var(--color-warning-bg);
 }
 
 .login-submit {
@@ -226,7 +255,7 @@
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-family: "Noto Sans Thai", sans-serif;
+  font-family: var(--font-sans), sans-serif;
   cursor: pointer;
 }
 
@@ -277,7 +306,7 @@
 .toggle-switch input:focus + .toggle-switch-track,
 .toggle-switch input:focus-visible + .toggle-switch-track {
   border-color: #1671de;
-  box-shadow: 0 0 0 3px #1671de16;
+  box-shadow: var(--focus-ring);
 }
 
 .toggle-switch:has(input:disabled) {
@@ -286,7 +315,7 @@
 }
 
 .toggle-switch-text {
-  font: 700 12px "Noto Sans Thai", sans-serif;
+  font: 700 12px var(--font-sans), sans-serif;
   color: #4d6788;
 }
 

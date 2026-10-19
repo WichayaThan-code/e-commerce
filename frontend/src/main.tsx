@@ -4,6 +4,8 @@ import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import { LanguageProvider } from './contexts/LanguageContext'
 import './i18n'
+import './styles/tokens.css'
+import './styles/skeleton.css'
 import './styles/styles.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

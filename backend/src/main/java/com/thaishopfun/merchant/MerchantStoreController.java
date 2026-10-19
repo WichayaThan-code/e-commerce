@@ -31,13 +31,22 @@ public class MerchantStoreController {
     private final MerchantApplicationService applications;
     private final ShopReinstatementService reinstatements;
     private final OwnerAccountService ownerAccounts;
+    private final com.thaishopfun.merchant.theme.ShopThemeService themes;
 
-    public MerchantStoreController(StoreReviewService reviews, MerchantShopSettingsService shopSettings, MerchantApplicationService applications, ShopReinstatementService reinstatements, OwnerAccountService ownerAccounts) {
+    public MerchantStoreController(
+        StoreReviewService reviews,
+        MerchantShopSettingsService shopSettings,
+        MerchantApplicationService applications,
+        ShopReinstatementService reinstatements,
+        OwnerAccountService ownerAccounts,
+        com.thaishopfun.merchant.theme.ShopThemeService themes
+    ) {
         this.reviews = reviews;
         this.shopSettings = shopSettings;
         this.applications = applications;
         this.reinstatements = reinstatements;
         this.ownerAccounts = ownerAccounts;
+        this.themes = themes;
     }
 
     @FilterByShopPermission(SHOP_LIST_PERMISSION)
@@ -130,5 +139,27 @@ public class MerchantStoreController {
         @RequestPart("file") MultipartFile file
     ) {
         return shopSettings.uploadCover(UUID.fromString(jwt.getSubject()), shopId, file);
+    }
+
+    @RequireShopPermission(value = "SHOP_READ", defaultShop = true)
+    @GetMapping("/settings/theme")
+    public MerchantDtos.ShopThemeResponse readTheme(@AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) Long shopId) {
+        return themes.get(UUID.fromString(jwt.getSubject()), shopId);
+    }
+
+    @RequireShopPermission(value = "SHOP_UPDATE", defaultShop = true)
+    @PutMapping("/settings/theme")
+    public MerchantDtos.ShopThemeResponse saveTheme(
+        @AuthenticationPrincipal Jwt jwt,
+        @RequestParam(required = false) Long shopId,
+        @Valid @RequestBody MerchantDtos.ShopThemeUpdateRequest request
+    ) {
+        return themes.save(UUID.fromString(jwt.getSubject()), shopId, request);
+    }
+
+    @RequireShopPermission(value = "SHOP_READ", defaultShop = true)
+    @GetMapping("/settings/theme/presets")
+    public List<MerchantDtos.ShopThemePresetResponse> themePresets() {
+        return themes.presets();
     }
 }

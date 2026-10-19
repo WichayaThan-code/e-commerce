@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   BarChart3, Bell, Box, CheckCircle2, ChevronDown, CircleHelp, CircleUserRound,
   Crown, ExternalLink, Facebook, Headphones, Home, Instagram, LineChart, MapPin,
-  PackageCheck, Plus, Search, Settings, ShieldCheck, ShoppingBag, Store,
+  Palette, PackageCheck, Plus, Search, Settings, ShieldCheck, ShoppingBag, Store,
   TicketPercent, Truck, UsersRound, WalletCards,
 } from "lucide-react";
 import MerchantBell from "../components/merchant/MerchantBell";
@@ -12,7 +13,10 @@ import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { usePermissions } from "../hooks/usePermissions";
-import { ApiError, catalogApi, mediaUrl, merchantApi, type MerchantSettings, type MerchantSettingsPayload } from "../services/api";
+import { SkeletonForm } from "../components/feedback/Skeleton";
+import ConfirmDialog from "../components/form/ConfirmDialog";
+import ShopThemeEditor, { type ShopThemeShopInfo } from "../components/merchant/ShopThemeEditor";
+import { ApiError, catalogApi, mediaUrl, merchantApi, type MerchantSettings, type MerchantSettingsPayload, type ShopHour } from "../services/api";
 import { MERCHANT_CATEGORY_VALUES } from "../i18n/merchantOnboardingCopy";
 import { isShopImage, SHOP_IMAGE_ACCEPT } from "../services/shopImage";
 import "../styles/merchant-dashboard.css";
@@ -26,7 +30,10 @@ const menu = [
   [WalletCards,"การเงิน","/merchant/finance"],[Truck,"การจัดส่ง","/merchant/shipping"],
   [Store,"ร้านของฉัน","/merchant/store"],[Settings,"ตั้งค่า","/merchant/settings"],
 ] as const;
-const tabs=["ข้อมูลร้านค้า","หน้าร้าน","การตั้งค่า","ช่องทางการขาย","สมาชิกในร้าน","แผนการใช้งาน"];
+const INFO_TAB="ข้อมูลร้านค้า";
+const THEME_TAB="ธีมร้าน";
+const tabs=[INFO_TAB,THEME_TAB,"การตั้งค่า","ช่องทางการขาย","สมาชิกในร้าน","แผนการใช้งาน"];
+type PendingLeave={kind:"tab";tab:string}|{kind:"href";href:string}|null;
 const STATUS_LABEL: Record<MerchantSettings["status"], string> = {
   APPROVED: "ใช้งาน",
   PENDING_REVIEW: "รออนุมัติ",
@@ -41,6 +48,7 @@ type StoreForm = MerchantSettingsPayload & {
   slug: string
   status: MerchantSettings["status"]
   createdAt: string
+  openingHours: ShopHour[] | undefined
 }
 
 function emptyForm(): StoreForm {
@@ -48,7 +56,7 @@ function emptyForm(): StoreForm {
     shopName: "", shopNameEn: "", description: "", category: "",
     phone: "", email: "", website: "", lineId: "", facebookUrl: "", instagramUrl: "", tiktokUrl: "",
     address: "", province: "", district: "", subdistrict: "", postalCode: "",
-    coverUrl: null, logoUrl: null, slug: "", status: "PENDING_REVIEW", createdAt: "",
+    coverUrl: null, logoUrl: null, slug: "", status: "PENDING_REVIEW", createdAt: "", openingHours: undefined,
   }
 }
 
@@ -75,6 +83,7 @@ function fromSettings(data: MerchantSettings): StoreForm {
     slug: data.slug || "",
     status: data.status,
     createdAt: data.createdAt || "",
+    openingHours: data.openingHours,
   }
 }
 
@@ -82,8 +91,11 @@ export default function MyStorePage(){
   const {user,loading}=useAuth();
   const {shopId,ready}=useActiveShop();
   const {canInShop,canSeeMenuItem,deniedTitle}=usePermissions();
+  const {t}=useTranslation("merchant");
   const canUpdate=canInShop("SHOP_UPDATE");
-  const [activeTab,setActiveTab]=useState("ข้อมูลร้านค้า");
+  const [activeTab,setActiveTab]=useState(INFO_TAB);
+  const [themeDirty,setThemeDirty]=useState(false);
+  const [pendingLeave,setPendingLeave]=useState<PendingLeave>(null);
   const [notice,setNotice]=useState("");
   const [formLoading,setFormLoading]=useState(true);
   const [saving,setSaving]=useState(false);
@@ -97,6 +109,29 @@ export default function MyStorePage(){
   const logoInput=useRef<HTMLInputElement>(null);
   const notify=(text:string)=>{setNotice(text);window.setTimeout(()=>setNotice(""),1900)};
   const patch=(next:Partial<StoreForm>)=>setForm(current=>({...current,...next}));
+  const onThemeDirty=useCallback((dirty:boolean)=>setThemeDirty(dirty),[]);
+  const hasUnsavedTheme=activeTab===THEME_TAB&&themeDirty;
+  const goTab=(tab:string)=>{setActiveTab(tab);if(tab!==INFO_TAB&&tab!==THEME_TAB)notify(`เปิดแท็บ${tab}`)};
+  const requestTab=(tab:string)=>{
+    if(tab===activeTab)return;
+    if(hasUnsavedTheme){setPendingLeave({kind:"tab",tab});return}
+    goTab(tab);
+  };
+  const confirmLeave=()=>{
+    const target=pendingLeave;
+    setPendingLeave(null);
+    if(!target)return;
+    setThemeDirty(false);
+    if(target.kind==="tab")goTab(target.tab);
+    else window.location.assign(target.href);
+  };
+
+  useEffect(()=>{
+    if(!hasUnsavedTheme)return;
+    const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=""};
+    window.addEventListener("beforeunload",warn);
+    return ()=>window.removeEventListener("beforeunload",warn);
+  },[hasUnsavedTheme]);
 
   useEffect(()=>{
     let active=true;
@@ -178,26 +213,30 @@ export default function MyStorePage(){
     window.open(`/shop/${form.slug}`,"_blank","noopener");
   };
 
-  if(loading||!ready||formLoading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
+  if(loading||!ready)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
   if(!user){window.location.replace("/login?next=/merchant/store");return null}
   if((hasPlatformAccess(user) && !hasMerchantAccess(user))){window.location.replace("/admin");return null}
+  if(formLoading)return <main className="merchant-shell pm-shell my-store-shell"><section className="pm-content my-store-content"><SkeletonForm fields={10} /></section></main>;
   const statusLabel=STATUS_LABEL[form.status]||form.status;
   const createdLabel=form.createdAt?new Date(form.createdAt).toLocaleDateString("th-TH",{day:"numeric",month:"short",year:"numeric"}):"";
   const addressLine=[form.address,form.subdistrict,form.district,form.province,form.postalCode].filter(Boolean).join(" ");
   const mapUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressLine||form.shopName)}`;
   const categories=form.category && !categoryNames.includes(form.category)?[form.category,...categoryNames]:categoryNames;
   const previewText=form.description.split("\n").map(line=>line.trim()).find(Boolean)||"";
+  const coverControl=<div className="store-cover-banner">{form.coverUrl?<img key={form.coverUrl} src={mediaUrl(form.coverUrl)} alt="รูปปกร้าน"/>:<span>ยังไม่มีรูปปก</span>}<button type="button" disabled={coverBusy||!canUpdate} title={deniedTitle(canUpdate)} onClick={()=>coverInput.current?.click()}>{coverBusy?"กำลังอัปโหลด...":"เปลี่ยนรูปปก"}</button><input ref={coverInput} type="file" accept={SHOP_IMAGE_ACCEPT} hidden onChange={event=>{const file=event.target.files?.[0]; if(file) void uploadCover(file); event.target.value="";}}/></div>;
+  const logoControl=<section className="logo-field"><label>โลโก้ร้าน</label><div className="store-logo">{form.logoUrl?<img key={form.logoUrl} src={mediaUrl(form.logoUrl)} alt="โลโก้ร้าน"/>:<span>🏪</span>}</div><button type="button" disabled={logoBusy||!canUpdate} title={deniedTitle(canUpdate)} onClick={()=>logoInput.current?.click()}>{logoBusy?"กำลังอัปโหลด...":"เปลี่ยนโลโก้"}</button><small>JPG, PNG หรือ WEBP ไม่เกิน 5 MB</small><input ref={logoInput} type="file" accept={SHOP_IMAGE_ACCEPT} hidden onChange={event=>{const file=event.target.files?.[0]; if(file) void uploadLogo(file); event.target.value="";}}/></section>;
+  const themeShop:ShopThemeShopInfo={shopName:form.shopName,shopNameEn:form.shopNameEn,description:form.description,category:form.category,address:form.address,province:form.province,district:form.district,subdistrict:form.subdistrict,postalCode:form.postalCode,slug:form.slug,status:form.status,logoUrl:form.logoUrl,coverUrl:form.coverUrl,createdAt:form.createdAt||null,openingHours:form.openingHours};
   return <main className="merchant-shell pm-shell my-store-shell">
     <header className="merchant-topbar"><Brand/><form onSubmit={e=>{e.preventDefault();notify("ค้นหาข้อมูลร้านค้าแล้ว")}}><Search/><input aria-label="ค้นหาทั้งระบบ" placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..."/></form><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
-    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href,badge])=><a className={label==="ร้านของฉัน"?"active":""} href={href} key={label} onClick={e=>{if((href as string)==="#"){e.preventDefault();notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}}}><Icon/>{label}{badge&&<i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button></div></aside>
+    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href,badge])=><a className={label==="ร้านของฉัน"?"active":""} href={href} key={label} onClick={e=>{if((href as string)==="#"){e.preventDefault();notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}else if(hasUnsavedTheme){e.preventDefault();setPendingLeave({kind:"href",href:href as string})}}}><Icon/>{label}{badge&&<i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button></div></aside>
     <section className="pm-content my-store-content">
       <div className="store-page-head">
         <header className="pm-heading my-store-heading"><div><h1><Store/>ร้านของฉัน</h1><p>จัดการข้อมูลร้านค้า ปรับแต่งหน้าร้าน และตั้งค่าการขาย</p></div><button type="button" onClick={openStorefront} disabled={!form.slug}><ExternalLink/>ดูหน้าร้านจริง</button></header>
-        <nav className="store-tabs">{tabs.map((tab,i)=><button key={tab} className={activeTab===tab?"active":""} onClick={()=>{setActiveTab(tab);if(tab!=="ข้อมูลร้านค้า")notify(`เปิดแท็บ${tab}`)}}>{i===0?<Store/>:i===1?<ShoppingBag/>:i===2?<Settings/>:i===3?<PackageCheck/>:i===4?<UsersRound/>:<ShieldCheck/>}{tab}</button>)}</nav>
+        <nav className="store-tabs">{tabs.map((tab,i)=><button key={tab} className={activeTab===tab?"active":""} onClick={()=>requestTab(tab)}>{i===0?<Store/>:i===1?<Palette/>:i===2?<Settings/>:i===3?<PackageCheck/>:i===4?<UsersRound/>:<ShieldCheck/>}{tab===THEME_TAB?t("storeTheme.tab"):tab}</button>)}</nav>
       </div>
-      <div className="store-layout"><section className="store-form-card"><header><div><h2>ข้อมูลร้านค้า</h2><p>ข้อมูลพื้นฐานของร้านค้า จะแสดงบนหน้าร้านและใช้ในการติดต่อ</p></div><div className="store-enabled"><span><CheckCircle2/>{statusLabel}</span>{createdLabel&&<small>สร้างเมื่อ {createdLabel}</small>}{form.status==="SUSPENDED"&&<a href="/merchant/reinstatement">ยื่นคำร้องปลดระงับ</a>}</div></header>
-        <div className="store-cover-banner">{form.coverUrl?<img key={form.coverUrl} src={mediaUrl(form.coverUrl)} alt="รูปปกร้าน"/>:<span>ยังไม่มีรูปปก</span>}<button type="button" disabled={coverBusy||!canUpdate} title={deniedTitle(canUpdate)} onClick={()=>coverInput.current?.click()}>{coverBusy?"กำลังอัปโหลด...":"เปลี่ยนรูปปก"}</button><input ref={coverInput} type="file" accept={SHOP_IMAGE_ACCEPT} hidden onChange={event=>{const file=event.target.files?.[0]; if(file) void uploadCover(file); event.target.value="";}}/></div>
-        <div className="store-form-grid"><section className="logo-field"><label>โลโก้ร้าน</label><div className="store-logo">{form.logoUrl?<img key={form.logoUrl} src={mediaUrl(form.logoUrl)} alt="โลโก้ร้าน"/>:<span>🏪</span>}</div><button type="button" disabled={logoBusy||!canUpdate} title={deniedTitle(canUpdate)} onClick={()=>logoInput.current?.click()}>{logoBusy?"กำลังอัปโหลด...":"เปลี่ยนโลโก้"}</button><small>JPG, PNG หรือ WEBP ไม่เกิน 5 MB</small><input ref={logoInput} type="file" accept={SHOP_IMAGE_ACCEPT} hidden onChange={event=>{const file=event.target.files?.[0]; if(file) void uploadLogo(file); event.target.value="";}}/></section>
+      {activeTab===THEME_TAB?<ShopThemeEditor shopId={shopId} shop={themeShop} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} logoControl={logoControl} coverControl={coverControl} onDirtyChange={onThemeDirty} notify={notify}/>:<div className="store-layout"><section className="store-form-card"><header><div><h2>ข้อมูลร้านค้า</h2><p>ข้อมูลพื้นฐานของร้านค้า จะแสดงบนหน้าร้านและใช้ในการติดต่อ</p></div><div className="store-enabled"><span><CheckCircle2/>{statusLabel}</span>{createdLabel&&<small>สร้างเมื่อ {createdLabel}</small>}{form.status==="SUSPENDED"&&<a href="/merchant/reinstatement">ยื่นคำร้องปลดระงับ</a>}</div></header>
+        {coverControl}
+        <div className="store-form-grid">{logoControl}
         <div className="store-fields"><label>ชื่อร้านค้า <i>*</i><input value={form.shopName} maxLength={100} onChange={e=>patch({shopName:e.target.value})}/><small>{form.shopName.length}/100</small></label><label>คำอธิบายร้านค้า<textarea value={form.description} maxLength={500} onChange={e=>patch({description:e.target.value})}/><small>{form.description.length}/500</small></label></div></div>
         <div className="store-contact"><label>ประเภทร้านค้า <i>*</i><select value={form.category} onChange={e=>patch({category:e.target.value})}>{categories.map(option=><option key={option}>{option}</option>)}</select></label><label>เบอร์โทรศัพท์ <i>*</i><input value={form.phone} onChange={e=>patch({phone:e.target.value})}/></label><label>อีเมล <i>*</i><input value={form.email} onChange={e=>patch({email:e.target.value})}/></label></div>
         <div className="store-lower"><section><h3>ช่องทางโซเชียล</h3>{([
@@ -214,7 +253,7 @@ export default function MyStorePage(){
       </section><aside className="store-side"><section className="store-preview"><header><h2>ตัวอย่างหน้าร้าน</h2><button type="button" onClick={openStorefront} disabled={!form.slug}>ดูหน้าร้าน</button></header><div className="preview-cover" style={form.coverUrl?{backgroundImage:`linear-gradient(180deg,rgba(8,24,48,.08),rgba(8,24,48,.45)),url(${mediaUrl(form.coverUrl)})`}:undefined}>{!form.coverUrl&&<span>ยังไม่มีรูปปก</span>}</div><div className="preview-profile"><div className="preview-logo">{form.logoUrl?<img src={mediaUrl(form.logoUrl)} alt=""/>:<span>🏪</span>}</div><p><b>{form.shopName||"ชื่อร้านค้า"}</b><small>{form.category||"ยังไม่เลือกหมวด"}</small></p></div>{previewText&&<p className="preview-desc">{previewText}</p>}<div className="preview-stats"><span><small>ประเภท</small><b>{form.category||"—"}</b></span><span><small>จังหวัด</small><b>{form.province||"—"}</b></span><span><small>สถานะ</small><b>{statusLabel}</b></span></div><button className="enter-store" type="button" onClick={openStorefront} disabled={!form.slug}>เข้าชมหน้าร้าน</button></section>
         <section className="store-status"><header><h2>สถานะร้านค้า</h2><span>● {statusLabel}</span></header><p><ShieldCheck/><b>สถานะร้าน</b><span>{statusLabel}</span></p><p><PackageCheck/><b>ประเภทร้าน</b><span>{form.category||"—"}</span></p><p><CheckCircle2/><b>รูปปก</b><span>{form.coverUrl?"มีแล้ว":"ยังไม่มี"}</span></p><p><LineChart/><b>จังหวัด</b><span>{form.province||"—"}</span></p></section>
         <section className="store-tips"><header><h2>💡 เคล็ดลับเพิ่มยอดขาย</h2><button onClick={()=>notify("แสดงเคล็ดลับทั้งหมด")}>ดูทั้งหมด →</button></header><p><CheckCircle2/>เพิ่มรูปภาพหน้าร้าน และวิดีโอแนะนำ <b>+20%</b></p><p><CheckCircle2/>ตั้งค่าคูปองส่วนลดสำหรับลูกค้าใหม่ <b>+15%</b></p><p><CheckCircle2/>เชื่อมต่อ LINE OA เพื่อแจ้งโปรโมชั่น <b>+30%</b></p></section>
-      </aside></div>
-    </section>{notice&&<div className="merchant-toast" role="status">{notice}</div>}
+      </aside></div>}
+    </section>{pendingLeave&&<ConfirmDialog title={t("storeTheme.confirm.leave.title")} message={t("storeTheme.confirm.leave.message")} confirmLabel={t("storeTheme.confirm.leave.confirm")} cancelLabel={t("storeTheme.confirm.leave.stay")} danger onConfirm={confirmLeave} onCancel={()=>setPendingLeave(null)}/>}{notice&&<div className="merchant-toast" role="status">{notice}</div>}
   </main>
 }

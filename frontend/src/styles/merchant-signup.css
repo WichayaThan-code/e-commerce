@@ -67,12 +67,12 @@
 .merchant-steps .active span{background:#0878f5;color:#fff;border-color:#0878f5}
 .merchant-card form h3{font-size:18px;margin:0 0 13px}
 .merchant-card label,.merchant-card legend{font-size:13px;font-weight:700;color:#08245e}
-.merchant-card em{font-style:normal;color:#ff3955}
+.merchant-card em{font-style:normal;color:var(--color-danger)}
 .merchant-card input,.merchant-card select,.merchant-card textarea,.merchant-icon-input{width:100%;border:1.5px solid #cedaea;border-radius:7px;background:#fff;color:#08245e;outline:0;margin-top:6px}
 .merchant-card input,.merchant-card select,.merchant-icon-input{height:43px}
 .merchant-card input,.merchant-card select,.merchant-card textarea{padding:0 13px}
 .merchant-card textarea{height:116px;padding-top:12px;resize:none}
-.merchant-card input:focus,.merchant-card select:focus,.merchant-card textarea:focus,.merchant-icon-input:focus-within{border-color:#0878f5;box-shadow:0 0 0 3px rgba(8,120,245,.1)}
+.merchant-card input:focus,.merchant-card select:focus,.merchant-card textarea:focus,.merchant-icon-input:focus-within{border-color:#0878f5;box-shadow:var(--focus-ring)}
 .merchant-card input::placeholder,.merchant-card textarea::placeholder{color:#8495ac}
 .merchant-two{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:14px}
 .merchant-card label{position:relative;display:block}
@@ -156,12 +156,12 @@
 .merchant-card form label{font-weight:600;font-size:13px;margin-bottom:17px;color:#132b50}
 .merchant-card form input,.merchant-card form select,.merchant-card form textarea,.merchant-card .merchant-icon-input,.merchant-card .searchable-select-btn{height:51px;border:1px solid #dce2eb;border-radius:10px;background:#fff;color:#132b50;font-size:14px}
 .merchant-card form textarea{height:116px;padding:12px 14px}
-.merchant-card form input:focus,.merchant-card form select:focus,.merchant-card form textarea:focus,.merchant-card .merchant-icon-input:focus-within,.merchant-card .searchable-select-btn:focus{outline:none;border-color:#1671de;box-shadow:0 0 3px #1671de16}
-.merchant-card form input[aria-invalid=true],.merchant-card form textarea[aria-invalid=true]{border-color:#e8a477;background:#fffcf9}
+.merchant-card form input:focus,.merchant-card form select:focus,.merchant-card form textarea:focus,.merchant-card .merchant-icon-input:focus-within,.merchant-card .searchable-select-btn:focus{outline:none;border-color:#1671de;box-shadow:var(--focus-ring)}
+.merchant-card form input[aria-invalid=true],.merchant-card form textarea[aria-invalid=true]{border-color:#e8a477;background:var(--color-warning-bg)}
 .merchant-card form input::placeholder,.merchant-card form textarea::placeholder{color:#8793a3}
 .merchant-card .login-submit{width:min(100%,360px);margin:8px auto 0}
 .merchant-count{display:block;margin:-8px 0 14px;color:#69798c;font-size:11px;font-weight:500}
-.merchant-card .form-field em{font-style:normal;color:#ff3653;margin-left:3px}
+.merchant-card .form-field em{font-style:normal;color:var(--color-danger);margin-left:3px}
 .merchant-card .searchable-select-btn,.owner-card .searchable-select-btn{height:51px;border:1px solid #dce2eb;border-radius:10px;color:#132b50;font-size:14px}
-.merchant-card .searchable-select-btn:focus,.merchant-card .searchable-select-btn.active{outline:none;border-color:#1671de;box-shadow:0 0 0 3px #1671de16}
+.merchant-card .searchable-select-btn:focus,.merchant-card .searchable-select-btn.active{outline:none;border-color:#1671de;box-shadow:var(--focus-ring)}
 .merchant-card .logo-drop{border:1px dashed #dce2eb;border-radius:10px;background:#fff}

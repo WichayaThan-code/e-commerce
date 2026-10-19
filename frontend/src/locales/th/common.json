@@ -93,6 +93,8 @@
   },
   "back": "",
   "help": "",
+  "loading": "กำลังโหลด…",
+  "retry": "ลองใหม่",
   "catalog": {
     "errors": {
       "REQUEST_FAILED": ""

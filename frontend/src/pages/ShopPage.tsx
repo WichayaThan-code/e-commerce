@@ -1,57 +1,64 @@
-import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Grid2X2, Heart, List, MapPin, Search, ShoppingCart, Store } from "lucide-react";
-import ShopLogo from "../components/ShopLogo";
+import { useEffect, useState, type CSSProperties } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
+import { Skeleton, LoadError } from "../components/feedback/Skeleton";
+import ShopStorefront from "../components/shop/ShopStorefront";
+import type { ShopCatalogControls, ShopSortKey } from "../components/shop/sections/types";
+import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
-import recommendReference from "../assets/images/references/storefront/recommend-product.png";
-import { localizedText } from "../services/catalogText";
-import { mediaUrl, shopApi, type ProductSort, type PublicProduct, type PublicShop } from "../services/api";
-import { SHOP_PRICE_BAND_IDS, shopPriceBandsQuery, type ShopPriceBandId } from "../services/shopPriceBands";
+import { shopApi, type ProductSort, type PublicProduct, type PublicShop } from "../services/api";
+import { shopPriceBandsQuery, type ShopPriceBandId } from "../services/shopPriceBands";
+import { shopThemeFontStack } from "../theme/shopTheme";
 import "../styles/recommended-products.css";
 import "../styles/shop-page.css";
 
 type LoadState = "loading" | "error" | "ok";
-type SortKey = "featured" | "price" | "best";
 
 const PAGE_SIZE = 30;
-const ratingStars = ["★★★★", "★★★½", "★★★", "★★"] as const;
 
-function money(value: number, locale: string) {
-  const tag = locale.startsWith("en") ? "en-US" : locale.startsWith("zh") ? "zh-CN" : "th-TH";
-  const fraction = Math.round(value * 100) % 100 !== 0;
-  return `฿${new Intl.NumberFormat(tag, { minimumFractionDigits: fraction ? 2 : 0, maximumFractionDigits: 2 }).format(value)}`;
-}
-
-function amount(value: number | string | null | undefined) {
-  if (value == null || value === "") return null;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
-
-function apiSort(sort: SortKey): ProductSort {
+function apiSort(sort: ShopSortKey): ProductSort {
   return sort === "price" ? "price_asc" : "newest";
 }
 
 export default function ShopPage() {
   const { slug = "" } = useParams();
-  const { tp, localeTag } = usePublicTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { tp } = usePublicTranslation();
   const [shop, setShop] = useState<PublicShop | null>(null);
   const [products, setProducts] = useState<PublicProduct[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState<SortKey>("featured");
+  const [sort, setSort] = useState<ShopSortKey>("featured");
   const [grid, setGrid] = useState(true);
   const [brandQuery, setBrandQuery] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [priceBands, setPriceBands] = useState<ShopPriceBandId[]>([]);
+  const [categoryId, setCategoryId] = useState<number | null>(null);
   const [notice, setNotice] = useState("");
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [productState, setProductState] = useState<LoadState>("loading");
 
-  const priceRanges = tp("catalog.priceRanges", { returnObjects: true }) as unknown as string[];
-  const ratingRanges = tp("catalog.ratingRanges", { returnObjects: true }) as unknown as string[];
-  const brandTags = tp("catalog.brandTags", { returnObjects: true }) as unknown as string[];
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const shopLoading = loadState === "loading";
+  const productLoading = productState === "loading";
+  const {
+    showSkeleton: showShopSkeleton,
+    markHasData: markShopLoaded,
+    isRefetching: shopRefetching,
+  } = useDelayedLoading(shopLoading, 150, slug);
+  const {
+    showSkeleton: showProductSkeleton,
+    markHasData: markProductsLoaded,
+    isRefetching: productsRefetching,
+  } = useDelayedLoading(productLoading, 150, slug);
+
+  useEffect(() => {
+    if (loadState === "ok" && shop) markShopLoaded();
+  }, [loadState, shop, markShopLoaded]);
+
+  useEffect(() => {
+    if (productState === "ok") markProductsLoaded();
+  }, [productState, markProductsLoaded]);
 
   const notify = (message: string) => {
     setNotice(message);
@@ -63,6 +70,7 @@ export default function ShopPage() {
     page: page - 1,
     sort: apiSort(sort),
     priceBands: shopPriceBandsQuery(priceBands),
+    categoryId: categoryId ?? undefined,
   });
 
   const togglePriceBand = (band: ShopPriceBandId) => {
@@ -81,6 +89,22 @@ export default function ShopPage() {
       .catch(() => setProductState("error"));
   };
 
+  const reloadShop = () => {
+    setLoadState("loading");
+    setProductState("loading");
+    shopApi
+      .getBySlug(slug)
+      .then((data) => {
+        setShop(data);
+        setLoadState("ok");
+      })
+      .catch(() => {
+        setLoadState("error");
+        setProductState("error");
+      });
+  };
+
+  // Reload shop on every visit (location.key) so theme edits are never served from stale state.
   useEffect(() => {
     let active = true;
     setShop(null);
@@ -89,6 +113,7 @@ export default function ShopPage() {
     setPage(1);
     setSort("featured");
     setPriceBands([]);
+    setCategoryId(null);
     setLoadState("loading");
     setProductState("loading");
     shopApi
@@ -106,7 +131,7 @@ export default function ShopPage() {
     return () => {
       active = false;
     };
-  }, [slug]);
+  }, [slug, location.key]);
 
   useEffect(() => {
     if (!shop) return;
@@ -126,232 +151,115 @@ export default function ShopPage() {
     return () => {
       active = false;
     };
-  }, [shop, slug, page, sort, priceBands]);
+  }, [shop, slug, page, sort, priceBands, categoryId]);
 
-  const address = shop
-    ? [shop.address, shop.subdistrict, shop.district, shop.province, shop.postalCode].filter(Boolean).join(" ")
-    : "";
+  const catalog: ShopCatalogControls = {
+    productState,
+    showSkeleton: showProductSkeleton,
+    refetching: productsRefetching,
+    total,
+    page,
+    pageSize: PAGE_SIZE,
+    sort,
+    grid,
+    priceBands,
+    brandQuery,
+    favorites,
+    categoryId,
+    onSort: (next) => {
+      setSort(next);
+      setPage(1);
+    },
+    onGrid: setGrid,
+    onPage: setPage,
+    onTogglePriceBand: (band) => togglePriceBand(band as ShopPriceBandId),
+    onBrandQuery: setBrandQuery,
+    onCategory: (next) => {
+      setCategoryId(next);
+      setPage(1);
+      if (next != null) {
+        document.getElementById("shop-catalog")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    },
+    onToggleFavorite: (productId) => setFavorites((current) => (
+      current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId]
+    )),
+    onRetry: loadProducts,
+    onNotify: notify,
+  };
 
-  const statusLabel =
-    shop?.status === "APPROVED"
-      ? tp("shop.statusApproved")
-      : shop?.status === "REJECTED"
-        ? tp("shop.statusRejected")
-        : shop?.status === "SUSPENDED"
-          ? tp("shop.statusSuspended")
-          : tp("shop.statusPending");
+  const shopTitle = shop?.name || tp("common.shopPlaceholder");
 
-  const message = loadState === "loading" ? tp("shop.loading") : loadState === "error" ? tp("shop.loadError") : "";
+  const header = (
+    <section className="recommend-intro recommend-width shop-page-intro">
+      <div className="shop-mobile-bar">
+        <button type="button" className="shop-back" onClick={() => navigate(-1)} aria-label={tp("shop.productBack")}>
+          <ChevronLeft />
+        </button>
+        <h1 className="shop-mobile-title">{shopTitle}</h1>
+      </div>
+      <div className="shop-breadcrumb-wrap">
+        <p className="recommend-breadcrumb">
+          <Link to="/">{tp("common.home")}</Link>
+          <span>›</span>
+          <Link to="/shops">{tp("shop.breadcrumb")}</Link>
+          <span>›</span>
+          {shopTitle}
+        </p>
+        {!shop && loadState === "loading" && !showShopSkeleton && (
+          <>
+            <h1>{tp("shop.loading")}</h1>
+            <p>{tp("shop.defaultDescription")}</p>
+          </>
+        )}
+      </div>
+    </section>
+  );
+
+  const toast = notice ? (
+    <div className="recommend-toast shop-toast" role="status">
+      {notice}
+    </div>
+  ) : null;
+
+  if (shop) {
+    return (
+      <ShopStorefront shop={shop} products={products} catalog={catalog} header={header} refetching={shopRefetching}>
+        {toast}
+      </ShopStorefront>
+    );
+  }
+
+  const storefrontFont = { "--font-sans": shopThemeFontStack(undefined) } as CSSProperties;
 
   return (
-    <div className="recommend-page shop-directory">
-      <section className="recommend-intro recommend-width">
-        <div>
-          <p className="recommend-breadcrumb">
-            <Link to="/">{tp("common.home")}</Link>
-            <span>›</span>
-            <Link to="/shops">{tp("shop.breadcrumb")}</Link>
-            <span>›</span>
-            {shop?.name || tp("common.shopPlaceholder")}
-          </p>
-          {!shop && (
-            <>
-              <h1>{message}</h1>
-              <p>{tp("shop.defaultDescription")}</p>
-            </>
-          )}
-        </div>
-      </section>
+    <div className="recommend-page shop-directory shop-storefront-cq" style={storefrontFont}>
+      {header}
 
-      {shop ? (
-        <>
-          <section className="shop-hero recommend-width">
-            <img className="shop-hero-photo" src={shop.coverUrl ? mediaUrl(shop.coverUrl) : recommendReference} alt="" />
-            <div className="shop-hero-shade" />
-            <div className="shop-hero-panel">
-              <div className="shop-profile-mark">
-                <ShopLogo src={shop.logoUrl} name={shop.name} />
-              </div>
-              <div className="shop-hero-copy">
-                <span className="shop-chip">{shop.category}</span>
-                <h1>{shop.name}</h1>
-                {shop.nameEn && <p className="shop-profile-en">{shop.nameEn}</p>}
-                <p>{shop.description || tp("shop.noDescription")}</p>
-              </div>
+      {showShopSkeleton && loadState === "loading" && (
+        <section className="shop-hero recommend-width shop-hero-skeleton" aria-hidden="true">
+          <div className="shop-hero-cover">
+            <Skeleton className="shop-hero-photo" height="100%" width="100%" />
+          </div>
+          <div className="shop-hero-panel">
+            <Skeleton className="shop-profile-mark" width={72} height={72} radius={16} />
+            <div className="shop-hero-copy">
+              <Skeleton width={88} height={22} radius={999} />
+              <Skeleton width="70%" height={22} />
+              <Skeleton width="45%" height={14} />
+              <Skeleton width="90%" height={14} />
+              <Skeleton width="80%" height={14} />
             </div>
-          </section>
-          <ul className="shop-facts recommend-width">
-            <li>
-              <MapPin />
-              <span>{address || tp("common.noAddress")}</span>
-            </li>
-            <li>
-              <b>{tp("common.area")}</b>
-              <span>{[shop.district, shop.province].filter(Boolean).join(" ") || "—"}</span>
-            </li>
-            <li>
-              <b>{tp("common.status")}</b>
-              <span>{statusLabel}</span>
-            </li>
-          </ul>
-
-          <section className="recommend-catalog recommend-width shop-catalog">
-            <aside className="recommend-filters">
-              <h2>{tp("catalog.filters")}</h2>
-              <hr />
-              <h3>{tp("catalog.price")}</h3>
-              {priceRanges.map((label, index) => {
-                const band = SHOP_PRICE_BAND_IDS[index];
-                if (!band) return null;
-                return (
-                  <label key={band}>
-                    <input
-                      type="checkbox"
-                      checked={priceBands.includes(band)}
-                      onChange={() => togglePriceBand(band)}
-                    />
-                    {label}
-                  </label>
-                );
-              })}
-              <hr />
-              <h3>{tp("catalog.rating")}</h3>
-              {ratingRanges.map((text, index) => (
-                <label className="rating-filter" key={text}>
-                  <input type="checkbox" />
-                  <b>{ratingStars[index]}</b>
-                  {text}
-                </label>
-              ))}
-              <hr />
-              <h3>{tp("catalog.brands")}</h3>
-              <div className="brand-search">
-                <Search />
-                <input
-                  value={brandQuery}
-                  onChange={(event) => setBrandQuery(event.target.value)}
-                  placeholder={tp("catalog.brandSearch")}
-                />
-              </div>
-              {brandTags
-                .filter((label) => label.toLowerCase().includes(brandQuery.trim().toLowerCase()))
-                .map((label) => (
-                  <label key={label}>
-                    <input type="checkbox" />
-                    {label}
-                  </label>
-                ))}
-            </aside>
-            <div className="recommend-results">
-              <div className="recommend-tools">
-                <span>{tp("common.sortBy")}</span>
-                <select
-                  value={sort}
-                  onChange={(event) => {
-                    setSort(event.target.value as SortKey);
-                    setPage(1);
-                  }}
-                  aria-label={tp("catalog.sortAria")}
-                >
-                  <option value="featured">{tp("catalog.sortFeatured")}</option>
-                  <option value="price">{tp("catalog.sortPrice")}</option>
-                  <option value="best">{tp("catalog.sortBest")}</option>
-                </select>
-                <button className={grid ? "active" : ""} type="button" onClick={() => setGrid(true)} aria-label={tp("common.gridView")}>
-                  <Grid2X2 />
-                </button>
-                <button className={!grid ? "active" : ""} type="button" onClick={() => setGrid(false)} aria-label={tp("common.listView")}>
-                  <List />
-                </button>
-              </div>
-              {productState === "loading" && (
-                <div className="recommend-product-grid" aria-label={tp("shop.productsLoading")}>
-                  {Array.from({ length: 5 }, (_, index) => <article key={index} className="shop-product-skeleton" />)}
-                </div>
-              )}
-              {productState === "error" && (
-                <article className="shop-list-empty">
-                  <p>{tp("shop.productsError")}</p>
-                  <button type="button" onClick={loadProducts}>{tp("shop.productsRetry")}</button>
-                </article>
-              )}
-              {productState === "ok" && products.length === 0 && <article className="shop-list-empty">{tp("shop.productsEmpty")}</article>}
-              {productState === "ok" && products.length > 0 && (
-                <div className={`recommend-product-grid ${grid ? "" : "list-view"}`}>
-                  {products.map((product) => {
-                    const image = product.images.find((item) => item.primary) || product.images[0];
-                    const name = localizedText(localeTag, product.nameTh, product.nameEn, product.nameZh);
-                    const price = amount(product.basePrice ?? product.skus[0]?.price);
-                    const compare = amount(product.compareAtPrice ?? product.skus[0]?.compareAtPrice);
-                    const discount = price != null && compare != null && compare > price ? Math.round((1 - price / compare) * 100) : null;
-                    const href = `/shop/${shop.slug}/product/${product.slug}`;
-                    return (
-                      <article className="recommend-product" key={product.id}>
-                        <div className="recommend-photo">
-                          <Link to={href} aria-label={name}>
-                            {image ? <img src={mediaUrl(image.url)} alt="" /> : null}
-                          </Link>
-                          <button
-                            type="button"
-                            className={favorites.includes(product.id) ? "liked" : ""}
-                            onClick={() => setFavorites((current) => (
-                              current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id]
-                            ))}
-                            aria-label={tp("catalog.favorite")}
-                          >
-                            <Heart />
-                          </button>
-                        </div>
-                        <div className="recommend-product-info">
-                          <h2>
-                            <Link to={href}><span>{name}</span></Link>
-                          </h2>
-                          <p className="recommend-shop">
-                            <Store /> {shop.name}
-                          </p>
-                          <p className="recommend-price">
-                            <b>{price == null ? "—" : money(price, localeTag)}</b>
-                            {discount != null && compare != null && <del>{money(compare, localeTag)}</del>}
-                            {discount != null && <em>-{discount}%</em>}
-                          </p>
-                          <button type="button" onClick={() => notify(tp("shop.view.soon"))}>
-                            <ShoppingCart />
-                            {tp("recommend.addToCart")}
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-              {productState === "ok" && total > PAGE_SIZE && (
-                <nav className="shop-pagination" aria-label={tp("shop.productsPageAria")}>
-                  <button type="button" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} aria-label={tp("shops.pagePrev")}>
-                    <ChevronLeft />
-                  </button>
-                  {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => (
-                    <button type="button" className={page === number ? "current" : ""} key={number} onClick={() => setPage(number)}>
-                      {number}
-                    </button>
-                  ))}
-                  <button type="button" disabled={page >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} aria-label={tp("shops.pageNext")}>
-                    <ChevronRight />
-                  </button>
-                </nav>
-              )}
-            </div>
-          </section>
-        </>
-      ) : (
-        <section className="recommend-width">
-          <article className="shop-list-empty">{message}</article>
+          </div>
         </section>
       )}
-      {notice && (
-        <div className="recommend-toast" role="status">
-          {notice}
-        </div>
+
+      {loadState === "error" && (
+        <section className="recommend-width">
+          <LoadError message={tp("shop.loadError")} onRetry={reloadShop} retryLabel={tp("shop.productsRetry")} />
+        </section>
       )}
+      {toast}
     </div>
   );
 }

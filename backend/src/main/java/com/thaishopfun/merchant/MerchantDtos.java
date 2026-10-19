@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public final class MerchantDtos {
@@ -62,8 +63,19 @@ public final class MerchantDtos {
         Long shopId,
         String name,String nameEn,String nameZh,String description,String descriptionEn,String descriptionZh,String category,
         String address,String province,String district,String subdistrict,String postalCode,
-        String slug,String path,ShopStatus status,String logoUrl,String coverUrl
+        String slug,String path,ShopStatus status,String logoUrl,String coverUrl,
+        List<ShopHour> openingHours,
+        ShopThemeResponse theme,
+        Instant createdAt,
+        Long productCount
     ){}
+    public record PublicShopCategoryResponse(Long id, String nameTh, String nameEn, String nameZh, long productCount) {}
+    public record ShopThemeResponse(String templateKey, Map<String, Object> config) {}
+    public record ShopThemeUpdateRequest(
+        @NotBlank String templateKey,
+        @NotNull Map<String, Object> config
+    ) {}
+    public record ShopThemePresetResponse(String templateKey, Map<String, Object> config) {}
     public record AdminDocumentResponse(UUID id,String type,String label,String filename,long fileSize){}
     public record AdminStoreApplicationResponse(
         Long shopId,String shopName,String ownerName,String phone,String email,

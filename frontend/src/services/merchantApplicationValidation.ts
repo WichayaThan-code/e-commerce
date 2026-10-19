@@ -32,6 +32,29 @@ export function citizenIdDigits(value: string) {
   return value.replace(/\D/g, '')
 }
 
+/** Thai national ID display: x-xxxx-xxxxx-xx-x (max 13 digits). */
+export function formatCitizenId(value: string) {
+  const digits = citizenIdDigits(value).slice(0, 13)
+  if (digits.length <= 1) return digits
+  if (digits.length <= 5) return `${digits.slice(0, 1)}-${digits.slice(1)}`
+  if (digits.length <= 10) return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5)}`
+  if (digits.length <= 12) return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10)}`
+  return `${digits.slice(0, 1)}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits.slice(12)}`
+}
+
+/** Thai mobile display: xxx-xxx-xxxx (max 10 digits). */
+export function formatPhoneNumber(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 10)
+  if (digits.length <= 3) return digits
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`
+}
+
+export function digitsOnly(value: string, maxLength?: number) {
+  const digits = value.replace(/\D/g, '')
+  return typeof maxLength === 'number' ? digits.slice(0, maxLength) : digits
+}
+
 export function citizenIdChecksumOk(value: string) {
   const digits = citizenIdDigits(value)
   if (digits.length !== 13) return false
@@ -98,7 +121,7 @@ export function validateOwner(input: OwnerDraft): FieldErrors {
   if (!input.subdistrict.trim()) errors.subdistrict = text('validation.subdistrict')
   if (!/^[0-9]{5}$/.test(input.postalCode.trim())) errors.postalCode = text('validation.postalCode')
   if (!input.bankName.trim()) errors.bankName = text('validation.bankName')
-  if (!/^[0-9]{8,20}$/.test(input.bankAccountNumber.trim())) errors.bankAccountNumber = text('validation.bankAccountNumber')
+  if (!/^[0-9]{8,20}$/.test(input.bankAccountNumber.replace(/\D/g, ''))) errors.bankAccountNumber = text('validation.bankAccountNumber')
   if (!input.bankAccountName.trim()) errors.bankAccountName = text('validation.bankAccountName')
   return errors
 }

@@ -1,0 +1,86 @@
+/* CATALOG LARGE (fashion) — photo-first cards; FEATURED LARGE uses rail sizing below */
+.shop-catalog-large .shop-products-large,
+.shop-products-large{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--shop-gap,16px);
+}
+.shop-catalog-large .recommend-product.is-catalog,
+.shop-products-large .recommend-product.is-catalog{
+  display:flex;flex-direction:column;
+  border:1px solid var(--shop-card-border,var(--shop-border));
+  border-radius:var(--shop-radius,4px);overflow:hidden;background:var(--shop-card-bg,var(--shop-bg));
+  box-shadow:var(--shop-card-shadow,none);
+}
+.shop-catalog-large .recommend-photo,
+.shop-products-large .recommend-photo{
+  aspect-ratio:3/4;background:var(--shop-surface);border-radius:0;
+}
+.shop-catalog-large .shop-mall-badge,
+.shop-products-large .shop-mall-badge{
+  background:transparent;color:var(--shop-text);border:1px solid var(--shop-text);
+  border-radius:0;font-weight:500;letter-spacing:.04em;text-transform:uppercase;font-size:10px;
+}
+.shop-catalog-large .recommend-product-info,
+.shop-products-large .recommend-product-info{
+  display:flex;flex-direction:column;flex:1;padding:12px 4px 4px;gap:6px;
+}
+.shop-catalog-large .recommend-product-info h2,
+.shop-products-large .recommend-product-info h2{
+  margin:0;font-size:13px;line-height:1.4;min-height:0;font-weight:400;color:var(--shop-text);
+}
+.shop-catalog-large .recommend-shop,
+.shop-products-large .recommend-shop{display:none}
+.shop-catalog-large .shop-price-catalog,
+.shop-products-large .shop-price-catalog{margin-top:auto}
+.shop-catalog-large .shop-price-catalog b,
+.shop-products-large .shop-price-catalog b{
+  font-size:15px;font-weight:500;color:var(--shop-text);font-family:var(--font-mono),ui-monospace,monospace;
+}
+.shop-catalog-large .shop-cart-btn,
+.shop-products-large .shop-cart-btn{
+  border-radius:var(--shop-btn-radius,4px);margin-top:8px;
+}
+
+/* FEATURED LARGE — keep horizontal rail; larger cards (~4 desktop / ~1.6 mobile) */
+.shop-featured-large .shop-featured-rail{display:block}
+.shop-featured-large .recommend-product.is-featured-row,
+.shop-featured-large .recommend-product.is-featured-large{
+  flex:0 0 calc((100% - 36px) / 4);min-width:180px;
+  border-radius:var(--shop-radius,4px);
+  border-color:var(--shop-card-border,var(--shop-border));
+  box-shadow:var(--shop-card-shadow,none);
+}
+.shop-featured-large .recommend-photo{aspect-ratio:3/4}
+.shop-featured-large .recommend-product-info h2{font-weight:400;font-size:14px;min-height:0}
+.shop-featured-large .shop-price-featured b{font-weight:500;color:var(--shop-text)}
+.shop-featured-large .shop-featured-more{flex-basis:160px;border-radius:var(--shop-radius,4px)}
+.shop-featured-large .shop-featured-skeleton,
+.shop-featured-skeleton-large{flex:0 0 calc((100% - 36px) / 4);min-width:180px}
+
+@container shop (min-width:768px) and (max-width:1023px){
+  .shop-catalog-large .shop-products-large,
+  .shop-products-large{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shop-featured-large .recommend-product.is-featured-row,
+  .shop-featured-large .recommend-product.is-featured-large,
+  .shop-featured-large .shop-featured-skeleton,
+  .shop-featured-skeleton-large{flex-basis:calc((100% - 24px) / 3);min-width:160px}
+}
+
+@container shop (max-width:767px){
+  .shop-catalog-large .shop-products-large,
+  .shop-products-large{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .shop-catalog-large .recommend-product-info,
+  .shop-products-large .recommend-product-info{padding:8px 2px 2px}
+  .shop-catalog-large .shop-cart-btn,
+  .shop-products-large .shop-cart-btn{
+    position:static;width:100%;height:auto;min-height:36px;border-radius:var(--shop-btn-radius,4px);padding:0 10px;
+  }
+  .shop-catalog-large .shop-cart-label,
+  .shop-products-large .shop-cart-label{display:inline}
+  .shop-catalog-large .recommend-product-info,
+  .shop-products-large .recommend-product-info{position:static;padding-bottom:4px}
+  .shop-featured-large .recommend-product.is-featured-row,
+  .shop-featured-large .recommend-product.is-featured-large,
+  .shop-featured-large .shop-featured-skeleton,
+  .shop-featured-skeleton-large{flex:0 0 62.5%;min-width:0}
+  .shop-featured-large .shop-featured-more{flex-basis:42%}
+}

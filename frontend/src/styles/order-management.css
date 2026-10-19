@@ -36,7 +36,7 @@
   background: none;
   color: #58769e;
   font:
-    600 13px "Noto Sans Thai",
+    600 13px var(--font-sans),
     sans-serif;
   padding: 0 18px;
   position: relative;
@@ -88,7 +88,7 @@
   width: 100%;
   padding: 0 12px;
   font:
-    500 13px "Noto Sans Thai",
+    500 13px var(--font-sans),
     sans-serif;
   color: #08245d;
 }
@@ -107,7 +107,7 @@
   padding: 0 10px;
   color: #08245d;
   font:
-    500 12px "Noto Sans Thai",
+    500 12px var(--font-sans),
     sans-serif;
 }
 .om-filters > div {
@@ -124,7 +124,7 @@
   background: #fff;
   color: #087bf5;
   font:
-    700 14px "Noto Sans Thai",
+    700 14px var(--font-sans),
     sans-serif;
 }
 .om-filters button.primary {
@@ -249,8 +249,8 @@
 }
 .om-pill.paid,
 .om-pill.delivered {
-  background: #e1faef;
-  color: #04a56a;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 .om-pill.pending,
 .om-pill.waiting {
@@ -263,7 +263,7 @@
 }
 .om-pill.cancelled {
   background: #ffe5eb;
-  color: #ed2850;
+  color: var(--color-danger);
 }
 .om-row-actions {
   display: flex;

@@ -42,7 +42,7 @@
   padding: 0 55px 0 18px;
   color: #24466f;
   font:
-    16px "Noto Sans Thai",
+    16px var(--font-sans),
     sans-serif;
 }
 .help-hero > form button {

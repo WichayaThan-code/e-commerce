@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Skeleton, SkeletonText, LoadError } from "../components/feedback/Skeleton";
+import { useDelayedLoading } from "../hooks/useDelayedLoading";
+import { shopThemeFontStack } from "../theme/shopThemeFonts";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, ShoppingCart, Store, Truck, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -67,6 +70,8 @@ export default function ShopProductPage() {
   const [productTotal, setProductTotal] = useState<number | null>(null);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [state, setState] = useState<"loading" | "error" | "missing" | "ok">("loading");
+  const pageLoading = state === "loading";
+  const { showSkeleton, markHasData, isRefetching } = useDelayedLoading(pageLoading, 150, `${slug}/${productSlug}`);
   const [active, setActive] = useState(0);
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [qty, setQty] = useState(1);
@@ -104,6 +109,10 @@ export default function ShopProductPage() {
   };
 
   useEffect(() => { load(); }, [slug, productSlug]);
+
+  useEffect(() => {
+    if (state === "ok" && product) markHasData();
+  }, [state, product, markHasData]);
 
   const notify = (text: string) => {
     setToast(text);
@@ -226,8 +235,10 @@ export default function ShopProductPage() {
     return own === value && sku.available > 0 && skuMatches(sku, groups, picked, group.key);
   });
 
+  const storefrontFont = { "--font-sans": shopThemeFontStack(undefined) } as CSSProperties;
+
   return (
-    <div className="recommend-page shop-directory buyer-product">
+    <div className="recommend-page shop-directory buyer-product" style={storefrontFont}>
       <section className="recommend-intro recommend-width">
         <p className="recommend-breadcrumb">
           <Link to="/">{tp("common.home")}</Link>
@@ -236,22 +247,26 @@ export default function ShopProductPage() {
           {name ? <><span>›</span><b>{name}</b></> : null}
         </p>
       </section>
-      {state === "loading" && (
+      {showSkeleton && pageLoading && !product && (
         <section className="recommend-width buyer-skeleton" aria-label={tp("shop.productLoading")}>
-          <div /><div /><div />
+          <article className="buyer-card buyer-hero">
+            <Skeleton className="buyer-main" height={360} width="100%" radius={8} />
+            <div>
+              <SkeletonText lines={2} />
+              <Skeleton height={40} width="55%" />
+              <Skeleton height={120} width="100%" />
+            </div>
+          </article>
         </section>
       )}
       {state === "missing" && <section className="recommend-width"><article className="shop-list-empty">{tp("shop.productMissing")}</article></section>}
       {state === "error" && (
         <section className="recommend-width">
-          <article className="shop-list-empty">
-            <p>{tp("shop.productError")}</p>
-            <button type="button" onClick={load}>{tp("shop.productsRetry")}</button>
-          </article>
+          <LoadError message={tp("shop.productError")} onRetry={load} retryLabel={tp("shop.productsRetry")} />
         </section>
       )}
-      {state === "ok" && product && (
-        <div className="recommend-width">
+      {product && (state === "ok" || isRefetching) && (
+        <div className={`recommend-width ${isRefetching ? "skeleton-busy is-refetching" : ""}`}>
           <article className="buyer-card buyer-hero">
             <div className="buyer-gallery">
               <div className="buyer-stage">
@@ -293,8 +308,8 @@ export default function ShopProductPage() {
             <div className="buyer-info">
               <h1>{name}</h1>
               <div className="buyer-price">
-                <b>{currentPrice != null ? money(currentPrice, localeTag) : low != null && high != null && low !== high ? `${money(low, localeTag)} – ${money(high, localeTag)}` : low != null ? money(low, localeTag) : "—"}</b>
-                {discount > 0 && compare != null ? <><s>{money(compare, localeTag)}</s><em>{tp("shop.view.discount", { percent: discount })}</em></> : null}
+                <b className="num">{currentPrice != null ? money(currentPrice, localeTag) : low != null && high != null && low !== high ? `${money(low, localeTag)} – ${money(high, localeTag)}` : low != null ? money(low, localeTag) : "—"}</b>
+                {discount > 0 && compare != null ? <><s className="num">{money(compare, localeTag)}</s><em className="num">{tp("shop.view.discount", { percent: discount })}</em></> : null}
               </div>
               <dl>
                 <div><dt>{tp("shop.view.shipping")}</dt><dd><Truck />{tp("shop.view.shippingNote")}</dd></div>
@@ -320,7 +335,7 @@ export default function ShopProductPage() {
                   <dd className="buyer-qty">
                     <div>
                       <button type="button" aria-label="-" disabled={!ready || qty <= 1} onClick={() => setQty((value) => Math.max(1, value - 1))}><Minus /></button>
-                      <input inputMode="numeric" value={ready ? qty : 0} onChange={(event) => {
+                      <input className="num" inputMode="numeric" value={ready ? qty : 0} onChange={(event) => {
                         const next = Number(event.target.value);
                         if (!Number.isFinite(next)) return;
                         setQty(Math.min(stock, Math.max(1, Math.trunc(next))));
@@ -348,7 +363,7 @@ export default function ShopProductPage() {
               </div>
               {stats.length > 0 && (
                 <dl className="buyer-shop-stats" style={{ "--shop-stats": stats.length } as CSSProperties}>
-                  {stats.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+                  {stats.map(([label, value]) => <div key={label}><dt>{label}</dt><dd className={/^\d/.test(value) ? "num" : undefined}>{value}</dd></div>)}
                 </dl>
               )}
             </section>
@@ -357,7 +372,7 @@ export default function ShopProductPage() {
             <h2>{tp("shop.view.specs")}</h2>
             <dl>
               {category ? <div><dt>{tp("shop.view.category")}</dt><dd>{labelForCategory(category, lang)}</dd></div> : null}
-              {selectedSku ? <div><dt>{tp("shop.view.sku")}</dt><dd>{selectedSku.skuCode}</dd></div> : null}
+              {selectedSku ? <div><dt>{tp("shop.view.sku")}</dt><dd className="num">{selectedSku.skuCode}</dd></div> : null}
               {product.brand ? <div><dt>{tp("shop.productBrand")}</dt><dd>{product.brand}</dd></div> : null}
             </dl>
             {description ? <><h2>{tp("shop.view.details")}</h2><p>{description}</p></> : null}
@@ -374,7 +389,7 @@ export default function ShopProductPage() {
                     <Link key={item.id} to={`/shop/${slug}/product/${item.slug}`}>
                       {photo ? <img src={mediaUrl(photo.url)} alt="" /> : <span />}
                       <b>{title}</b>
-                      {price != null ? <strong>{money(price, localeTag)}</strong> : null}
+                      {price != null ? <strong className="num">{money(price, localeTag)}</strong> : null}
                     </Link>
                   );
                 })}

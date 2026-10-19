@@ -1,0 +1,48 @@
+:root {
+  --font-sans: "IBM Plex Sans Thai", "Noto Sans Thai", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-success: #0F7A4D;
+  --color-success-bg: #E6F4EC;
+  --color-warning: #A75B08;
+  --color-warning-bg: #FDF1E3;
+  --color-danger: #B3261E;
+  --color-danger-bg: #FBEAE8;
+
+  --focus-ring: 0 0 0 3px rgba(29, 91, 204, .35);
+
+  --skeleton-base: #eef1f5;
+  --skeleton-shine: #f7f9fc;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-sans);
+}
+
+.num,
+.mono,
+code {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+:is(input, select, textarea, button, a, [role="button"], [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

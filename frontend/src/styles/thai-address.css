@@ -19,7 +19,7 @@
 
 .searchable-select-wrap .select-label em {
   font-style: normal;
-  color: #ff3955;
+  color: var(--color-danger);
 }
 
 .searchable-select-btn {
@@ -56,7 +56,7 @@
 
 .searchable-select-btn.active {
   border-color: #0878f5;
-  box-shadow: 0 0 0 3px rgba(8, 120, 245, 0.1);
+  box-shadow: var(--focus-ring);
 }
 
 .searchable-select-btn.active svg {
@@ -221,5 +221,5 @@
 
 .searchable-select-wrap .select-label{font-weight:600;font-size:13px;margin-bottom:8px;color:#132b50}
 .searchable-select-btn{height:51px;margin-top:0;border:1px solid #dce2eb;border-radius:10px;background:#fff;color:#132b50;font-size:14px}
-.searchable-select-btn:focus,.searchable-select-wrap.open .searchable-select-btn{outline:none;border-color:#1671de;box-shadow:0 0 3px #1671de16}
+.searchable-select-btn:focus,.searchable-select-wrap.open .searchable-select-btn{outline:none;border-color:#1671de;box-shadow:var(--focus-ring)}
 @media(max-width:760px){.address-grid,.owner-address-grid .address-grid{grid-template-columns:1fr}}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
-  ArrowLeft, ArrowRight, Building2, CalendarDays, Check, CheckCircle2,
+  ArrowLeft, ArrowRight, Building2, Check, CheckCircle2,
   Headphones, IdCard, Lightbulb, Mail, Phone, UserRound,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -12,11 +12,21 @@ import SearchableSelect from '../components/SearchableSelect'
 import ThaiAddressFields, { emptyThaiAddress, type ThaiAddressValue } from '../components/ThaiAddressFields'
 import { merchantApi, type DocumentType, type MerchantOwner } from '../services/api'
 import { showApiFailure } from '../services/apiErrors'
+import DatePicker from '../components/form/DatePicker'
 import FormField from '../components/form/FormField'
 import FormGrid from '../components/form/FormGrid'
 import { SHOP_IMAGE_ACCEPT } from '../services/shopImage'
 import { readMerchantDraft, rememberDocumentName, writeMerchantDraft, type OwnerDraft } from '../services/merchantDraft'
-import { documentFileError, focusFirstInvalid, mergeFieldError, ownerPayload, validateOwner } from '../services/merchantApplicationValidation'
+import {
+  digitsOnly,
+  documentFileError,
+  focusFirstInvalid,
+  formatCitizenId,
+  formatPhoneNumber,
+  mergeFieldError,
+  ownerPayload,
+  validateOwner,
+} from '../services/merchantApplicationValidation'
 import i18n from '../i18n'
 import '../styles/owner-info.css'
 import '../styles/form-fields.css'
@@ -100,10 +110,10 @@ export default function OwnerInfoPage() {
   const [title, setTitle] = useState(saved?.title || o.titles[0])
   const [firstName, setFirstName] = useState(saved?.firstName || user?.firstName || '')
   const [lastName, setLastName] = useState(saved?.lastName || user?.lastName || '')
-  const [citizenId, setCitizenId] = useState(saved?.citizenId || '')
+  const [citizenId, setCitizenId] = useState(formatCitizenId(saved?.citizenId || ''))
   const [birthDate, setBirthDate] = useState(saved?.birthDate || '')
   const [nationality, setNationality] = useState(saved?.nationality || o.nationalities[0])
-  const [phone, setPhone] = useState(saved?.phone || user?.phone || '')
+  const [phone, setPhone] = useState(formatPhoneNumber(saved?.phone || user?.phone || ''))
   const [email, setEmail] = useState(saved?.email || (user?.email === 'admin' ? '' : user?.email || ''))
   const [houseNo, setHouseNo] = useState(saved?.houseNo || '')
   const [villageNo, setVillageNo] = useState(saved?.villageNo || '')
@@ -115,7 +125,7 @@ export default function OwnerInfoPage() {
     ? { province: saved.province, district: saved.district, subdistrict: saved.subdistrict, postalCode: saved.postalCode }
     : sameAddress ? shopAddress(user?.id) : emptyThaiAddress)
   const [bankName, setBankName] = useState(saved?.bankName || '')
-  const [bankAccountNumber, setBankAccountNumber] = useState(saved?.bankAccountNumber || '')
+  const [bankAccountNumber, setBankAccountNumber] = useState(digitsOnly(saved?.bankAccountNumber || '', 20))
   const [bankAccountName, setBankAccountName] = useState(saved?.bankAccountName || '')
   const [message, setMessage] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -157,7 +167,7 @@ export default function OwnerInfoPage() {
     if (!user || saved?.firstName) return
     setFirstName((current) => current || user.firstName || '')
     setLastName((current) => current || user.lastName || '')
-    setPhone((current) => current || user.phone || '')
+    setPhone((current) => current || formatPhoneNumber(user.phone || ''))
     setEmail((current) => current || (user.email === 'admin' ? '' : user.email || ''))
   }, [user])
 
@@ -256,16 +266,46 @@ export default function OwnerInfoPage() {
                     <input name="lastName" value={lastName} autoComplete="family-name" aria-invalid={Boolean(fieldErrors.lastName)} onChange={(e) => setLastName(e.target.value)} onBlur={() => blurOwner('lastName')} />
                   </FormField>
                   <FormField className="flush" label={<>{o.citizenId} <em>*</em></>} icon={IdCard} error={fieldErrors.citizenId}>
-                    <input name="citizenId" inputMode="numeric" placeholder={o.citizenPh} value={citizenId} aria-invalid={Boolean(fieldErrors.citizenId)} onChange={(e) => setCitizenId(e.target.value)} onBlur={() => blurOwner('citizenId')} />
+                    <input
+                      name="citizenId"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      maxLength={17}
+                      placeholder={o.citizenPh}
+                      value={citizenId}
+                      aria-invalid={Boolean(fieldErrors.citizenId)}
+                      onChange={(e) => setCitizenId(formatCitizenId(e.target.value))}
+                      onBlur={() => blurOwner('citizenId')}
+                    />
                   </FormField>
-                  <FormField className="flush" label={<>{o.birthDate} <em>*</em></>} icon={CalendarDays} error={fieldErrors.birthDate}>
-                    <input name="birthDate" type="date" value={birthDate} aria-invalid={Boolean(fieldErrors.birthDate)} onChange={(e) => setBirthDate(e.target.value)} onBlur={() => blurOwner('birthDate')} />
-                  </FormField>
+                  <DatePicker
+                    className="flush"
+                    field="birthDate"
+                    name="birthDate"
+                    label={o.birthDate}
+                    required
+                    value={birthDate}
+                    max={new Date().toISOString().slice(0, 10)}
+                    error={fieldErrors.birthDate}
+                    onChange={setBirthDate}
+                    onBlur={() => blurOwner('birthDate')}
+                  />
                   <SearchableSelect field="nationality" error={fieldErrors.nationality} onBlur={() => blurOwner('nationality')} label={o.nationality} required options={[...o.nationalities]} value={nationality} onChange={setNationality} />
                 </div>
                 <FormGrid>
                   <FormField className="flush" label={<>{o.phone} <em>*</em></>} icon={Phone} error={fieldErrors.phone}>
-                    <input name="phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} aria-invalid={Boolean(fieldErrors.phone)} onChange={(e) => setPhone(e.target.value)} onBlur={() => blurOwner('phone')} />
+                    <input
+                      name="phone"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      maxLength={12}
+                      placeholder="0xx-xxx-xxxx"
+                      value={phone}
+                      aria-invalid={Boolean(fieldErrors.phone)}
+                      onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
+                      onBlur={() => blurOwner('phone')}
+                    />
                   </FormField>
                   <FormField className="flush" label={<>{o.email} <em>*</em></>} icon={Mail} error={fieldErrors.email}>
                     <input name="email" type="email" autoComplete="email" value={email} aria-invalid={Boolean(fieldErrors.email)} onChange={(e) => setEmail(e.target.value)} onBlur={() => blurOwner('email')} />
@@ -313,7 +353,17 @@ export default function OwnerInfoPage() {
                 <div className="owner-payout-grid">
                   <SearchableSelect field="bankName" error={fieldErrors.bankName} onBlur={() => blurOwner('bankName')} label={o.bank} required placeholder={o.bankPh} options={[...o.banks]} value={bankName} onChange={setBankName} />
                   <FormField className="flush" label={<>{o.accountNo} <em>*</em></>} error={fieldErrors.bankAccountNumber}>
-                    <input name="bankAccountNumber" inputMode="numeric" placeholder={o.accountNoPh} value={bankAccountNumber} aria-invalid={Boolean(fieldErrors.bankAccountNumber)} onChange={(e) => setBankAccountNumber(e.target.value)} onBlur={() => blurOwner('bankAccountNumber')} />
+                    <input
+                      name="bankAccountNumber"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      maxLength={20}
+                      placeholder={o.accountNoPh}
+                      value={bankAccountNumber}
+                      aria-invalid={Boolean(fieldErrors.bankAccountNumber)}
+                      onChange={(e) => setBankAccountNumber(digitsOnly(e.target.value, 20))}
+                      onBlur={() => blurOwner('bankAccountNumber')}
+                    />
                   </FormField>
                   <FormField className="flush wide" label={<>{o.accountName} <em>*</em></>} error={fieldErrors.bankAccountName}>
                     <input name="bankAccountName" placeholder={o.accountNamePh} value={bankAccountName} aria-invalid={Boolean(fieldErrors.bankAccountName)} onChange={(e) => setBankAccountName(e.target.value)} onBlur={() => blurOwner('bankAccountName')} />

@@ -56,7 +56,7 @@
   padding: 0 18px;
   color: #58739d;
   font:
-    600 12px "Noto Sans Thai",
+    600 12px var(--font-sans),
     sans-serif;
   position: relative;
 }
@@ -98,7 +98,7 @@
   width: 100%;
   padding: 0 12px;
   font:
-    500 12px "Noto Sans Thai",
+    500 12px var(--font-sans),
     sans-serif;
 }
 .cm-filters > label:not(.cm-search) {
@@ -117,7 +117,7 @@
   padding: 0 10px;
   color: #08245d;
   font:
-    500 11px "Noto Sans Thai",
+    500 11px var(--font-sans),
     sans-serif;
 }
 .cm-filters label > button {
@@ -283,12 +283,12 @@
   color: #596d89;
 }
 .cm-status.on {
-  background: #e1faef;
-  color: #04a56a;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 .cm-status.off {
   background: #ffe5eb;
-  color: #ed2850;
+  color: var(--color-danger);
 }
 .cm-empty {
   height: 140px;
@@ -513,7 +513,7 @@
   background: #fff;
   color: #087bf5;
   font:
-    700 11px "Noto Sans Thai",
+    700 11px var(--font-sans),
     sans-serif;
   display: flex;
   align-items: center;

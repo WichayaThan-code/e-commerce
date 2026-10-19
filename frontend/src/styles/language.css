@@ -9,7 +9,7 @@
   border-radius: 12px;
   background: #fff;
   color: #0b3270;
-  font: 700 12px 'Noto Sans Thai', sans-serif;
+  font: 700 12px var(--font-sans), sans-serif;
   letter-spacing: .03em;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(8, 36, 93, .05);
@@ -47,7 +47,7 @@
   background: none;
   padding: 0 8px;
   color: #0b3270;
-  font: 700 12px 'Noto Sans Thai', sans-serif;
+  font: 700 12px var(--font-sans), sans-serif;
   cursor: pointer;
 }
 .lang-menu button small { margin-left: auto; font-weight: 600; color: #6681aa; }

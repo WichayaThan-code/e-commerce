@@ -93,6 +93,8 @@
   },
   "back": "",
   "help": "",
+  "loading": "加载中…",
+  "retry": "重试",
   "catalog": {
     "errors": {
       "REQUEST_FAILED": ""

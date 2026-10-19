@@ -3,7 +3,9 @@ import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
 import { Boxes, Check, LoaderCircle, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { SkeletonForm, LoadError } from "../components/feedback/Skeleton";
 import ConfirmDialog from "../components/form/ConfirmDialog";
+import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { FieldError } from "../components/form/FormField";
 import ToggleSwitch from "../components/form/ToggleSwitch";
 import SearchableSelect from "../components/SearchableSelect";
@@ -67,6 +69,12 @@ export default function ProductFormPage() {
   if (!fallbackStem.current) fallbackStem.current = randomStem();
   const codeStem = englishStem(draft.nameEn) || fallbackStem.current;
   const blocker = useBlocker(({ currentLocation, nextLocation }) => !skipBlock.current && dirty && currentLocation.pathname !== nextLocation.pathname);
+  const formLoading = editing && loading;
+  const { showSkeleton, markHasData } = useDelayedLoading(formLoading, 150, productId);
+
+  useEffect(() => {
+    if (editing && !loading && !error) markHasData();
+  }, [editing, loading, error, markHasData]);
 
   useEffect(() => {
     catalogApi.categories().then(setCategories).catch(() => setCategories([]));
@@ -251,7 +259,6 @@ export default function ProductFormPage() {
   };
 
   const heading = editing ? t("catalog.form.editTitle") : t("catalog.form.newTitle");
-  const skeleton = useMemo(() => Array.from({ length: 4 }, (_, index) => <span key={index} />), []);
 
   if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
     return (
@@ -274,12 +281,13 @@ export default function ProductFormPage() {
         </div>
         <Link to="/merchant/products">{t("catalog.actions.back")}</Link>
       </header>
-      {loading ? <div className="pm-skeleton-list">{skeleton}</div> : error ? (
-        <div className="pm-state">
-          <p>{catalogMessage(t, error)}</p>
-          <button type="button" onClick={() => window.location.reload()}>{t("catalog.actions.retry")}</button>
-        </div>
-      ) : shopId == null ? null : (
+      {showSkeleton && formLoading ? <SkeletonForm fields={8} /> : error && editing ? (
+        <LoadError
+          message={catalogMessage(t, error)}
+          onRetry={() => window.location.reload()}
+          retryLabel={t("catalog.actions.retry")}
+        />
+      ) : shopId == null ? null : (!editing || !loading) ? (
         <form className="product-form-card" onSubmit={(event) => { event.preventDefault(); void save(false); }}>
           {errors.form ? <p className="form-field-error">{t(`catalog.errors.${errors.form}`)}</p> : null}
           <h3>{t("catalog.form.general")}</h3>
@@ -400,17 +408,17 @@ export default function ProductFormPage() {
           <div className="merchant-two">
             <label>
               <span className="pm-lang-label">{t("catalog.form.price")} <em>*</em></span>
-              <input inputMode="decimal" value={draft.basePrice} aria-invalid={Boolean(errors.basePrice)} onChange={(event) => setDraft({ ...draft, basePrice: event.target.value })} />
+              <input className="num" inputMode="decimal" value={draft.basePrice} aria-invalid={Boolean(errors.basePrice)} onChange={(event) => setDraft({ ...draft, basePrice: event.target.value })} />
               <FieldError text={fieldError("basePrice")} />
             </label>
             <label>
               <span className="pm-lang-label">{t("catalog.form.compare")}</span>
-              <input inputMode="decimal" value={draft.compareAtPrice} aria-invalid={Boolean(errors.compareAtPrice)} onChange={(event) => setDraft({ ...draft, compareAtPrice: event.target.value })} />
+              <input className="num" inputMode="decimal" value={draft.compareAtPrice} aria-invalid={Boolean(errors.compareAtPrice)} onChange={(event) => setDraft({ ...draft, compareAtPrice: event.target.value })} />
               <FieldError text={fieldError("compareAtPrice")} />
             </label>
             <label>
               <span className="pm-lang-label">{t("catalog.form.weight")}</span>
-              <input inputMode="numeric" value={draft.weightGrams} aria-invalid={Boolean(errors.weightGrams)} onChange={(event) => setDraft({ ...draft, weightGrams: event.target.value })} />
+              <input className="num" inputMode="numeric" value={draft.weightGrams} aria-invalid={Boolean(errors.weightGrams)} onChange={(event) => setDraft({ ...draft, weightGrams: event.target.value })} />
               <FieldError text={fieldError("weightGrams")} />
             </label>
           </div>
@@ -460,27 +468,27 @@ export default function ProductFormPage() {
                     return (
                       <tr key={sku.clientKey}>
                         <td>
-                          <input aria-label={named(t("catalog.form.sku"))} value={sku.skuCode} aria-invalid={Boolean(errors[`skus[${index}].skuCode`])} onChange={(event) => setSku(index, { skuCode: event.target.value })} />
+                          <input className="num" aria-label={named(t("catalog.form.sku"))} value={sku.skuCode} aria-invalid={Boolean(errors[`skus[${index}].skuCode`])} onChange={(event) => setSku(index, { skuCode: event.target.value })} />
                           <FieldError text={fieldError(`skus[${index}].skuCode`)} />
                         </td>
                         <td>
-                          <input inputMode="decimal" aria-label={named(t("catalog.form.price"))} value={sku.price} aria-invalid={Boolean(errors[`skus[${index}].price`])} onChange={(event) => setSku(index, { price: event.target.value })} />
+                          <input className="num" inputMode="decimal" aria-label={named(t("catalog.form.price"))} value={sku.price} aria-invalid={Boolean(errors[`skus[${index}].price`])} onChange={(event) => setSku(index, { price: event.target.value })} />
                           <FieldError text={fieldError(`skus[${index}].price`)} />
                         </td>
                         <td>
-                          <input inputMode="decimal" aria-label={named(t("catalog.form.compare"))} value={sku.compareAtPrice} aria-invalid={Boolean(errors[`skus[${index}].compareAtPrice`])} onChange={(event) => setSku(index, { compareAtPrice: event.target.value })} />
+                          <input className="num" inputMode="decimal" aria-label={named(t("catalog.form.compare"))} value={sku.compareAtPrice} aria-invalid={Boolean(errors[`skus[${index}].compareAtPrice`])} onChange={(event) => setSku(index, { compareAtPrice: event.target.value })} />
                           <FieldError text={fieldError(`skus[${index}].compareAtPrice`)} />
                         </td>
                         <td>
                           {sku.id ? <p className="product-stock-note">{t("catalog.form.currentStock")}: {sku.initialStock}</p> : (
                             <>
-                              <input inputMode="numeric" aria-label={named(t("catalog.form.stock"))} value={sku.initialStock} aria-invalid={Boolean(errors[`skus[${index}].initialStock`])} onChange={(event) => setSku(index, { initialStock: event.target.value })} />
+                              <input className="num" inputMode="numeric" aria-label={named(t("catalog.form.stock"))} value={sku.initialStock} aria-invalid={Boolean(errors[`skus[${index}].initialStock`])} onChange={(event) => setSku(index, { initialStock: event.target.value })} />
                               <FieldError text={fieldError(`skus[${index}].initialStock`)} />
                             </>
                           )}
                         </td>
                         <td>
-                          <input inputMode="numeric" aria-label={named(t("catalog.form.safetyStock"))} value={sku.safetyStock} aria-invalid={Boolean(errors[`skus[${index}].safetyStock`])} onChange={(event) => setSku(index, { safetyStock: event.target.value })} />
+                          <input className="num" inputMode="numeric" aria-label={named(t("catalog.form.safetyStock"))} value={sku.safetyStock} aria-invalid={Boolean(errors[`skus[${index}].safetyStock`])} onChange={(event) => setSku(index, { safetyStock: event.target.value })} />
                           <FieldError text={fieldError(`skus[${index}].safetyStock`)} />
                         </td>
                         <td>
@@ -515,7 +523,7 @@ export default function ProductFormPage() {
             <button type="button" className="primary" disabled={Boolean(saving)} onClick={() => void save(true)}>{saving === "publish" ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.savePublish")}</button>
           </div>
         </form>
-      )}
+      ) : null}
       {stockConfirm != null && (
         <ConfirmDialog
           title={t("catalog.variants.confirmStockTitle")}

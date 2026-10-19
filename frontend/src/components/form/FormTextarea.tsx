@@ -9,11 +9,11 @@ type FormTextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & {
   errorId?: string;
 };
 
-export default function FormTextarea({ label, icon, error, errorId, id, ...props }: FormTextareaProps) {
+export default function FormTextarea({ label, icon, error, errorId, id, rows = 3, ...props }: FormTextareaProps) {
   const describedBy = [props["aria-describedby"], error && errorId ? errorId : ""].filter(Boolean).join(" ") || undefined;
   return (
-    <FormField label={label} icon={icon} error={error} errorId={errorId}>
-      <textarea id={id} aria-invalid={Boolean(error)} aria-describedby={describedBy} {...props} />
+    <FormField label={label} icon={icon} error={error} errorId={errorId} multiline>
+      <textarea id={id} rows={rows} aria-invalid={Boolean(error)} aria-describedby={describedBy} {...props} />
     </FormField>
   );
 }

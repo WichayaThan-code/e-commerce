@@ -113,12 +113,27 @@ export type MerchantOwner = {
 }
 export type TranslationMeta = { origin: 'MACHINE' | 'HUMAN' | 'MANUAL'; status: 'PENDING' | 'DONE' | 'FAILED' }
 
+export type ThemeColors = { primary:string; secondary:string; background:string; text:string; accent?:string }
+export type ThemeStyle = { radius:number; cardStyle:'FLAT'|'BORDERED'|'SHADOW'; density:'COMPACT'|'COMFORTABLE'; buttonShape:'ROUNDED'|'PILL'|'SQUARE' }
+export type ThemeHero = { layout:'FULL'|'STRIP'; title:string; subtitle:string; ctaLabel:string; ctaLink:string }
+export type SectionConfig = { key:'HERO'|'BANNERS'|'CATEGORIES'|'TRUST'|'INTRO'|'FEATURED'|'BESTSELLERS'|'NEW_ARRIVALS'|'CATALOG'|'HOURS'; enabled:boolean; variant:'FULL'|'STRIP'|'GRID'|'LARGE'|'MENU'|null }
+export type ThemeBanner = { imageUrl:string; title?:string; link?:string }
+export type ThemeTrustItem = { icon:string; label:string; enabled:boolean }
+export type ThemeTrust = { enabled:boolean; items:ThemeTrustItem[] }
+export type ThemeConfig = { colors:ThemeColors; font:string; style?:ThemeStyle; hero:ThemeHero; banners?:ThemeBanner[]; trust?:ThemeTrust; sections:SectionConfig[] }
+export type ShopTheme = { templateKey:'GENERAL'|'FASHION'|'FOOD_BEVERAGE'; config:ThemeConfig }
+
 export type PublicShop = {
   name:string;nameEn?:string;nameZh?:string;description?:string;descriptionEn?:string;descriptionZh?:string;category:string
   address:string;province:string;district:string;subdistrict:string;postalCode:string
   slug:string;path:string;status:'PENDING_REVIEW'|'APPROVED'|'REJECTED'|'SUSPENDED';logoUrl?:string|null;coverUrl?:string|null
   shopId:number
+  openingHours?: ShopHour[]
+  theme?: ShopTheme | null
+  createdAt?: string | null
+  productCount?: number | null
 }
+export type PublicShopCategory = { id:number; nameTh:string; nameEn?:string|null; nameZh?:string|null; productCount:number }
 export type AdminDocument = { id:string; type:DocumentType; label:string; filename:string; fileSize:number }
 export type AdminStoreApplication = {
   shopId:number; shopName:string; ownerName:string; phone:string; email:string
@@ -176,6 +191,9 @@ export const merchantApi = {
   saveHours: (days: ShopHour[], shopId?:number|null) => request<MerchantSettings>(withShop('/api/merchant/settings/hours', shopId), { method: 'PUT', body: JSON.stringify({ days }) }, true),
   uploadCover: (file: File, shopId?:number|null) => { const body = new FormData(); body.append('file', file); return request<MerchantSettings>(withShop('/api/merchant/settings/cover', shopId), { method: 'POST', body }, true) },
   uploadLogo: (file: File, shopId?:number|null) => { const body = new FormData(); body.append('file', file); return request<MerchantSettings>(withShop('/api/merchant/settings/logo', shopId), { method: 'POST', body }, true) },
+  getTheme: (shopId?:number|null) => request<ShopTheme>(withShop('/api/merchant/settings/theme', shopId), {}, true),
+  saveTheme: (payload: ShopTheme, shopId?:number|null) => request<ShopTheme>(withShop('/api/merchant/settings/theme', shopId), { method: 'PUT', body: JSON.stringify(payload) }, true),
+  getThemePresets: (shopId?:number|null) => request<ShopTheme[]>(withShop('/api/merchant/settings/theme/presets', shopId), {}, true),
   openAnotherShop: (ownerId:string) => request<MerchantApplication>(`/api/merchant/shops?ownerId=${ownerId}`, { method: 'POST' }, true),
   reinstatement: (shopId:number) => request<ReinstatementRequest>(`/api/merchant/reinstatement?shopId=${shopId}`, {}, true),
   submitReinstatement: (shopId:number, message:string) => request<ReinstatementRequest>(`/api/merchant/reinstatement?shopId=${shopId}`, { method: 'POST', body: JSON.stringify({ message }) }, true),
@@ -288,7 +306,8 @@ export const catalogApi = {
 
 export const shopApi = {
   list: () => request<PublicShop[]>('/api/shops'),
-  getBySlug: (slug:string) => request<PublicShop>(`/api/shops/${encodeURIComponent(slug)}`),
+  getBySlug: (slug:string) => request<PublicShop>(`/api/shops/${encodeURIComponent(slug)}`, { cache: 'no-store' }),
+  categories: (slug:string) => request<PublicShopCategory[]>(`/api/shops/${encodeURIComponent(slug)}/categories`, { cache: 'no-store' }),
   products: (slug:string, query: Pick<ProductListQuery, 'q' | 'categoryId' | 'sort' | 'page' | 'size' | 'priceBands'> = {}) => request<ProductPage<PublicProduct>>(`/api/shops/${encodeURIComponent(slug)}/products${productQuery(query)}`),
   product: (slug:string, productSlug:string) => request<PublicProduct>(`/api/shops/${encodeURIComponent(slug)}/products/${encodeURIComponent(productSlug)}`),
 }

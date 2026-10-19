@@ -684,5 +684,164 @@
     "stepDocuments": "Required documents are missing. Go back and upload them before submitting",
     "goFix": "Fix this step",
     "checking": "Checking..."
+  },
+  "storeTheme": {
+    "tab": "Shop theme",
+    "title": "Storefront theme",
+    "lead": "Pick a template, then tune colors, font and the order of sections customers see.",
+    "unsaved": "Unsaved changes",
+    "saved": "Shop theme saved",
+    "resetDone": "Reset to the template defaults (not saved yet)",
+    "loadError": "Could not load the shop theme",
+    "retry": "Retry",
+    "templates": {
+      "title": "Template",
+      "GENERAL": {
+        "name": "General",
+        "desc": "The standard storefront for any kind of shop"
+      },
+      "FASHION": {
+        "name": "Fashion",
+        "desc": "Large product images and an elegant palette"
+      },
+      "FOOD_BEVERAGE": {
+        "name": "Food & beverage",
+        "desc": "Opening hours and menu-style product rows"
+      }
+    },
+    "media": {
+      "title": "Logo and cover image",
+      "hint": "Uploads are saved immediately; no need to save the theme."
+    },
+    "colors": {
+      "title": "Shop colors",
+      "primary": "Primary",
+      "secondary": "Secondary",
+      "background": "Background",
+      "text": "Text",
+      "contrastWarn": "Some color pairs do not meet WCAG AA contrast (4.5:1). Text on background, buttons, or the strip header may be hard to read."
+    },
+    "style": {
+      "title": "Look and density",
+      "radius": "Corner radius",
+      "cardStyle": "Card style",
+      "density": "Spacing",
+      "buttonShape": "Button shape",
+      "card": {
+        "FLAT": "Flat",
+        "BORDERED": "Bordered",
+        "SHADOW": "Soft shadow"
+      },
+      "densityOpts": {
+        "COMPACT": "Compact",
+        "COMFORTABLE": "Comfortable"
+      },
+      "button": {
+        "ROUNDED": "Rounded",
+        "PILL": "Pill",
+        "SQUARE": "Square"
+      }
+    },
+    "font": {
+      "title": "Font",
+      "label": "Storefront font",
+      "sample": "The quick brown fox · ThaiShopFun 0123456789",
+      "NOTO_SANS_THAI": "Noto Sans Thai",
+      "NOTO_SERIF_THAI": "Noto Serif Thai",
+      "PROMPT": "Prompt",
+      "MITR": "Mitr",
+      "IBM_PLEX_SANS_THAI": "IBM Plex Sans Thai"
+    },
+    "hero": {
+      "title": "Shop header",
+      "layout": "Header layout",
+      "heroTitle": "Title",
+      "subtitle": "Subtitle",
+      "ctaLabel": "Button label",
+      "ctaLink": "Button link",
+      "ctaHint": "The link must be a path on this site (e.g. /shops) or an https:// URL. Leave empty for no button."
+    },
+    "variants": {
+      "FULL": "Full",
+      "STRIP": "Strip",
+      "GRID": "Grid",
+      "LARGE": "Large cards",
+      "MENU": "Menu rows"
+    },
+    "sections": {
+      "title": "Storefront sections",
+      "hint": "Drag to reorder or use the arrow buttons. Turn each section on or off.",
+      "HERO": "Shop header",
+      "BANNERS": "Promo banners",
+      "CATEGORIES": "Category tiles",
+      "TRUST": "Trust bar",
+      "INTRO": "Shop info",
+      "FEATURED": "Featured products",
+      "BESTSELLERS": "Best sellers",
+      "NEW_ARRIVALS": "New arrivals",
+      "CATALOG": "All products",
+      "HOURS": "Opening hours",
+      "bannersTitle": "Banner images",
+      "bannersHint": "Add https or site-path image URLs. Leave empty to hide the banner section on the storefront.",
+      "bannerImage": "Image URL",
+      "bannerTitle": "Caption",
+      "bannerLink": "Link",
+      "bannerAdd": "Add banner",
+      "bannerRemove": "Remove",
+      "trustTitle": "Trust bar items",
+      "trustEnabled": "Show trust bar",
+      "trustLabel": "Label",
+      "trustIcon": "Icon",
+      "trustIcons": {
+        "AUTHENTIC": "Authentic",
+        "FAST_SHIP": "Fast shipping",
+        "RETURNS": "Returns",
+        "SECURE_PAY": "Secure pay",
+        "CUSTOM": "Custom"
+      },
+      "variant": "Layout",
+      "on": "Shown",
+      "off": "Hidden",
+      "moveUp": "Move up",
+      "moveDown": "Move down"
+    },
+    "preview": {
+      "title": "Storefront preview",
+      "devices": "Preview device",
+      "mobile": "Mobile",
+      "tablet": "Tablet",
+      "desktop": "Desktop",
+      "hint": "Previewing at {{width}}px using the theme you are editing",
+      "shopName": "Shop name"
+    },
+    "actions": {
+      "save": "Save theme",
+      "saving": "Saving...",
+      "reset": "Reset template"
+    },
+    "confirm": {
+      "cancel": "Cancel",
+      "template": {
+        "title": "Change template?",
+        "message": "Changing the template replaces your colors, font, header and section order with the new template's defaults.",
+        "confirm": "Change template"
+      },
+      "reset": {
+        "title": "Reset template?",
+        "message": "All your adjustments go back to this template's defaults (not saved until you save the theme).",
+        "confirm": "Reset"
+      },
+      "leave": {
+        "title": "Leave without saving?",
+        "message": "You have unsaved theme changes. If you leave now they will be lost.",
+        "confirm": "Leave without saving",
+        "stay": "Stay"
+      }
+    },
+    "errors": {
+      "hex": "Enter a 6-digit color such as #087bf5",
+      "validation": "Please check the highlighted fields",
+      "save": "Could not save the theme. Please try again."
+    }
   }
 }

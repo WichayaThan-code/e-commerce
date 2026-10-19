@@ -111,11 +111,11 @@ public class PromotionService {
             params.put("types", typeFilter);
         }
         if (q != null && !q.isBlank()) {
-            where.append(" and (lower(p.name) like :q escape '!' or exists (select c from Coupon c where c.promotionId = p.id and lower(c.code) like :q escape '!'))");
+            where.append(" and (lower(p.name) like :q escape '!' or exists (select c from MerchantCoupon c where c.promotionId = p.id and lower(c.code) like :q escape '!'))");
             params.put("q", "%" + likeEscape(q.trim().toLowerCase(Locale.ROOT)) + "%");
         }
-        var count = entities.createQuery("select count(p) from Promotion p" + where, Long.class);
-        var query = entities.createQuery("select p from Promotion p" + where + " order by p.createdDateTime desc, p.id", Promotion.class);
+        var count = entities.createQuery("select count(p) from MerchantPromotion p" + where, Long.class);
+        var query = entities.createQuery("select p from MerchantPromotion p" + where + " order by p.createdDateTime desc, p.id", Promotion.class);
         params.forEach((key, value) -> { count.setParameter(key, value); query.setParameter(key, value); });
         var total = count.getSingleResult();
         var rows = query.setFirstResult(pageNo * pageSize).setMaxResults(pageSize).getResultList();
@@ -201,7 +201,7 @@ public class PromotionService {
             .orElseThrow(PromotionService::shopNotFound);
         var now = Instant.now(clock);
         var rows = entities.createQuery(
-                "select p from Promotion p where p.shopId = :shopId and p.active = true and p.publicVisible = true"
+                "select p from MerchantPromotion p where p.shopId = :shopId and p.active = true and p.publicVisible = true"
                     + " and p.startsAt <= :now and (p.endsAt is null or p.endsAt > :now)"
                     + " order by case when p.endsAt is null then 1 else 0 end, p.endsAt asc, p.createdDateTime desc",
                 Promotion.class)

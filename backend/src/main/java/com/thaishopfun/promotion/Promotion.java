@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /** Shop-wide promotion (V1 table promotions + V27 is_public). One coupon code per promotion through the merchant API. */
-@Entity
+@Entity(name = "MerchantPromotion")
 @Table(name = "promotions")
 public class Promotion extends AuditedEntity {
     @Id private UUID id;
@@ -25,6 +25,7 @@ public class Promotion extends AuditedEntity {
     @Column(name = "is_active", nullable = false) private boolean active = true;
     @Column(name = "usage_limit_total") private Integer usageLimitTotal;
     @Column(name = "usage_limit_per_buyer") private Integer usageLimitPerBuyer;
+    @org.hibernate.annotations.ColumnDefault("true")
     @Column(name = "is_public", nullable = false) private boolean publicVisible = true;
 
     protected Promotion() {}

@@ -6,7 +6,7 @@ import jakarta.persistence.*;
 import java.util.UUID;
 
 /** Coupon code of a promotion (V1 table coupons, UNIQUE (shop_id, code)). Codes are stored upper-case. */
-@Entity
+@Entity(name = "MerchantCoupon")
 @Table(name = "coupons", uniqueConstraints = @UniqueConstraint(name = "uq_coupons_shop_id_code", columnNames = {"shop_id", "code"}))
 public class Coupon extends AuditedEntity {
     @Id private UUID id;

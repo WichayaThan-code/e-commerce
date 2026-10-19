@@ -11,7 +11,7 @@ import java.util.UUID;
  * Read-only view of V1 promotion_usages (written by checkout later — coupon redemption is not implemented yet).
  * Used for the merchant usage counters and to block deleting a promotion that was already used.
  */
-@Entity
+@Entity(name = "MerchantPromotionUsage")
 @Immutable
 @Table(name = "promotion_usages")
 public class PromotionUsage {

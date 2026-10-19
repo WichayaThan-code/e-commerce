@@ -35,9 +35,10 @@ public class MerchantOrderController {
                                                                @RequestParam(required = false) Integer page,
                                                                @RequestParam(required = false) Integer size,
                                                                @RequestParam(required = false) String sort,
-                                                               @RequestParam(required = false) String direction) {
+                                                               @RequestParam(required = false) String direction,
+                                                               @RequestParam(required = false) String acceptance) {
         return queries.list(actor(jwt, shopId), null,
-            new OrderQueryService.Filters(status, paymentStatus, fulfillmentStatus, from, to, q, page, size, sort, direction));
+            new OrderQueryService.Filters(status, paymentStatus, fulfillmentStatus, from, to, q, page, size, sort, direction, acceptance));
     }
 
     @RequireShopPermission("ORDER_READ")
@@ -64,6 +65,20 @@ public class MerchantOrderController {
     public OrderDtos.TransitionResponse markPaid(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID orderId,
                                                  @RequestBody(required = false) OrderDtos.TransitionRequest request) {
         return act(jwt, shopId, orderId, OrderTransitionService.Action.MARK_PAID, request);
+    }
+
+    /**
+     * Accept the order (merchant_confirmed_at). Until then the shop sees only id / number / created time. Allowed from
+     * PENDING_PAYMENT (status unchanged; a later payment confirm goes straight to MERCHANT_CONFIRMED), from
+     * PAID_AWAITING_MERCHANT_CONFIRM (→ MERCHANT_CONFIRMED, same as /confirm) and from REFUND_REQUESTED / CANCELLED /
+     * REFUNDED (status unchanged, so a refund owed can be settled). Repeating it returns changed=false.
+     * body: optional reason (note), expectedVersion. No ORDER_ACCEPT code in the seed; ORDER_UPDATE is used.
+     */
+    @RequireShopPermission("ORDER_UPDATE")
+    @PostMapping("/{orderId}/accept")
+    public OrderDtos.TransitionResponse accept(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID orderId,
+                                               @RequestBody(required = false) OrderDtos.TransitionRequest request) {
+        return act(jwt, shopId, orderId, OrderTransitionService.Action.ACCEPT, request);
     }
 
     /** No ORDER_CONFIRM code in the seed; ORDER_UPDATE is used. */

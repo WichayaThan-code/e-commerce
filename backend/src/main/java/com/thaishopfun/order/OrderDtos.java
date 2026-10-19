@@ -43,9 +43,13 @@ public final class OrderDtos {
     public record AllowedTransition(String toStatus, String action, boolean reasonRequired, boolean trackingRequired) {}
 
     // ---- responses ----
+    /**
+     * awaitingAcceptance = true (merchant view, order not accepted yet): only id, orderNumber, shop, placedAt and version
+     * are filled; status / money / counts / paidAt are null (MerchantVisibility).
+     */
     public record OrderSummary(UUID id, String orderNumber, Long shopId, String shopName, String status, String paymentStatus,
-                               String fulfillmentStatus, BigDecimal grandTotal, String currency, int itemCount, int totalQuantity,
-                               Instant placedAt, Instant paidAt, int version) {}
+                               String fulfillmentStatus, BigDecimal grandTotal, String currency, Integer itemCount, Integer totalQuantity,
+                               Instant placedAt, Instant paidAt, int version, boolean awaitingAcceptance) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record OrderDetail(
@@ -56,10 +60,12 @@ public final class OrderDtos {
         String buyerNote, UUID buyerUserId, UUID shopCustomerId, String cancelReason, String statusBeforeRefund,
         Instant placedAt, Instant paidAt, Instant merchantConfirmedAt, Instant cancelledAt, Instant completedAt,
         int version, List<Item> items, List<String> allowedTransitions,
-        /* true = seller has not confirmed yet: line items are withheld (V1 design), counts below still shown */
-        boolean itemsHidden, int itemCount, int totalQuantity,
+        /* true = merchant view of an order the shop has not accepted: items (and everything else) withheld */
+        boolean itemsHidden, Integer itemCount, Integer totalQuantity,
         /* money summary: captured payment, refunded with proof, still refundable */
-        BigDecimal paidAmount, BigDecimal refundedAmount, BigDecimal refundableAmount
+        BigDecimal paidAmount, BigDecimal refundedAmount, BigDecimal refundableAmount,
+        /* merchant views only: true = not accepted yet (only id / orderNumber / placedAt / version shown; POST …/accept) */
+        Boolean awaitingAcceptance
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

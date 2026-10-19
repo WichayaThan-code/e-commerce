@@ -125,7 +125,7 @@ class OrderIntegrationTests {
     }
 
     private void wipeOrders() {
-        for (var t : List.of("order_item_reveal_logs", "order_financial_snapshots", "refund_status_history", "payment_status_history",
+        for (var t : List.of("merchant_order_confirmations", "order_item_reveal_logs", "order_financial_snapshots", "refund_status_history", "payment_status_history",
                 "payment_webhook_events", "payment_proofs", "refunds", "payments", "media_files", "shop_payment_gateways",
                 "order_status_history", "inventory_reservations",
                 "promotion_usages", "order_items", "order_addresses")) jdbc.update("DELETE FROM " + t);
@@ -254,25 +254,35 @@ class OrderIntegrationTests {
         jdbc.update("UPDATE product_skus SET price = 999 WHERE id = ?", UUID.fromString(blkS));
         call(get("/api/orders/" + id), buyer).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].unitPrice").value(200.0));
         var mo = base(shop) + "/orders/" + id;
-        // V1 rule: items hidden from the shop until it confirms the order
+        // owner rule: before accepting, the shop sees only id / number / created time
         call(get(mo), shop.token).andExpect(status().isOk())
+            .andExpect(jsonPath("$.awaitingAcceptance").value(true))
             .andExpect(jsonPath("$.itemsHidden").value(true))
-            .andExpect(jsonPath("$.itemCount").value(1))
-            .andExpect(jsonPath("$.shippingAddress.masked").value(true));
+            .andExpect(jsonPath("$.itemCount").doesNotExist())
+            .andExpect(jsonPath("$.grandTotal").doesNotExist())
+            .andExpect(jsonPath("$.shippingAddress").doesNotExist());
+        call(post(mo + "/mark-paid"), shop.token, "{\"amount\":450}").andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ORDER_NOT_ACCEPTED"));
+        call(post(mo + "/accept"), shop.token, "{}").andExpect(status().isOk())
+            .andExpect(jsonPath("$.changed").value(true))
+            .andExpect(jsonPath("$.order.status").value("PENDING_PAYMENT"))
+            .andExpect(jsonPath("$.order.awaitingAcceptance").value(false))
+            .andExpect(jsonPath("$.order.items[0].costPrice").value(80.0));
+        // shipping before payment -> 409 with allowed list
+        call(post(mo + "/ship"), shop.token, "{\"carrierCode\":\"KERRY\",\"trackingNumber\":\"K1\"}").andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"))
+            .andExpect(jsonPath("$.from").value("PENDING_PAYMENT"))
+            .andExpect(jsonPath("$.to").value("DISPATCHED"))
+            .andExpect(jsonPath("$.allowed").isArray());
 
-        // mark paid: amount must match
+        // mark paid: amount must match; accepted before payment -> straight to MERCHANT_CONFIRMED
         call(post(mo + "/mark-paid"), shop.token, "{\"amount\":1}").andExpect(status().isBadRequest());
         call(post(mo + "/mark-paid"), shop.token, "{\"amount\":450,\"paymentReference\":\"REF-1\"}").andExpect(status().isOk())
             .andExpect(jsonPath("$.changed").value(true))
-            .andExpect(jsonPath("$.order.status").value("PAID_AWAITING_MERCHANT_CONFIRM"))
+            .andExpect(jsonPath("$.order.status").value("MERCHANT_CONFIRMED"))
             .andExpect(jsonPath("$.order.paymentStatus").value("PAID"));
-        // skipping confirm -> 409 with allowed list
-        call(post(mo + "/ship"), shop.token, "{\"carrierCode\":\"KERRY\",\"trackingNumber\":\"K1\"}").andExpect(status().isConflict())
-            .andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"))
-            .andExpect(jsonPath("$.from").value("PAID_AWAITING_MERCHANT_CONFIRM"))
-            .andExpect(jsonPath("$.to").value("DISPATCHED"))
-            .andExpect(jsonPath("$.allowed").isArray());
-        call(post(mo + "/confirm"), shop.token, "{}").andExpect(status().isOk()).andExpect(jsonPath("$.order.status").value("MERCHANT_CONFIRMED"));
+        call(post(mo + "/confirm"), shop.token, "{}").andExpect(status().isOk()).andExpect(jsonPath("$.changed").value(false))
+            .andExpect(jsonPath("$.order.status").value("MERCHANT_CONFIRMED"));
         call(get(mo), shop.token).andExpect(jsonPath("$.shippingAddress.masked").value(false))
             .andExpect(jsonPath("$.itemsHidden").value(false))
             .andExpect(jsonPath("$.items[0].costPrice").value(80.0))
@@ -294,7 +304,12 @@ class OrderIntegrationTests {
             .andExpect(jsonPath("$.allowed.length()").value(0));
         var timeline = call(get(mo + "/timeline"), shop.token).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         List<String> to = JsonPath.read(timeline, "$[*].toStatus");
-        assertEquals(List.of("PENDING_PAYMENT", "PAID_AWAITING_MERCHANT_CONFIRM", "MERCHANT_CONFIRMED", "PACKED", "DISPATCHED", "DELIVERED", "COMPLETED"), to);
+        assertEquals(List.of("PENDING_PAYMENT", "PENDING_PAYMENT", "PAID_AWAITING_MERCHANT_CONFIRM", "MERCHANT_CONFIRMED", "PACKED", "DISPATCHED", "DELIVERED", "COMPLETED"), to);
+        List<String> events = JsonPath.read(timeline, "$[*].event");
+        assertEquals("ORDER_ACCEPTED", events.get(1));
+        assertEquals("AUTO_CONFIRMED_ACCEPTED_BEFORE_PAYMENT", events.get(3));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM merchant_order_confirmations WHERE action = 'CONFIRM'", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM order_item_reveal_logs", Integer.class));
         List<String> actors = JsonPath.read(timeline, "$[*].actorType");
         assertEquals("BUYER", actors.get(actors.size() - 1));
         // buyer timeline hides staff ids
@@ -329,6 +344,7 @@ class OrderIntegrationTests {
         // buyer cannot cancel after payment
         add(buyer, blkS, 1);
         String id2 = JsonPath.read(checkout(buyer, "cancel-key-02").andReturn().getResponse().getContentAsString(), "$.orders[0].id");
+        call(post(base(shop) + "/orders/" + id2 + "/accept"), shop.token, "{}").andExpect(status().isOk());
         call(post(base(shop) + "/orders/" + id2 + "/mark-paid"), shop.token, "{}").andExpect(status().isOk());
         call(post("/api/orders/" + id2 + "/cancel"), buyer, "{\"reason\":\"x\"}").andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"));
@@ -352,14 +368,15 @@ class OrderIntegrationTests {
         add(buyer, blkS, 1);
         String a = JsonPath.read(checkout(buyer, "refund-key-a").andReturn().getResponse().getContentAsString(), "$.orders[0].id");
         var ma = base(shop) + "/orders/" + a;
+        call(post(ma + "/accept"), shop.token, "{}").andExpect(status().isOk());
         call(post(ma + "/mark-paid"), shop.token, "{}").andExpect(status().isOk());
         call(post("/api/orders/" + a + "/refund-request"), buyer, "{}").andExpect(status().isBadRequest());
         call(post("/api/orders/" + a + "/refund-request"), buyer, "{\"reason\":\"ไม่ได้ใช้\"}").andExpect(status().isOk())
             .andExpect(jsonPath("$.order.status").value("REFUND_REQUESTED"))
-            .andExpect(jsonPath("$.order.statusBeforeRefund").value("PAID_AWAITING_MERCHANT_CONFIRM"));
+            .andExpect(jsonPath("$.order.statusBeforeRefund").value("MERCHANT_CONFIRMED"));
         call(post(ma + "/refund/reject"), shop.token, "{}").andExpect(status().isBadRequest());
         call(post(ma + "/refund/reject"), shop.token, "{\"reason\":\"ส่งแล้ว\"}").andExpect(status().isOk())
-            .andExpect(jsonPath("$.order.status").value("PAID_AWAITING_MERCHANT_CONFIRM"))
+            .andExpect(jsonPath("$.order.status").value("MERCHANT_CONFIRMED"))
             .andExpect(jsonPath("$.order.paymentStatus").value("PAID"));
         assertArrayEquals(new int[]{5, 1}, level(blkS));
         call(post("/api/orders/" + a + "/refund-request"), buyer, "{\"reason\":\"อีกครั้ง\"}").andExpect(status().isOk());
@@ -375,6 +392,7 @@ class OrderIntegrationTests {
         add(buyer, blkS, 2);
         String b = JsonPath.read(checkout(buyer, "refund-key-b").andReturn().getResponse().getContentAsString(), "$.orders[0].id");
         var mb = base(shop) + "/orders/" + b;
+        call(post(mb + "/accept"), shop.token, "{}").andExpect(status().isOk());
         call(post(mb + "/mark-paid"), shop.token, "{}").andExpect(status().isOk());
         call(post(mb + "/confirm"), shop.token, "{}").andExpect(status().isOk());
         call(post(mb + "/ship"), shop.token, "{\"carrierCode\":\"TH\",\"trackingNumber\":\"EX1\"}").andExpect(status().isOk());
@@ -413,8 +431,11 @@ class OrderIntegrationTests {
         call(get(mo), viewer).andExpect(status().isOk());
         call(post(mo + "/mark-paid"), viewer, "{}").andExpect(status().isForbidden());
         call(post(mo + "/cancel"), viewer, "{\"reason\":\"x\"}").andExpect(status().isForbidden());
-        // no state change happened
-        call(get(mo), shopA.token).andExpect(jsonPath("$.status").value("PENDING_PAYMENT"));
+        // no state change happened (shop has not accepted: status itself is withheld from the shop)
+        call(get(mo), shopA.token).andExpect(jsonPath("$.awaitingAcceptance").value(true)).andExpect(jsonPath("$.status").doesNotExist());
+        call(post(mo + "/accept"), viewer, "{}").andExpect(status().isForbidden());
+        call(post(base(shopB) + "/orders/" + id + "/accept"), shopB.token, "{}").andExpect(status().isNotFound());
+        call(get("/api/orders/" + id), buyer).andExpect(jsonPath("$.status").value("PENDING_PAYMENT"));
         // admin: needs reason, can move any order along the table
         var admin = adminToken();
         call(get("/api/admin/orders"), admin).andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(1));
@@ -468,17 +489,19 @@ class OrderIntegrationTests {
         String id = JsonPath.read(created, "$.orders[0].id");
         int version = JsonPath.read(created, "$.orders[0].version");
         var mo = base(shop) + "/orders/" + id;
-        call(post(mo + "/mark-paid"), shop.token, "{\"expectedVersion\":%d}".formatted(version + 7)).andExpect(status().isConflict())
+        call(post(mo + "/accept"), shop.token, "{\"expectedVersion\":%d}".formatted(version + 7)).andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("ORDER_VERSION_CONFLICT"));
-        call(post(mo + "/mark-paid"), shop.token, "{\"expectedVersion\":%d}".formatted(version)).andExpect(status().isOk());
-        call(post(mo + "/confirm"), shop.token, "{\"expectedVersion\":%d}".formatted(version)).andExpect(status().isConflict());
+        call(post(mo + "/accept"), shop.token, "{\"expectedVersion\":%d}".formatted(version)).andExpect(status().isOk());
+        call(post(mo + "/mark-paid"), shop.token, "{\"expectedVersion\":%d}".formatted(version)).andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ORDER_VERSION_CONFLICT"));
+        call(post(mo + "/mark-paid"), shop.token, "{}").andExpect(status().isOk()).andExpect(jsonPath("$.order.status").value("MERCHANT_CONFIRMED"));
 
         // two staff racing on the same version: exactly one wins, the other gets ORDER_VERSION_CONFLICT
         int current = JsonPath.read(call(get(mo), shop.token).andReturn().getResponse().getContentAsString(), "$.version");
         var pool = Executors.newFixedThreadPool(2);
         var go = new CountDownLatch(1);
-        var body = "{\"expectedVersion\":%d,\"reason\":\"race\"}".formatted(current);
-        var f1 = pool.submit(() -> { go.await(); return call(post(mo + "/confirm"), shop.token, body).andReturn().getResponse().getStatus(); });
+        var body = "{\"expectedVersion\":%d,\"reason\":\"race\",\"status\":\"PACKED\"}".formatted(current);
+        var f1 = pool.submit(() -> { go.await(); return call(post(mo + "/process"), shop.token, body).andReturn().getResponse().getStatus(); });
         var f2 = pool.submit(() -> { go.await(); return call(post(mo + "/cancel"), shop.token, body).andReturn().getResponse().getStatus(); });
         go.countDown();
         var codes = List.of(f1.get(60, TimeUnit.SECONDS), f2.get(60, TimeUnit.SECONDS));
@@ -487,9 +510,10 @@ class OrderIntegrationTests {
         assertEquals(1, codes.stream().filter(c -> c == 409).count(), "codes " + codes);
         // same action twice without a version: second is an idempotent no-op, no duplicate history
         var status = (String) JsonPath.read(call(get(mo), shop.token).andReturn().getResponse().getContentAsString(), "$.status");
-        if (status.equals("MERCHANT_CONFIRMED")) call(post(mo + "/confirm"), shop.token, "{}").andExpect(jsonPath("$.changed").value(false));
+        if (status.equals("PACKED")) call(post(mo + "/process"), shop.token, "{\"status\":\"PACKED\"}").andExpect(jsonPath("$.changed").value(false));
         else call(post(mo + "/cancel"), shop.token, "{\"reason\":\"x\"}").andExpect(jsonPath("$.changed").value(false));
-        assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM order_status_history WHERE order_id = ?", Integer.class, UUID.fromString(id)));
+        // placed, accepted, paid, auto-confirmed, race winner
+        assertEquals(5, jdbc.queryForObject("SELECT COUNT(*) FROM order_status_history WHERE order_id = ?", Integer.class, UUID.fromString(id)));
     }
 
     @Test
@@ -532,7 +556,7 @@ class OrderIntegrationTests {
         assertEquals(0, system.expireUnpaid(Duration.ofHours(24)));
         call(get("/api/orders/" + old), buyer).andExpect(jsonPath("$.status").value("CANCELLED"));
         call(get("/api/orders/" + fresh), buyer).andExpect(jsonPath("$.status").value("PENDING_PAYMENT"));
-        var tl = call(get(base(shop) + "/orders/" + old + "/timeline"), shop.token).andReturn().getResponse().getContentAsString();
+        var tl = call(get("/api/orders/" + old + "/timeline"), buyer).andReturn().getResponse().getContentAsString();
         assertEquals(List.of("SYSTEM"), JsonPath.read(tl, "$[?(@.toStatus == 'CANCELLED')].actorType"));
         assertArrayEquals(new int[]{5, 1}, level(blkS));
         // checkout only links an existing CRM record; it never creates one

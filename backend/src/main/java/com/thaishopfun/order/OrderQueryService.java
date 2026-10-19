@@ -34,8 +34,17 @@ public class OrderQueryService {
     private static final Map<String, String> SORTS = Map.of(
         "placedAt", "placedAt", "grandTotal", "grandTotal", "orderNumber", "orderNumber", "status", "status", "paidAt", "paidAt");
 
+    /** acceptance (merchant list only): AWAITING = not accepted yet, ACCEPTED = accepted; null = both. */
     public record Filters(String status, String paymentStatus, String fulfillmentStatus, String from, String to, String q,
-                          Integer page, Integer size, String sort, String direction) {}
+                          Integer page, Integer size, String sort, String direction, String acceptance) {
+        public Filters(String status, String paymentStatus, String fulfillmentStatus, String from, String to, String q,
+                       Integer page, Integer size, String sort, String direction) {
+            this(status, paymentStatus, fulfillmentStatus, from, to, q, page, size, sort, direction, null);
+        }
+    }
+
+    /** Sort keys that would order orders by hidden data; for merchants they apply to accepted orders only. */
+    private static final java.util.Set<String> HIDDEN_SORTS = java.util.Set.of("grandTotal", "status", "paidAt");
 
     private final OrderRepository orders;
     private final OrderStatusHistoryRepository history;
@@ -76,11 +85,22 @@ public class OrderQueryService {
         if (page < 0) violations.add(new FieldViolation("page", "MIN", "page ต้องไม่ติดลบ"));
         if (size < 1 || size > MAX_PAGE_SIZE) violations.add(new FieldViolation("size", "RANGE", "size ต้องอยู่ระหว่าง 1 ถึง " + MAX_PAGE_SIZE));
         if (from != null && to != null && from.isAfter(to)) violations.add(new FieldViolation("from", "RANGE", "วันที่เริ่มต้องไม่เกินวันที่สิ้นสุด"));
+        String acceptance = f.acceptance() == null || f.acceptance().isBlank() ? null : f.acceptance().trim().toUpperCase();
+        if (acceptance != null && !acceptance.equals("AWAITING") && !acceptance.equals("ACCEPTED")) {
+            violations.add(new FieldViolation("acceptance", "INVALID", "acceptance ต้องเป็น AWAITING หรือ ACCEPTED"));
+        }
+        boolean merchant = actor.type() == OrderActorType.MERCHANT;
+        boolean hiddenSort = merchant && HIDDEN_SORTS.contains(sortKey);
         if (!violations.isEmpty()) throw new ValidationException(violations);
 
         var q = f.q() == null || f.q().isBlank() ? null : f.q().trim().toLowerCase();
         Specification<Order> spec = (root, query, cb) -> {
             var predicates = new ArrayList<Predicate>();
+            var acceptedAt = root.<Instant>get("merchantConfirmedAt");
+            if ("AWAITING".equals(acceptance)) predicates.add(cb.isNull(acceptedAt));
+            if ("ACCEPTED".equals(acceptance)) predicates.add(cb.isNotNull(acceptedAt));
+            // merchants: filters on hidden data only ever match accepted orders (no probing un-accepted ones)
+            if (merchant && (status != null || payment != null || fulfillment != null)) predicates.add(cb.isNotNull(acceptedAt));
             switch (actor.type()) {
                 case BUYER -> predicates.add(cb.equal(root.get("buyerUserId"), actor.userId()));
                 case MERCHANT -> predicates.add(cb.equal(root.get("shopId"), actor.shopUuid()));
@@ -98,14 +118,23 @@ public class OrderQueryService {
                 address.select(a.get("id")).where(cb.equal(a.get("order"), root), cb.or(
                     cb.like(cb.lower(a.get("recipientName")), like, '\\'),
                     cb.like(cb.lower(a.get("phone")), like, '\\')));
-                predicates.add(cb.or(cb.like(cb.lower(root.get("orderNumber")), like, '\\'), cb.exists(address)));
+                // merchants: buyer name / phone search only over accepted orders
+                var byAddress = merchant ? cb.and(cb.isNotNull(acceptedAt), cb.exists(address)) : cb.exists(address);
+                predicates.add(cb.or(cb.like(cb.lower(root.get("orderNumber")), like, '\\'), byAddress));
+            }
+            if (hiddenSort && query.getResultType() != Long.class && query.getResultType() != long.class) {
+                // ORDER BY (CASE WHEN accepted THEN key END), placed_at DESC, id: un-accepted orders never ordered by hidden data
+                var key = root.get(SORTS.get(sortKey));
+                var masked = cb.selectCase().when(cb.isNull(acceptedAt), cb.nullLiteral(key.getJavaType())).otherwise(key);
+                query.orderBy(dir.equals("asc") ? cb.asc(masked) : cb.desc(masked), cb.desc(root.get("placedAt")), cb.asc(root.get("id")));
             }
             return cb.and(predicates.toArray(Predicate[]::new));
         };
-        var sort = Sort.by(dir.equals("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, SORTS.get(sortKey)).and(Sort.by(Sort.Direction.ASC, "id"));
+        var sort = hiddenSort ? Sort.unsorted()
+            : Sort.by(dir.equals("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, SORTS.get(sortKey)).and(Sort.by(Sort.Direction.ASC, "id"));
         var result = orders.findAll(spec, PageRequest.of(page, size, sort));
         var shopMap = shopMap(result.getContent().stream().map(Order::getShopId).toList());
-        var items = result.getContent().stream().map(order -> summary(order, shopMap.get(order.getShopId()))).toList();
+        var items = result.getContent().stream().map(order -> summary(order, shopMap.get(order.getShopId()), actor)).toList();
         return new OrderDtos.PageResponse<>(items, page, size, result.getTotalElements(), result.getTotalPages());
     }
 
@@ -117,6 +146,12 @@ public class OrderQueryService {
     @Transactional(readOnly = true)
     public List<OrderDtos.TimelineEntry> timeline(OrderActor actor, UUID orderId) {
         var order = load(actor, orderId);
+        if (MerchantVisibility.restricted(order, actor)) {
+            // only "order placed" and when; no statuses, actors, reasons or metadata
+            return history.findByOrderIdOrderByIdAsc(order.getId()).stream().limit(1)
+                .map(entry -> new OrderDtos.TimelineEntry(entry.getId(), "ORDER_PLACED", null, null, null, null, null, null, order.getPlacedAt()))
+                .toList();
+        }
         return history.findByOrderIdOrderByIdAsc(order.getId()).stream().map(entry -> {
             var metadata = OrderJson.read(entry.getMetadataJson());
             String event = metadata != null && metadata.get("event") instanceof String value ? value
@@ -131,6 +166,12 @@ public class OrderQueryService {
     @Transactional(readOnly = true)
     public OrderDtos.AllowedTransitions allowed(OrderActor actor, UUID orderId) {
         var order = load(actor, orderId);
+        if (MerchantVisibility.restricted(order, actor)) {
+            var actions = new ArrayList<OrderDtos.AllowedTransition>();
+            if (OrderStateMachine.canAccept(order.getStatus(), actor.type())) actions.add(new OrderDtos.AllowedTransition(null, "ACCEPT", false, false));
+            if (order.getStatus() == OrderStatus.PENDING_PAYMENT) actions.add(new OrderDtos.AllowedTransition(OrderStatus.CANCELLED.name(), "CANCEL", true, false));
+            return new OrderDtos.AllowedTransitions(null, null, null, order.getRowVersion(), actions);
+        }
         var previous = OrderTransitionService.parse(order.getStatusBeforeRefund());
         var list = new ArrayList<OrderDtos.AllowedTransition>();
         for (var edge : OrderStateMachine.transitionsFrom(order.getStatus())) {
@@ -168,6 +209,7 @@ public class OrderQueryService {
 
     public OrderDtos.OrderDetail detail(Order order, OrderActor actor) {
         var shop = shops.findById(order.getShopId()).orElse(null);
+        if (MerchantVisibility.restricted(order, actor)) return restrictedDetail(order, shop);
         boolean staff = actor.type() != OrderActorType.BUYER;
         var shipment = shipments.findFirstByOrderIdOrderByCreatedDateTimeDesc(order.getId())
             .map(s -> new OrderDtos.ShipmentView(s.getStatus(), s.getCarrierCode(), s.getTrackingNumber(), s.getPackedAt(), s.getDispatchedAt(), s.getDeliveredAt()))
@@ -191,7 +233,18 @@ public class OrderQueryService {
             order.getCancelReason(), order.getStatusBeforeRefund(), order.getPlacedAt(), order.getPaidAt(), order.getMerchantConfirmedAt(),
             order.getCancelledAt(), order.getCompletedAt(), order.getRowVersion(), items, allowed,
             itemsHidden, order.getItems().size(), order.getItems().stream().mapToInt(OrderItem::getQuantity).sum(),
-            ledger.captured(order.getId()), ledger.refunded(order.getId()), ledger.refundable(order.getId()));
+            ledger.captured(order.getId()), ledger.refunded(order.getId()), ledger.refundable(order.getId()),
+            actor.type() == OrderActorType.MERCHANT ? Boolean.FALSE : null);
+    }
+
+    /** Merchant, not accepted yet: id, number, created time, version, accept / decline only (MerchantVisibility). */
+    private OrderDtos.OrderDetail restrictedDetail(Order order, Shop shop) {
+        var allowed = order.getStatus() == OrderStatus.PENDING_PAYMENT ? List.of(OrderStatus.CANCELLED.name()) : List.<String>of();
+        return new OrderDtos.OrderDetail(order.getId(), order.getOrderNumber(), shop == null ? null : shop.getId(),
+            shop == null ? null : shop.getName(), null, null, null, null, "AWAITING", null, null,
+            null, null, null, null, null, null, null, null, null, null, null, null, null,
+            order.getPlacedAt(), null, null, null, null, order.getRowVersion(), null, allowed,
+            true, null, null, null, null, null, Boolean.TRUE);
     }
 
     /** Merchants see the full address only after confirming the order and with SHIPMENT_ADDRESS_READ (V1 design: reveal after confirm). */
@@ -210,12 +263,17 @@ public class OrderQueryService {
             a.getDistrict(), a.getProvince(), a.getPostalCode(), a.getCountryCode(), false);
     }
 
-    OrderDtos.OrderSummary summary(Order order, Shop shop) {
+    OrderDtos.OrderSummary summary(Order order, Shop shop, OrderActor actor) {
+        if (MerchantVisibility.restricted(order, actor)) {
+            return new OrderDtos.OrderSummary(order.getId(), order.getOrderNumber(), shop == null ? null : shop.getId(),
+                shop == null ? null : shop.getName(), null, null, null, null, null, null, null, order.getPlacedAt(), null,
+                order.getRowVersion(), true);
+        }
         int qty = order.getItems().stream().mapToInt(OrderItem::getQuantity).sum();
         return new OrderDtos.OrderSummary(order.getId(), order.getOrderNumber(), shop == null ? null : shop.getId(),
             shop == null ? null : shop.getName(), order.getStatus().name(), order.getPaymentStatus().name(),
             order.getFulfillmentStatus().name(), order.getGrandTotal(), order.getCurrency(), order.getItems().size(), qty,
-            order.getPlacedAt(), order.getPaidAt(), order.getRowVersion());
+            order.getPlacedAt(), order.getPaidAt(), order.getRowVersion(), false);
     }
 
     private Map<UUID, Shop> shopMap(Collection<UUID> ids) {

@@ -41,7 +41,9 @@ public class OrderTransitionService {
         APPROVE_REFUND(OrderStatus.REFUNDED),
         REJECT_REFUND(null),
         /** admin: request.status is the target */
-        ADMIN(null);
+        ADMIN(null),
+        /** merchant acceptance; target from OrderStateMachine.acceptTarget (null = status unchanged) */
+        ACCEPT(null);
 
         final OrderStatus target;
         Action(OrderStatus target) { this.target = target; }
@@ -70,11 +72,13 @@ public class OrderTransitionService {
     private final OrderMoneyLedger ledger;
     private final OrderItemRevealLogRepository revealLogs;
     private final PaymentProofRepository proofs;
+    private final MerchantOrderConfirmationRepository confirmations;
 
     public OrderTransitionService(OrderRepository orders, OrderStatusHistoryRepository history, OrderInventoryService inventory,
                                   ShipmentRepository shipments, PaymentRepository payments, RefundRepository refunds,
                                   OrderPromotionUsageRepository usages, OrderMoneyLedger ledger, OrderItemRevealLogRepository revealLogs,
-                                  PaymentProofRepository proofs) {
+                                  PaymentProofRepository proofs, MerchantOrderConfirmationRepository confirmations) {
+        this.confirmations = confirmations;
         this.ledger = ledger;
         this.revealLogs = revealLogs;
         this.proofs = proofs;
@@ -93,7 +97,8 @@ public class OrderTransitionService {
     }
 
     @Transactional
-    public Result transition(UUID orderId, OrderActor actor, Action action, OrderDtos.TransitionRequest body, Internal internal) {
+    public Result transition(UUID orderId, OrderActor actor, Action requested, OrderDtos.TransitionRequest body, Internal internal) {
+        var action = requested;
         var opts = internal == null ? Internal.none() : internal;
         var req = body == null ? OrderDtos.TransitionRequest.empty() : body;
         var order = orders.lockById(orderId).filter(actor::canSee)
@@ -103,6 +108,22 @@ public class OrderTransitionService {
                 "ออเดอร์ถูกแก้ไขไปแล้ว กรุณาโหลดใหม่ (version ปัจจุบัน " + order.getRowVersion() + ")");
         }
         var from = order.getStatus();
+        boolean accepted = order.getMerchantConfirmedAt() != null;
+        if (actor.type() == OrderActorType.MERCHANT && !accepted && action != Action.ACCEPT && action != Action.CONFIRM
+            && !(action == Action.CANCEL && from == OrderStatus.PENDING_PAYMENT)
+            && !(action.target != null && action.target == from)) { // repeated no-op stays a no-op
+            // MerchantVisibility: nothing but accept / decline (unpaid) before the shop has accepted the order
+            throw MerchantVisibility.notAccepted();
+        }
+        if (action == Action.ACCEPT) {
+            if (accepted) return new Result(false, from, from, order);
+            if (!OrderStateMachine.canAccept(from, actor.type())) {
+                throw new InvalidStatusTransitionException(from, null,
+                    OrderStateMachine.allowedTargets(from, actor.type(), parse(order.getStatusBeforeRefund())), "INVALID_STATUS_TRANSITION");
+            }
+            if (OrderStateMachine.acceptTarget(from) == null) return acceptInPlace(order, actor, req);
+            action = Action.CONFIRM; // PAID_AWAITING_MERCHANT_CONFIRM: accept = the CONFIRM edge
+        }
         var to = resolveTarget(order, actor, action, req);
 
         if (from == to) {
@@ -188,8 +209,56 @@ public class OrderTransitionService {
         entry.setMetadataJson(OrderJson.write(metadata));
         entry.stamp(actor.userId());
         history.save(entry);
+        if (to == OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM && order.getMerchantConfirmedAt() != null) {
+            return autoConfirm(order, actor, from);
+        }
         ledger.snapshot(order);
         return new Result(true, from, to, order);
+    }
+
+    /** Accept without a status change (PENDING_PAYMENT, REFUND_REQUESTED, CANCELLED, REFUNDED): flag + audit + timeline. */
+    private Result acceptInPlace(Order order, OrderActor actor, OrderDtos.TransitionRequest req) {
+        var reason = clean(req.reason());
+        if (reason != null && reason.length() > MAX_REASON) {
+            throw new ValidationException(List.of(new FieldViolation("reason", "MAX_LENGTH", "เหตุผลยาวเกิน " + MAX_REASON + " ตัวอักษร")));
+        }
+        var status = order.getStatus();
+        recordAcceptance(order, actor, Instant.now(), reason);
+        order.stamp(actor.userId());
+        orders.saveAndFlush(order); // bumps row_version; a stale concurrent writer fails here
+        var entry = new OrderStatusHistory(order.getId(), status, status, actor.userId(), actor.type(), reason);
+        entry.setMetadataJson(OrderJson.write(Map.of("event", "ORDER_ACCEPTED")));
+        entry.stamp(actor.userId());
+        history.save(entry);
+        ledger.snapshot(order);
+        return new Result(true, status, status, order);
+    }
+
+    /** Paid order the shop had already accepted: PAID_AWAITING_MERCHANT_CONFIRM → MERCHANT_CONFIRMED in the same transaction. */
+    private Result autoConfirm(Order order, OrderActor actor, OrderStatus originalFrom) {
+        var paid = OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM;
+        OrderStateMachine.require(paid, OrderStatus.MERCHANT_CONFIRMED, actor.type());
+        order.setMerchantConfirmStatus("CONFIRMED");
+        order.setStatus(OrderStatus.MERCHANT_CONFIRMED);
+        order.stamp(actor.userId());
+        orders.saveAndFlush(order);
+        var entry = new OrderStatusHistory(order.getId(), paid, OrderStatus.MERCHANT_CONFIRMED, actor.userId(), actor.type(), null);
+        entry.setMetadataJson(OrderJson.write(Map.of("event", "AUTO_CONFIRMED_ACCEPTED_BEFORE_PAYMENT")));
+        entry.stamp(actor.userId());
+        history.save(entry);
+        ledger.snapshot(order);
+        return new Result(true, originalFrom, OrderStatus.MERCHANT_CONFIRMED, order);
+    }
+
+    /** V1 acceptance: merchant_confirmed_at / items_revealed_at, merchant_order_confirmations CONFIRM, order_item_reveal_logs. */
+    private void recordAcceptance(Order order, OrderActor actor, Instant now, String note) {
+        order.setMerchantConfirmStatus("CONFIRMED");
+        order.setMerchantConfirmedAt(now);
+        order.setItemsRevealedAt(now);
+        if (actor.userId() != null) {
+            confirmations.save(new MerchantOrderConfirmation(order.getId(), order.getShopId(), actor.userId(), MerchantOrderConfirmation.CONFIRM, now, note));
+        }
+        reveal(order, actor, now);
     }
 
     private OrderStatus resolveTarget(Order order, OrderActor actor, Action action, OrderDtos.TransitionRequest req) {
@@ -222,14 +291,13 @@ public class OrderTransitionService {
             case PAID_AWAITING_MERCHANT_CONFIRM -> {
                 order.setPaymentStatus(PaymentStatus.PAID);
                 order.setPaidAt(now);
-                order.setMerchantConfirmStatus("AWAITING");
+                if (order.getMerchantConfirmedAt() == null) order.setMerchantConfirmStatus("AWAITING");
                 ledger.capture(order, actor, provider, clean(req.paymentReference()), opts.receivedAmount(), reason, metadata);
                 inventory.markPaid(order);
             }
             case MERCHANT_CONFIRMED -> {
                 order.setMerchantConfirmStatus("CONFIRMED");
-                order.setMerchantConfirmedAt(now);
-                reveal(order, actor, now);
+                if (order.getMerchantConfirmedAt() == null) recordAcceptance(order, actor, now, reason);
             }
             case READY_TO_PACK, PACKING, PACKED -> {
                 var shipment = shipment(order, actor);
@@ -271,8 +339,13 @@ public class OrderTransitionService {
             case CANCELLED -> {
                 order.setCancelledAt(now);
                 order.setCancelReason(reason);
-                if (from == OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM && actor.type() == OrderActorType.MERCHANT) {
+                if (actor.type() == OrderActorType.MERCHANT && order.getMerchantConfirmedAt() == null) {
+                    // shop declines an order it never accepted
                     order.setMerchantConfirmStatus("REJECTED");
+                    if (actor.userId() != null) {
+                        confirmations.save(new MerchantOrderConfirmation(order.getId(), order.getShopId(), actor.userId(),
+                            MerchantOrderConfirmation.REJECT, now, reason));
+                    }
                 }
                 int released = inventory.release(order, actor.type(), actor.userId(), "ยกเลิกออเดอร์ " + order.getOrderNumber());
                 shipments.findFirstByOrderIdOrderByCreatedDateTimeDesc(order.getId()).ifPresent(shipment -> {
@@ -324,11 +397,7 @@ public class OrderTransitionService {
     }
 
     private void ensureConfirmed(Order order, OrderActor actor, Instant now) {
-        if (order.getMerchantConfirmedAt() == null) {
-            order.setMerchantConfirmStatus("CONFIRMED");
-            order.setMerchantConfirmedAt(now);
-            reveal(order, actor, now);
-        }
+        if (order.getMerchantConfirmedAt() == null) recordAcceptance(order, actor, now, null);
     }
 
     /** V1 order_item_reveal_logs: line items become visible to the seller at merchant confirm. */

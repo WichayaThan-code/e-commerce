@@ -52,10 +52,6 @@ public class InventoryLedgerEntry extends AuditedEntity {
     private String idempotencyKey;
     @Column(name = "actor_id")
     private UUID actorId;
-    @Column(name = "reserved_qty_before")
-    private Integer reservedQtyBefore;
-    @Column(name = "reserved_qty_after")
-    private Integer reservedQtyAfter;
     @Column(name = "order_item_id")
     private UUID orderItemId;
     @Column(name = "reservation_id")
@@ -65,7 +61,8 @@ public class InventoryLedgerEntry extends AuditedEntity {
 
     protected InventoryLedgerEntry() {}
 
-    public InventoryLedgerEntry(ProductSku sku, String entryType, int quantityDelta, int onHandBefore, int onHandAfter, int reservedQtyBefore, int reservedQtyAfter, String reason, String idempotencyKey, UUID actorId) {
+    public InventoryLedgerEntry(ProductSku sku, String entryType, int quantityDelta, int onHandBefore, int onHandAfter,
+                                int reservedQtyBefore, int reservedQtyAfter, String reason, String idempotencyKey, UUID actorId) {
         this.shop = sku.getShop();
         this.sku = sku;
         this.entryType = entryType;
@@ -103,8 +100,6 @@ public class InventoryLedgerEntry extends AuditedEntity {
     public int getQuantityDelta() { return quantityDelta; }
     public int getOnHandBefore() { return onHandBefore; }
     public int getOnHandAfter() { return onHandAfter; }
-    public Integer getReservedQtyBefore() { return reservedQtyBefore; }
-    public Integer getReservedQtyAfter() { return reservedQtyAfter; }
     public UUID getActorId() { return actorId; }
     public String getIdempotencyKey() { return idempotencyKey; }
 }

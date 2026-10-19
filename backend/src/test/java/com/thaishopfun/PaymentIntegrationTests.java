@@ -126,7 +126,7 @@ class PaymentIntegrationTests {
     }
 
     private void wipeOrders() {
-        for (var t : List.of("order_item_reveal_logs", "order_financial_snapshots", "refund_status_history", "payment_status_history",
+        for (var t : List.of("merchant_order_confirmations", "order_item_reveal_logs", "order_financial_snapshots", "refund_status_history", "payment_status_history",
                 "payment_webhook_events", "payment_proofs", "refunds", "payments", "media_files", "shop_payment_gateways",
                 "order_status_history", "inventory_reservations",
                 "promotion_usages", "order_items", "order_addresses")) jdbc.update("DELETE FROM " + t);
@@ -215,7 +215,13 @@ class PaymentIntegrationTests {
         return mvc.perform(req.header("Authorization", "Bearer " + buyer));
     }
 
+    /** The shop accepts the order (idempotent); required before it may see or review payments. */
+    private void accept(Fixture f) throws Exception {
+        call(post(f.mo() + "/accept"), f.shop().token(), "{}").andExpect(status().isOk());
+    }
+
     private String pendingPaymentId(Fixture f) throws Exception {
+        accept(f);
         var r = call(get(f.mo() + "/payments"), f.shop().token()).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         List<String> ids = JsonPath.read(r, "$..[?(@.status == 'PENDING')].id");
         return ids.get(0);
@@ -240,7 +246,7 @@ class PaymentIntegrationTests {
     private void paid(Fixture f, String ref) throws Exception {
         slip(f.buyer(), f.orderId(), grand(f), ref).andExpect(status().isCreated());
         call(post(f.mo() + "/payments/" + pendingPaymentId(f) + "/confirm"), f.shop().token(), "{}").andExpect(status().isOk())
-            .andExpect(jsonPath("$.order.status").value("PAID_AWAITING_MERCHANT_CONFIRM"));
+            .andExpect(jsonPath("$.order.status").value("MERCHANT_CONFIRMED")); // accepted before payment
     }
 
     // ---------------- tests ----------------
@@ -316,11 +322,18 @@ class PaymentIntegrationTests {
     void confirmRejectAmountMismatchHistoryAndVisibility() throws Exception {
         var f = fixture("conf", true);
         var amount = new BigDecimal(grand(f));
-        // merchant sees money & slip but not items before confirm (V1 rule)
+        // before accepting, the shop cannot see or act on payments
         slip(f.buyer(), f.orderId(), amount.subtract(BigDecimal.TEN).toPlainString(), "REF2000").andExpect(status().isCreated());
         call(get(f.mo()), f.shop().token()).andExpect(jsonPath("$.itemsHidden").value(true))
-            .andExpect(jsonPath("$.items").doesNotExist()).andExpect(jsonPath("$.grandTotal").exists());
+            .andExpect(jsonPath("$.items").doesNotExist()).andExpect(jsonPath("$.grandTotal").doesNotExist());
+        call(get(f.mo() + "/payments"), f.shop().token()).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ORDER_NOT_ACCEPTED"));
+        var hiddenPid = jdbc.queryForObject("SELECT id FROM payments WHERE status = 'PENDING'", UUID.class);
+        call(post(f.mo() + "/payments/" + hiddenPid + "/confirm"), f.shop().token(), "{}").andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ORDER_NOT_ACCEPTED"));
+        call(post(f.mo() + "/payments/" + hiddenPid + "/reject"), f.shop().token(), "{\"reason\":\"x\"}").andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ORDER_NOT_ACCEPTED"));
         var pid = pendingPaymentId(f);
+        call(get(f.mo()), f.shop().token()).andExpect(jsonPath("$.itemsHidden").value(false)).andExpect(jsonPath("$.grandTotal").exists());
         call(post(f.mo() + "/payments/" + pid + "/confirm"), f.shop().token(), "{}").andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("PAYMENT_AMOUNT_MISMATCH"));
         call(post(f.mo() + "/payments/" + pid + "/reject"), f.shop().token(), "{}").andExpect(status().isBadRequest());
@@ -336,7 +349,7 @@ class PaymentIntegrationTests {
         call(post(f.mo() + "/payments/" + pid2 + "/confirm"), f.shop().token(), "{\"acceptAmountMismatch\":true}").andExpect(status().isBadRequest());
         call(post(f.mo() + "/payments/" + pid2 + "/confirm"), f.shop().token(), "{\"acceptAmountMismatch\":true,\"reason\":\"ลูกค้าโอนขาด 1 บาท ยอมรับ\"}")
             .andExpect(status().isOk()).andExpect(jsonPath("$.changed").value(true))
-            .andExpect(jsonPath("$.order.status").value("PAID_AWAITING_MERCHANT_CONFIRM"))
+            .andExpect(jsonPath("$.order.status").value("MERCHANT_CONFIRMED"))
             .andExpect(jsonPath("$.order.paymentStatus").value("PAID"));
         call(post(f.mo() + "/payments/" + pid2 + "/confirm"), f.shop().token(), "{}").andExpect(jsonPath("$.changed").value(false));
         call(post(f.mo() + "/payments/" + pid2 + "/reject"), f.shop().token(), "{\"reason\":\"x\"}").andExpect(status().isConflict());
@@ -349,9 +362,8 @@ class PaymentIntegrationTests {
         assertTrue(hist.stream().anyMatch(h -> "CAPTURED".equals(h.get("to_status"))), hist.toString());
         var tl = call(get(f.mo() + "/timeline"), f.shop().token()).andReturn().getResponse().getContentAsString();
         assertTrue(tl.contains("PAYMENT_REJECTED") && tl.contains("PAYMENT_SLIP_SUBMITTED"), tl);
-        // after confirm-accept: items revealed and audited
-        call(get(f.mo()), f.shop().token()).andExpect(jsonPath("$.itemsHidden").value(true));
-        call(post(f.mo() + "/confirm"), f.shop().token(), "{}").andExpect(status().isOk());
+        // already confirmed through acceptance: confirm is a no-op, items revealed once and audited
+        call(post(f.mo() + "/confirm"), f.shop().token(), "{}").andExpect(status().isOk()).andExpect(jsonPath("$.changed").value(false));
         call(get(f.mo()), f.shop().token()).andExpect(jsonPath("$.itemsHidden").value(false)).andExpect(jsonPath("$.items.length()").value(1));
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM order_item_reveal_logs", Integer.class));
         // slip at a non-pending order
@@ -400,7 +412,7 @@ class PaymentIntegrationTests {
             .andExpect(jsonPath("$.refund.status").value("APPROVED"));
         refundProof(f, r1).andExpect(status().isOk())
             .andExpect(jsonPath("$.refund.status").value("PROOF_UPLOADED"))
-            .andExpect(jsonPath("$.order.status").value("PAID_AWAITING_MERCHANT_CONFIRM"))
+            .andExpect(jsonPath("$.order.status").value("MERCHANT_CONFIRMED"))
             .andExpect(jsonPath("$.order.paymentStatus").value("PARTIALLY_REFUNDED"));
         call(get(f.bo() + "/refunds"), f.buyer()).andExpect(jsonPath("$.refundedAmount").value(50.0))
             .andExpect(jsonPath("$.refundableAmount").value(total.subtract(new BigDecimal(50)).doubleValue()));
@@ -435,7 +447,7 @@ class PaymentIntegrationTests {
         call(post(f.mo() + "/refunds/" + r + "/reject"), f.shop().token(), "{}").andExpect(status().isBadRequest());
         call(post(f.mo() + "/refunds/" + r + "/reject"), f.shop().token(), "{\"reason\":\"ส่งแล้ว\"}").andExpect(status().isOk())
             .andExpect(jsonPath("$.refund.status").value("REJECTED"))
-            .andExpect(jsonPath("$.order.status").value("PAID_AWAITING_MERCHANT_CONFIRM"))
+            .andExpect(jsonPath("$.order.status").value("MERCHANT_CONFIRMED"))
             .andExpect(jsonPath("$.order.paymentStatus").value("PAID"));
         call(post(f.bo() + "/refund-request"), f.buyer(), "{\"reason\":\"ขออีกครั้ง\"}").andExpect(status().isOk());
         var r2 = openRefund(f);
@@ -507,6 +519,169 @@ class PaymentIntegrationTests {
         assertEquals(5, jdbc.queryForObject("SELECT COUNT(*) FROM payment_webhook_events", Integer.class));
     }
 
+    // ---------------- merchant visibility before / after accept ----------------
+
+    @Test
+    void merchantSeesOnlyNumberAndDateUntilAcceptOnEveryEndpoint() throws Exception {
+        var f = fixture("vis", true);
+        slip(f.buyer(), f.orderId(), grand(f), "REF8000").andExpect(status().isCreated());
+        var proofId = jdbc.queryForObject("SELECT id FROM payment_proofs", UUID.class).toString();
+        var paymentId = jdbc.queryForObject("SELECT id FROM payments", UUID.class).toString();
+        var number = jdbc.queryForObject("SELECT order_number FROM orders", String.class);
+        var token = f.shop().token();
+        // detail: id / number / created time / version / awaiting only
+        var detail = call(get(f.mo()), token).andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").value(f.orderId())).andExpect(jsonPath("$.orderNumber").value(number))
+            .andExpect(jsonPath("$.placedAt").exists()).andExpect(jsonPath("$.awaitingAcceptance").value(true))
+            .andReturn().getResponse().getContentAsString();
+        for (var hidden : List.of("status", "paymentStatus", "fulfillmentStatus", "subtotal", "grandTotal", "shippingFee", "discountTotal",
+                "items", "itemCount", "totalQuantity", "shippingAddress", "shipping", "buyerNote", "buyerUserId", "shopCustomerId",
+                "paidAt", "paidAmount", "refundedAmount", "refundableAmount", "couponCode", "currency")) {
+            assertFalse(((Map<?, ?>) JsonPath.read(detail, "$")).containsKey(hidden), hidden + " leaked: " + detail);
+        }
+        assertFalse(detail.contains("สมหญิง") || detail.contains("0812345678"), detail);
+        // list
+        var list = call(get(base(f.shop()) + "/orders"), token).andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].orderNumber").value(number)).andExpect(jsonPath("$.items[0].awaitingAcceptance").value(true))
+            .andExpect(jsonPath("$.items[0].grandTotal").value(org.hamcrest.Matchers.nullValue()))
+            .andExpect(jsonPath("$.items[0].itemCount").value(org.hamcrest.Matchers.nullValue()))
+            .andExpect(jsonPath("$.items[0].status").value(org.hamcrest.Matchers.nullValue()))
+            .andExpect(jsonPath("$.items[0].paymentStatus").value(org.hamcrest.Matchers.nullValue()))
+            .andReturn().getResponse().getContentAsString();
+        assertFalse(list.contains("สมหญิง"), list);
+        // timeline: one bare "placed" entry
+        call(get(f.mo() + "/timeline"), token).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].event").value("ORDER_PLACED")).andExpect(jsonPath("$[0].toStatus").doesNotExist())
+            .andExpect(jsonPath("$[0].metadata").doesNotExist());
+        // transitions: accept + decline only, no status
+        call(get(f.mo() + "/transitions"), token).andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value(org.hamcrest.Matchers.nullValue()))
+            .andExpect(jsonPath("$.transitions[*].action", org.hamcrest.Matchers.containsInAnyOrder("ACCEPT", "CANCEL")));
+        // money / slip / refund endpoints: 409 ORDER_NOT_ACCEPTED
+        for (var path : List.of("/payments", "/payments/proofs/" + proofId + "/file", "/refunds")) {
+            call(get(f.mo() + path), token).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ORDER_NOT_ACCEPTED"));
+        }
+        for (var path : List.of("/payments/" + paymentId + "/confirm", "/payments/" + paymentId + "/reject", "/mark-paid")) {
+            call(post(f.mo() + path), token, "{\"reason\":\"x\"}").andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ORDER_NOT_ACCEPTED"));
+        }
+        // filters / search / sort cannot probe hidden data
+        call(get(base(f.shop()) + "/orders?q=สมหญิง"), token).andExpect(jsonPath("$.totalItems").value(0));
+        call(get(base(f.shop()) + "/orders?q=0812345678"), token).andExpect(jsonPath("$.totalItems").value(0));
+        call(get(base(f.shop()) + "/orders?q=" + number.toLowerCase()), token).andExpect(jsonPath("$.totalItems").value(1));
+        call(get(base(f.shop()) + "/orders?status=PENDING_PAYMENT"), token).andExpect(jsonPath("$.totalItems").value(0));
+        call(get(base(f.shop()) + "/orders?paymentStatus=PENDING"), token).andExpect(jsonPath("$.totalItems").value(0));
+        call(get(base(f.shop()) + "/orders?acceptance=AWAITING"), token).andExpect(jsonPath("$.totalItems").value(1));
+        call(get(base(f.shop()) + "/orders?acceptance=ACCEPTED"), token).andExpect(jsonPath("$.totalItems").value(0));
+        call(get(base(f.shop()) + "/orders?acceptance=maybe"), token).andExpect(status().isBadRequest());
+        for (var sort : List.of("grandTotal", "paidAt", "status")) {
+            call(get(base(f.shop()) + "/orders?sort=" + sort + "&direction=asc"), token).andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(1));
+        }
+        // buyer and admin are not affected
+        call(get(f.bo()), f.buyer()).andExpect(jsonPath("$.grandTotal").exists()).andExpect(jsonPath("$.items.length()").value(1))
+            .andExpect(jsonPath("$.awaitingAcceptance").doesNotExist());
+        call(get("/api/admin/orders/" + f.orderId()), adminToken()).andExpect(jsonPath("$.grandTotal").exists()).andExpect(jsonPath("$.items.length()").value(1));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM order_item_reveal_logs", Integer.class));
+
+        // accept → everything visible, audited once
+        call(post(f.mo() + "/accept"), token, "{\"reason\":\"รับออเดอร์\"}").andExpect(status().isOk())
+            .andExpect(jsonPath("$.changed").value(true)).andExpect(jsonPath("$.fromStatus").value("PENDING_PAYMENT"))
+            .andExpect(jsonPath("$.toStatus").value("PENDING_PAYMENT")).andExpect(jsonPath("$.order.awaitingAcceptance").value(false))
+            .andExpect(jsonPath("$.order.merchantConfirmStatus").value("CONFIRMED"));
+        call(post(f.mo() + "/accept"), token, "{}").andExpect(status().isOk()).andExpect(jsonPath("$.changed").value(false));
+        call(get(f.mo()), token).andExpect(jsonPath("$.grandTotal").exists()).andExpect(jsonPath("$.items.length()").value(1))
+            .andExpect(jsonPath("$.itemCount").value(1)).andExpect(jsonPath("$.status").value("PENDING_PAYMENT"))
+            .andExpect(jsonPath("$.paymentStatus").value("PENDING")).andExpect(jsonPath("$.shippingAddress.district").exists());
+        call(get(base(f.shop()) + "/orders"), token).andExpect(jsonPath("$.items[0].grandTotal").exists())
+            .andExpect(jsonPath("$.items[0].awaitingAcceptance").value(false));
+        call(get(base(f.shop()) + "/orders?q=สมหญิง"), token).andExpect(jsonPath("$.totalItems").value(1));
+        call(get(base(f.shop()) + "/orders?status=PENDING_PAYMENT"), token).andExpect(jsonPath("$.totalItems").value(1));
+        call(get(f.mo() + "/timeline"), token).andExpect(jsonPath("$[?(@.event == 'ORDER_ACCEPTED')].actorType").value(hasItem("MERCHANT")))
+            .andExpect(jsonPath("$[?(@.event == 'ORDER_ACCEPTED')].reason").value(hasItem("รับออเดอร์")));
+        call(get(f.mo() + "/transitions"), token).andExpect(jsonPath("$.status").value("PENDING_PAYMENT"));
+        for (var path : List.of("/payments", "/payments/proofs/" + proofId + "/file", "/refunds")) call(get(f.mo() + path), token).andExpect(status().isOk());
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM order_item_reveal_logs WHERE reveal_reason = 'MERCHANT_CONFIRM'", Integer.class));
+        assertEquals(userId(token), jdbc.queryForObject("SELECT confirmed_by_user_id FROM merchant_order_confirmations WHERE action = 'CONFIRM'", UUID.class));
+        assertNotNull(jdbc.queryForObject("SELECT items_revealed_at FROM orders", Timestamp.class));
+        // payment confirm after acceptance goes straight to MERCHANT_CONFIRMED
+        call(post(f.mo() + "/payments/" + paymentId + "/confirm"), token, "{}").andExpect(status().isOk())
+            .andExpect(jsonPath("$.order.status").value("MERCHANT_CONFIRMED")).andExpect(jsonPath("$.order.paymentStatus").value("PAID"));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM order_item_reveal_logs", Integer.class));
+    }
+
+    @Test
+    void acceptTransitionsMatrixAndDecline() throws Exception {
+        var f = fixture("acc", true);
+        var token = f.shop().token();
+        var amount = grand(f);
+        // PAID_AWAITING (gateway paid an un-accepted order) → accept = confirm → MERCHANT_CONFIRMED
+        hook("{\"id\":\"evt_a1\",\"type\":\"payment.captured\",\"orderId\":\"%s\",\"paymentId\":\"pay_a1\",\"amount\":%s}".formatted(f.orderId(), amount))
+            .andExpect(jsonPath("$.status").value("PROCESSED"));
+        call(get(f.mo()), token).andExpect(jsonPath("$.awaitingAcceptance").value(true)).andExpect(jsonPath("$.status").doesNotExist());
+        // un-accepted paid order: the shop cannot cancel (it would owe a refund it cannot see) – accept first
+        call(post(f.mo() + "/cancel"), token, "{\"reason\":\"x\"}").andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ORDER_NOT_ACCEPTED"));
+        call(post(f.mo() + "/accept"), token, "{}").andExpect(status().isOk())
+            .andExpect(jsonPath("$.fromStatus").value("PAID_AWAITING_MERCHANT_CONFIRM")).andExpect(jsonPath("$.toStatus").value("MERCHANT_CONFIRMED"));
+        call(post(f.mo() + "/accept"), token, "{}").andExpect(jsonPath("$.changed").value(false));
+
+        // accepted before payment, then the gateway pays → SYSTEM auto-confirm
+        var o2 = newOrder(f.buyer(), f.sku());
+        call(post(base(f.shop()) + "/orders/" + o2 + "/accept"), token, "{}").andExpect(status().isOk());
+        hook("{\"id\":\"evt_a2\",\"type\":\"payment.captured\",\"orderId\":\"%s\",\"paymentId\":\"pay_a2\",\"amount\":%s}".formatted(o2, amount))
+            .andExpect(jsonPath("$.status").value("PROCESSED"));
+        call(get("/api/orders/" + o2), f.buyer()).andExpect(jsonPath("$.status").value("MERCHANT_CONFIRMED"));
+        assertEquals("SYSTEM", jdbc.queryForObject("SELECT changed_by_type FROM order_status_history WHERE order_id = ? AND to_status = 'MERCHANT_CONFIRMED'",
+            String.class, UUID.fromString(o2)));
+
+        // REFUND_REQUESTED on an un-accepted paid order: accept keeps the status so the shop can settle it
+        var o3 = newOrder(f.buyer(), f.sku());
+        hook("{\"id\":\"evt_a3\",\"type\":\"payment.captured\",\"orderId\":\"%s\",\"paymentId\":\"pay_a3\",\"amount\":%s}".formatted(o3, amount));
+        call(post("/api/orders/" + o3 + "/refund-request"), f.buyer(), "{\"reason\":\"เปลี่ยนใจ\"}").andExpect(status().isOk());
+        var m3 = base(f.shop()) + "/orders/" + o3;
+        call(get(m3 + "/refunds"), token).andExpect(jsonPath("$.code").value("ORDER_NOT_ACCEPTED"));
+        call(post(m3 + "/refund/approve"), token, "{}").andExpect(jsonPath("$.code").value("ORDER_NOT_ACCEPTED"));
+        call(post(m3 + "/accept"), token, "{}").andExpect(status().isOk()).andExpect(jsonPath("$.toStatus").value("REFUND_REQUESTED"));
+        call(get(m3 + "/refunds"), token).andExpect(status().isOk()).andExpect(jsonPath("$.refunds.length()").value(1));
+
+        // CANCELLED by the buyer before acceptance: stays hidden until accepted
+        var o4 = newOrder(f.buyer(), f.sku());
+        call(post("/api/orders/" + o4 + "/cancel"), f.buyer(), "{\"reason\":\"x\"}").andExpect(status().isOk());
+        call(get(base(f.shop()) + "/orders/" + o4), token).andExpect(jsonPath("$.awaitingAcceptance").value(true));
+        call(get(base(f.shop()) + "/orders/" + o4 + "/transitions"), token).andExpect(jsonPath("$.transitions[*].action", org.hamcrest.Matchers.contains("ACCEPT")));
+
+        // decline (cancel) an un-accepted unpaid order: allowed, recorded as REJECT
+        var o5 = newOrder(f.buyer(), f.sku());
+        call(post(base(f.shop()) + "/orders/" + o5 + "/cancel"), token, "{\"reason\":\"ของหมด\"}").andExpect(status().isOk());
+        assertEquals("REJECTED", jdbc.queryForObject("SELECT merchant_confirm_status FROM orders WHERE id = ?", String.class, UUID.fromString(o5)));
+        assertEquals("REJECT", jdbc.queryForObject("SELECT action FROM merchant_order_confirmations WHERE order_id = ?", String.class, UUID.fromString(o5)));
+        // terminal / forward statuses can't be "accepted" (all already accepted) – COMPLETED path covered by OrderIntegrationTests
+        assertTrue(com.thaishopfun.order.OrderStateMachine.canAccept(OrderStatus.PENDING_PAYMENT, OrderActorType.MERCHANT));
+        assertFalse(com.thaishopfun.order.OrderStateMachine.canAccept(OrderStatus.MERCHANT_CONFIRMED, OrderActorType.MERCHANT));
+        assertFalse(com.thaishopfun.order.OrderStateMachine.canAccept(OrderStatus.PENDING_PAYMENT, OrderActorType.BUYER));
+        assertFalse(com.thaishopfun.order.OrderStateMachine.canAccept(OrderStatus.PENDING_PAYMENT, OrderActorType.SYSTEM));
+        // buyers cannot use the accept endpoint; other shops get 404
+        call(post(f.mo() + "/accept"), f.buyer(), "{}").andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    void twoConcurrentAcceptsRecordOnce() throws Exception {
+        var f = fixture("acr", true);
+        var pool = Executors.newFixedThreadPool(2);
+        var go = new CountDownLatch(1);
+        List<Future<String>> fs = new ArrayList<>();
+        for (int i = 0; i < 2; i++) fs.add(pool.submit(() -> { go.await();
+            var r = call(post(f.mo() + "/accept"), f.shop().token(), "{}").andReturn().getResponse();
+            return r.getStatus() + ":" + r.getContentAsString(); }));
+        go.countDown();
+        var out = new ArrayList<String>();
+        for (var x : fs) out.add(x.get(60, TimeUnit.SECONDS));
+        pool.shutdown();
+        assertEquals(1, out.stream().filter(o -> o.startsWith("200") && o.contains("\"changed\":true")).count(), out.toString());
+        assertTrue(out.stream().allMatch(o -> o.startsWith("200") || o.startsWith("409")), out.toString());
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM merchant_order_confirmations", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM order_item_reveal_logs", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM order_status_history WHERE metadata_json LIKE '%ORDER_ACCEPTED%'", Integer.class));
+    }
+
     private ResultActions hook(String body) throws Exception {
         return mvc.perform(post("/api/payments/webhooks/CUSTOM").contentType(MediaType.APPLICATION_JSON).content(body)
             .header(FakePaymentGateway.HEADER, FakePaymentGateway.sign(body)));
@@ -525,8 +700,8 @@ class PaymentIntegrationTests {
         var o2 = newOrder(f.buyer(), f.sku());
         slip(f.buyer(), o2, grand(f), "REF7001").andExpect(status().isCreated());
         call(post("/api/orders/" + o2 + "/cancel"), f.buyer(), "{\"reason\":\"x\"}").andExpect(status().isConflict());
-        call(post("/api/admin/orders/" + o2 + "/payments/" + JsonPath.<List<String>>read(call(get("/api/merchant/shops/" + f.shop().shopId() + "/orders/" + o2 + "/payments"),
-            f.shop().token()).andReturn().getResponse().getContentAsString(), "$..[?(@.status == 'PENDING')].id").get(0) + "/reject"), adminToken(), "{\"reason\":\"ปลอม\"}")
+        call(post("/api/admin/orders/" + o2 + "/payments/" + JsonPath.<List<String>>read(call(get("/api/admin/orders/" + o2 + "/payments"),
+            adminToken()).andReturn().getResponse().getContentAsString(), "$..[?(@.status == 'PENDING')].id").get(0) + "/reject"), adminToken(), "{\"reason\":\"ปลอม\"}")
             .andExpect(status().isOk());
         call(post("/api/orders/" + o2 + "/cancel"), f.buyer(), "{\"reason\":\"x\"}").andExpect(status().isOk())
             .andExpect(jsonPath("$.order.paymentStatus").value("UNPAID"));

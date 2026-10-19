@@ -292,14 +292,19 @@ public class OrderPaymentService {
         }
     }
 
+    /** Merchant callers must have accepted the order (MerchantVisibility → 409 ORDER_NOT_ACCEPTED). */
     Order load(OrderActor actor, UUID orderId) {
-        return orders.findById(orderId).filter(actor::canSee)
+        var order = orders.findById(orderId).filter(actor::canSee)
             .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "ไม่พบออเดอร์"));
+        com.thaishopfun.order.MerchantVisibility.requireAccepted(order, actor);
+        return order;
     }
 
     Order lock(OrderActor actor, UUID orderId) {
-        return orders.lockById(orderId).filter(actor::canSee)
+        var order = orders.lockById(orderId).filter(actor::canSee)
             .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "ไม่พบออเดอร์"));
+        com.thaishopfun.order.MerchantVisibility.requireAccepted(order, actor);
+        return order;
     }
 
     private static BigDecimal amount(String raw, List<FieldViolation> violations) {

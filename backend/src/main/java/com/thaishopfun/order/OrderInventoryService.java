@@ -140,8 +140,8 @@ public class OrderInventoryService {
                        UUID reservationId, int reservedBefore, int reservedAfter, String actorType, UUID actorId, String reason) {
         var sku = level.getSku();
         UUID itemId = item == null ? null : item.getId();
-        var entry = new InventoryLedgerEntry(sku, type, delta, onHandBefore, onHandAfter, truncate(reason, 500),
-            itemId == null ? null : key(itemId, type), actorId)
+        var entry = new InventoryLedgerEntry(sku, type, delta, onHandBefore, onHandAfter, reservedBefore, reservedAfter,
+            truncate(reason, 500), itemId == null ? null : key(itemId, type), actorId)
             .forOrder(order.getId().toString(), itemId, reservationId, reservedBefore, reservedAfter, actorType);
         ledger.save(entry);
     }

@@ -43,6 +43,8 @@ public class Order {
     @Column(name = "paid_at") private Instant paidAt;
     @ColumnDefault("'NOT_REQUIRED'") @Column(name = "merchant_confirm_status", nullable = false, length = 30) private String merchantConfirmStatus = "AWAITING";
     @Column(name = "merchant_confirmed_at") private Instant merchantConfirmedAt;
+    /** V1: when the seller UI may see SKU / qty (= merchant acceptance). */
+    @Column(name = "items_revealed_at") private Instant itemsRevealedAt;
     @Column(name = "cancelled_at") private Instant cancelledAt;
     @Column(name = "cancel_reason", length = 500) private String cancelReason;
     @Column(name = "completed_at") private Instant completedAt;
@@ -137,6 +139,8 @@ public class Order {
     public void setMerchantConfirmStatus(String merchantConfirmStatus) { this.merchantConfirmStatus = merchantConfirmStatus; }
     public Instant getMerchantConfirmedAt() { return merchantConfirmedAt; }
     public void setMerchantConfirmedAt(Instant merchantConfirmedAt) { this.merchantConfirmedAt = merchantConfirmedAt; }
+    public Instant getItemsRevealedAt() { return itemsRevealedAt; }
+    public void setItemsRevealedAt(Instant itemsRevealedAt) { this.itemsRevealedAt = itemsRevealedAt; }
     public Instant getCancelledAt() { return cancelledAt; }
     public void setCancelledAt(Instant cancelledAt) { this.cancelledAt = cancelledAt; }
     public String getCancelReason() { return cancelReason; }

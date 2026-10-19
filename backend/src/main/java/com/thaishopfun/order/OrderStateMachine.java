@@ -34,9 +34,10 @@ public final class OrderStateMachine {
             t(OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM, actors(M, A, S), false, false),
             t(OrderStatus.CANCELLED, actors(B, M, A, S), true, false));
 
-        // paid, before dispatch: merchant moves it forward or cancels (auto full refund); buyer may only request a refund
+        // paid, before dispatch: merchant moves it forward or cancels (refund owed); buyer may only request a refund.
+        // SYSTEM → MERCHANT_CONFIRMED only when the shop had already accepted the order before payment (auto step).
         allow(OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM,
-            t(OrderStatus.MERCHANT_CONFIRMED, actors(M, A), false, false),
+            t(OrderStatus.MERCHANT_CONFIRMED, actors(M, A, S), false, false),
             t(OrderStatus.CANCELLED, actors(M, A, S), true, false),
             t(OrderStatus.REFUND_REQUESTED, actors(B, A), true, false));
         allow(OrderStatus.MERCHANT_CONFIRMED,
@@ -78,6 +79,25 @@ public final class OrderStateMachine {
         allow(OrderStatus.COMPLETED);
         allow(OrderStatus.CANCELLED);
         allow(OrderStatus.REFUNDED);
+    }
+
+    /**
+     * Merchant acceptance (orders.merchant_confirmed_at). Allowed once, from any status an un-accepted order can be in.
+     * From PAID_AWAITING_MERCHANT_CONFIRM it is the CONFIRM edge (→ MERCHANT_CONFIRMED); elsewhere the status is unchanged
+     * (PENDING_PAYMENT: payment confirm then goes straight to MERCHANT_CONFIRMED; REFUND_REQUESTED / CANCELLED / REFUNDED:
+     * the shop must see the order to settle a refund it owes).
+     */
+    public static final Set<OrderActorType> ACCEPT_ACTORS = Set.of(OrderActorType.MERCHANT, OrderActorType.ADMIN);
+    private static final Set<OrderStatus> ACCEPT_FROM = EnumSet.of(OrderStatus.PENDING_PAYMENT, OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM,
+        OrderStatus.REFUND_REQUESTED, OrderStatus.CANCELLED, OrderStatus.REFUNDED);
+
+    public static boolean canAccept(OrderStatus from, OrderActorType actor) {
+        return from != null && ACCEPT_FROM.contains(from) && ACCEPT_ACTORS.contains(actor);
+    }
+
+    /** Status an accept moves the order to, or null when acceptance does not change the status. */
+    public static OrderStatus acceptTarget(OrderStatus from) {
+        return from == OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM ? OrderStatus.MERCHANT_CONFIRMED : null;
     }
 
     /** Who may reject a refund request (REFUND_REQUESTED → status_before_refund). Reason required. */

@@ -1,122 +1,130 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "./AuthContext";
+import {
+  cartApi,
+  type AuthUser,
+  type Cart,
+  type CartActionResult,
+  type CartLinePatch,
+  type CartMergeNote,
+  type CartValidation,
+} from "../services/api";
+import { accountKind } from "../services/permissions";
 
-const CHANGE_EVENT = "thaishopfun-cart";
+type CartStatus = "loading" | "ready" | "error";
 
-function storageKey(userId: string) {
-  return `thaishopfun.cart.${userId}`;
+/**
+ * Who may use the cart (R2/T2). guest = not signed in (login first, no guest cart any more);
+ * blocked = admin accounts (and anyone without CART_READ); merchants may buy from other shops;
+ * own-shop purchases are blocked in the UI + backend, not here.
+ */
+export type CartAccess = "loading" | "guest" | "blocked" | "buyer";
+
+export function cartAccessOf(user: AuthUser | null, loading: boolean): CartAccess {
+  if (loading) return "loading";
+  if (!user) return "guest";
+  if (accountKind(user) === "ADMIN") return "blocked";
+  if (user.permissions && !user.permissions.includes("CART_READ")) return "blocked";
+  return "buyer";
 }
 
-export type CartLine = {
-  id: string;
-  name: string;
-  shop: string;
-  optionLabel: string;
-  price: number;
-  old: number;
-  quantity: number;
-  stock: number;
-  imageUrl: string | null;
-};
+/** /login?next=<current page> so the user comes back to the same product / cart after signing in. */
+export function loginPathForCart(next = `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+  return `/login?next=${encodeURIComponent(next)}`;
+}
 
-type CartValue = {
-  items: CartLine[];
+export type CartValue = {
+  cart: Cart | null;
+  status: CartStatus;
+  /** Kept for CheckoutPage: "user" only for a signed-in buyer. */
+  mode: "user" | "guest";
+  access: CartAccess;
+  /** Total item quantity for the header badge (0 for guests / blocked accounts / while loading). */
   count: number;
-  addLine: (line: CartLine) => { added: number };
-  setQuantity: (id: string, quantity: number) => void;
-  remove: (ids: string[]) => void;
+  /** Always empty since the guest cart (and its merge on login) was removed; kept so CartPage stays unchanged. */
+  mergeNotes: CartMergeNote[];
+  dismissMergeNotes: () => void;
+  refresh: () => Promise<void>;
+  /** Adds a SKU; returns lastAction (adjusted = capped by stock) or null. Throws ApiError on failure. Buyers only. */
+  add: (skuId: string, quantity: number) => Promise<CartActionResult | null>;
+  update: (itemId: string, patch: CartLinePatch) => Promise<CartActionResult | null>;
+  setSelected: (itemIds: string[], selected: boolean) => Promise<void>;
+  remove: (itemIds: string[]) => Promise<void>;
+  applyCoupon: (shopId: number, code: string) => Promise<void>;
+  removeCoupon: (shopId: number) => Promise<void>;
+  chooseShipping: (shopId: number, methodId: string | null) => Promise<void>;
+  acceptPrices: () => Promise<void>;
+  validate: () => Promise<CartValidation>;
 };
 
 const CartContext = createContext<CartValue | null>(null);
-
-function isLine(value: unknown): value is CartLine {
-  if (!value || typeof value !== "object") return false;
-  const line = value as CartLine;
-  return typeof line.id === "string" && typeof line.name === "string" && typeof line.quantity === "number" && typeof line.price === "number";
-}
-
-function normalize(line: CartLine): CartLine {
-  const price = Number(line.price) || 0;
-  const old = Number(line.old) > price ? Number(line.old) : price;
-  const quantity = Math.max(1, Math.trunc(Number(line.quantity) || 1));
-  const stock = Math.max(quantity, Math.trunc(Number(line.stock) || quantity));
-  return {
-    id: line.id,
-    name: line.name,
-    shop: line.shop || "",
-    optionLabel: line.optionLabel || "",
-    price,
-    old,
-    quantity: Math.min(quantity, stock),
-    stock,
-    imageUrl: line.imageUrl || null,
-  };
-}
-
-export function readCart(userId: string | null): CartLine[] {
-  if (!userId) return [];
-  try {
-    const parsed = JSON.parse(localStorage.getItem(storageKey(userId)) || "[]");
-    return Array.isArray(parsed) ? parsed.filter(isLine).map(normalize) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCart(userId: string, lines: CartLine[]) {
-  localStorage.setItem(storageKey(userId), JSON.stringify(lines));
-  window.dispatchEvent(new Event(CHANGE_EVENT));
-}
+const NO_NOTES: CartMergeNote[] = [];
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
-  const [items, setItems] = useState<CartLine[]>([]);
+  const { user, loading: authLoading } = useAuth();
+  const access = cartAccessOf(user, authLoading);
+  const [cart, setCart] = useState<Cart | null>(null);
+  const [status, setStatus] = useState<CartStatus>("loading");
+  const seq = useRef(0);
 
-  useEffect(() => {
-    setItems(readCart(userId));
-    const sync = (event: Event) => {
-      if (event instanceof StorageEvent && (!userId || event.key !== storageKey(userId))) return;
-      setItems(readCart(userId));
-    };
-    window.addEventListener(CHANGE_EVENT, sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener(CHANGE_EVENT, sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, [userId]);
+  /** Only the newest request may update state (protects against out-of-order responses). */
+  const apply = useCallback((ticket: number, next: Cart) => {
+    if (ticket !== seq.current) return;
+    setCart(next);
+    setStatus("ready");
+  }, []);
+
+  const refresh = useCallback(async () => {
+    const ticket = ++seq.current;
+    if (access !== "buyer") {
+      // guests and merchant/admin accounts never call the cart API
+      setCart(null);
+      setStatus(access === "loading" ? "loading" : "ready");
+      return;
+    }
+    setStatus((current) => (current === "ready" ? current : "loading"));
+    try {
+      apply(ticket, await cartApi.get());
+    } catch {
+      if (ticket === seq.current) setStatus("error");
+    }
+  }, [apply, access]);
+
+  useEffect(() => { void refresh(); }, [refresh, user?.id]);
+
+  const mutate = useCallback(async (call: () => Promise<Cart>) => {
+    const ticket = ++seq.current;
+    const next = await call();
+    apply(ticket, next);
+    return next.lastAction ?? null;
+  }, [apply]);
 
   const value = useMemo<CartValue>(() => ({
-    items,
-    count: items.reduce((sum, item) => sum + item.quantity, 0),
-    addLine(line) {
-      if (!userId) return { added: 0 };
-      const current = readCart(userId);
-      const found = current.find((item) => item.id === line.id);
-      const room = found ? Math.max(0, line.stock - found.quantity) : line.stock;
-      const added = Math.min(Math.max(0, line.quantity), room);
-      if (added < 1) return { added: 0 };
-      const next = found
-        ? current.map((item) => item.id === line.id ? { ...line, quantity: item.quantity + added } : item)
-        : [...current, { ...line, quantity: added }];
-      saveCart(userId, next);
-      setItems(next);
-      return { added };
+    cart: access === "buyer" ? cart : null,
+    status,
+    mode: access === "buyer" ? "user" : "guest",
+    access,
+    count: access === "buyer" ? cart?.counts.itemQuantity ?? 0 : 0,
+    mergeNotes: NO_NOTES,
+    dismissMergeNotes: () => {},
+    refresh,
+    add: (skuId, quantity) => mutate(() => cartApi.add(skuId, quantity)),
+    update: (itemId, patch) => mutate(() => cartApi.update(itemId, patch)),
+    setSelected: async (itemIds, selected) => { await mutate(() => cartApi.select(itemIds, selected)); },
+    remove: async (itemIds) => {
+      await mutate(() => (itemIds.length === 1 ? cartApi.remove(itemIds[0]) : cartApi.removeMany(itemIds)));
     },
-    setQuantity(id, quantity) {
-      if (!userId) return;
-      const next = readCart(userId).map((item) => item.id === id ? { ...item, quantity: Math.min(item.stock, Math.max(1, Math.trunc(quantity))) } : item);
-      saveCart(userId, next);
-      setItems(next);
+    applyCoupon: async (shopId, code) => { await mutate(() => cartApi.applyCoupon(shopId, code.trim().toUpperCase())); },
+    removeCoupon: async (shopId) => { await mutate(() => cartApi.removeCoupon(shopId)); },
+    chooseShipping: async (shopId, methodId) => { await mutate(() => cartApi.chooseShipping(shopId, methodId)); },
+    acceptPrices: async () => { await mutate(() => cartApi.acceptPrices()); },
+    validate: async () => {
+      const result = await cartApi.validate();
+      const ticket = ++seq.current;
+      apply(ticket, result.cart);
+      return result;
     },
-    remove(ids) {
-      if (!userId) return;
-      const next = readCart(userId).filter((item) => !ids.includes(item.id));
-      saveCart(userId, next);
-      setItems(next);
-    },
-  }), [items, userId]);
+  }), [cart, status, access, refresh, mutate, apply]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
@@ -125,4 +133,9 @@ export function useCart() {
   const value = useContext(CartContext);
   if (!value) throw new Error("useCart must be used inside CartProvider");
   return value;
+}
+
+/** Same as useCart but returns null outside CartProvider (theme-editor preview renders ProductCard without it). */
+export function useOptionalCart() {
+  return useContext(CartContext);
 }

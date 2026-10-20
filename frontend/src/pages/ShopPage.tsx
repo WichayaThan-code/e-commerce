@@ -37,7 +37,7 @@ export default function ShopPage() {
         products={products}
         catalog={catalog}
         preview={false}
-        couponStrip={<ShopCouponStrip slug={slug} onNotify={catalog.onNotify} />}
+        couponStrip={<ShopCouponStrip slug={slug} shopId={shop.shopId} onNotify={catalog.onNotify} />}
       />
     </>
   );

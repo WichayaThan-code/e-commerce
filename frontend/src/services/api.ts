@@ -27,9 +27,12 @@ export type ApiFieldError = { field: string; code: string; message: string }
 
 export class ApiError extends Error {
   fieldErrors: ApiFieldError[]
-  constructor(public code:string, message:string, public status:number, public jobId?:string, fieldErrors?: ApiFieldError[]) {
+  /** Raw error body (e.g. 409 INSUFFICIENT_STOCK: availableQuantity, inCartQuantity, canAddQuantity). */
+  details: Record<string, unknown>
+  constructor(public code:string, message:string, public status:number, public jobId?:string, fieldErrors?: ApiFieldError[], details?: Record<string, unknown>) {
     super(message)
     this.fieldErrors = fieldErrors ?? []
+    this.details = details ?? {}
   }
 }
 
@@ -67,7 +70,7 @@ async function request<T>(path:string, init:RequestInit = {}, authenticate = fal
     if (authenticate && !path.startsWith('/api/auth/') && (response.status === 403 || error.code === 'SHOP_NOT_FOUND')) {
       window.dispatchEvent(new Event(PERMISSIONS_STALE_EVENT))
     }
-    const apiError = new ApiError(error.code || (response.status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_FAILED'), error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status, error.jobId, error.fieldErrors)
+    const apiError = new ApiError(error.code || (response.status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_FAILED'), error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status, error.jobId, error.fieldErrors, error as Record<string, unknown>)
     if (response.status === 401 && authenticate && !window.location.pathname.startsWith('/login')) {
       const next = `${window.location.pathname}${window.location.search}`
       window.location.assign(`/login?next=${encodeURIComponent(next)}`)
@@ -752,12 +755,154 @@ function promotionQuery({ q, status, type, page, size }: PromotionQuery) {
 }
 
 /** /api/merchant/shops/{shopId}/promotions ? PROMOTION_READ (reads) / PROMOTION_MANAGE (writes). */
+/**
+ * Merchant coupons = Supitcha's primary API /api/merchant/shops/{shopId}/coupons (R1: PROMOTION_READ / PROMOTION_MANAGE,
+ * showOnStorefront, status, summary, delete). The N2 page keeps its Promotion / PromotionList / PromotionWrite shapes;
+ * this client maps field names both ways (minSubtotal <-> minOrderAmount, maxDiscount <-> maxDiscountAmount,
+ * usageLimitPerCustomer <-> usageLimitPerBuyer, FIXED <-> FIXED_AMOUNT, totalItems -> total, disable/enable = pause/resume).
+ */
+type CouponDto = {
+  id: string; code: string; name: string; type: 'PERCENT' | 'FIXED' | 'FREE_SHIPPING'; value: Money
+  maxDiscount: Money | null; minSubtotal: Money | null; startsAt: string; endsAt: string | null
+  usageLimitTotal: number | null; usageLimitPerCustomer: number | null; usedCount: number; active: boolean
+  showOnStorefront: boolean; discountTotal: Money; status: PromotionStatus; createdAt: string; updatedAt: string
+}
+type CouponListDto = { items: CouponDto[]; page: number; size: number; totalItems: number; totalPages: number; summary: PromotionSummary }
+const optionalNumber = (value: Money | null | undefined) => (value == null ? null : Number(value))
+const fromCoupon = (row: CouponDto): Promotion => ({
+  id: row.id, code: row.code, name: row.name, type: row.type === 'FIXED' ? 'FIXED_AMOUNT' : row.type, value: Number(row.value),
+  minOrderAmount: optionalNumber(row.minSubtotal), maxDiscountAmount: optionalNumber(row.maxDiscount),
+  startsAt: row.startsAt, endsAt: row.endsAt, usageLimitTotal: row.usageLimitTotal, usageLimitPerBuyer: row.usageLimitPerCustomer,
+  showOnStorefront: row.showOnStorefront, active: row.active, status: row.status, usedCount: row.usedCount,
+  discountTotal: Number(row.discountTotal ?? 0), createdAt: row.createdAt, updatedAt: row.updatedAt,
+})
+/** Form dates are local "YYYY-MM-DDTHH:mm" in Asia/Bangkok; the coupon API takes ISO instants. */
+const bangkokInstant = (value: string | null) => {
+  if (!value) return null
+  if (/[zZ]|[+-]\d{2}:\d{2}$/.test(value)) return value
+  return `${value.length === 16 ? `${value}:00` : value}+07:00`
+}
+const toCoupon = (payload: PromotionWrite) => ({
+  code: payload.code, name: payload.name, type: payload.type === 'FIXED_AMOUNT' ? 'FIXED' : payload.type,
+  value: payload.type === 'FREE_SHIPPING' ? 0 : payload.value,
+  maxDiscount: payload.type === 'FIXED_AMOUNT' ? null : payload.maxDiscountAmount, minSubtotal: payload.minOrderAmount,
+  startsAt: bangkokInstant(payload.startsAt), endsAt: bangkokInstant(payload.endsAt),
+  usageLimitTotal: payload.usageLimitTotal, usageLimitPerCustomer: payload.usageLimitPerBuyer,
+  active: payload.active ?? true, showOnStorefront: payload.showOnStorefront,
+})
+const COUPON_FIELDS: Record<string, string> = { minSubtotal: 'minOrderAmount', maxDiscount: 'maxDiscountAmount', usageLimitPerCustomer: 'usageLimitPerBuyer' }
+const COUPON_CODES: Record<string, string> = { COUPON_IN_USE: 'PROMOTION_IN_USE', COUPON_NOT_FOUND: 'PROMOTION_NOT_FOUND' }
+/** Keep the N2 page's error handling (PROMOTION_IN_USE, form field names) working on the coupon API. */
+function couponCall<T>(call: Promise<T>): Promise<T> {
+  return call.catch((error: unknown) => {
+    if (!(error instanceof ApiError)) throw error
+    const fieldErrors = error.fieldErrors.map((item) => ({ ...item, field: COUPON_FIELDS[item.field] ?? item.field }))
+    throw new ApiError(COUPON_CODES[error.code] ?? error.code, error.message, error.status, error.jobId, fieldErrors, error.details)
+  })
+}
+const couponPath = (shopId: number, path = '') => shopProducts(shopId, `/coupons${path}`)
+
 export const promotionApi = {
-  list: (shopId: number, query: PromotionQuery = {}) => request<PromotionList>(shopProducts(shopId, `/promotions${promotionQuery(query)}`), { cache: 'no-store' }, true),
-  get: (shopId: number, id: string) => request<Promotion>(shopProducts(shopId, `/promotions/${id}`), { cache: 'no-store' }, true),
-  create: (shopId: number, payload: PromotionWrite) => request<Promotion>(shopProducts(shopId, '/promotions'), { method: 'POST', body: JSON.stringify(payload) }, true),
-  update: (shopId: number, id: string, payload: PromotionWrite) => request<Promotion>(shopProducts(shopId, `/promotions/${id}`), { method: 'PUT', body: JSON.stringify(payload) }, true),
-  pause: (shopId: number, id: string) => request<Promotion>(shopProducts(shopId, `/promotions/${id}/pause`), { method: 'POST' }, true),
-  resume: (shopId: number, id: string) => request<Promotion>(shopProducts(shopId, `/promotions/${id}/resume`), { method: 'POST' }, true),
-  remove: (shopId: number, id: string) => request<void>(shopProducts(shopId, `/promotions/${id}`), { method: 'DELETE' }, true),
+  list: (shopId: number, query: PromotionQuery = {}) => couponCall(request<CouponListDto>(couponPath(shopId, promotionQuery(query)), { cache: 'no-store' }, true))
+    .then((body): PromotionList => ({ items: body.items.map(fromCoupon), page: body.page, size: body.size, total: body.totalItems, totalPages: body.totalPages, summary: body.summary })),
+  get: (shopId: number, id: string) => couponCall(request<CouponDto>(couponPath(shopId, `/${id}`), { cache: 'no-store' }, true)).then(fromCoupon),
+  create: (shopId: number, payload: PromotionWrite) => couponCall(request<CouponDto>(couponPath(shopId), { method: 'POST', body: JSON.stringify(toCoupon(payload)) }, true)).then(fromCoupon),
+  update: (shopId: number, id: string, payload: PromotionWrite) => couponCall(request<CouponDto>(couponPath(shopId, `/${id}`), { method: 'PUT', body: JSON.stringify(toCoupon(payload)) }, true)).then(fromCoupon),
+  pause: (shopId: number, id: string) => couponCall(request<CouponDto>(couponPath(shopId, `/${id}/disable`), { method: 'POST' }, true)).then(fromCoupon),
+  resume: (shopId: number, id: string) => couponCall(request<CouponDto>(couponPath(shopId, `/${id}/enable`), { method: 'POST' }, true)).then(fromCoupon),
+  remove: (shopId: number, id: string) => couponCall(request<void>(couponPath(shopId, `/${id}`), { method: 'DELETE' }, true)),
+}
+
+// ---------------------------------------------------------------------------
+// Cart / checkout / buyer orders (backend: cart/, order/, payment/ ? Phase 1)
+// ---------------------------------------------------------------------------
+export type Money = number | string
+export type CartLineStatus = 'OK' | 'PRICE_CHANGED' | 'INSUFFICIENT_STOCK' | 'OUT_OF_STOCK' | 'PRODUCT_UNAVAILABLE'
+export type CartTotals = { subtotal: Money; discount: Money; shippingFee: Money; shippingDiscount: Money; grandTotal: Money }
+export type CartCounts = { lineCount: number; itemQuantity: number; selectedLineCount: number; selectedQuantity: number }
+export type CartLine = {
+  id: string; skuId: string; productId: string; productName: string; productSlug: string; skuCode: string
+  optionLabel?: string | null; options?: Record<string, string> | null; imageUrl?: string | null
+  quantity: number; selected: boolean; unitPrice: Money; priceSnapshot: Money; compareAtPrice?: Money | null
+  priceChanged: boolean; lineTotal: Money; availableQuantity: number; maxQuantity: number; status: CartLineStatus
+}
+export type CartCoupon = {
+  code: string; type: 'PERCENT' | 'FIXED' | 'FREE_SHIPPING'; value: Money; maxDiscount?: Money | null; minSubtotal?: Money | null
+  applicable: boolean; reason?: string | null; message?: string | null; discountAmount: Money; shippingDiscountAmount: Money
+}
+export type CartShippingOption = { id: string; name: string; carrierCode?: string | null; feeType: string; fee: Money; estimatedDaysMin?: number | null; estimatedDaysMax?: number | null }
+export type CartShipping = {
+  methodId?: string | null; methodName?: string | null; feeType?: string | null; autoSelected: boolean; fee: Money
+  freeShippingThreshold?: Money | null; amountToFreeShipping?: Money | null; totalWeightGrams: number; options: CartShippingOption[]
+}
+export type CartGroup = { shopId: number; shopName: string; shopSlug: string; items: CartLine[]; coupon?: CartCoupon | null; shipping?: CartShipping | null; totals: CartTotals; selectedQuantity: number }
+export type CartActionResult = { itemId?: string; skuId?: string; requestedQuantity: number; appliedQuantity: number; adjusted: boolean; code?: string | null; message?: string | null }
+export type CartMergeNote = { skuId: string; code: string; message: string; requestedQuantity: number; appliedQuantity: number }
+export type Cart = { currency: string; groups: CartGroup[]; summary: CartTotals; counts: CartCounts; expiresAt?: string | null; lastAction?: CartActionResult | null; mergeNotes?: CartMergeNote[] | null }
+export type CartIssue = { code: string; severity: 'ERROR' | 'WARNING' | 'INFO'; shopId?: number | null; itemId?: string | null; skuId?: string | null; field?: string | null; message: string }
+export type CartValidation = { valid: boolean; checkedAt: string; issues: CartIssue[]; cart: Cart }
+export type CartLinePatch = { quantity?: number; selected?: boolean; skuId?: string }
+
+/** Converts API money (number or numeric string) to a number; null/invalid → 0. */
+export const moneyValue = (value: Money | null | undefined) => {
+  const number = Number(value ?? 0)
+  return Number.isFinite(number) ? number : 0
+}
+
+/** Signed-in buyers only (R2): the guest cart (/api/guest-cart, X-Cart-Token) was removed. */
+function cartCall<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return request<T>(`/api/cart${path}`, init, true)
+}
+const json = (method: string, body?: unknown): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body) })
+
+export const cartApi = {
+  get: () => cartCall<Cart>(''),
+  add: (skuId: string, quantity: number, capToAvailable = true) => cartCall<Cart>('/items', json('POST', { skuId, quantity, capToAvailable })),
+  update: (itemId: string, patch: CartLinePatch) => cartCall<Cart>(`/items/${itemId}`, json('PATCH', patch)),
+  remove: (itemId: string) => cartCall<Cart>(`/items/${itemId}`, { method: 'DELETE' }),
+  removeMany: (itemIds: string[]) => cartCall<Cart>('/items/remove', json('POST', { itemIds })),
+  select: (itemIds: string[], selected: boolean) => cartCall<Cart>('/selection', json('PUT', { itemIds, selected })),
+  applyCoupon: (shopId: number, code: string) => cartCall<Cart>(`/shops/${shopId}/coupon`, json('POST', { code })),
+  removeCoupon: (shopId: number) => cartCall<Cart>(`/shops/${shopId}/coupon`, { method: 'DELETE' }),
+  chooseShipping: (shopId: number, shippingMethodId: string | null) => cartCall<Cart>(`/shops/${shopId}/shipping-method`, json('PUT', { shippingMethodId })),
+  acceptPrices: () => cartCall<Cart>('/accept-prices', { method: 'POST' }),
+  validate: () => cartCall<CartValidation>('/validate', { method: 'POST' }),
+}
+
+/** Coupon wallet (V31): a buyer collects a public shop code on the storefront before the cart accepts it. */
+export type CollectedCouponStatus = 'USABLE' | 'UPCOMING' | 'USED' | 'EXHAUSTED' | 'EXPIRED' | 'INACTIVE'
+export type CollectedCoupon = {
+  shopId: number; shopName: string; shopSlug: string; code: string; name: string; type: PromotionType; value: number
+  minOrderAmount?: number | null; maxDiscountAmount?: number | null; startsAt?: string | null; endsAt?: string | null
+  collectedAt: string; status: CollectedCouponStatus
+}
+export type CollectCouponResult = { code: string; shopId: number; alreadyCollected: boolean; collectedAt: string }
+export const walletApi = {
+  list: (shopId?: number) => request<CollectedCoupon[]>(`/api/me/coupons${shopId != null ? `?shopId=${shopId}` : ''}`, { cache: 'no-store' }, true),
+  collect: (shopId: number, code: string) => request<CollectCouponResult>('/api/me/coupons', json('POST', { shopId, code: code.trim().toUpperCase() }), true),
+}
+
+export type CheckoutAddress = {
+  recipientName: string; phone: string; addressLine1: string; addressLine2?: string
+  subdistrict?: string; district: string; province: string; postalCode: string
+}
+export type OrderItem = { id: string; productId: string; skuId: string; productName: string; optionLabel?: string | null; skuCode?: string | null; imageUrl?: string | null; unitPrice: Money; quantity: number; discountAmount?: Money | null; lineTotal: Money }
+export type OrderDetail = {
+  id: string; orderNumber: string; shopId: number; shopName: string; status: string; paymentStatus: string; fulfillmentStatus?: string | null
+  currency: string; subtotal: Money; discountTotal: Money; shippingFee: Money; grandTotal: Money; couponCode?: string | null
+  shipping?: { methodId?: string | null; methodName?: string | null; carrierCode?: string | null } | null
+  placedAt?: string | null; items?: OrderItem[] | null; itemCount?: number | null; totalQuantity?: number | null
+}
+export type CheckoutResult = { replayed: boolean; orders: OrderDetail[]; grandTotal: Money; currency: string }
+export type PaymentAccount = { provider: string; displayName?: string | null; bankName?: string | null; accountNumber?: string | null; accountName?: string | null; promptPayId?: string | null; active: boolean; masked: boolean }
+export type OrderPaymentInfo = { orderId: string; orderNumber: string; orderStatus: string; paymentStatus: string; amountDue: Money; currency: string; canSubmitSlip: boolean; accounts: PaymentAccount[] }
+
+export const checkoutApi = {
+  /** idempotencyKey: 8?100 chars [A-Za-z0-9._:-]; reuse the same key when retrying the same attempt. */
+  place: (idempotencyKey: string, shippingAddress: CheckoutAddress, buyerNote?: string) =>
+    request<CheckoutResult>('/api/checkout', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ shippingAddress, buyerNote: buyerNote || undefined }) }, true),
+}
+export const buyerOrderApi = {
+  get: (orderId: string) => request<OrderDetail>(`/api/orders/${orderId}`, {}, true),
+  paymentInfo: (orderId: string) => request<OrderPaymentInfo>(`/api/orders/${orderId}/payment-info`, {}, true),
 }

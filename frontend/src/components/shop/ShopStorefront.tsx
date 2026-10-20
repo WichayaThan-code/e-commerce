@@ -5,6 +5,7 @@ import { SHOP_SECTION_COMPONENTS } from "./sections/registry";
 import type { ShopCatalogControls } from "./sections/types";
 import ShopThemeShell, { resolveStorefrontTheme } from "./ShopThemeShell";
 import { hasPromoBanners } from "./promoTargets";
+import { ShopCouponStripPreview } from "./ShopCouponStrip";
 
 export { resolveStorefrontTheme };
 
@@ -29,7 +30,7 @@ type ShopSectionsProps = {
   preview?: boolean;
   /**
    * Storefront-only coupon strip (ShopPage). Inserted after BANNERS when banners render, else after HERO,
-   * else first. Never passed by the theme editor preview.
+   * else first. The theme editor preview passes ShopCouponStripPreview (sample tickets, collect disabled).
    */
   couponStrip?: ReactNode;
 };
@@ -75,7 +76,13 @@ export default function ShopStorefront({
 }: ShopStorefrontProps) {
   return (
     <ShopThemeShell shop={shop} header={header} refetching={refetching} previewWidth={previewWidth} after={children}>
-      <ShopSections shop={shop} products={products} catalog={catalog} preview={previewWidth != null} />
+      <ShopSections
+        shop={shop}
+        products={products}
+        catalog={catalog}
+        preview={previewWidth != null}
+        couponStrip={previewWidth != null ? <ShopCouponStripPreview /> : undefined}
+      />
     </ShopThemeShell>
   );
 }

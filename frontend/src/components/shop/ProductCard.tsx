@@ -1,4 +1,8 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import { loginPathForCart, useOptionalCart } from "../../contexts/CartContext";
+import { cartErrorMessage, isOwnShop } from "../cart/cartFormat";
 import { Heart, ShoppingCart, Star } from "lucide-react";
 import { usePublicTranslation } from "../../hooks/usePublicTranslation";
 import { mediaUrl, type PublicProduct, type PublicShop } from "../../services/api";
@@ -85,14 +89,49 @@ export default function ProductCard({
     </button>
   );
 
+  const { user } = useAuth();
+  const cartApi = useOptionalCart();
+  const navigate = useNavigate();
+  const [adding, setAdding] = useState(false);
+  const own = isOwnShop(user, shop.shopId);
+  const skus = product.skus ?? [];
+  const sellable = skus.filter((sku) => sku.available > 0);
+  /**
+   * 1 SKU → add 1 piece through the cart API. More than 1 SKU → open the product page to choose the variant (toast explains).
+   * Outside CartProvider (theme-editor preview) keep the old notice so the preview never calls the cart API.
+   */
+  const addFromCard = async () => {
+    if (!cartApi) { onNotify(tp("shop.view.soon")); return; }
+    // guests sign in and come back; admins blocked; merchants may buy other shops but not their own
+    if (cartApi.access === "guest") { onNotify(tp("cart.loginToAdd")); window.location.assign(loginPathForCart()); return; }
+    if (cartApi.access === "blocked") { onNotify(tp("cart.blocked.toast")); return; }
+    if (own) { onNotify(tp("cart.own.toast")); return; }
+    if (cartApi.access === "loading") return;
+    if (skus.length > 1) { onNotify(tp("cart.card.chooseOption")); navigate(href); return; }
+    const sku = skus[0];
+    if (!sku || sellable.length === 0) { onNotify(tp("cart.card.soldOut")); return; }
+    setAdding(true);
+    try {
+      const result = await cartApi.add(sku.id, 1);
+      onNotify(result?.adjusted && result.appliedQuantity < 1 ? tp("shop.view.notEnough") : tp("shop.view.added"));
+    } catch (error) {
+      onNotify(cartErrorMessage(error, tp));
+    } finally {
+      setAdding(false);
+    }
+  };
+
   const cart = (
     <button
       type="button"
       className="shop-cart-btn"
+      disabled={adding || own}
+      title={own ? tp("cart.own.label") : undefined}
+      aria-busy={adding || undefined}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        onNotify(tp("shop.view.soon"));
+        void addFromCard();
       }}
       aria-label={tp("recommend.addToCart")}
     >

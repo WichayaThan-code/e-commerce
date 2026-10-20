@@ -37,7 +37,7 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
   const [query, setQuery] = useState("");
   const [accountOpen, setAccountOpen] = useState(false);
   const { user, loading, logout } = useAuth();
-  const { count } = useCart();
+  const { count, access: cartAccess } = useCart();
   const { t } = useTranslation("common");
   const { t: ta } = useTranslation("auth");
   const navigate = useNavigate();
@@ -149,7 +149,7 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
               <Link className="outline" to="/signup">{ta('signup')}</Link>
             </>
           )}
-          <Link className="cart" to="/cart" aria-label={t('account.cart')}><ShoppingCart /><em>{count}</em></Link>
+          <Link className="cart" to="/cart" aria-label={t('account.cart')}><ShoppingCart />{cartAccess === "buyer" && <em>{count}</em>}</Link>
         </div>
       </div>
 

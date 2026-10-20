@@ -86,7 +86,8 @@ export function draftToPayload(draft: PromotionDraft): PromotionWrite {
     type: draft.type,
     value: draft.type === "FREE_SHIPPING" ? 0 : decimal(draft.value),
     minOrderAmount: decimal(draft.minOrderAmount),
-    maxDiscountAmount: draft.type === "PERCENT" ? decimal(draft.maxDiscountAmount) : null,
+    // FREE_SHIPPING keeps its shipping cap (e.g. FREESHIP399 = 60) even though the form only edits it for PERCENT
+    maxDiscountAmount: draft.type === "FIXED_AMOUNT" ? null : decimal(draft.maxDiscountAmount),
     startsAt: draft.startsAt,
     endsAt: draft.endsAt || null,
     usageLimitTotal: integer(draft.usageLimitTotal),

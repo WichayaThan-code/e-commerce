@@ -5,7 +5,8 @@ import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, ShoppingCart, Store, Truck, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { useCart } from "../contexts/CartContext";
+import { loginPathForCart, useCart } from "../contexts/CartContext";
+import { cartErrorMessage, isOwnShop } from "../components/cart/cartFormat";
 import { useShopCrumb, useShopPublic } from "../contexts/ShopPublicContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import { localizedText } from "../services/catalogText";
@@ -59,12 +60,17 @@ function skuMatches(sku: PublicSku, groups: Group[], picked: Record<string, stri
   });
 }
 
+/** Shopee-style "เหลือ N ชิ้น" when stock is low. */
+const LOW_STOCK = 10;
+
 export default function ShopProductPage() {
   const { slug = "", productSlug = "" } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { shop } = useShopPublic();
-  const { user, loading: authLoading } = useAuth();
-  const { addLine } = useCart();
+  const cart = useCart();
+  const own = isOwnShop(user, shop.shopId);
+  const [adding, setAdding] = useState(false);
   const { tp, localeTag } = usePublicTranslation();
   const lang = localeTag.startsWith("en") ? "en" : localeTag.startsWith("zh") ? "zh" : "th";
   const [product, setProduct] = useState<PublicProduct | null>(null);
@@ -174,48 +180,40 @@ export default function ShopProductPage() {
       notify(tp("shop.productError"));
     }
   };
-  const placeInCart = () => {
+  /** Adds the chosen SKU through the cart API. Returns true when at least 1 piece was added. */
+  const placeInCart = async () => {
+    // guests sign in first; admins blocked; merchants may buy other shops but not their own
+    if (cart.access === "guest") { notify(tp("cart.loginToAdd")); window.location.assign(loginPathForCart()); return false; }
+    if (cart.access === "blocked") { notify(tp("cart.blocked.toast")); return false; }
+    if (own) { notify(tp("cart.own.toast")); return false; }
+    if (cart.access === "loading") return false;
     if (!product || !selectedSku || !complete) { setWarn(true); return false; }
     if (!ready || qty < 1 || qty > stock) {
-      notify(tp("shop.view.notEnough"));
+      notify(stock > 0 ? tp("cart.errors.stockLeft", { count: stock }) : tp("cart.errors.stockNone"));
       return false;
     }
-    const price = amount(selectedSku.price) ?? 0;
-    const comparePrice = amount(selectedSku.compareAtPrice) ?? amount(product.compareAtPrice);
-    const photo = product.images.find((item) => item.id === selectedSku.imageId) || product.images.find((item) => item.primary) || product.images[0];
-    const optionLabel = groups.map((group) => picked[group.key]).filter(Boolean).join(" / ") || selectedSku.optionLabel || "";
-    const result = addLine({
-      id: selectedSku.id,
-      name,
-      shop: shopName || slug,
-      optionLabel,
-      price,
-      old: comparePrice != null && comparePrice > price ? comparePrice : price,
-      quantity: qty,
-      stock,
-      imageUrl: photo?.url ?? null,
-    });
-    if (result.added < 1) {
-      notify(tp("shop.view.notEnough"));
+    setAdding(true);
+    try {
+      const result = await cart.add(selectedSku.id, qty);
+      if (result?.adjusted) {
+        if (result.appliedQuantity < 1) { notify(tp("cart.errors.stockLeftInCart", { count: stock, inCart: stock })); return false; }
+        notify(tp("cart.quantityAdjusted", { count: result.appliedQuantity }));
+      }
+      return true;
+    } catch (error) {
+      notify(cartErrorMessage(error, tp));
       return false;
+    } finally {
+      setAdding(false);
     }
-    return true;
   };
-  const signedIn = () => {
-    if (authLoading) return false;
-    if (!user) {
-      navigate("/login");
-      return false;
-    }
-    return true;
+  const addToCart = async () => {
+    if (adding) return;
+    if (await placeInCart()) notify(tp("shop.view.added"));
   };
-  const addToCart = () => {
-    if (!signedIn()) return;
-    if (placeInCart()) notify(tp("shop.view.added"));
-  };
-  const buyNow = () => {
-    if (!signedIn()) return;
-    if (placeInCart()) navigate("/cart");
+  const buyNow = async () => {
+    if (adding) return;
+    if (await placeInCart()) navigate("/cart");
   };
 
   const name = product ? localizedText(localeTag, product.nameTh, product.nameEn, product.nameZh) : "";
@@ -340,14 +338,15 @@ export default function ShopProductPage() {
                       }} />
                       <button type="button" aria-label="+" disabled={!ready || qty >= stock} onClick={() => setQty((value) => Math.min(stock, value + 1))}><Plus /></button>
                     </div>
-                    <span>{complete && stock <= 0 ? tp("shop.view.soldOut") : selectedSku ? tp("shop.view.inStock", { count: stock }) : null}</span>
+                    <span>{complete && stock <= 0 ? tp("shop.view.soldOut") : selectedSku ? (stock <= LOW_STOCK ? tp("shop.view.lowStock", { count: stock }) : tp("shop.view.inStock", { count: stock })) : null}</span>
                   </dd>
                 </div>
               </dl>
               <div className="buyer-actions">
-                <button type="button" className="cart" disabled={soldOut} onClick={addToCart}><ShoppingCart />{tp("shop.view.addToCart")}</button>
-                <button type="button" className="buy" disabled={soldOut} onClick={buyNow}>{tp("shop.view.buyNow")}</button>
+                <button type="button" className="cart" disabled={soldOut || adding || own} onClick={() => void addToCart()}><ShoppingCart />{tp("shop.view.addToCart")}</button>
+                <button type="button" className="buy" disabled={soldOut || adding || own} onClick={() => void buyNow()}>{tp("shop.view.buyNow")}</button>
               </div>
+              {own ? <p className="buyer-warn">{tp("cart.own.label")}</p> : null}
             </div>
           </article>
           <section className="buyer-card buyer-shop">

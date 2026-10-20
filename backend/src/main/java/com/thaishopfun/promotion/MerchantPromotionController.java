@@ -9,7 +9,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
-/** Merchant promotions/coupons of one shop: PROMOTION_READ for reads, PROMOTION_MANAGE for every write (V27). */
+/**
+ * DEPRECATED (R1): duplicate of {@link com.thaishopfun.cart.MerchantCouponController} (/api/merchant/shops/{shopId}/coupons),
+ * now the primary merchant API used by the frontend. Kept only until the next cleanup; do not add features here.
+ * Merchant promotions/coupons of one shop: PROMOTION_READ for reads, PROMOTION_MANAGE for every write (V27).
+ */
+@Deprecated(forRemoval = true)
 @RestController
 @RequestMapping("/api/merchant/shops/{shopId}/promotions")
 public class MerchantPromotionController {

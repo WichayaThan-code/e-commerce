@@ -1,7 +1,7 @@
 import type { PublicShop } from "../../services/api";
 import { resolveStorefrontTheme } from "./ShopThemeShell";
 
-/** Anchor of ShopCouponStrip (rendered by ShopPage only, never in the theme editor preview). */
+/** Anchor of ShopCouponStrip (ShopPage) and ShopCouponStripPreview (theme editor preview). */
 export const PROMO_COUPONS_ANCHOR = "shop-promotions";
 /** Anchor of BannersSection. */
 export const PROMO_BANNERS_ANCHOR = "shop-banners";

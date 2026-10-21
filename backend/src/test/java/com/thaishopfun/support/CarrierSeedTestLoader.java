@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 @Profile("test")
 @Order(1)
 public class CarrierSeedTestLoader implements ApplicationRunner {
-    static final String RESOURCE = "/db/migration/V30__shipping_carriers_and_tracking.sql";
+    static final String RESOURCE = "/db/migration/V33__B2_shipping_carriers_and_tracking.sql";
     private static final Pattern INSERT = Pattern.compile("INSERT INTO carriers \\(([^)]*)\\) VALUES(.*?)ON CONFLICT", Pattern.DOTALL);
 
     private final JdbcTemplate jdbc;

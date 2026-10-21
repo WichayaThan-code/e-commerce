@@ -239,7 +239,7 @@ public class OrderQueryService {
             itemsHidden, order.getItems().size(), order.getItems().stream().mapToInt(OrderItem::getQuantity).sum(),
             ledger.captured(order.getId()), ledger.refunded(order.getId()), ledger.refundable(order.getId()),
             actor.type() == OrderActorType.MERCHANT ? Boolean.FALSE : null,
-            order.getPaymentMethod().name(), order.getCodFee());
+            order.getPaymentMethod().name(), order.getCodFee(), order.getTermsAcceptedAt());
     }
 
     /** Merchant, not accepted yet: id, number, created time, version, accept / decline only (MerchantVisibility). */
@@ -249,7 +249,7 @@ public class OrderQueryService {
             shop == null ? null : shop.getName(), null, null, null, null, "AWAITING", null, null,
             null, null, null, null, null, null, null, null, null, null, null, null, null,
             order.getPlacedAt(), null, null, null, null, order.getRowVersion(), null, allowed,
-            true, null, null, null, null, null, Boolean.TRUE, null, null);
+            true, null, null, null, null, null, Boolean.TRUE, null, null, null);
     }
 
     /** Merchants see the full address only after confirming the order and with SHIPMENT_ADDRESS_READ (V1 design: reveal after confirm). */

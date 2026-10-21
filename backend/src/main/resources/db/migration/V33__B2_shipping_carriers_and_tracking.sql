@@ -1,4 +1,4 @@
--- V30: shipping carriers, per-shop carrier enablement, shipment tracking — additive, idempotent.
+-- V33 (B2): shipping carriers, per-shop carrier enablement, shipment tracking — additive, idempotent.
 -- V1 already has shipments (status CHECK = 10 values), shipment_tracking_events, shipping_methods (carrier_code free text
 -- "KERRY|FLASH|THAIPOST|JT|OTHER"). V1 has no carrier master table and no per-shop carrier table; this adds both.
 
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS carriers (
     CONSTRAINT pk_carriers PRIMARY KEY (code),
     CONSTRAINT ck_carriers_code CHECK (code ~ '^[A-Z0-9_]{2,50}$')
 );
-COMMENT ON TABLE carriers IS '[Shipping] V30: master list ขนส่ง (KERRY, FLASH, THAIPOST, JT, …); shipments.carrier_code / shipping_methods.carrier_code อ้างอิงรหัสนี้ (ตรวจในแอป)';
+COMMENT ON TABLE carriers IS '[Shipping] V33 (B2): master list ขนส่ง (KERRY, FLASH, THAIPOST, JT, …); shipments.carrier_code / shipping_methods.carrier_code อ้างอิงรหัสนี้ (ตรวจในแอป)';
 COMMENT ON COLUMN carriers.tracking_pattern IS 'regex ของเลขพัสดุหลัง normalize (ตัวใหญ่ ไม่มีช่องว่าง); NULL = กฎทั่วไปในแอป';
 COMMENT ON COLUMN carriers.tracking_url_template IS 'ลิงก์ติดตามพัสดุ; {tracking} ถูกแทนด้วยเลขพัสดุ';
 
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS shop_carriers (
     CONSTRAINT fk_shop_carriers_shop_id_shops FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE CASCADE,
     CONSTRAINT fk_shop_carriers_carrier_code_carriers FOREIGN KEY (carrier_code) REFERENCES carriers(code)
 );
-COMMENT ON TABLE shop_carriers IS '[Shipping] V30: ขนส่งที่ร้านเปิดใช้; ร้านที่ยังไม่มีแถวเลย = ใช้ได้ทุกขนส่งที่ active; มีแถวแล้ว = เฉพาะแถว is_active';
+COMMENT ON TABLE shop_carriers IS '[Shipping] V33 (B2): ขนส่งที่ร้านเปิดใช้; ร้านที่ยังไม่มีแถวเลย = ใช้ได้ทุกขนส่งที่ active; มีแถวแล้ว = เฉพาะแถว is_active';
 CREATE INDEX IF NOT EXISTS ix_shop_carriers_carrier_code ON shop_carriers (carrier_code);
 DROP TRIGGER IF EXISTS trg_shop_carriers_modified_date_time ON shop_carriers;
 CREATE TRIGGER trg_shop_carriers_modified_date_time BEFORE UPDATE ON shop_carriers FOR EACH ROW EXECUTE FUNCTION set_modified_date_time();
@@ -65,8 +65,8 @@ ALTER TABLE shipments ADD COLUMN IF NOT EXISTS row_version integer DEFAULT 0 NOT
 ALTER TABLE shipments ADD COLUMN IF NOT EXISTS failed_at timestamp with time zone;
 ALTER TABLE shipments ADD COLUMN IF NOT EXISTS failure_reason character varying(500);
 ALTER TABLE shipments ADD COLUMN IF NOT EXISTS returned_at timestamp with time zone;
-COMMENT ON COLUMN shipments.row_version IS 'optimistic lock (JPA @Version) — V30';
-COMMENT ON COLUMN shipments.failure_reason IS 'เหตุผลส่งไม่สำเร็จ/ตีกลับล่าสุด — V30';
+COMMENT ON COLUMN shipments.row_version IS 'optimistic lock (JPA @Version) — V33 (B2)';
+COMMENT ON COLUMN shipments.failure_reason IS 'เหตุผลส่งไม่สำเร็จ/ตีกลับล่าสุด — V33 (B2)';
 CREATE INDEX IF NOT EXISTS ix_shipments_shop_id_status ON shipments (shop_id, status);
 
 -- Tracking number unique per carrier (case-insensitive) among live shipments. Only created when existing data has no
@@ -76,7 +76,7 @@ BEGIN
     IF to_regclass('public.uq_shipments_carrier_code_tracking_number') IS NULL THEN
         IF EXISTS (SELECT 1 FROM shipments WHERE tracking_number IS NOT NULL AND status <> 'CANCELLED'
                    GROUP BY carrier_code, upper(tracking_number) HAVING count(*) > 1) THEN
-            RAISE NOTICE 'V30: duplicate (carrier_code, tracking_number) rows exist; uq_shipments_carrier_code_tracking_number not created';
+            RAISE NOTICE 'V33 (B2): duplicate (carrier_code, tracking_number) rows exist; uq_shipments_carrier_code_tracking_number not created';
         ELSE
             CREATE UNIQUE INDEX uq_shipments_carrier_code_tracking_number ON shipments (carrier_code, upper(tracking_number))
                 WHERE tracking_number IS NOT NULL AND status <> 'CANCELLED';
@@ -89,8 +89,8 @@ ALTER TABLE shipment_tracking_events ADD COLUMN IF NOT EXISTS event_type charact
 ALTER TABLE shipment_tracking_events ADD COLUMN IF NOT EXISTS from_status character varying(40);
 ALTER TABLE shipment_tracking_events ADD COLUMN IF NOT EXISTS actor_type character varying(20);
 ALTER TABLE shipment_tracking_events ADD COLUMN IF NOT EXISTS actor_user_id uuid;
-COMMENT ON COLUMN shipment_tracking_events.event_type IS 'STATUS_CHANGED | TRACKING_UPDATED | NOTE | CARRIER_UPDATE — V30';
-COMMENT ON COLUMN shipment_tracking_events.actor_type IS 'BUYER | MERCHANT | ADMIN | SYSTEM (ใคร) — V30; source = ช่องทาง';
+COMMENT ON COLUMN shipment_tracking_events.event_type IS 'STATUS_CHANGED | TRACKING_UPDATED | NOTE | CARRIER_UPDATE — V33 (B2)';
+COMMENT ON COLUMN shipment_tracking_events.actor_type IS 'BUYER | MERCHANT | ADMIN | SYSTEM (ใคร) — V33 (B2); source = ช่องทาง';
 ALTER TABLE shipment_tracking_events DROP CONSTRAINT IF EXISTS ck_shipment_tracking_events_source;
 ALTER TABLE shipment_tracking_events ADD CONSTRAINT ck_shipment_tracking_events_source
     CHECK (source IN ('CARRIER_WEBHOOK', 'CARRIER_POLL', 'MERCHANT', 'SYSTEM', 'OMS', 'ADMIN', 'BUYER'));

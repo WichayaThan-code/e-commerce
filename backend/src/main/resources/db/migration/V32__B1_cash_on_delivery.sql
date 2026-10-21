@@ -1,4 +1,4 @@
--- V29: Cash on Delivery (COD) — additive, idempotent.
+-- V32 (B1): Cash on Delivery (COD) — additive, idempotent.
 -- Owner decision 2026-10-19: COD is added on top of the V1/v3 payment-first design (docs said "ยังไม่รองรับ COD").
 -- Per-shop setting = shop_payment_gateways row provider 'COD' (is_active + encrypted config {fee, maxOrderAmount}).
 -- Cash collected after delivery = payments row provider 'COD' CAPTURED (+ optional payment_proofs COD_RECEIPT).
@@ -10,7 +10,7 @@ ALTER TABLE orders DROP CONSTRAINT IF EXISTS ck_orders_payment_method;
 ALTER TABLE orders ADD CONSTRAINT ck_orders_payment_method CHECK (payment_method IN ('BANK_TRANSFER', 'COD'));
 ALTER TABLE orders DROP CONSTRAINT IF EXISTS ck_orders_cod_fee;
 ALTER TABLE orders ADD CONSTRAINT ck_orders_cod_fee CHECK (cod_fee >= 0);
-COMMENT ON COLUMN orders.payment_method IS 'BANK_TRANSFER = ชำระก่อน (โอน/พร้อมเพย์ + สลิป) | COD = เก็บเงินปลายทาง (V29)';
+COMMENT ON COLUMN orders.payment_method IS 'BANK_TRANSFER = ชำระก่อน (โอน/พร้อมเพย์ + สลิป) | COD = เก็บเงินปลายทาง (V32 (B1))';
 COMMENT ON COLUMN orders.cod_fee IS 'ค่าธรรมเนียม COD ตอน checkout — รวมอยู่ใน grand_total แล้ว';
 CREATE INDEX IF NOT EXISTS ix_orders_payment_method ON orders (shop_id, payment_method);
 

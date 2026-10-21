@@ -134,7 +134,13 @@ public class OrderCheckoutService {
         var earlier = orders.findCheckoutReplay(buyerId, prefix + "%");
         if (!earlier.isEmpty()) return response(true, earlier, OrderActor.buyer(buyerId));
 
-        var req = request == null ? new OrderDtos.CheckoutRequest(null, null) : request;
+        var req = request == null ? new OrderDtos.CheckoutRequest(null, null, null, null) : request;
+        // checked after the replay lookup: a retried request with an already-used key still gets its orders back
+        if (!Boolean.TRUE.equals(req.acceptTerms())) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "TERMS_NOT_ACCEPTED",
+                "\u0e01\u0e23\u0e38\u0e13\u0e32\u0e22\u0e2d\u0e21\u0e23\u0e31\u0e1a\u0e02\u0e49\u0e2d\u0e01\u0e33\u0e2b\u0e19\u0e14\u0e41\u0e25\u0e30\u0e40\u0e07\u0e37\u0e48\u0e2d\u0e19\u0e44\u0e02\u0e01\u0e48\u0e2d\u0e19\u0e2a\u0e31\u0e48\u0e07\u0e0b\u0e37\u0e49\u0e2d");
+        }
+        var termsAcceptedAt = Instant.now();
         validateRequest(req);
         var method = PaymentMethod.parse(req.paymentMethod());
 
@@ -175,6 +181,7 @@ public class OrderCheckoutService {
             order.setBuyerNote(OrderTransitionService.clean(req.buyerNote()));
             order.setMerchantConfirmStatus("NOT_REQUIRED");
             order.setPaymentMethod(method);
+            order.setTermsAcceptedAt(termsAcceptedAt);
 
             var totals = group.totals();
             var discount = money(totals.discount());

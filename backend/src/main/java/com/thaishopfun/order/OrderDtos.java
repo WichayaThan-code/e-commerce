@@ -16,10 +16,17 @@ public final class OrderDtos {
     public record AddressRequest(String recipientName, String phone, String addressLine1, String addressLine2,
                                  String subdistrict, String district, String province, String postalCode) {}
 
-    /** paymentMethod: BANK_TRANSFER (default, pay first + slip) | COD (cash on delivery; the shop must have COD enabled). */
-    public record CheckoutRequest(AddressRequest shippingAddress, String buyerNote, String paymentMethod) {
+    /**
+     * paymentMethod: BANK_TRANSFER (default, pay first + slip) | COD (cash on delivery; the shop must have COD enabled).
+     * acceptTerms: must be true (buyer ticked the terms box), otherwise 400 TERMS_NOT_ACCEPTED; stored as orders.terms_accepted_at.
+     */
+    public record CheckoutRequest(AddressRequest shippingAddress, String buyerNote, String paymentMethod, Boolean acceptTerms) {
+        public CheckoutRequest(AddressRequest shippingAddress, String buyerNote, String paymentMethod) {
+            this(shippingAddress, buyerNote, paymentMethod, null);
+        }
+
         public CheckoutRequest(AddressRequest shippingAddress, String buyerNote) {
-            this(shippingAddress, buyerNote, null);
+            this(shippingAddress, buyerNote, null, null);
         }
     }
 
@@ -81,7 +88,9 @@ public final class OrderDtos {
         /* merchant views only: true = not accepted yet (only id / orderNumber / placedAt / version shown; POST …/accept) */
         Boolean awaitingAcceptance,
         /* BANK_TRANSFER | COD; codFee = COD surcharge already included in grandTotal (withheld while awaitingAcceptance) */
-        String paymentMethod, BigDecimal codFee
+        String paymentMethod, BigDecimal codFee,
+        /* when the buyer accepted the checkout terms (null for orders placed before V32 / withheld while awaitingAcceptance) */
+        Instant termsAcceptedAt
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

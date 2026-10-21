@@ -48,6 +48,7 @@ public class Order {
     @Column(name = "cancelled_at") private Instant cancelledAt;
     @Column(name = "cancel_reason", length = 500) private String cancelReason;
     @Column(name = "completed_at") private Instant completedAt;
+    @Column(name = "terms_accepted_at") private Instant termsAcceptedAt;
     @Column(name = "completion_source", length = 20) private String completionSource;
     @ColumnDefault("'NOT_SYNCED'") @Column(name = "oms_sync_status", nullable = false, length = 30) private String omsSyncStatus = "NOT_SYNCED";
     @Column(name = "shipping_method_id") private UUID shippingMethodId;
@@ -147,6 +148,8 @@ public class Order {
     public void setCancelledAt(Instant cancelledAt) { this.cancelledAt = cancelledAt; }
     public String getCancelReason() { return cancelReason; }
     public void setCancelReason(String cancelReason) { this.cancelReason = cancelReason; }
+    public Instant getTermsAcceptedAt() { return termsAcceptedAt; }
+    public void setTermsAcceptedAt(Instant termsAcceptedAt) { this.termsAcceptedAt = termsAcceptedAt; }
     public Instant getCompletedAt() { return completedAt; }
     public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
     public String getCompletionSource() { return completionSource; }

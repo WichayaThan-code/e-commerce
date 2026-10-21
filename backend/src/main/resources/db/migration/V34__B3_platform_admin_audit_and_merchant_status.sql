@@ -1,4 +1,4 @@
--- V31: platform admin - audit_logs reason / ip / user agent, merchant (owners) suspension status. Additive, idempotent.
+-- V34 (B3): platform admin - audit_logs reason / ip / user agent, merchant (owners) suspension status. Additive, idempotent.
 -- V1 audit_logs already has actor, action, resource (target), before_data / after_data, reason_code, request_id and
 -- occurred_at; it has no free-text reason and no client IP / user agent. V1/V2 owners has no status at all, while
 -- shops already has suspended_at / suspended_by / suspend_reason / suspend_reason_code / restored_at / restored_by (V1).
@@ -7,9 +7,9 @@
 ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS reason text;
 ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS ip_address character varying(64);
 ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS user_agent character varying(500);
-COMMENT ON COLUMN audit_logs.reason IS 'V31: เหตุผลที่ผู้ดูแลกรอก (ข้อความ) — reason_code ยังเป็นรหัสสั้น';
-COMMENT ON COLUMN audit_logs.ip_address IS 'V31: IP ของผู้เรียก API (request.getRemoteAddr)';
-COMMENT ON COLUMN audit_logs.user_agent IS 'V31: User-Agent ของผู้เรียก (ตัดที่ 500 ตัวอักษร)';
+COMMENT ON COLUMN audit_logs.reason IS 'V34 (B3): เหตุผลที่ผู้ดูแลกรอก (ข้อความ) — reason_code ยังเป็นรหัสสั้น';
+COMMENT ON COLUMN audit_logs.ip_address IS 'V34 (B3): IP ของผู้เรียก API (request.getRemoteAddr)';
+COMMENT ON COLUMN audit_logs.user_agent IS 'V34 (B3): User-Agent ของผู้เรียก (ตัดที่ 500 ตัวอักษร)';
 
 -- audit queries of the admin API: newest first, by action / auth context
 CREATE INDEX IF NOT EXISTS ix_audit_logs_occurred_at ON audit_logs USING btree (occurred_at DESC);
@@ -38,4 +38,4 @@ BEGIN
 END $$;
 
 CREATE INDEX IF NOT EXISTS ix_owners_status ON owners USING btree (status);
-COMMENT ON COLUMN owners.status IS 'V31: ACTIVE|SUSPENDED — ระงับผู้ขาย (ร้านที่เปิดอยู่ทั้งหมดถูกระงับด้วย suspend_reason_code = MERCHANT_SUSPENDED)';
+COMMENT ON COLUMN owners.status IS 'V34 (B3): ACTIVE|SUSPENDED — ระงับผู้ขาย (ร้านที่เปิดอยู่ทั้งหมดถูกระงับด้วย suspend_reason_code = MERCHANT_SUSPENDED)';

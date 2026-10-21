@@ -1,11 +1,15 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Grid2X2, List, Search, SlidersHorizontal, Star, X } from "lucide-react";
-import { LoadError, SkeletonBusy, SkeletonCard } from "../../feedback/Skeleton";
+import { LoadError, Skeleton, SkeletonBusy, SkeletonCard } from "../../feedback/Skeleton";
+import { useShopCategories } from "../../../hooks/useShopCategories";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
+import { localizedText } from "../../../services/catalogText";
 import { SHOP_PRICE_BAND_IDS } from "../../../services/shopPriceBands";
+import type { PublicShopCategory } from "../../../services/api";
+import { isFilterOn, isFilterShown } from "./filterAvailability";
 import ProductGrid, { productGridClass } from "./ProductGrid";
 import { resolveVariant, sectionRootClass } from "./sectionClasses";
-import type { ShopSectionProps, ShopSortKey } from "./types";
+import { parseShopSortKey, type ShopSectionProps } from "./types";
 
 const GRID_COLS = 8;
 const BRAND_PREVIEW = 5;
@@ -16,11 +20,26 @@ type Tp = (key: string, opts?: Record<string, unknown>) => string;
 
 type FilterChip = { id: string; label: string; onRemove: () => void };
 
-function FilterCheckbox({ checked, onChange, children }: { checked: boolean; onChange: () => void; children: ReactNode }) {
+type CategoriesState = {
+  state: "loading" | "ok" | "error";
+  rows: PublicShopCategory[];
+};
+
+function FilterCheckbox({
+  checked,
+  onChange,
+  soon,
+  children,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  soon?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <label className={`shop-filter-row ${checked ? "is-checked" : ""}`}>
+    <label className={`shop-filter-row ${checked ? "is-checked" : ""} ${soon ? "is-soon" : ""}`}>
       <span className="shop-filter-check" aria-hidden="true">
-        <input type="checkbox" checked={checked} onChange={onChange} />
+        <input type="checkbox" checked={checked} onChange={onChange} aria-disabled={soon || undefined} />
         {checked ? <Check strokeWidth={3} /> : null}
       </span>
       <span className="shop-filter-row-main">{children}</span>
@@ -55,17 +74,32 @@ function FilterGroup({
   title,
   open,
   onToggle,
+  note,
+  onHeadClick,
   children,
 }: {
   title: string;
   open: boolean;
   onToggle: () => void;
+  note?: string;
+  onHeadClick?: () => void;
   children: ReactNode;
 }) {
   return (
     <div className={`shop-filter-group ${open ? "is-open" : ""}`}>
-      <button type="button" className="shop-filter-group-head" aria-expanded={open} onClick={onToggle}>
-        <span>{title}</span>
+      <button
+        type="button"
+        className="shop-filter-group-head"
+        aria-expanded={open}
+        onClick={() => {
+          onToggle();
+          onHeadClick?.();
+        }}
+      >
+        <span>
+          {title}
+          {note ? <span className="shop-filter-and-up"> · {note}</span> : null}
+        </span>
         <ChevronDown />
       </button>
       {open ? <div className="shop-filter-group-body">{children}</div> : null}
@@ -76,100 +110,178 @@ function FilterGroup({
 function FiltersBody({
   catalog,
   priceRanges,
-  brandTags,
+  categories,
+  localeTag,
   tp,
-  selectedRatings,
-  onToggleRating,
-  selectedBrands,
-  onToggleBrand,
-  brandExpanded,
-  onExpandBrands,
   hideTitle,
 }: {
   catalog: ShopSectionProps["catalog"];
   priceRanges: string[];
-  brandTags: string[];
+  categories: CategoriesState;
+  localeTag: string;
   tp: Tp;
-  selectedRatings: number[];
-  onToggleRating: (value: number) => void;
-  selectedBrands: string[];
-  onToggleBrand: (brand: string) => void;
-  brandExpanded: boolean;
-  onExpandBrands: () => void;
   hideTitle?: boolean;
 }) {
+  const [openCategory, setOpenCategory] = useState(true);
   const [openPrice, setOpenPrice] = useState(true);
-  const [openRating, setOpenRating] = useState(true);
-  const [openBrand, setOpenBrand] = useState(true);
-  const filteredBrands = brandTags.filter((label) => label.toLowerCase().includes(catalog.brandQuery.trim().toLowerCase()));
-  const visibleBrands = brandExpanded ? filteredBrands : filteredBrands.slice(0, BRAND_PREVIEW);
-  const hiddenBrandCount = Math.max(0, filteredBrands.length - BRAND_PREVIEW);
+  const [openBrand, setOpenBrand] = useState(false);
+  const [openServices, setOpenServices] = useState(false);
+  const [openRating, setOpenRating] = useState(false);
+  const [categoryExpanded, setCategoryExpanded] = useState(false);
+
+  const soonNotice = () => catalog.onNotify(tp("shop.filters.comingSoonNotice"));
+  const soonNote = tp("shop.filters.comingSoon");
+
+  const showCategory =
+    isFilterShown("category")
+    && isFilterOn("category")
+    && Boolean(catalog.onCategory)
+    && (categories.state === "loading" || (categories.state === "ok" && categories.rows.length > 0));
+
+  const categoryRows = categories.rows;
+  const visibleCategories = (() => {
+    if (categoryExpanded) return categoryRows;
+    const base = categoryRows.slice(0, BRAND_PREVIEW);
+    const selectedId = catalog.categoryId;
+    if (selectedId == null) return base;
+    const selected = categoryRows.find((row) => row.id === selectedId);
+    if (selected && !base.some((row) => row.id === selectedId)) return [...base, selected];
+    return base;
+  })();
+  const hiddenCategoryCount = Math.max(0, categoryRows.length - BRAND_PREVIEW);
+
+  const showBrand = isFilterShown("brand");
+  const showInStock = isFilterShown("inStock");
+  const showOnSale = isFilterShown("onSale");
+  const showServices = showInStock || showOnSale;
+  const showRating = isFilterShown("rating");
 
   return (
     <div className="shop-filters-body">
       {!hideTitle && <h2 className="shop-filters-title">{tp("catalog.filters")}</h2>}
-      <FilterGroup title={tp("catalog.price")} open={openPrice} onToggle={() => setOpenPrice((v) => !v)}>
-        {priceRanges.map((label, index) => {
-          const band = SHOP_PRICE_BAND_IDS[index];
-          if (!band) return null;
-          const checked = catalog.priceBands.includes(band);
-          return (
-            <FilterCheckbox key={band} checked={checked} onChange={() => catalog.onTogglePriceBand(band)}>
-              <span>{label}</span>
+
+      {showCategory && (
+        <FilterGroup title={tp("shop.filters.category")} open={openCategory} onToggle={() => setOpenCategory((v) => !v)}>
+          {categories.state === "loading" && Array.from({ length: 4 }, (_, index) => (
+            <div className="shop-filter-row" aria-hidden="true" key={index}>
+              <Skeleton width={18} height={18} radius={4} />
+              <Skeleton width="70%" height={12} />
+            </div>
+          ))}
+          {categories.state === "ok" && visibleCategories.map((row) => {
+            const checked = catalog.categoryId === row.id;
+            const name = localizedText(localeTag, row.nameTh, row.nameEn, row.nameZh) || row.nameTh;
+            return (
+              <FilterCheckbox
+                key={row.id}
+                checked={checked}
+                onChange={() => catalog.onCategory?.(checked ? null : row.id)}
+              >
+                <span>{name}</span>
+                <span className="shop-filter-and-up num shop-filter-count">{row.productCount}</span>
+              </FilterCheckbox>
+            );
+          })}
+          {categories.state === "ok" && !categoryExpanded && hiddenCategoryCount > 0 && (
+            <button type="button" className="shop-brand-more" onClick={() => setCategoryExpanded(true)}>
+              {tp("shop.brandMore", { count: hiddenCategoryCount })}
+            </button>
+          )}
+        </FilterGroup>
+      )}
+
+      {isFilterShown("price") && (
+        <FilterGroup title={tp("catalog.price")} open={openPrice} onToggle={() => setOpenPrice((v) => !v)}>
+          {priceRanges.map((label, index) => {
+            const band = SHOP_PRICE_BAND_IDS[index];
+            if (!band) return null;
+            const checked = catalog.priceBands.includes(band);
+            return (
+              <FilterCheckbox key={band} checked={checked} onChange={() => catalog.onTogglePriceBand(band)}>
+                <span>{label}</span>
+              </FilterCheckbox>
+            );
+          })}
+        </FilterGroup>
+      )}
+
+      {showBrand && (
+        <FilterGroup
+          title={tp("catalog.brands")}
+          open={openBrand}
+          onToggle={() => setOpenBrand((v) => !v)}
+          note={soonNote}
+          onHeadClick={soonNotice}
+        >
+          <div className="shop-brand-search is-soon">
+            <Search />
+            <input
+              readOnly
+              value=""
+              placeholder={tp("catalog.brandSearch")}
+              onClick={soonNotice}
+              onFocus={soonNotice}
+            />
+          </div>
+          <p className="shop-filter-and-up">{tp("shop.filters.brandPending")}</p>
+        </FilterGroup>
+      )}
+
+      {showServices && (
+        <FilterGroup
+          title={tp("shop.filters.services")}
+          open={openServices}
+          onToggle={() => setOpenServices((v) => !v)}
+          note={soonNote}
+          onHeadClick={soonNotice}
+        >
+          {showInStock && (
+            <FilterCheckbox soon checked={false} onChange={soonNotice}>
+              <span>{tp("shop.filters.inStock")}</span>
             </FilterCheckbox>
-          );
-        })}
-      </FilterGroup>
-      <FilterGroup title={tp("catalog.rating")} open={openRating} onToggle={() => setOpenRating((v) => !v)}>
-        {RATING_LEVELS.map((value) => {
-          const checked = selectedRatings.includes(value);
-          return (
-            <FilterCheckbox key={value} checked={checked} onChange={() => onToggleRating(value)}>
+          )}
+          {showOnSale && (
+            <FilterCheckbox soon checked={false} onChange={soonNotice}>
+              <span>{tp("shop.filters.onSale")}</span>
+            </FilterCheckbox>
+          )}
+        </FilterGroup>
+      )}
+
+      {showRating && (
+        <FilterGroup
+          title={tp("catalog.rating")}
+          open={openRating}
+          onToggle={() => setOpenRating((v) => !v)}
+          note={soonNote}
+          onHeadClick={soonNotice}
+        >
+          {RATING_LEVELS.map((value) => (
+            <FilterCheckbox key={value} soon checked={false} onChange={soonNotice}>
               <RatingStars value={value} />
               <span className="shop-filter-and-up">{tp("shop.andUp")}</span>
             </FilterCheckbox>
-          );
-        })}
-      </FilterGroup>
-      <FilterGroup title={tp("catalog.brands")} open={openBrand} onToggle={() => setOpenBrand((v) => !v)}>
-        <div className="shop-brand-search">
-          <Search />
-          <input
-            value={catalog.brandQuery}
-            onChange={(event) => catalog.onBrandQuery(event.target.value)}
-            placeholder={tp("catalog.brandSearch")}
-          />
-        </div>
-        {visibleBrands.map((label) => (
-          <FilterCheckbox key={label} checked={selectedBrands.includes(label)} onChange={() => onToggleBrand(label)}>
-            <span>{label}</span>
-          </FilterCheckbox>
-        ))}
-        {!brandExpanded && hiddenBrandCount > 0 && (
-          <button type="button" className="shop-brand-more" onClick={onExpandBrands}>
-            {tp("shop.brandMore", { count: hiddenBrandCount })}
-          </button>
-        )}
-      </FilterGroup>
+          ))}
+        </FilterGroup>
+      )}
     </div>
   );
 }
 
-export default function CatalogSection({ shop: _shop, section, products, catalog, preview }: ShopSectionProps) {
-  const { tp } = usePublicTranslation();
+export default function CatalogSection({ shop, section, products, catalog, preview }: ShopSectionProps) {
+  const { tp, localeTag } = usePublicTranslation();
   const variant = resolveVariant("CATALOG", section.variant) || "GRID";
   const priceRanges = tp("catalog.priceRanges", { returnObjects: true }) as unknown as string[];
-  const brandTags = tp("catalog.brandTags", { returnObjects: true }) as unknown as string[];
   const pageCount = Math.max(1, Math.ceil(catalog.total / catalog.pageSize));
   const productLoading = catalog.productState === "loading";
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [selectedRatings, setSelectedRatings] = useState<number[]>([]);
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [brandExpanded, setBrandExpanded] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
-  const selectedFilterCount = catalog.priceBands.length + selectedRatings.length + selectedBrands.length;
+  const categories = useShopCategories(shop.slug, { enabled: !preview });
+
+  const categoryActive = isFilterOn("category") && !catalog.categoryLocked && catalog.categoryId != null;
+  const selectedFilterCount = catalog.priceBands.length + (categoryActive ? 1 : 0);
 
   useEffect(() => {
     if (!sheetOpen) return;
@@ -203,20 +315,17 @@ export default function CatalogSection({ shop: _shop, section, products, catalog
     };
   }, [sheetOpen]);
 
-  const toggleRating = (value: number) => {
-    setSelectedRatings((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]));
-  };
-
-  const toggleBrand = (brand: string) => {
-    setSelectedBrands((current) => (current.includes(brand) ? current.filter((item) => item !== brand) : [...current, brand]));
-  };
-
   const clearFilters = () => {
     catalog.priceBands.slice().forEach((band) => catalog.onTogglePriceBand(band));
-    catalog.onBrandQuery("");
-    setSelectedRatings([]);
-    setSelectedBrands([]);
+    if (categoryActive) catalog.onCategory?.(null);
   };
+
+  const categoryChipLabel = (() => {
+    if (!categoryActive || catalog.categoryId == null) return "";
+    const row = categories.rows.find((item) => item.id === catalog.categoryId);
+    if (!row) return tp("shop.filters.category");
+    return localizedText(localeTag, row.nameTh, row.nameEn, row.nameZh) || row.nameTh;
+  })();
 
   const chips: FilterChip[] = [
     ...catalog.priceBands.map((band) => {
@@ -227,29 +336,21 @@ export default function CatalogSection({ shop: _shop, section, products, catalog
         onRemove: () => catalog.onTogglePriceBand(band),
       };
     }),
-    ...selectedRatings.map((value) => ({
-      id: `rating-${value}`,
-      label: `${value} ${tp("shop.andUp")}`,
-      onRemove: () => toggleRating(value),
-    })),
-    ...selectedBrands.map((brand) => ({
-      id: `brand-${brand}`,
-      label: brand,
-      onRemove: () => toggleBrand(brand),
-    })),
+    ...(categoryActive
+      ? [{
+          id: `category-${catalog.categoryId}`,
+          label: categoryChipLabel,
+          onRemove: () => catalog.onCategory?.(null),
+        }]
+      : []),
   ];
 
   const filterProps = {
     catalog,
     priceRanges,
-    brandTags,
+    categories,
+    localeTag,
     tp,
-    selectedRatings,
-    onToggleRating: toggleRating,
-    selectedBrands,
-    onToggleBrand: toggleBrand,
-    brandExpanded,
-    onExpandBrands: () => setBrandExpanded(true),
   };
 
   return (
@@ -286,12 +387,12 @@ export default function CatalogSection({ shop: _shop, section, products, catalog
             <span className="visually-hidden">{tp("common.sortBy")}</span>
             <select
               value={catalog.sort}
-              onChange={(event) => catalog.onSort(event.target.value as ShopSortKey)}
+              onChange={(event) => catalog.onSort(parseShopSortKey(event.target.value))}
               aria-label={tp("catalog.sortAria")}
             >
               <option value="featured">{tp("common.sortBy")}: {tp("catalog.sortFeatured")}</option>
               <option value="price">{tp("common.sortBy")}: {tp("catalog.sortPrice")}</option>
-              <option value="best">{tp("common.sortBy")}: {tp("catalog.sortBest")}</option>
+              <option value="price_desc">{tp("common.sortBy")}: {tp("shop.sortPriceHigh")}</option>
             </select>
           </label>
           {variant === "GRID" && (
@@ -334,7 +435,7 @@ export default function CatalogSection({ shop: _shop, section, products, catalog
         {products.length > 0 && (
           <SkeletonBusy refetching={catalog.refetching} busy={catalog.refetching}>
             <ProductGrid
-              shop={_shop}
+              shop={shop}
               products={products}
               variant={variant}
               grid={catalog.grid}

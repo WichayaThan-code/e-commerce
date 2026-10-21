@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Skeleton, SkeletonText, LoadError } from "../components/feedback/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
-import { shopThemeFontStack } from "../theme/shopThemeFonts";
+import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, ShoppingCart, Store, Truck, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { useCart } from "../contexts/CartContext";
+import { loginPathForCart, useCart } from "../contexts/CartContext";
+import { cartErrorMessage, isOwnShop } from "../components/cart/cartFormat";
+import { useShopCrumb, useShopPublic } from "../contexts/ShopPublicContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
-import { labelForCategory } from "../services/categories";
 import { localizedText } from "../services/catalogText";
-import { ApiError, catalogApi, mediaUrl, shopApi, type ProductCategory, type PublicProduct, type PublicShop, type PublicSku } from "../services/api";
+import { ApiError, mediaUrl, shopApi, type PublicProduct, type PublicShopCategory, type PublicSku } from "../services/api";
+import { shopCategoryPath, shopPath, shopProductPath } from "../services/shopRoutes";
+import NotFoundPage from "./NotFoundPage";
 import "../styles/recommended-products.css";
 import "../styles/shop-page.css";
 
@@ -57,18 +60,23 @@ function skuMatches(sku: PublicSku, groups: Group[], picked: Record<string, stri
   });
 }
 
+/** Shopee-style "เหลือ N ชิ้น" when stock is low. */
+const LOW_STOCK = 10;
+
 export default function ShopProductPage() {
   const { slug = "", productSlug = "" } = useParams();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
-  const { addLine } = useCart();
+  const { user } = useAuth();
+  const { shop } = useShopPublic();
+  const cart = useCart();
+  const own = isOwnShop(user, shop.shopId);
+  const [adding, setAdding] = useState(false);
   const { tp, localeTag } = usePublicTranslation();
   const lang = localeTag.startsWith("en") ? "en" : localeTag.startsWith("zh") ? "zh" : "th";
   const [product, setProduct] = useState<PublicProduct | null>(null);
-  const [shop, setShop] = useState<PublicShop | null>(null);
   const [others, setOthers] = useState<PublicProduct[]>([]);
   const [productTotal, setProductTotal] = useState<number | null>(null);
-  const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [categories, setCategories] = useState<PublicShopCategory[]>([]);
   const [state, setState] = useState<"loading" | "error" | "missing" | "ok">("loading");
   const pageLoading = state === "loading";
   const { showSkeleton, markHasData, isRefetching } = useDelayedLoading(pageLoading, 150, `${slug}/${productSlug}`);
@@ -84,7 +92,6 @@ export default function ShopProductPage() {
 
   const load = () => {
     setState("loading");
-    setShop(null);
     setOthers([]);
     setProductTotal(null);
     shopApi.product(slug, productSlug)
@@ -97,7 +104,6 @@ export default function ShopProductPage() {
         setState("ok");
       })
       .catch((error) => setState(error instanceof ApiError && error.status === 404 ? "missing" : "error"));
-    shopApi.getBySlug(slug).then(setShop).catch(() => setShop(null));
     shopApi.products(slug, { size: 12, sort: "newest" }).then((page) => {
       setProductTotal(page.total);
       setOthers(page.items.filter((item) => item.slug !== productSlug).slice(0, 6));
@@ -105,7 +111,7 @@ export default function ShopProductPage() {
       setProductTotal(null);
       setOthers([]);
     });
-    catalogApi.categories().then(setCategories).catch(() => setCategories([]));
+    shopApi.categories(slug).then(setCategories).catch(() => setCategories([]));
   };
 
   useEffect(() => { load(); }, [slug, productSlug]);
@@ -174,59 +180,56 @@ export default function ShopProductPage() {
       notify(tp("shop.productError"));
     }
   };
-  const placeInCart = () => {
+  /** Adds the chosen SKU through the cart API. Returns true when at least 1 piece was added. */
+  const placeInCart = async () => {
+    // guests sign in first; admins blocked; merchants may buy other shops but not their own
+    if (cart.access === "guest") { notify(tp("cart.loginToAdd")); window.location.assign(loginPathForCart()); return false; }
+    if (cart.access === "blocked") { notify(tp("cart.blocked.toast")); return false; }
+    if (own) { notify(tp("cart.own.toast")); return false; }
+    if (cart.access === "loading") return false;
     if (!product || !selectedSku || !complete) { setWarn(true); return false; }
     if (!ready || qty < 1 || qty > stock) {
-      notify(tp("shop.view.notEnough"));
+      notify(stock > 0 ? tp("cart.errors.stockLeft", { count: stock }) : tp("cart.errors.stockNone"));
       return false;
     }
-    const price = amount(selectedSku.price) ?? 0;
-    const comparePrice = amount(selectedSku.compareAtPrice) ?? amount(product.compareAtPrice);
-    const photo = product.images.find((item) => item.id === selectedSku.imageId) || product.images.find((item) => item.primary) || product.images[0];
-    const optionLabel = groups.map((group) => picked[group.key]).filter(Boolean).join(" / ") || selectedSku.optionLabel || "";
-    const result = addLine({
-      id: selectedSku.id,
-      name,
-      shop: shopName || slug,
-      optionLabel,
-      price,
-      old: comparePrice != null && comparePrice > price ? comparePrice : price,
-      quantity: qty,
-      stock,
-      imageUrl: photo?.url ?? null,
-    });
-    if (result.added < 1) {
-      notify(tp("shop.view.notEnough"));
+    setAdding(true);
+    try {
+      const result = await cart.add(selectedSku.id, qty);
+      if (result?.adjusted) {
+        if (result.appliedQuantity < 1) { notify(tp("cart.errors.stockLeftInCart", { count: stock, inCart: stock })); return false; }
+        notify(tp("cart.quantityAdjusted", { count: result.appliedQuantity }));
+      }
+      return true;
+    } catch (error) {
+      notify(cartErrorMessage(error, tp));
       return false;
+    } finally {
+      setAdding(false);
     }
-    return true;
   };
-  const signedIn = () => {
-    if (authLoading) return false;
-    if (!user) {
-      navigate("/login");
-      return false;
-    }
-    return true;
+  const addToCart = async () => {
+    if (adding) return;
+    if (await placeInCart()) notify(tp("shop.view.added"));
   };
-  const addToCart = () => {
-    if (!signedIn()) return;
-    if (placeInCart()) notify(tp("shop.view.added"));
-  };
-  const buyNow = () => {
-    if (!signedIn()) return;
-    if (placeInCart()) navigate("/cart");
+  const buyNow = async () => {
+    if (adding) return;
+    if (await placeInCart()) navigate("/cart");
   };
 
   const name = product ? localizedText(localeTag, product.nameTh, product.nameEn, product.nameZh) : "";
   const description = product ? localizedText(localeTag, product.descriptionTh, product.descriptionEn, product.descriptionZh) : "";
   const image = product?.images[active] || product?.images[0];
   const category = categories.find((item) => item.id === product?.categoryId);
-  const shopName = shop ? (lang === "en" && shop.nameEn ? shop.nameEn : shop.name) : "";
+  const categoryLabel = category
+    ? localizedText(localeTag, category.nameTh, category.nameEn, category.nameZh) || category.nameTh
+    : "";
+  const shopName = lang === "en" && shop.nameEn ? shop.nameEn : shop.name;
+  useShopCrumb(name || null);
+  useDocumentMeta({ title: name ? `${name} · ${shopName}` : null, description: description || null });
   const stats = [
     productTotal != null ? [tp("shop.view.productCount"), String(productTotal)] : null,
-    shop?.category ? [tp("shop.view.category"), shop.category] : null,
-    shop?.province ? [tp("common.area"), shop.province] : null,
+    shop.category ? [tp("shop.view.category"), shop.category] : null,
+    shop.province ? [tp("common.area"), shop.province] : null,
   ].filter((item): item is [string, string] => Boolean(item));
 
   const scrollThumbs = (direction: number) => thumbsRef.current?.scrollBy({ left: direction * 180, behavior: "smooth" });
@@ -235,18 +238,12 @@ export default function ShopProductPage() {
     return own === value && sku.available > 0 && skuMatches(sku, groups, picked, group.key);
   });
 
-  const storefrontFont = { "--font-sans": shopThemeFontStack(undefined) } as CSSProperties;
+  if (state === "missing") {
+    return <NotFoundPage kind="product" bare />;
+  }
 
   return (
-    <div className="recommend-page shop-directory buyer-product" style={storefrontFont}>
-      <section className="recommend-intro recommend-width">
-        <p className="recommend-breadcrumb">
-          <Link to="/">{tp("common.home")}</Link>
-          <span>›</span>
-          <Link to={`/shop/${slug}`}>{shopName || tp("shop.productBack")}</Link>
-          {name ? <><span>›</span><b>{name}</b></> : null}
-        </p>
-      </section>
+    <div className="buyer-product">
       {showSkeleton && pageLoading && !product && (
         <section className="recommend-width buyer-skeleton" aria-label={tp("shop.productLoading")}>
           <article className="buyer-card buyer-hero">
@@ -259,7 +256,6 @@ export default function ShopProductPage() {
           </article>
         </section>
       )}
-      {state === "missing" && <section className="recommend-width"><article className="shop-list-empty">{tp("shop.productMissing")}</article></section>}
       {state === "error" && (
         <section className="recommend-width">
           <LoadError message={tp("shop.productError")} onRetry={load} retryLabel={tp("shop.productsRetry")} />
@@ -282,7 +278,7 @@ export default function ShopProductPage() {
                 }}>
                   {product.images.map((item) => <img key={item.id} src={mediaUrl(item.url)} alt="" />)}
                 </div>
-                {product.images.length > 0 ? <span className="buyer-count">{tp("shop.view.imageIndex", { current: active + 1, total: product.images.length })}</span> : null}
+                {product.images.length > 0 ? <span className="buyer-count">{tp("shop.view.imageIndex", { index: active + 1, total: product.images.length })}</span> : null}
               </div>
               {product.images.length > 0 && (
                 <div className="buyer-thumbs">
@@ -342,36 +338,40 @@ export default function ShopProductPage() {
                       }} />
                       <button type="button" aria-label="+" disabled={!ready || qty >= stock} onClick={() => setQty((value) => Math.min(stock, value + 1))}><Plus /></button>
                     </div>
-                    <span>{complete && stock <= 0 ? tp("shop.view.soldOut") : selectedSku ? tp("shop.view.inStock", { count: stock }) : null}</span>
+                    <span>{complete && stock <= 0 ? tp("shop.view.soldOut") : selectedSku ? (stock <= LOW_STOCK ? tp("shop.view.lowStock", { count: stock }) : tp("shop.view.inStock", { count: stock })) : null}</span>
                   </dd>
                 </div>
               </dl>
               <div className="buyer-actions">
-                <button type="button" className="cart" disabled={soldOut} onClick={addToCart}><ShoppingCart />{tp("shop.view.addToCart")}</button>
-                <button type="button" className="buy" disabled={soldOut} onClick={buyNow}>{tp("shop.view.buyNow")}</button>
+                <button type="button" className="cart" disabled={soldOut || adding || own} onClick={() => void addToCart()}><ShoppingCart />{tp("shop.view.addToCart")}</button>
+                <button type="button" className="buy" disabled={soldOut || adding || own} onClick={() => void buyNow()}>{tp("shop.view.buyNow")}</button>
               </div>
+              {own ? <p className="buyer-warn">{tp("cart.own.label")}</p> : null}
             </div>
           </article>
-          {shop && (
-            <section className="buyer-card buyer-shop">
-              <div className="buyer-shop-id">
-                <span className="buyer-shop-logo">{shop.logoUrl ? <img src={mediaUrl(shop.logoUrl)} alt={tp("shop.view.logoAlt", { name: shopName })} /> : <Store />}</span>
-                <div>
-                  <b>{shopName}</b>
-                  <Link to={`/shop/${slug}`}>{tp("shop.view.viewShop")}</Link>
-                </div>
+          <section className="buyer-card buyer-shop">
+            <div className="buyer-shop-id">
+              <span className="buyer-shop-logo">{shop.logoUrl ? <img src={mediaUrl(shop.logoUrl)} alt={tp("shop.view.logoAlt", { name: shopName })} /> : <Store />}</span>
+              <div>
+                <b>{shopName}</b>
+                <Link to={shopPath(slug)}>{tp("shop.view.viewShop")}</Link>
               </div>
-              {stats.length > 0 && (
-                <dl className="buyer-shop-stats" style={{ "--shop-stats": stats.length } as CSSProperties}>
-                  {stats.map(([label, value]) => <div key={label}><dt>{label}</dt><dd className={/^\d/.test(value) ? "num" : undefined}>{value}</dd></div>)}
-                </dl>
-              )}
-            </section>
-          )}
+            </div>
+            {stats.length > 0 && (
+              <dl className="buyer-shop-stats" style={{ "--shop-stats": stats.length } as CSSProperties}>
+                {stats.map(([label, value]) => <div key={label}><dt>{label}</dt><dd className={/^\d/.test(value) ? "num" : undefined}>{value}</dd></div>)}
+              </dl>
+            )}
+          </section>
           <section className="buyer-card buyer-detail">
             <h2>{tp("shop.view.specs")}</h2>
             <dl>
-              {category ? <div><dt>{tp("shop.view.category")}</dt><dd>{labelForCategory(category, lang)}</dd></div> : null}
+              {categoryLabel && category ? (
+                <div>
+                  <dt>{tp("shop.view.category")}</dt>
+                  <dd><Link to={shopCategoryPath(slug, category)}>{categoryLabel}</Link></dd>
+                </div>
+              ) : null}
               {selectedSku ? <div><dt>{tp("shop.view.sku")}</dt><dd className="num">{selectedSku.skuCode}</dd></div> : null}
               {product.brand ? <div><dt>{tp("shop.productBrand")}</dt><dd>{product.brand}</dd></div> : null}
             </dl>
@@ -386,7 +386,7 @@ export default function ShopProductPage() {
                   const title = localizedText(localeTag, item.nameTh, item.nameEn, item.nameZh);
                   const price = amount(item.basePrice) ?? amount(item.skus[0]?.price);
                   return (
-                    <Link key={item.id} to={`/shop/${slug}/product/${item.slug}`}>
+                    <Link key={item.id} to={shopProductPath(slug, item.slug)}>
                       {photo ? <img src={mediaUrl(photo.url)} alt="" /> : <span />}
                       <b>{title}</b>
                       {price != null ? <strong className="num">{money(price, localeTag)}</strong> : null}

@@ -50,9 +50,19 @@ import MerchantSignupPage from "../pages/MerchantSignupPage";
 import OwnerInfoPage from "../pages/OwnerInfoPage";
 import DocumentConfirmPage from "../pages/DocumentConfirmPage";
 import VerifySendPage from "../pages/VerifySendPage";
+import ShopLayout from "../layouts/ShopLayout";
 import ShopPage from "../pages/ShopPage";
 import ShopProductPage from "../pages/ShopProductPage";
+import ShopProductsPage from "../pages/shop/ShopProductsPage";
+import ShopCategoryPage from "../pages/shop/ShopCategoryPage";
+import ShopSearchPage from "../pages/shop/ShopSearchPage";
+import ShopContactPage from "../pages/shop/ShopContactPage";
+import ShopPoliciesPage from "../pages/shop/ShopPoliciesPage";
+import NotFoundPage from "../pages/NotFoundPage";
 import ShopsPage from "../pages/ShopsPage";
+import SearchPage from "../pages/SearchPage";
+import CheckoutPage from "../pages/CheckoutPage";
+import CheckoutSuccessPage from "../pages/CheckoutSuccessPage";
 
 /** Wraps a page with the permission declared for its path in services/permissions.ts. */
 function guarded(path: string, page: ReactElement) {
@@ -77,9 +87,27 @@ export const routes: RouteObject[] = [
       { path: "/articles", element: <BlogPage /> },
       { path: "/help", element: <HelpPage /> },
       { path: "/cart", element: <CartPage /> },
+      { path: "/checkout", element: <CheckoutPage /> },
+      { path: "/checkout/success", element: <CheckoutSuccessPage /> },
       { path: "/shops", element: <ShopsPage /> },
-      { path: "/shop/:slug", element: <ShopPage /> },
-      { path: "/shop/:slug/product/:productSlug", element: <ShopProductPage /> },
+      { path: "/search", element: <SearchPage /> },
+      {
+        path: "/shop/:slug",
+        element: <ShopLayout />,
+        children: [
+          { index: true, element: <ShopPage /> },
+          { path: "product/:productSlug", element: <ShopProductPage /> },
+          { path: "products", element: <ShopProductsPage /> },
+          { path: "category", element: <ShopCategoryPage /> },
+          { path: "category/:categoryKey", element: <ShopCategoryPage /> },
+          { path: "search", element: <ShopSearchPage /> },
+          { path: "contact", element: <ShopContactPage /> },
+          { path: "policies", element: <ShopPoliciesPage /> },
+          { path: "policies/:policyType", element: <ShopPoliciesPage /> },
+          { path: "*", element: <NotFoundPage kind="page" bare /> },
+        ],
+      },
+      { path: "*", element: <NotFoundPage kind="page" /> },
     ],
   },
 

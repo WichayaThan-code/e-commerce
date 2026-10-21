@@ -10,6 +10,7 @@ import com.thaishopfun.catalog.ProductSku;
 import com.thaishopfun.catalog.ProductSkuRepository;
 import com.thaishopfun.catalog.ProductStatus;
 import com.thaishopfun.common.FieldViolation;
+import com.thaishopfun.coupon.CouponWalletService;
 import com.thaishopfun.common.ValidationException;
 import com.thaishopfun.merchant.Shop;
 import com.thaishopfun.merchant.ShopRepository;
@@ -59,11 +60,13 @@ public class CartService {
     private final ShippingMethodRepository shippingMethods;
     private final CartAccess access;
 
+    private final CouponWalletService wallet;
+
     public CartService(
         CartRepository carts, CartItemRepository items, ProductSkuRepository skus, ProductRepository products,
         ProductImageRepository images, ShopRepository shops, CartInventoryRepository inventory,
         CouponRepository coupons, PromotionRepository promotions, PromotionUsageRepository usages,
-        ShippingMethodRepository shippingMethods, CartAccess access
+        ShippingMethodRepository shippingMethods, CartAccess access, CouponWalletService wallet
     ) {
         this.carts = carts;
         this.items = items;
@@ -77,6 +80,7 @@ public class CartService {
         this.usages = usages;
         this.shippingMethods = shippingMethods;
         this.access = access;
+        this.wallet = wallet;
     }
 
     @Transactional(readOnly = true)
@@ -250,10 +254,21 @@ public class CartService {
             .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "ไม่พบโค้ดคูปองนี้"));
         var promo = promotions.findById(coupon.getPromotionId()).orElseThrow(() ->
             new AuthException(HttpStatus.NOT_FOUND, "COUPON_NOT_FOUND", "ไม่พบโค้ดคูปองนี้"));
-        var reason = couponBlockReason(coupon, promo, owner.buyerUserId(), CartMoney.zero());
+        var reason = couponBlockReason(coupon, promo, owner.buyerUserId(), CartMoney.zero(), false);
         // min-subtotal is checked when pricing; other hard failures reject apply
         if (reason != null && !"COUPON_MIN_SUBTOTAL_NOT_MET".equals(reason)) {
             throw new AuthException(HttpStatus.CONFLICT, reason, couponMessage(reason));
+        }
+        // coupon wallet (V31): shop codes need a signed-in buyer; public codes must be collected on the storefront first,
+        // a private code typed here is collected automatically
+        if (owner.isGuest()) {
+            throw new AuthException(HttpStatus.CONFLICT, "COUPON_LOGIN_REQUIRED", couponMessage("COUPON_LOGIN_REQUIRED"));
+        }
+        if (!wallet.isCollected(coupon.getId(), owner.buyerUserId())) {
+            if (wallet.isPublic(promo.getId())) {
+                throw new AuthException(HttpStatus.CONFLICT, "COUPON_NOT_COLLECTED", couponMessage("COUPON_NOT_COLLECTED"));
+            }
+            wallet.collectQuietly(coupon.getId(), owner.buyerUserId());
         }
         cart.setCouponCode(code);
         touch(cart, owner);
@@ -581,7 +596,7 @@ public class CartService {
             return new CartDtos.CouponView(cart.getCouponCode(), null, null, null, null, false,
                 "COUPON_NOT_FOUND", couponMessage("COUPON_NOT_FOUND"), CartMoney.zero(), CartMoney.zero());
         }
-        var reason = couponBlockReason(coupon, promo, buyerId, selectedSubtotal);
+        var reason = couponBlockReason(coupon, promo, buyerId, selectedSubtotal, true);
         var type = apiPromoType(promo.getPromoType());
         if (reason != null) {
             return new CartDtos.CouponView(coupon.getCode(), type, CartMoney.of(promo.getValue()),
@@ -626,7 +641,7 @@ public class CartService {
         if (active.isEmpty()) {
             // Default flat ฿40 when the shop has not configured shipping yet (matches the current UI mock).
             var fee = CartMoney.of(DEFAULT_SHIPPING_FEE);
-            if (couponView != null && couponView.applicable() && "FREE_SHIPPING".equals(couponView.type())) fee = CartMoney.zero();
+            fee = afterFreeShippingCoupon(fee, couponView);
             return new CartDtos.ShippingView(null, "ค่าจัดส่งมาตรฐาน", "FLAT", true, fee, null, null, weightGrams, List.of());
         }
         ShippingMethod chosen = null;
@@ -641,9 +656,7 @@ public class CartService {
                 .orElse(active.get(0));
         }
         var fee = feeOf(chosen, afterDiscount, weightGrams);
-        if (couponView != null && couponView.applicable() && "FREE_SHIPPING".equals(couponView.type()) && fee.signum() > 0) {
-            fee = CartMoney.zero();
-        }
+        fee = afterFreeShippingCoupon(fee, couponView);
         BigDecimal threshold = chosen.getMinOrderAmount() == null ? null : CartMoney.of(chosen.getMinOrderAmount());
         BigDecimal toFree = null;
         if (threshold != null && afterDiscount.compareTo(threshold) < 0) {
@@ -651,6 +664,13 @@ public class CartService {
         }
         return new CartDtos.ShippingView(chosen.getId(), chosen.getName(), chosen.getFeeType(), auto, fee,
             threshold, toFree, weightGrams, optionsOf(active, afterDiscount, weightGrams));
+    }
+
+    /** FREE_SHIPPING coupon: maxDiscount = shipping cap ("ส่งฟรีสูงสุด ฿X"); null cap = the whole fee is free. */
+    private static BigDecimal afterFreeShippingCoupon(BigDecimal fee, CartDtos.CouponView couponView) {
+        if (couponView == null || !couponView.applicable() || !"FREE_SHIPPING".equals(couponView.type()) || fee.signum() <= 0) return fee;
+        if (couponView.maxDiscount() == null) return CartMoney.zero();
+        return CartMoney.max(CartMoney.zero(), CartMoney.of(fee.subtract(couponView.maxDiscount())));
     }
 
     /** Shipping fee before any FREE_SHIPPING coupon (still applies the method's own free-shipping threshold). */
@@ -693,7 +713,8 @@ public class CartService {
         };
     }
 
-    private String couponBlockReason(Coupon coupon, Promotion promo, UUID buyerId, BigDecimal selectedSubtotal) {
+    /** checkCollection = pricing / validate / checkout: the buyer must hold the coupon in the wallet (V31). */
+    private String couponBlockReason(Coupon coupon, Promotion promo, UUID buyerId, BigDecimal selectedSubtotal, boolean checkCollection) {
         if (coupon == null || promo == null) return "COUPON_NOT_FOUND";
         if (!coupon.isActive() || !promo.isActive()) return "COUPON_INACTIVE";
         var now = Instant.now();
@@ -705,6 +726,10 @@ public class CartService {
         if (promo.getUsageLimitPerBuyer() != null && buyerId != null
             && usages.countByPromotionIdAndBuyerUserId(promo.getId(), buyerId) >= promo.getUsageLimitPerBuyer()) {
             return "COUPON_PER_CUSTOMER_LIMIT_REACHED";
+        }
+        if (checkCollection) {
+            if (buyerId == null) return "COUPON_LOGIN_REQUIRED";
+            if (!wallet.isCollected(coupon.getId(), buyerId)) return "COUPON_NOT_COLLECTED";
         }
         if (promo.getMinOrderAmount() != null && selectedSubtotal.compareTo(CartMoney.of(promo.getMinOrderAmount())) < 0) {
             return "COUPON_MIN_SUBTOTAL_NOT_MET";
@@ -721,6 +746,8 @@ public class CartService {
             case "COUPON_USAGE_LIMIT_REACHED" -> "คูปองถูกใช้ครบจำนวนแล้ว";
             case "COUPON_PER_CUSTOMER_LIMIT_REACHED" -> "คุณใช้คูปองนี้ครบจำนวนแล้ว";
             case "COUPON_MIN_SUBTOTAL_NOT_MET" -> "ยอดสินค้ายังไม่ถึงขั้นต่ำของคูปอง";
+            case "COUPON_NOT_COLLECTED" -> "กรุณาเก็บโค้ดนี้ที่หน้าร้านก่อนใช้";
+            case "COUPON_LOGIN_REQUIRED" -> "กรุณาเข้าสู่ระบบเพื่อใช้โค้ดส่วนลด";
             default -> "คูปองใช้ไม่ได้";
         };
     }

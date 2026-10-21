@@ -1,0 +1,145 @@
+/* Shop contact page — scoped to .shop-contact / .shop-contact-hero; --shop-* tokens only */
+
+/* Hero: reuses .shop-mall-hero, only trims height + adds meta row */
+.shop-contact-hero{min-height:0}
+.shop-contact-hero:not(.has-cover){
+  background:linear-gradient(135deg,var(--shop-secondary) 0%,color-mix(in srgb,var(--shop-secondary) 80%,var(--shop-primary)) 100%);
+}
+.shop-contact-meta{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-top:10px;
+  font-size:13px;color:color-mix(in srgb,var(--shop-on-secondary,#fff) 88%,transparent);
+}
+.shop-contact-meta>span{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.shop-contact-meta svg{width:15px;height:15px;flex:none}
+
+/* Layout */
+.shop-contact{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:var(--shop-gap,16px);
+  margin:0 auto var(--shop-gap,16px);align-items:start;
+}
+.shop-contact-aside{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--shop-gap,16px);min-width:0}
+.shop-contact-panel{
+  min-width:0;padding:16px;background:var(--shop-card-bg,var(--shop-bg));
+  border:1px solid var(--shop-border);border-radius:var(--shop-radius,12px);box-shadow:none;
+}
+.shop-contact .shop-section-head h2{display:flex;align-items:center;gap:8px;font-size:18px;font-family:var(--shop-font),sans-serif}
+.shop-contact .shop-section-head h2 svg{width:18px;height:18px;flex:none;color:var(--shop-primary)}
+
+/* Channel cards */
+.shop-contact-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+.shop-contact-card{
+  display:grid;grid-template-columns:44px minmax(0,1fr);grid-template-rows:auto 1fr;gap:12px;align-items:center;
+  min-width:0;padding:14px;background:var(--shop-card-bg,var(--shop-bg));
+  border:1px solid var(--shop-border);border-radius:var(--shop-radius,12px);
+  transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease;
+}
+.shop-contact-icon{
+  width:44px;height:44px;display:grid;place-items:center;flex:none;
+  border-radius:calc(var(--shop-radius,12px) * .75);
+  background:var(--shop-primary-soft);color:var(--shop-primary);
+}
+.shop-contact-icon svg{width:22px;height:22px;stroke-width:1.75}
+.shop-contact-body{display:grid;gap:2px;min-width:0}
+.shop-contact-label{font-size:12px;font-weight:600;color:var(--shop-muted)}
+.shop-contact-value{
+  min-width:0;font-size:15px;font-weight:600;color:var(--shop-text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.shop-contact-actions{grid-column:1 / -1;align-self:end;display:flex;gap:8px;min-width:0}
+.shop-contact-action{
+  flex:1 1 auto;min-width:0;min-height:40px;padding:0 14px;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  border:1px solid transparent;border-radius:var(--shop-btn-radius,8px);
+  background:var(--shop-primary-soft);color:var(--shop-primary);
+  font:600 13px var(--shop-font),sans-serif;text-decoration:none;white-space:nowrap;cursor:pointer;
+}
+.shop-contact-action svg{width:15px;height:15px;flex:none}
+.shop-contact-copy{
+  flex:none;width:40px;height:40px;display:grid;place-items:center;padding:0;
+  border:1px solid var(--shop-border);border-radius:var(--shop-btn-radius,8px);
+  background:transparent;color:var(--shop-text);cursor:pointer;
+}
+.shop-contact-copy svg{width:16px;height:16px}
+.shop-contact-copy.is-copied{color:var(--color-success);border-color:var(--color-success)}
+
+/* Hours + address */
+.shop-contact-hours{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.shop-contact-hours li{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px;padding:0 10px;
+  border-radius:calc(var(--shop-radius,12px) * .6);font-size:14px;color:var(--shop-text);
+}
+.shop-contact-hours li.is-today{background:var(--shop-primary-soft);font-weight:700}
+.shop-contact-hours li.is-closed>span:last-child{color:var(--shop-muted)}
+.shop-contact-hours .num{font-size:13px}
+.shop-contact-address{margin:0 0 12px;font-style:normal;font-size:14px;line-height:1.6;color:var(--shop-text);overflow-wrap:anywhere}
+.shop-contact-panel>.shop-contact-actions{flex-wrap:wrap}
+
+/* Empty state */
+.shop-contact-empty{display:grid;justify-items:center;gap:10px;padding:28px 12px;text-align:center}
+.shop-contact-empty .shop-contact-icon{width:56px;height:56px;border-radius:50%}
+.shop-contact-empty .shop-contact-icon svg{width:26px;height:26px}
+.shop-contact-empty h3{margin:0;font:700 16px var(--shop-font),sans-serif;color:var(--shop-text)}
+.shop-contact-empty p{margin:0;max-width:360px;font-size:13px;color:var(--shop-muted)}
+.shop-contact-empty .shop-contact-actions{justify-content:center;flex-wrap:wrap}
+.shop-contact-empty .shop-contact-action{flex:0 0 auto}
+
+@media(hover:hover) and (pointer:fine){
+  .shop-contact-card:hover{border-color:color-mix(in srgb,var(--shop-primary) 40%,var(--shop-border))}
+  .shop-contact-action:hover{filter:brightness(.97)}
+  .shop-contact-copy:hover{border-color:var(--shop-primary);color:var(--shop-primary)}
+}
+
+/* ---- Template character ---- */
+[data-template="FASHION"] .shop-contact-panel,
+[data-template="FASHION"] .shop-contact-card{box-shadow:none}
+[data-template="FASHION"] .shop-contact-icon{
+  background:transparent;color:var(--shop-text);
+  border:1px solid var(--shop-accent,var(--shop-primary));border-radius:var(--shop-radius,2px);
+}
+[data-template="FASHION"] .shop-contact-label{text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:500}
+[data-template="FASHION"] .shop-contact-value{font-weight:400}
+[data-template="FASHION"] .shop-contact .shop-section-head h2{font-weight:500;letter-spacing:.02em}
+[data-template="FASHION"] .shop-contact .shop-section-head h2 svg{color:var(--shop-accent,var(--shop-primary))}
+[data-template="FASHION"] .shop-contact-action{background:transparent;color:var(--shop-text);border-color:var(--shop-text)}
+[data-template="FASHION"] .shop-contact-hours li.is-today{
+  background:transparent;box-shadow:inset 2px 0 0 var(--shop-accent,var(--shop-primary));
+}
+@media(hover:hover) and (pointer:fine){
+  [data-template="FASHION"] .shop-contact-card:hover{border-color:var(--shop-accent,var(--shop-primary))}
+  [data-template="FASHION"] .shop-contact-action:hover{background:var(--shop-primary);color:var(--shop-on-primary);border-color:var(--shop-primary);filter:none}
+}
+
+[data-template="FOOD_BEVERAGE"] .shop-contact-panel,
+[data-template="FOOD_BEVERAGE"] .shop-contact-card{
+  border-color:color-mix(in srgb,var(--shop-primary) 18%,var(--shop-border));
+  box-shadow:var(--shop-card-shadow,none);
+}
+[data-template="FOOD_BEVERAGE"] .shop-contact-icon{border-radius:50%}
+[data-template="FOOD_BEVERAGE"] .shop-contact .shop-section-head h2{color:var(--shop-secondary)}
+@media(hover:hover) and (pointer:fine){
+  [data-template="FOOD_BEVERAGE"] .shop-contact-card:hover{transform:translateY(-2px)}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .shop-contact-card{transition:none}
+  .shop-contact-card:hover{transform:none}
+}
+
+/* ---- Responsive (container "shop" from .shop-storefront-cq) ---- */
+@container shop (min-width:768px){
+  .shop-contact-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shop-contact-aside{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+}
+@container shop (min-width:1024px){
+  .shop-contact-hero .shop-mall-hero-body{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+  .shop-contact.has-aside{grid-template-columns:minmax(0,1fr) minmax(300px,360px)}
+  .shop-contact.has-aside .shop-contact-aside{grid-template-columns:minmax(0,1fr)}
+  .shop-contact:not(.has-aside) .shop-contact-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@container shop (max-width:767px){
+  .shop-contact-panel{padding:12px}
+  .shop-contact-card{padding:12px}
+  .shop-contact-action{min-height:44px}
+  .shop-contact-copy{width:44px;height:44px}
+  .shop-contact-hero .shop-mall-btn{min-height:44px}
+}

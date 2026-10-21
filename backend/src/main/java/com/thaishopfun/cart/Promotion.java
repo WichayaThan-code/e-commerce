@@ -5,6 +5,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -28,6 +29,8 @@ public class Promotion extends AuditedEntity {
     @Column(name = "is_active", nullable = false) private boolean active = true;
     @Column(name = "usage_limit_total") private Integer usageLimitTotal;
     @Column(name = "usage_limit_per_buyer") private Integer usageLimitPerBuyer;
+    /** V30 is_public: listed on the storefront (GET /api/shops/{slug}/promotions) and collectable (V31 wallet). */
+    @ColumnDefault("true") @Column(name = "is_public", nullable = false) private boolean publicVisible = true;
 
     protected Promotion() {}
 
@@ -58,4 +61,6 @@ public class Promotion extends AuditedEntity {
     public void setUsageLimitTotal(Integer usageLimitTotal) { this.usageLimitTotal = usageLimitTotal; }
     public Integer getUsageLimitPerBuyer() { return usageLimitPerBuyer; }
     public void setUsageLimitPerBuyer(Integer usageLimitPerBuyer) { this.usageLimitPerBuyer = usageLimitPerBuyer; }
+    public boolean isPublicVisible() { return publicVisible; }
+    public void setPublicVisible(boolean publicVisible) { this.publicVisible = publicVisible; }
 }

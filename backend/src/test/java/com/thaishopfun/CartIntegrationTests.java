@@ -53,6 +53,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.*;
@@ -112,6 +113,7 @@ class CartIntegrationTests {
     void cleanAfter() {
         cartItems.deleteAll();
         carts.deleteAll();
+        jdbc.update("DELETE FROM coupon_collections");
         usages.deleteAll();
         coupons.deleteAll();
         promotions.deleteAll();
@@ -121,6 +123,7 @@ class CartIntegrationTests {
     private void wipe() {
         cartItems.deleteAll();
         carts.deleteAll();
+        jdbc.update("DELETE FROM coupon_collections");
         usages.deleteAll();
         coupons.deleteAll();
         promotions.deleteAll();
@@ -513,58 +516,33 @@ class CartIntegrationTests {
             .andExpect(jsonPath("$.issues[0].code").value("CART_EMPTY"));
     }
 
-    // ---------------- guest cart + merge ----------------
+    // ---------------- guest cart removed (R1): buyers only ----------------
 
     @Test
-    void guestCartWithTokenAndMergeIntoBuyerCartOnLogin() throws Exception {
+    void guestCartRoutesAreGoneAndMergeIsAHarmlessNoOp() throws Exception {
         var shop = openShop("c-guest@example.com", "0814000007", "ร้านแขก", "Guest", "1234567890307");
         var product = publishedVariantProduct(shop, "GU");
         var blkS = sku(product, "GU-BLK-S"); // 5
-        var blkM = sku(product, "GU-BLK-M"); // 3
 
-        // anonymous GET without token = empty cart
-        mvc.perform(get("/api/guest-cart")).andExpect(status().isOk()).andExpect(jsonPath("$.groups.length()").value(0));
-        // first add issues a token
-        var first = mvc.perform(post("/api/guest-cart/items").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"skuId\":\"%s\",\"quantity\":4}".formatted(blkS)))
-            .andExpect(status().isOk())
-            .andExpect(header().exists("X-Cart-Token"))
-            .andReturn();
-        String token = first.getResponse().getHeader("X-Cart-Token");
-        assertEquals(token, JsonPath.read(first.getResponse().getContentAsString(), "$.cartToken"));
-        guest(post("/api/guest-cart/items"), token, "{\"skuId\":\"%s\",\"quantity\":2}".formatted(blkM))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.counts.itemQuantity").value(6));
-        guest(get("/api/guest-cart/count"), token, null).andExpect(jsonPath("$.lineCount").value(2));
-        // token is stored hashed only
-        assertEquals(0, (int) jdbc.queryForObject("SELECT COUNT(*) FROM carts WHERE guest_token_hash = ?", Integer.class, token));
-        // another guest token sees nothing and cannot touch these lines
-        var otherToken = "ab".repeat(24);
-        guest(get("/api/guest-cart"), otherToken, null).andExpect(jsonPath("$.groups.length()").value(0));
-        var guestView = guest(get("/api/guest-cart"), token, null).andReturn().getResponse().getContentAsString();
-        String guestLine = JsonPath.read(guestView, "$.groups[0].items[0].id");
-        guest(patch("/api/guest-cart/items/" + guestLine), otherToken, "{\"quantity\":1}").andExpect(status().isNotFound());
-        guest(patch("/api/guest-cart/items/" + guestLine), "not-a-token!", "{\"quantity\":1}").andExpect(status().isBadRequest());
-        // guest validate: valid but LOGIN_REQUIRED info
-        guest(post("/api/guest-cart/validate"), token, null).andExpect(status().isOk())
-            .andExpect(jsonPath("$.issues[*].code", hasItem("LOGIN_REQUIRED")));
+        // the anonymous guest cart no longer exists: no route accepts an X-Cart-Token cart
+        mvc.perform(get("/api/guest-cart")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/guest-cart/items").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"skuId\":\"%s\",\"quantity\":1}".formatted(blkS)))
+            .andExpect(status().isUnauthorized());
+        // anonymous buyer endpoints: 401 (frontend sends the user to /login?next=...)
+        mvc.perform(post("/api/cart/items").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"skuId\":\"%s\",\"quantity\":1}".formatted(blkS)))
+            .andExpect(status().isUnauthorized());
+        assertEquals(0, (int) jdbc.queryForObject("SELECT COUNT(*) FROM carts WHERE guest_token_hash IS NOT NULL", Integer.class));
 
-        // buyer already has 3 x Black/S; merge: 3 + 4 > 5 available -> capped to 5; Black/M moves over
+        // merge stays callable (older clients) but has nothing to move
         var buyer = token("c-guest-buyer@example.com", "0814000107");
         cart(post("/api/cart/items"), buyer, "{\"skuId\":\"%s\",\"quantity\":3}".formatted(blkS)).andExpect(status().isOk());
-        var merged = mvc.perform(post("/api/cart/merge").header("Authorization", "Bearer " + buyer).header("X-Cart-Token", token))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.groups[0].items.length()").value(2))
-            .andExpect(jsonPath("$.mergeNotes[0].code").value("QUANTITY_ADJUSTED"))
-            .andExpect(jsonPath("$.mergeNotes[0].appliedQuantity").value(2))
-            .andReturn().getResponse().getContentAsString();
-        assertEquals(List.of(5), JsonPath.<List<Integer>>read(merged, "$.groups[0].items[?(@.skuId == '" + blkS + "')].quantity"));
-        assertEquals(List.of(2), JsonPath.<List<Integer>>read(merged, "$.groups[0].items[?(@.skuId == '" + blkM + "')].quantity"));
-        // guest cart is gone; merging again changes nothing
-        guest(get("/api/guest-cart"), token, null).andExpect(jsonPath("$.groups.length()").value(0));
-        mvc.perform(post("/api/cart/merge").header("Authorization", "Bearer " + buyer).header("X-Cart-Token", token))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.counts.itemQuantity").value(7));
-        // merge needs a signed-in buyer
-        mvc.perform(post("/api/cart/merge").header("X-Cart-Token", token)).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/cart/merge").header("Authorization", "Bearer " + buyer).header("X-Cart-Token", "ab".repeat(24)))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.counts.itemQuantity").value(3));
+        mvc.perform(post("/api/cart/merge").header("Authorization", "Bearer " + buyer))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.counts.itemQuantity").value(3));
+        mvc.perform(post("/api/cart/merge")).andExpect(status().isUnauthorized());
     }
 
     // ---------------- isolation + permissions ----------------
@@ -586,8 +564,6 @@ class CartIntegrationTests {
         cart(delete("/api/cart/items/" + aliceLine), bob).andExpect(status().isNotFound());
         cart(post("/api/cart/items/remove"), bob, "{\"itemIds\":[\"%s\"]}".formatted(aliceLine)).andExpect(status().isNotFound());
         cart(get("/api/cart"), alice).andExpect(jsonPath("$.groups[0].items[0].quantity").value(1));
-        // guest token cannot reach a buyer line either
-        guest(delete("/api/guest-cart/items/" + aliceLine), "cd".repeat(24), null).andExpect(status().isNotFound());
 
         // shop B's coupon does not apply to shop A's cart
         createCoupon(shopB, "{\"code\":\"BONLY\",\"type\":\"FIXED\",\"value\":10}");
@@ -630,13 +606,158 @@ class CartIntegrationTests {
         return cart(request, token, json);
     }
 
-    private ResultActions guest(MockHttpServletRequestBuilder request, String token, String json) throws Exception {
-        request.header("X-Cart-Token", token);
-        if (json != null) request.contentType(MediaType.APPLICATION_JSON).content(json);
-        return mvc.perform(request);
+    // ---------------- coupon wallet (V31) ----------------
+
+    @Test
+    void couponWalletCollectBeforeApplyPrivateAutoCollectGuestAndRevalidation() throws Exception {
+        var shop = openShop("c-wallet@example.com", "0814000009", "ร้านกระเป๋าคูปอง", "Wallet", "1234567890309");
+        var product = publishedVariantProduct(shop, "WL");
+        var buyer = token("c-wallet-buyer@example.com", "0814000109");
+        var blkS = sku(product, "WL-BLK-S"); // 200
+        cart(post("/api/cart/items"), buyer, "{\"skuId\":\"%s\",\"quantity\":3}".formatted(blkS)).andExpect(status().isOk()); // 600
+        createCoupon(shop, """
+            {"code":"PUB50","type":"FIXED","value":50}""");
+        createCoupon(shop, """
+            {"code":"SECRET20","type":"FIXED","value":20}""");
+        var expiredStart = Instant.now().minus(3, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS);
+        createCoupon(shop, """
+            {"code":"GONE","type":"FIXED","value":10,"startsAt":"%s","endsAt":"%s"}""".formatted(expiredStart, expiredStart.plus(1, ChronoUnit.DAYS)));
+        jdbc.update("UPDATE promotions SET is_public = false WHERE id = (SELECT promotion_id FROM coupons WHERE code = 'SECRET20')");
+        var applyUrl = "/api/cart/shops/" + shop.shopId + "/coupon";
+
+        // a public code that was not collected cannot be applied
+        cart(post(applyUrl), buyer, "{\"code\":\"PUB50\"}")
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("COUPON_NOT_COLLECTED"));
+        cart(get("/api/me/coupons"), buyer).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+
+        // collect: 201 then idempotent 200; unknown / private = 404, expired = 409; anonymous = 401
+        var collect = "{\"shopId\":%d,\"code\":\"%s\"}";
+        cart(post("/api/me/coupons"), buyer, collect.formatted(shop.shopId, "pub50"))
+            .andExpect(status().isCreated()).andExpect(jsonPath("$.code").value("PUB50")).andExpect(jsonPath("$.alreadyCollected").value(false));
+        cart(post("/api/me/coupons"), buyer, collect.formatted(shop.shopId, "PUB50"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.alreadyCollected").value(true));
+        cart(post("/api/me/coupons"), buyer, collect.formatted(shop.shopId, "NOPE"))
+            .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("COUPON_NOT_FOUND"));
+        cart(post("/api/me/coupons"), buyer, collect.formatted(shop.shopId, "SECRET20"))
+            .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("COUPON_NOT_FOUND"));
+        cart(post("/api/me/coupons"), buyer, collect.formatted(shop.shopId, "GONE"))
+            .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("COUPON_EXPIRED"));
+        mvc.perform(post("/api/me/coupons").contentType(MediaType.APPLICATION_JSON).content(collect.formatted(shop.shopId, "PUB50")))
+            .andExpect(status().isUnauthorized());
+
+        // collected code applies; wallet lists it as USABLE
+        cart(post(applyUrl), buyer, "{\"code\":\"PUB50\"}").andExpect(status().isOk())
+            .andExpect(jsonPath("$.groups[0].coupon.applicable").value(true))
+            .andExpect(jsonPath("$.groups[0].totals.discount").value(50.0));
+        cart(get("/api/me/coupons?shopId=" + shop.shopId), buyer).andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].code").value("PUB50"))
+            .andExpect(jsonPath("$[0].status").value("USABLE"))
+            .andExpect(jsonPath("$[0].shopSlug").exists());
+
+        // a private code typed in the cart is auto-collected (and replaces the applied code: one coupon per shop)
+        cart(post(applyUrl), buyer, "{\"code\":\"secret20\"}").andExpect(status().isOk())
+            .andExpect(jsonPath("$.groups[0].coupon.code").value("SECRET20"))
+            .andExpect(jsonPath("$.groups[0].totals.discount").value(20.0));
+        cart(get("/api/me/coupons"), buyer).andExpect(jsonPath("$.length()").value(2));
+
+        // pricing / validate (= checkout) re-check the wallet
+        jdbc.update("DELETE FROM coupon_collections WHERE coupon_id = (SELECT id FROM coupons WHERE code = 'SECRET20')");
+        cart(get("/api/cart"), buyer).andExpect(status().isOk())
+            .andExpect(jsonPath("$.groups[0].coupon.applicable").value(false))
+            .andExpect(jsonPath("$.groups[0].coupon.reason").value("COUPON_NOT_COLLECTED"))
+            .andExpect(jsonPath("$.groups[0].totals.discount").value(0.0));
+        cart(post("/api/cart/validate"), buyer).andExpect(status().isOk())
+            .andExpect(jsonPath("$.valid").value(false))
+            .andExpect(jsonPath("$.issues[*].code", hasItem("COUPON_INVALID")));
+
+        // anonymous callers cannot apply shop codes (no guest cart any more)
+        mvc.perform(post(applyUrl).contentType(MediaType.APPLICATION_JSON).content("{\"code\":\"PUB50\"}"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    // ---------------- merchant coupon API = primary promotions API (R1) ----------------
+
+    @Test
+    void merchantCouponApiStorefrontFlagStatusFiltersSummaryDeleteAndFreeShippingCap() throws Exception {
+        var shop = openShop("c-r1@example.com", "0814000011", "ร้านคูปองหลัก", "R1", "1234567890311");
+        var product = publishedVariantProduct(shop, "RA");
+        var buyer = token("c-r1-buyer@example.com", "0814000111");
+        var blkS = sku(product, "RA-BLK-S"); // 200
+        String slug = jdbc.queryForObject("SELECT slug FROM shops WHERE shop_no = ?", String.class, shop.shopId);
+
+        // FREE_SHIPPING with a shipping cap, hidden from the storefront; dates with a +07:00 offset (merchant local time)
+        var startLocal = java.time.OffsetDateTime.now(java.time.ZoneId.of("Asia/Bangkok")).minusHours(1).withNano(0);
+        var free = createCoupon(shop, """
+            {"code":"freeship399","name":"ส่งฟรี","type":"FREE_SHIPPING","minSubtotal":399,"maxDiscount":30,"startsAt":"%s","showOnStorefront":false}"""
+            .formatted(startLocal));
+        String freeId = JsonPath.read(free, "$.id");
+        assertEquals("FREESHIP399", JsonPath.read(free, "$.code"));
+        assertEquals(false, JsonPath.read(free, "$.showOnStorefront"));
+        assertEquals("ACTIVE", JsonPath.read(free, "$.status"));
+        assertEquals(30.0, ((Number) JsonPath.read(free, "$.maxDiscount")).doubleValue());
+        mvc.perform(get("/api/shops/" + slug + "/promotions")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        // update keeps every field it is given and flips the storefront flag
+        merchant(put(base(shop) + "/coupons/" + freeId), shop.token, """
+            {"code":"FREESHIP399","name":"ส่งฟรี","type":"FREE_SHIPPING","minSubtotal":399,"maxDiscount":30,"startsAt":"%s","showOnStorefront":true}"""
+            .formatted(startLocal))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.showOnStorefront").value(true)).andExpect(jsonPath("$.maxDiscount").value(30.0));
+        mvc.perform(get("/api/shops/" + slug + "/promotions")).andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].code").value("FREESHIP399"))
+            .andExpect(jsonPath("$[0].maxDiscountAmount").value(30.0));
+
+        var upcoming = Instant.now().plus(2, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS);
+        createCoupon(shop, """
+            {"code":"SOON10","type":"PERCENT","value":10,"startsAt":"%s"}""".formatted(upcoming));
+        var paused = createCoupon(shop, """
+            {"code":"PAUSE20","type":"FIXED","value":20}""");
+        String pausedId = JsonPath.read(paused, "$.id");
+        merchant(post(base(shop) + "/coupons/" + pausedId + "/disable"), shop.token).andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("PAUSED"));
+
+        merchant(get(base(shop) + "/coupons"), shop.token).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(3))
+            .andExpect(jsonPath("$.summary.total").value(3))
+            .andExpect(jsonPath("$.summary.active").value(1))
+            .andExpect(jsonPath("$.summary.upcoming").value(1))
+            .andExpect(jsonPath("$.summary.paused").value(1))
+            .andExpect(jsonPath("$.summary.freeShipping").value(1))
+            .andExpect(jsonPath("$.summary.fixedAmount").value(1))
+            .andExpect(jsonPath("$.summary.discountTotal").value(0.0));
+        merchant(get(base(shop) + "/coupons?status=upcoming"), shop.token).andExpect(jsonPath("$.items[*].code", contains("SOON10")));
+        merchant(get(base(shop) + "/coupons?type=FIXED_AMOUNT,FREE_SHIPPING&status=ACTIVE"), shop.token)
+            .andExpect(jsonPath("$.items[*].code", contains("FREESHIP399")))
+            .andExpect(jsonPath("$.summary.total").value(3));
+        merchant(get(base(shop) + "/coupons?status=NOPE"), shop.token).andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.fieldErrors[0].code").value("STATUS_INVALID"));
+
+        // FREE_SHIPPING maxDiscount = shipping cap: default fee 40, cap 30 -> pay 10
+        cart(post("/api/cart/items"), buyer, "{\"skuId\":\"%s\",\"quantity\":3}".formatted(blkS)).andExpect(status().isOk()); // 600
+        applyCoupon(buyer, shop, "FREESHIP399").andExpect(status().isOk())
+            .andExpect(jsonPath("$.groups[0].coupon.applicable").value(true))
+            .andExpect(jsonPath("$.groups[0].totals.shippingFee").value(10.0))
+            .andExpect(jsonPath("$.groups[0].totals.shippingDiscount").value(30.0))
+            .andExpect(jsonPath("$.groups[0].totals.grandTotal").value(610.0));
+
+        // delete: unused -> 204 (wallet rows go too); used in an order -> 409 COUPON_IN_USE
+        merchant(delete(base(shop) + "/coupons/" + pausedId), shop.token).andExpect(status().isNoContent());
+        merchant(get(base(shop) + "/coupons/" + pausedId), shop.token).andExpect(status().isNotFound());
+        var freeCoupon = coupons.findById(java.util.UUID.fromString(freeId)).orElseThrow();
+        usages.save(new PromotionUsage(freeCoupon.getPromotionId(), freeCoupon.getId(), java.util.UUID.randomUUID(), userId(buyer), new java.math.BigDecimal("30.00")));
+        merchant(delete(base(shop) + "/coupons/" + freeId), shop.token).andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("COUPON_IN_USE"));
+        merchant(get(base(shop) + "/coupons/" + freeId), shop.token).andExpect(jsonPath("$.usedCount").value(1))
+            .andExpect(jsonPath("$.discountTotal").value(30.0));
+        // viewer: read ok, delete 403 (PROMOTION_READ only)
+        var viewerToken = token("c-r1-viewer@example.com", "0814000112");
+        addMember(shop.shopId, userId(viewerToken), "STORE_VIEWER");
+        merchant(get(base(shop) + "/coupons"), viewerToken).andExpect(status().isOk());
+        merchant(delete(base(shop) + "/coupons/" + freeId), viewerToken).andExpect(status().isForbidden());
     }
 
     private ResultActions applyCoupon(String buyer, OpenShop shop, String code) throws Exception {
+        // V31 coupon wallet: public codes must be collected first (result ignored: unknown / expired codes are rejected by apply below)
+        cart(post("/api/me/coupons"), buyer, "{\"shopId\":%d,\"code\":\"%s\"}".formatted(shop.shopId, code));
         return cart(post("/api/cart/shops/" + shop.shopId + "/coupon"), buyer, "{\"code\":\"%s\"}".formatted(code));
     }
 

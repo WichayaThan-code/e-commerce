@@ -1,0 +1,61 @@
+/* Storefront coupon tickets (Q2). Shared --shop-* tokens (ShopThemeShell) + a small per-template flavour below.
+   Fallbacks keep it readable outside a theme. Card list = horizontal scroll-snap; never wider than the viewport. */
+.shop-coupons{margin-top:var(--shop-gap,16px);scroll-margin-top:calc(var(--shop-tabs-h,44px) + 12px);min-width:0;max-width:100%}
+.shop-coupons-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;margin-bottom:10px}
+.shop-coupons-head h2{margin:0;font-size:18px;color:var(--shop-text,#08245d)}
+.shop-coupons-head p{margin:0;font-size:12px;color:var(--shop-muted,#5f7ca8)}
+.shop-coupons-list{list-style:none;margin:0;padding:2px 2px 8px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(300px,360px);gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-padding-inline:2px;scrollbar-width:thin;min-width:0}
+
+/* ticket */
+.shop-ticket{--tk-notch:9px;--tk-stub:92px;--tk-cut:var(--shop-page-bg,var(--shop-bg,#f4f7fb));position:relative;scroll-snap-align:start;display:grid;grid-template-columns:var(--tk-stub) minmax(0,1fr);min-height:132px;min-width:0;background:var(--shop-card-bg,#fff);border:1px solid var(--shop-border,#d7e5f3);border-radius:var(--shop-radius,12px);box-shadow:0 6px 18px -12px rgba(8,36,93,.35);color:var(--shop-text,#08245d);overflow:hidden}
+.shop-ticket::before,.shop-ticket::after{content:"";position:absolute;left:calc(var(--tk-stub) - var(--tk-notch));width:calc(var(--tk-notch) * 2);height:calc(var(--tk-notch) * 2);border-radius:50%;background:var(--tk-cut);border:1px solid var(--shop-border,#d7e5f3);z-index:1}
+.shop-ticket::before{top:calc(var(--tk-notch) * -1 - 1px)}
+.shop-ticket::after{bottom:calc(var(--tk-notch) * -1 - 1px)}
+.shop-ticket-stub{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:12px 8px;text-align:center;color:var(--shop-on-primary,#fff);background:linear-gradient(160deg,var(--shop-primary,#0878f5),color-mix(in srgb,var(--shop-primary,#0878f5) 72%,#000));border-right:2px dashed color-mix(in srgb,var(--shop-on-primary,#fff) 55%,transparent);min-width:0}
+.shop-ticket-stub svg{width:18px;height:18px;opacity:.9}
+.shop-ticket-stub strong{font:800 24px/1.05 var(--font-mono),ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em;max-width:100%;overflow-wrap:anywhere}
+.shop-ticket-stub strong.is-text{font:800 16px/1.15 var(--shop-font,inherit);letter-spacing:0}
+.shop-ticket-stub small{font-size:11px;font-weight:600;opacity:.85;text-transform:uppercase;letter-spacing:.06em}
+.shop-ticket-main{display:flex;flex-direction:column;gap:3px;padding:12px 14px 12px 16px;min-width:0}
+.shop-ticket-top{display:flex;align-items:flex-start;gap:6px;min-width:0}
+.shop-ticket-title{flex:1;min-width:0;font-size:14px;font-weight:700;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.shop-ticket-badge{flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:999px;font-size:10.5px;font-weight:700;color:#b42318;background:#fdecea;white-space:nowrap}
+.shop-ticket-badge svg{width:11px;height:11px}
+.shop-ticket-terms{font-size:11.5px;color:var(--shop-muted,#5f7ca8);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shop-ticket-foot{margin-top:auto;padding-top:8px;display:flex;align-items:center;gap:8px;min-width:0}
+.shop-ticket-code{flex:0 1 auto;min-width:0;padding:3px 8px;border:1px dashed color-mix(in srgb,var(--shop-primary,#0878f5) 45%,transparent);border-radius:6px;background:var(--shop-primary-soft,#e4f1ff);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 12.5px var(--font-mono),ui-monospace,monospace;letter-spacing:.06em;color:var(--shop-primary,#0878f5)}
+.shop-ticket-foot .shop-ticket-btn{margin-left:auto}
+.shop-ticket-stub strong:not(.is-text){white-space:nowrap}
+.shop-ticket-btn{flex:0 0 auto;min-height:44px;min-width:76px;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:0 12px;border:1px solid var(--shop-primary,#0878f5);border-radius:var(--shop-btn-radius,8px);background:var(--shop-primary,#0878f5);color:var(--shop-on-primary,#fff);font:700 13px var(--shop-font,inherit);text-decoration:none;cursor:pointer;transition:filter .15s,transform .15s}
+.shop-ticket-btn:hover:not(:disabled){filter:brightness(1.06)}
+.shop-ticket-btn:active:not(:disabled){transform:translateY(1px)}
+.shop-ticket-btn:focus-visible{outline:2px solid var(--shop-primary,#0878f5);outline-offset:2px}
+.shop-ticket-btn:disabled{cursor:default;opacity:.6}
+.shop-ticket-btn svg{width:15px;height:15px}
+.shop-ticket-btn.is-done{background:transparent;color:var(--shop-primary,#0878f5)}
+.shop-ticket.is-collected .shop-ticket-stub{background:linear-gradient(160deg,color-mix(in srgb,var(--shop-primary,#0878f5) 70%,#fff),color-mix(in srgb,var(--shop-primary,#0878f5) 85%,#000))}
+.shop-ticket .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.shop-ticket.is-skeleton{display:block;box-shadow:none}
+.shop-ticket.is-skeleton::before,.shop-ticket.is-skeleton::after{display:none}
+.shop-ticket-skel{display:block;width:100%;min-height:132px}
+
+/* FASHION: elegant — hairline borders, flat, monochrome stub, letter-spacing */
+[data-template="FASHION"] .shop-ticket{border-radius:2px;box-shadow:none;border-color:color-mix(in srgb,var(--shop-text,#111) 18%,transparent)}
+[data-template="FASHION"] .shop-ticket::before,[data-template="FASHION"] .shop-ticket::after{border-color:color-mix(in srgb,var(--shop-text,#111) 18%,transparent)}
+[data-template="FASHION"] .shop-ticket-stub{background:transparent;color:var(--shop-text,#111);border-right:1px dashed color-mix(in srgb,var(--shop-text,#111) 30%,transparent)}
+[data-template="FASHION"] .shop-ticket-stub strong{font-family:var(--shop-font,inherit);font-weight:300;font-size:26px;letter-spacing:.02em}
+[data-template="FASHION"] .shop-ticket-stub small,[data-template="FASHION"] .shop-ticket-title{text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:500}
+[data-template="FASHION"] .shop-ticket-code{letter-spacing:.1em;border-radius:0;background:transparent;color:var(--shop-text,#111);border-color:color-mix(in srgb,var(--shop-text,#111) 35%,transparent)}
+[data-template="FASHION"] .shop-ticket-btn{border-radius:0;background:var(--shop-text,#111);border-color:var(--shop-text,#111);color:var(--shop-bg,#fff);text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:600}
+[data-template="FASHION"] .shop-ticket-btn.is-done{background:transparent;color:var(--shop-text,#111)}
+[data-template="FASHION"] .shop-ticket.is-collected .shop-ticket-stub{background:transparent;opacity:.6}
+
+/* FOOD_BEVERAGE: warm, rounded, pill button, bigger notches */
+[data-template="FOOD_BEVERAGE"] .shop-ticket{--tk-notch:11px;border-radius:20px;border-color:color-mix(in srgb,var(--shop-primary,#e8590c) 22%,transparent);box-shadow:0 10px 22px -14px color-mix(in srgb,var(--shop-primary,#e8590c) 70%,transparent)}
+[data-template="FOOD_BEVERAGE"] .shop-ticket::before,[data-template="FOOD_BEVERAGE"] .shop-ticket::after{border-color:color-mix(in srgb,var(--shop-primary,#e8590c) 22%,transparent)}
+[data-template="FOOD_BEVERAGE"] .shop-ticket-stub{background:linear-gradient(150deg,var(--shop-accent,var(--shop-secondary,#f59f00)),var(--shop-primary,#e8590c))}
+[data-template="FOOD_BEVERAGE"] .shop-ticket-main{background:color-mix(in srgb,var(--shop-primary,#e8590c) 4%,var(--shop-card-bg,#fff))}
+[data-template="FOOD_BEVERAGE"] .shop-ticket-btn,[data-template="FOOD_BEVERAGE"] .shop-ticket-code{border-radius:999px}
+
+@container (max-width:520px){.shop-coupons-list{grid-auto-columns:minmax(272px,88%)}}
+@media (max-width:520px){.shop-coupons-list{grid-auto-columns:minmax(272px,88%)}.shop-ticket{--tk-stub:78px}.shop-ticket-stub strong{font-size:20px}.shop-ticket-main{padding:12px 12px 12px 14px}.shop-ticket-code{font-size:12px;padding:3px 6px;letter-spacing:.03em}[data-template="FASHION"] .shop-ticket-stub strong{font-size:21px}}

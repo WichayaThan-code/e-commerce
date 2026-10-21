@@ -16,3 +16,11 @@
 .merchant-notify-panel ul { margin: 0; padding: 0; list-style: none; max-height: 120px; overflow: auto; }
 .merchant-notify-panel li { padding: 6px 0; border-top: 1px solid #f3d5cc; color: #9d1230; font-size: 12px; }
 .merchant-notify-panel article > button { height: 36px; border: 0; border-radius: 8px; background: #1268d7; color: #fff; font-weight: 700; cursor: pointer; }
+
+/* Shared card-header save button (MerchantSaveButton) — same values as .general-card>header>button (settings.css, ?????????) */
+.merchant-save-btn{height:40px;padding:0 20px;border:0;border-radius:6px;background:#087bf5;color:#fff;font:700 12px var(--font-sans);display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:none;white-space:nowrap;cursor:pointer}
+.merchant-save-btn svg{width:15px;height:15px}
+.merchant-save-btn:hover:not(:disabled){background:#0c6ad6}
+.merchant-save-btn:focus-visible{outline:2px solid #087bf5;outline-offset:2px}
+.merchant-save-btn:disabled{opacity:.6;cursor:not-allowed}
+.merchant-save-btn[aria-busy="true"]{cursor:wait}

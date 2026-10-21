@@ -13,7 +13,6 @@ import {
   LogOut,
   Megaphone,
   PackageCheck,
-  Search,
   Settings,
   ShoppingBag,
   ShoppingCart,
@@ -24,6 +23,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import MerchantBell from "../components/merchant/MerchantBell";
+import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import { useAuth } from "../contexts/AuthContext";
@@ -145,18 +145,7 @@ export default function MerchantDashboardPage() {
     <main className="merchant-shell">
       <header className="merchant-topbar">
         <MerchantBrand />
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            notify("กำลังค้นหาข้อมูลร้านค้า");
-          }}
-        >
-          <Search />
-          <input
-            aria-label="ค้นหา"
-            placeholder="ค้นหาสินค้า, คำสั่งซื้อ, ลูกค้า..."
-          />
-        </form>
+        <MerchantTopbarSearch />
         <LanguageSwitcher /> <MerchantBell />
         <MerchantShopMenu />
       </header>

@@ -1,14 +1,14 @@
-import type { FormEvent, ReactNode } from "react";
-import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import type { ReactNode } from "react";
+import { NavLink } from "react-router-dom";
 import {
   BarChart3, Box, CircleHelp, CircleUserRound, Crown, Headphones, Home,
-  Search, Settings, ShoppingBag, Store, TicketPercent, Truck, WalletCards,
+  Settings, ShoppingBag, Store, TicketPercent, Truck, WalletCards,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { usePermissions } from "../../hooks/usePermissions";
 import LanguageSwitcher from "../LanguageSwitcher";
 import MerchantBell from "./MerchantBell";
+import MerchantTopbarSearch from "./MerchantTopbarSearch";
 import MerchantShopMenu from "../MerchantShopMenu";
 import "../../styles/merchant-dashboard.css";
 import "../../styles/product-management.css";
@@ -29,13 +29,6 @@ const links = [
 export default function MerchantShell({ children, notice, tone = "ok" }: { children: ReactNode; notice?: string; tone?: "ok" | "fail" }) {
   const { t } = useTranslation("merchant");
   const { canSeeMenuItem } = usePermissions();
-  const navigate = useNavigate();
-  const [query, setQuery] = useState("");
-  const search = (event: FormEvent) => {
-    event.preventDefault();
-    const q = query.trim();
-    navigate(q ? `/merchant/products?q=${encodeURIComponent(q)}` : "/merchant/products");
-  };
   return (
     <main className="merchant-shell pm-shell catalog-shell">
       <header className="merchant-topbar">
@@ -43,10 +36,7 @@ export default function MerchantShell({ children, notice, tone = "ok" }: { child
           <span><ShoppingBag /><i>✓</i></span>
           <div><b>ThaiShop<span>Fun</span></b><small>Shop Local · Support Thai · Smile Together</small></div>
         </a>
-        <form onSubmit={search}>
-          <Search />
-          <input aria-label={t("catalog.menu.searchPh")} placeholder={t("catalog.menu.searchPh")} value={query} onChange={(event) => setQuery(event.target.value)} />
-        </form>
+        <MerchantTopbarSearch />
         <LanguageSwitcher />
         <MerchantBell />
         <MerchantShopMenu />

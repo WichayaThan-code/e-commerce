@@ -32,6 +32,10 @@ public class Shop {
     @Column(name = "facebook_url", length = 500) private String facebookUrl;
     @Column(name = "instagram_url", length = 500) private String instagramUrl;
     @Column(name = "tiktok_url", length = 500) private String tiktokUrl;
+    /** Public storefront phone — not the owner's private contact. */
+    @Column(name = "public_phone", length = 30) private String publicPhone;
+    /** Public storefront email — not the owner's private contact. */
+    @Column(name = "public_email") private String publicEmail;
     @Column(name = "logo_path", length = 500) private String logoPath;
     @Column(name = "cover_path", length = 500) private String coverPath;
     @Column(name = "opening_hours", length = 800) private String openingHours;
@@ -159,6 +163,13 @@ public class Shop {
         this.updatedAt = Instant.now();
     }
 
+    /** Update public storefront contact only. Blank strings clear the value (null). */
+    public void updatePublicContact(String phone, String email) {
+        this.publicPhone = blankToNull(phone == null ? null : phone.trim());
+        this.publicEmail = blankToNull(email == null ? null : email.trim());
+        this.updatedAt = Instant.now();
+    }
+
     /** Public running shop number (shops.shop_no) used by the API as "shopId". */
     public Long getId() { return shopId; }
     /** Database primary key (shops.id). */
@@ -179,6 +190,8 @@ public class Shop {
     public String getFacebookUrl() { return facebookUrl; }
     public String getInstagramUrl() { return instagramUrl; }
     public String getTiktokUrl() { return tiktokUrl; }
+    public String getPublicPhone() { return publicPhone; }
+    public String getPublicEmail() { return publicEmail; }
     public ShopStatus getStatus() { return status; }
     public Instant getPublishedAt() { return publishedAt; }
     public Instant getSuspendedAt() { return suspendedAt; }

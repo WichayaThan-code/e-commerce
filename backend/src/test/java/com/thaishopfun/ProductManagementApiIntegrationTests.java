@@ -413,6 +413,43 @@ class ProductManagementApiIntegrationTests {
         mvc.perform(get(base(shop) + "/products")).andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void publicMarketplaceSearchReturnsOnlyApprovedShopsAndPublishedProducts() throws Exception {
+        var shop = openShop("pm-global@example.com", "0812000009", "ร้านค้นทั่วไป", "Global Finder Shop", "1234567890129");
+        var tea = activeCategory(0);
+        var published = create(shop, product("ชาอู่หลง", "Oolong Tea", tea, "Finder Leaf", "OOL-1", "8850000000091", "80.00"));
+        create(shop, product("ชาอู่หลงร่าง", "Oolong Draft", tea, "Finder Leaf", "OOL-2", null, "70.00"));
+        upload(shop, published, PNG).andExpect(status().isOk());
+        perform(post(base(shop) + "/products/" + published + "/publish"), shop.token).andExpect(status().isOk());
+
+        // anonymous: no Authorization header
+        mvc.perform(get("/api/search").param("q", "oolong"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.products.total").value(1))
+            .andExpect(jsonPath("$.products.items[0].product.id").value(published))
+            .andExpect(jsonPath("$.products.items[0].shop.slug").isNotEmpty());
+        mvc.perform(get("/api/search").param("q", "global finder"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.shops.length()").value(1))
+            .andExpect(jsonPath("$.shops[0].productCount").value(1))
+            .andExpect(jsonPath("$.shops[0].phone").doesNotExist())
+            .andExpect(jsonPath("$.shops[0].email").doesNotExist());
+        mvc.perform(get("/api/search").param("q", "finder le"))
+            .andExpect(jsonPath("$.brands[0].name").value("Finder Leaf"))
+            .andExpect(jsonPath("$.brands[0].productCount").value(1));
+        mvc.perform(get("/api/search").param("q", "oolong").param("brand", "FINDER LEAF"))
+            .andExpect(jsonPath("$.products.total").value(1))
+            .andExpect(jsonPath("$.shops.length()").value(0));
+        // LIKE wildcards are literal and a blank query returns nothing
+        mvc.perform(get("/api/search").param("q", "%")).andExpect(jsonPath("$.products.total").value(0));
+        mvc.perform(get("/api/search").param("q", "  ")).andExpect(status().isOk()).andExpect(jsonPath("$.products.total").value(0));
+
+        // a suspended shop disappears from both shops and products
+        jdbc.update("UPDATE shops SET status = 'SUSPENDED' WHERE shop_no = ?", shop.shopId);
+        mvc.perform(get("/api/search").param("q", "oolong")).andExpect(jsonPath("$.products.total").value(0));
+        mvc.perform(get("/api/search").param("q", "global finder")).andExpect(jsonPath("$.shops.length()").value(0));
+    }
+
     private ResultActions perform(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request, String token) throws Exception {
         return mvc.perform(request.header("Authorization", "Bearer " + token));
     }

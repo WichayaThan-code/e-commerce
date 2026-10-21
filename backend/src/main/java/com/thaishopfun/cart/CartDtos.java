@@ -143,7 +143,9 @@ public final class CartDtos {
         Instant endsAt,
         Integer usageLimitTotal,
         Integer usageLimitPerCustomer,
-        Boolean active
+        Boolean active,
+        /** null = keep (update) / true (create). Storefront listing + wallet collect. */
+        Boolean showOnStorefront
     ) {}
 
     public record CouponResponse(
@@ -164,8 +166,20 @@ public final class CartDtos {
         /** ACTIVE | SCHEDULED | EXPIRED | DISABLED | USED_UP */
         String state,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        boolean showOnStorefront,
+        /** Sum of promotion_usages.discount_amount (orders that used it). */
+        BigDecimal discountTotal,
+        /** Merchant-page status, precedence EXPIRED > PAUSED > UPCOMING > ACTIVE (same as /merchant/promotions). */
+        String status
     ) {}
+
+    /** Whole-shop counters (independent of the list filters) for KPI cards / tab badges. */
+    public record CouponSummary(long total, long active, long upcoming, long paused, long expired,
+                                long percent, long fixedAmount, long freeShipping, long usageCount, BigDecimal discountTotal) {}
+
+    /** Coupon list = PageResponse fields + summary. */
+    public record CouponListResponse(List<CouponResponse> items, int page, int size, long totalItems, int totalPages, CouponSummary summary) {}
 
     public record PageResponse<T>(List<T> items, int page, int size, long totalItems, int totalPages) {}
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { SkeletonCard } from "../../feedback/Skeleton";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
@@ -134,7 +135,7 @@ export default function ProductRail({
     <section ref={revealRef} className={`shop-featured shop-rail recommend-width shop-reveal ${className}`.trim()}>
       <header className="shop-featured-head">
         <h2>{title}</h2>
-        <a className="shop-featured-all" href={seeAllHref}>{tp("shop.seeAll")} ›</a>
+        <Link className="shop-featured-all" to={seeAllHref}>{tp("shop.seeAll")} ›</Link>
       </header>
       <div className={`shop-featured-rail ${dragging ? "is-dragging" : ""}`}>
         <button type="button" className={`shop-featured-arrow is-prev ${canPrev ? "" : "is-disabled"}`} onClick={() => scrollByCard(-1)} aria-label={tp("shops.pagePrev")} disabled={!canPrev}>
@@ -171,10 +172,10 @@ export default function ProductRail({
                 />
               ))}
           {!loading && (
-            <a className="shop-featured-more" href={seeAllHref} aria-label={tp("shop.seeMore")}>
+            <Link className="shop-featured-more" to={seeAllHref} aria-label={tp("shop.seeMore")}>
               <span className="shop-featured-more-icon"><ChevronRight /></span>
               <span>{tp("shop.seeMore")} ›</span>
-            </a>
+            </Link>
           )}
         </div>
         <button type="button" className={`shop-featured-arrow is-next ${canNext ? "" : "is-disabled"}`} onClick={() => scrollByCard(1)} aria-label={tp("shops.pageNext")} disabled={!canNext}>

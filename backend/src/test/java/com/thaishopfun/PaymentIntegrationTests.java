@@ -138,6 +138,7 @@ class PaymentIntegrationTests {
     private void wipe() {
         cartItems.deleteAll();
         carts.deleteAll();
+        jdbc.update("DELETE FROM coupon_collections");
         usages.deleteAll();
         coupons.deleteAll();
         promotions.deleteAll();
@@ -790,6 +791,8 @@ class PaymentIntegrationTests {
     }
 
     private ResultActions applyCoupon(String buyer, OpenShop shop, String code) throws Exception {
+        // V31 coupon wallet: public codes must be collected first (result ignored: unknown / expired codes are rejected by apply below)
+        cart(post("/api/me/coupons"), buyer, "{\"shopId\":%d,\"code\":\"%s\"}".formatted(shop.shopId, code));
         return cart(post("/api/cart/shops/" + shop.shopId + "/coupon"), buyer, "{\"code\":\"%s\"}".formatted(code));
     }
 

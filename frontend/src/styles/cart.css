@@ -41,3 +41,33 @@
 @media(max-width:360px){.cart-list>article,.cart-list>article.cart-item-selected{grid-template-columns:18px 58px minmax(0,1fr) 24px;gap:8px;padding:12px 10px}.cart-list>article>.cart-photo{width:58px}.cart-select-row{font-size:11px;gap:8px}.cart-select-row button{font-size:10px;gap:4px}.cart-heading ol{gap:10px;font-size:10px}}
 .cart-photo.cart-photo-real img{position:absolute;inset:0;width:100%;height:100%;max-width:100%;object-fit:cover}
 @media(max-width:720px){.cart-page{padding-top:56px}}
+
+/* ---- cart: real API wiring in the original design (promptP2) ---- */
+.cart-line-notice{display:inline-flex;align-items:center;gap:4px;margin-top:4px;font-size:11px;font-weight:700;color:#d6243a}
+.cart-line-notice.is-price_changed{color:#b26a00}
+.cart-price-notice{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;border:1px solid #f3d3a2;border-radius:9px;background:#fff8ec;color:#8a5200;font-size:12px}
+.cart-price-notice.is-info{border-color:#e2eaf4;background:#f6f9fd;color:#294b73}
+.cart-price-notice span{flex:1 1 200px;min-width:0}
+.cart-price-notice button{height:32px;padding:0 12px;border:1px solid currentColor;border-radius:9px;background:#fff;color:inherit;font-size:12px;font-weight:700}
+.cart-code-shop{width:100%;height:37px;margin-bottom:8px;border:1px solid #c5d6e8;border-radius:9px;padding:0 10px;font-size:11px;background:#fff;color:#294b73}
+.cart-retry{height:37px;padding:0 16px;border:1px solid #b7d0ee;border-radius:9px;background:#f0f6ff;color:#1268d7;font-weight:700}
+.cart-summary .cart-line-notice{display:block}
+
+/* ---- cart: coupon offers inside the summary coupon box (promptP3) ---- */
+.cart-summary .cart-code>.cart-offers{display:grid;gap:6px;margin-top:10px}
+.cart-offers ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.cart-summary .cart-code .cart-offer{width:100%;height:auto;min-height:46px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"code state" "copy copy";align-items:center;gap:4px 8px;padding:7px 9px;text-align:left;border:1px dashed #b7d0ee;border-radius:9px;background:#fff;color:#294b73;font-size:11px;font-weight:400;cursor:pointer}
+.cart-summary .cart-code .cart-offer:hover:not(:disabled){border-color:#1268d7;background:#f0f6ff}
+.cart-summary .cart-code .cart-offer.is-applied{border-style:solid;border-color:#1f9d62;background:#effaf4;cursor:default}
+.cart-summary .cart-code .cart-offer.is-locked{opacity:.62;cursor:not-allowed;background:#fafbfd}
+.cart-offer-code{grid-area:code;justify-self:start;display:inline-flex;align-items:center;gap:3px;padding:3px 6px;border-radius:6px;background:#fff1e3;color:#b8641c;font-weight:700;white-space:nowrap}
+.cart-offer-copy{grid-area:copy;display:grid;min-width:0}
+.cart-offer-copy b{font-size:11px;color:#08265e}
+.cart-offer-copy small{font-size:10px;color:#7185a1}
+.cart-offer-state{grid-area:state;display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#1268d7;white-space:nowrap}
+.cart-offer.is-applied .cart-offer-state{color:#1f9d62}
+.cart-offer.is-locked .cart-offer-state{color:#b26a00}
+.cart-summary .cart-code .cart-offers-more{width:auto;height:28px;justify-self:center;padding:0 10px;border:0;background:transparent;color:#1268d7;font-size:11px;font-weight:700}
+.cart-summary .cart-code .cart-offers-hint{display:block;font-size:11px;font-weight:600;color:#5f7ca8}
+.cart-summary .cart-code .cart-offers-hint a{color:#1268d7;text-decoration:underline;text-underline-offset:2px}
+.cart-offer-skel{display:block;width:100%}

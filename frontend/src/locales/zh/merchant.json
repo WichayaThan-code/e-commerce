@@ -334,7 +334,7 @@
       "off": "关"
     },
     "menu": {
-      "searchPh": "搜索商品、订单、客户...",
+      "searchPh": "搜索店铺商品（名称、SKU、条码）",
       "help": "帮助",
       "upgradeTitle": "升级店铺",
       "upgradeBody": "解锁更多销售功能",
@@ -781,6 +781,8 @@
       "NEW_ARRIVALS": "新品上架",
       "CATALOG": "全部商品",
       "HOURS": "营业时间",
+      "comingSoon": "即将推出",
+      "comingSoonHint": "在有真实销量数据之前不会在店铺页面显示",
       "bannersTitle": "横幅图片",
       "bannersHint": "填写图片 URL（https 或站内路径）。留空则在店铺页隐藏横幅区。",
       "bannerImage": "图片 URL",
@@ -842,6 +844,39 @@
       "hex": "请输入 6 位颜色值，如 #087bf5",
       "validation": "请检查高亮的字段",
       "save": "主题保存失败，请重试。"
+    }
+  },
+  "storePolicies": {
+    "title": "店铺政策",
+    "lead": "填写在店铺页面显示的政策内容：配送、退货、隐私与服务条款。",
+    "save": "保存政策",
+    "saving": "正在保存...",
+    "saved": "店铺政策已保存",
+    "saveError": "政策保存失败，请重试。",
+    "loadError": "无法加载店铺政策",
+    "retry": "重试",
+    "titleLabel": "标题（可选）",
+    "bodyLabel": "正文",
+    "count": "已设置 {{filled}}/{{total}} 项",
+    "status": {
+      "filled": "已设置",
+      "empty": "未设置",
+      "unsaved": "未保存"
+    },
+    "updated": "更新于",
+    "edit": "编辑",
+    "view": "查看",
+    "close": "关闭",
+    "formatHint": "格式：空行分段 · 首行短句为标题 · 以 • 或 - 开头为列表 · 1. 为步骤",
+    "removeHint": "清空内容并保存即可从店铺页面移除此政策",
+    "revert": "恢复已保存内容",
+    "bodyRequired": "请填写{{type}}政策内容，或清空标题",
+    "nothingToSave": "尚无更改",
+    "types": {
+      "shipping": "配送",
+      "returns": "退货",
+      "privacy": "隐私",
+      "terms": "服务条款"
     }
   }
 }

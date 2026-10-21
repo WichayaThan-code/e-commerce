@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { shopApi, type PublicProduct } from "../../../services/api";
+import { shopProductsPath } from "../../../services/shopRoutes";
 import { resolveVariant } from "./sectionClasses";
 import ProductRail from "./ProductRail";
 import type { ProductCardVariant } from "../ProductCard";
@@ -33,6 +34,7 @@ export default function NewArrivalsSection({ shop, section, products, catalog, p
     }
     let active = true;
     setLoading(true);
+    // TODO(backend): เปลี่ยนเป็น sort "published" (publishedAt desc) เมื่อ backend รองรับ
     shopApi.products(shop.slug, { size: 12, page: 0, sort: "newest" })
       .then((result) => { if (active) setItems(result.items); })
       .catch(() => { if (active) setItems([]); })
@@ -45,7 +47,7 @@ export default function NewArrivalsSection({ shop, section, products, catalog, p
       shop={shop}
       products={items}
       title={tp("shop.newArrivalsTitle")}
-      seeAllHref="#shop-catalog"
+      seeAllHref={shopProductsPath(shop.slug)}
       cardVariant={cardVariantFor(variant)}
       loading={loading}
       favorites={catalog.favorites}

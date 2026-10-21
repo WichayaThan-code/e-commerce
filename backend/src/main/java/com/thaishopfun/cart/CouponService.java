@@ -13,7 +13,10 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.regex.Pattern;
 
 /** Merchant coupon management: each coupon = one coupons row + its own promotions row (V1 tables). */
@@ -25,29 +28,76 @@ public class CouponService {
     private final PromotionRepository promotions;
     private final PromotionUsageRepository usages;
     private final ShopRepository shops;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
-    public CouponService(CouponRepository coupons, PromotionRepository promotions, PromotionUsageRepository usages, ShopRepository shops) {
+    public CouponService(CouponRepository coupons, PromotionRepository promotions, PromotionUsageRepository usages, ShopRepository shops,
+                         org.springframework.jdbc.core.JdbcTemplate jdbc) {
         this.coupons = coupons;
         this.promotions = promotions;
         this.usages = usages;
         this.shops = shops;
+        this.jdbc = jdbc;
     }
 
+    private static final Set<String> STATUSES = Set.of("UPCOMING", "ACTIVE", "PAUSED", "EXPIRED");
+
     @Transactional(readOnly = true)
-    public CartDtos.PageResponse<CartDtos.CouponResponse> list(Long shopNo, String q, String state, Integer page, Integer size) {
+    public CartDtos.CouponListResponse list(Long shopNo, String q, String state, String status, String type, Integer page, Integer size) {
         var shop = shop(shopNo);
         int p = page == null || page < 0 ? 0 : page;
         int s = size == null || size < 1 ? 20 : Math.min(size, 100);
-        var all = coupons.findByShopIdOrderByCreatedDateTimeDesc(shop.getUuid()).stream()
+        String wantedStatus = status == null || status.isBlank() ? null : status.trim().toUpperCase(Locale.ROOT);
+        if (wantedStatus != null && !STATUSES.contains(wantedStatus)) {
+            throw new ValidationException(List.of(new FieldViolation("status", "STATUS_INVALID", "สถานะต้องเป็น UPCOMING, ACTIVE, PAUSED หรือ EXPIRED")));
+        }
+        Set<String> wantedTypes = new java.util.HashSet<>();
+        if (type != null && !type.isBlank()) {
+            for (var part : type.split(",")) {
+                var db = CartService.toDbPromoType(part);
+                if (db == null) throw new ValidationException(List.of(new FieldViolation("type", "TYPE_INVALID", "ประเภทต้องเป็น PERCENT, FIXED หรือ FREE_SHIPPING")));
+                wantedTypes.add(CartService.toApiPromoType(db));
+            }
+        }
+        var rows = coupons.findByShopIdOrderByCreatedDateTimeDesc(shop.getUuid()).stream()
             .map(coupon -> toResponse(shop, coupon, promotions.findById(coupon.getPromotionId()).orElse(null)))
             .filter(row -> row != null)
-            .filter(row -> q == null || q.isBlank() || row.code().contains(q.trim().toUpperCase())
-                || (row.name() != null && row.name().toLowerCase().contains(q.trim().toLowerCase())))
+            .toList();
+        String needle = q == null ? "" : q.trim();
+        var all = rows.stream()
+            .filter(row -> needle.isEmpty() || row.code().contains(needle.toUpperCase(Locale.ROOT))
+                || (row.name() != null && row.name().toLowerCase(Locale.ROOT).contains(needle.toLowerCase(Locale.ROOT))))
             .filter(row -> state == null || state.isBlank() || row.state().equalsIgnoreCase(state.trim()))
+            .filter(row -> wantedStatus == null || row.status().equals(wantedStatus))
+            .filter(row -> wantedTypes.isEmpty() || wantedTypes.contains(row.type()))
             .toList();
         int from = Math.min(all.size(), p * s);
         int to = Math.min(all.size(), from + s);
-        return new CartDtos.PageResponse<>(all.subList(from, to), p, s, all.size(), (int) Math.ceil(all.size() / (double) s));
+        return new CartDtos.CouponListResponse(all.subList(from, to), p, s, all.size(), (int) Math.ceil(all.size() / (double) s), summary(rows));
+    }
+
+    private static CartDtos.CouponSummary summary(List<CartDtos.CouponResponse> rows) {
+        var byStatus = rows.stream().collect(Collectors.groupingBy(CartDtos.CouponResponse::status, Collectors.counting()));
+        var byType = rows.stream().collect(Collectors.groupingBy(CartDtos.CouponResponse::type, Collectors.counting()));
+        var discount = rows.stream().map(CartDtos.CouponResponse::discountTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new CartDtos.CouponSummary(rows.size(), byStatus.getOrDefault("ACTIVE", 0L), byStatus.getOrDefault("UPCOMING", 0L),
+            byStatus.getOrDefault("PAUSED", 0L), byStatus.getOrDefault("EXPIRED", 0L),
+            byType.getOrDefault("PERCENT", 0L), byType.getOrDefault("FIXED", 0L), byType.getOrDefault("FREE_SHIPPING", 0L),
+            rows.stream().mapToLong(CartDtos.CouponResponse::usedCount).sum(), CartMoney.of(discount));
+    }
+
+    /** Hard delete (coupon + its promotion; wallet rows cascade). A coupon already used in an order: 409 COUPON_IN_USE (disable it instead). */
+    @Transactional
+    public void delete(Long shopNo, UUID couponId) {
+        var shop = shop(shopNo);
+        var coupon = owned(shop, couponId);
+        if (usages.countByPromotionId(coupon.getPromotionId()) > 0) {
+            throw new AuthException(HttpStatus.CONFLICT, "COUPON_IN_USE", "คูปองนี้ถูกใช้ในคำสั่งซื้อแล้ว ลบไม่ได้ — ใช้ \"ปิดใช้งาน\" แทน");
+        }
+        jdbc.update("DELETE FROM coupon_collections WHERE coupon_id = ?", coupon.getId());
+        var promotionId = coupon.getPromotionId();
+        coupons.delete(coupon);
+        coupons.flush();
+        promotions.findById(promotionId).ifPresent(promotions::delete);
     }
 
     @Transactional(readOnly = true)
@@ -67,6 +117,7 @@ public class CouponService {
         }
         var promo = new Promotion(shop.getUuid());
         apply(promo, clean);
+        promo.setPublicVisible(request.showOnStorefront() == null || request.showOnStorefront());
         promo.stamp(userId);
         promotions.save(promo);
         var coupon = new Coupon(shop.getUuid(), promo.getId(), clean.code);
@@ -94,6 +145,7 @@ public class CouponService {
             coupon.setCode(clean.code);
         }
         apply(promo, clean);
+        if (request.showOnStorefront() != null) promo.setPublicVisible(request.showOnStorefront());
         coupon.setActive(clean.active);
         promo.stamp(userId);
         coupon.stamp(userId);
@@ -188,12 +240,19 @@ public class CouponService {
         else if (promo.getStartsAt() != null && now.isBefore(promo.getStartsAt())) state = "SCHEDULED";
         else if (promo.getUsageLimitTotal() != null && used >= promo.getUsageLimitTotal()) state = "USED_UP";
         else state = "ACTIVE";
+        String status;
+        if (promo.getEndsAt() != null && !now.isBefore(promo.getEndsAt())) status = "EXPIRED";
+        else if (!coupon.isActive() || !promo.isActive()) status = "PAUSED";
+        else if (promo.getStartsAt() != null && now.isBefore(promo.getStartsAt())) status = "UPCOMING";
+        else status = "ACTIVE";
+        var discountTotal = usages.sumDiscountByPromotionId(promo.getId());
         return new CartDtos.CouponResponse(coupon.getId(), shop.getId(), coupon.getCode(), promo.getName(),
             CartService.toApiPromoType(promo.getPromoType()), CartMoney.of(promo.getValue()),
             promo.getMaxDiscountAmount() == null ? null : CartMoney.of(promo.getMaxDiscountAmount()),
             promo.getMinOrderAmount() == null ? null : CartMoney.of(promo.getMinOrderAmount()),
             promo.getStartsAt(), promo.getEndsAt(), promo.getUsageLimitTotal(), promo.getUsageLimitPerBuyer(),
-            used, coupon.isActive() && promo.isActive(), state, coupon.getCreatedDateTime(), coupon.getModifiedDateTime());
+            used, coupon.isActive() && promo.isActive(), state, coupon.getCreatedDateTime(), coupon.getModifiedDateTime(),
+            promo.isPublicVisible(), CartMoney.of(discountTotal == null ? BigDecimal.ZERO : discountTotal), status);
     }
 
     private Coupon owned(Shop shop, UUID couponId) {

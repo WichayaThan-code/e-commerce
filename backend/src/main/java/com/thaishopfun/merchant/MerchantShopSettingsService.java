@@ -76,7 +76,9 @@ public class MerchantShopSettingsService {
             logoUrl(shop),
             shop.getSlug(),
             shop.getCreatedAt(),
-            openingHours(shop)
+            openingHours(shop),
+            shop.getPublicPhone(),
+            shop.getPublicEmail()
         );
     }
 
@@ -186,6 +188,12 @@ public class MerchantShopSettingsService {
             request.subdistrict().trim(),
             request.postalCode().trim()
         );
+        if (request.publicPhone() != null || request.publicEmail() != null) {
+            shop.updatePublicContact(
+                request.publicPhone() != null ? request.publicPhone() : shop.getPublicPhone(),
+                request.publicEmail() != null ? request.publicEmail() : shop.getPublicEmail()
+            );
+        }
         var owner = shop.getOwner();
         if (owner != null) {
             owner.updateContact(request.phone().trim(), request.email().trim().toLowerCase());

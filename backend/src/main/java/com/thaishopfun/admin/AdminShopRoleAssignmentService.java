@@ -2,6 +2,7 @@ package com.thaishopfun.admin;
 
 import com.thaishopfun.admin.AdminDirectoryDtos.ShopOption;
 import com.thaishopfun.admin.AdminDirectoryDtos.ShopRoleMember;
+import com.thaishopfun.audit.PlatformAuditService;
 import com.thaishopfun.auth.AuthException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -17,9 +18,11 @@ import java.util.UUID;
 @Service
 public class AdminShopRoleAssignmentService {
     private final NamedParameterJdbcTemplate jdbc;
+    private final PlatformAuditService platformAudit;
 
-    public AdminShopRoleAssignmentService(NamedParameterJdbcTemplate jdbc) {
+    public AdminShopRoleAssignmentService(NamedParameterJdbcTemplate jdbc, PlatformAuditService platformAudit) {
         this.jdbc = jdbc;
+        this.platformAudit = platformAudit;
     }
 
     @Transactional(readOnly = true)
@@ -157,13 +160,8 @@ public class AdminShopRoleAssignmentService {
     }
 
     private void audit(UUID actorId, UUID memberId, String action, String reason, Timestamp now) {
-        jdbc.update("""
-            INSERT INTO audit_logs (occurred_at, actor_id, actor_type, action, resource_type, resource_id,
-                                    outcome, reason_code, auth_context, policy_version, created_date_time, modified_date_time)
-            VALUES (:now, :actor, 'USER', :action, 'SHOP_MEMBER', :memberId, 'SUCCESS', :reason,
-                    'PLATFORM', 'CUSTOM', :now, :now)
-            """, new MapSqlParameterSource().addValue("now", now).addValue("actor", actorId)
-            .addValue("action", action).addValue("memberId", memberId).addValue("reason", reason));
+        // same row as before (SHOP_MEMBER / PLATFORM / policy CUSTOM), now with IP + user agent through the central writer
+        platformAudit.record(PlatformAuditService.Entry.platform(actorId, action, "SHOP_MEMBER", memberId).reason(reason, null).policy("CUSTOM"));
     }
 
     private static AuthException conflict(String code, String message) {

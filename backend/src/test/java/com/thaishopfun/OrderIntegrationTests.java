@@ -395,7 +395,7 @@ class OrderIntegrationTests {
         call(post(mb + "/accept"), shop.token, "{}").andExpect(status().isOk());
         call(post(mb + "/mark-paid"), shop.token, "{}").andExpect(status().isOk());
         call(post(mb + "/confirm"), shop.token, "{}").andExpect(status().isOk());
-        call(post(mb + "/ship"), shop.token, "{\"carrierCode\":\"TH\",\"trackingNumber\":\"EX1\"}").andExpect(status().isOk());
+        call(post(mb + "/ship"), shop.token, "{\"carrierCode\":\"THAIPOST\",\"trackingNumber\":\"EX123456789TH\"}").andExpect(status().isOk());
         assertArrayEquals(new int[]{3, 0}, level(blkS));
         call(post("/api/orders/" + b + "/refund-request"), buyer, "{\"reason\":\"ชำรุด\"}").andExpect(status().isOk());
         call(post(mb + "/refund/approve"), shop.token, "{}").andExpect(status().isOk());

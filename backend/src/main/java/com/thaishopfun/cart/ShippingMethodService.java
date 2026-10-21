@@ -22,8 +22,10 @@ public class ShippingMethodService {
 
     private final ShippingMethodRepository methods;
     private final ShopRepository shops;
+    private final com.thaishopfun.order.CarrierService carriers;
 
-    public ShippingMethodService(ShippingMethodRepository methods, ShopRepository shops) {
+    public ShippingMethodService(ShippingMethodRepository methods, ShopRepository shops, com.thaishopfun.order.CarrierService carriers) {
+        this.carriers = carriers;
         this.methods = methods;
         this.shops = shops;
     }
@@ -61,7 +63,7 @@ public class ShippingMethodService {
         return toResponse(shop, methods.save(method));
     }
 
-    private static void apply(ShippingMethod method, CartDtos.ShippingMethodRequest request) {
+    private void apply(ShippingMethod method, CartDtos.ShippingMethodRequest request) {
         var errors = new ArrayList<FieldViolation>();
         if (request == null) throw new ValidationException(List.of(new FieldViolation("name", "REQUIRED", "ต้องกรอกชื่อวิธีจัดส่ง")));
         var name = request.name() == null ? "" : request.name().trim();
@@ -84,12 +86,11 @@ public class ShippingMethodService {
         if (request.estimatedDaysMin() != null && request.estimatedDaysMax() != null && request.estimatedDaysMax() < request.estimatedDaysMin()) {
             errors.add(new FieldViolation("estimatedDaysMax", "MIN", "วันสูงสุดต้องไม่น้อยกว่าวันต่ำสุด"));
         }
-        if (request.carrierCode() != null && request.carrierCode().length() > 50) {
-            errors.add(new FieldViolation("carrierCode", "MAX_LENGTH", "รหัสขนส่งยาวเกิน 50 ตัวอักษร"));
-        }
+        // V30: carrier_code must be a carriers master code (aliases such as "J&T" / "kerry" are normalized)
+        var carrierCode = carriers.validateMethodCarrier(request.carrierCode(), errors);
         if (!errors.isEmpty()) throw new ValidationException(ValidationException.topCode(errors), errors);
         method.setName(name);
-        method.setCarrierCode(request.carrierCode() == null || request.carrierCode().isBlank() ? null : request.carrierCode().trim().toUpperCase());
+        method.setCarrierCode(carrierCode);
         method.setFeeType(type);
         method.setFeeAmount("FREE".equals(type) ? CartMoney.zero() : CartMoney.of(fee));
         method.setExtraFeePerKg(request.extraFeePerKg() == null ? null : CartMoney.of(request.extraFeePerKg()));

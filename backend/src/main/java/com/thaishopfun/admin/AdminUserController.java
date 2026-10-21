@@ -98,14 +98,16 @@ public class AdminUserController {
 
     @RequirePermission("PLATFORM_ACCOUNT_SUSPEND")
     @PostMapping("/{id}/suspend")
-    public UserDetail suspend(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return management.setStatus(id, "SUSPENDED", RequestUser.id(jwt));
+    public UserDetail suspend(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt,
+                              @Valid @RequestBody(required = false) AdminPlatformDtos.OptionalReasonRequest body) {
+        return management.setStatus(id, "SUSPENDED", RequestUser.id(jwt), body == null ? null : body.reason());
     }
 
     @RequirePermission("PLATFORM_ACCOUNT_RESTORE")
     @PostMapping("/{id}/restore")
-    public UserDetail restore(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return management.setStatus(id, "ACTIVE", RequestUser.id(jwt));
+    public UserDetail restore(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt,
+                              @Valid @RequestBody(required = false) AdminPlatformDtos.OptionalReasonRequest body) {
+        return management.setStatus(id, "ACTIVE", RequestUser.id(jwt), body == null ? null : body.reason());
     }
 
     @RequirePermission("PLATFORM_ACCOUNT_DELETE")

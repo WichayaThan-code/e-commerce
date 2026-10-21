@@ -1,6 +1,10 @@
 package com.thaishopfun.merchant;
 
+import com.thaishopfun.admin.AdminPlatformDtos;
+import com.thaishopfun.auth.RequestUser;
 import com.thaishopfun.auth.authz.RequirePermission;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -58,49 +62,51 @@ public class AdminStoreApplicationController {
 
     @RequirePermission("PLATFORM_APPLICATION_REVIEW")
     @PostMapping("/bulk/approve")
-    public MerchantDtos.BulkShopResponse approveMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request) {
-        return reviews.approveMany(request.shopIds());
+    public MerchantDtos.BulkShopResponse approveMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return reviews.approveMany(request.shopIds(), RequestUser.id(jwt));
     }
 
     @RequirePermission("PLATFORM_APPLICATION_REVIEW")
     @PostMapping("/bulk/reject")
-    public MerchantDtos.BulkShopResponse rejectMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request) {
-        return reviews.rejectMany(request.shopIds());
+    public MerchantDtos.BulkShopResponse rejectMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return reviews.rejectMany(request.shopIds(), RequestUser.id(jwt));
     }
 
     @RequirePermission("PLATFORM_SHOP_SUSPEND")
     @PostMapping("/bulk/suspend")
-    public MerchantDtos.BulkShopResponse suspendMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request) {
-        return reviews.suspendMany(request.shopIds());
+    public MerchantDtos.BulkShopResponse suspendMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return reviews.suspendMany(request.shopIds(), RequestUser.id(jwt));
     }
 
     @RequirePermission("PLATFORM_SHOP_RESTORE")
     @PostMapping("/bulk/reactivate")
-    public MerchantDtos.BulkShopResponse reactivateMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request) {
-        return reviews.reactivateMany(request.shopIds());
+    public MerchantDtos.BulkShopResponse reactivateMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return reviews.reactivateMany(request.shopIds(), RequestUser.id(jwt));
     }
 
     @RequirePermission("PLATFORM_APPLICATION_REVIEW")
     @PostMapping("/{shopId}/approve")
-    public MerchantDtos.AdminStoreApplicationResponse approve(@PathVariable Long shopId) {
-        return reviews.approve(shopId);
+    public MerchantDtos.AdminStoreApplicationResponse approve(@PathVariable Long shopId, @AuthenticationPrincipal Jwt jwt) {
+        return reviews.approve(shopId, RequestUser.id(jwt));
     }
 
     @RequirePermission("PLATFORM_APPLICATION_REVIEW")
     @PostMapping("/{shopId}/reject")
-    public MerchantDtos.AdminStoreApplicationResponse reject(@PathVariable Long shopId) {
-        return reviews.reject(shopId);
+    public MerchantDtos.AdminStoreApplicationResponse reject(@PathVariable Long shopId, @AuthenticationPrincipal Jwt jwt) {
+        return reviews.reject(shopId, RequestUser.id(jwt));
     }
 
     @RequirePermission("PLATFORM_SHOP_SUSPEND")
     @PostMapping("/{shopId}/suspend")
-    public MerchantDtos.AdminStoreApplicationResponse suspend(@PathVariable Long shopId) {
-        return reviews.suspend(shopId);
+    public MerchantDtos.AdminStoreApplicationResponse suspend(@PathVariable Long shopId, @AuthenticationPrincipal Jwt jwt,
+                                                              @Valid @RequestBody(required = false) AdminPlatformDtos.OptionalReasonRequest body) {
+        return reviews.suspend(shopId, RequestUser.id(jwt), body == null ? null : body.reason());
     }
 
     @RequirePermission("PLATFORM_SHOP_RESTORE")
     @PostMapping("/{shopId}/reactivate")
-    public MerchantDtos.AdminStoreApplicationResponse reactivate(@PathVariable Long shopId) {
-        return reviews.reactivate(shopId);
+    public MerchantDtos.AdminStoreApplicationResponse reactivate(@PathVariable Long shopId, @AuthenticationPrincipal Jwt jwt,
+                                                                 @Valid @RequestBody(required = false) AdminPlatformDtos.OptionalReasonRequest body) {
+        return reviews.reactivate(shopId, RequestUser.id(jwt), body == null ? null : body.reason());
     }
 }

@@ -27,6 +27,13 @@ public class OrderExceptionHandler {
             exception.getToStatus() == null ? null : exception.getToStatus().name(), exception.getAllowed()));
     }
 
+    @ExceptionHandler(ShipmentTransitionException.class)
+    ResponseEntity<TransitionError> shipment(ShipmentTransitionException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new TransitionError(exception.getCode(), exception.getMessage(),
+            exception.getFrom() == null ? null : exception.getFrom().name(),
+            exception.getTo() == null ? null : exception.getTo().name(), exception.getAllowed()));
+    }
+
     @ExceptionHandler(OrderCheckoutService.CheckoutInvalidException.class)
     ResponseEntity<CheckoutError> checkout(OrderCheckoutService.CheckoutInvalidException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new CheckoutError(exception.getCode(), exception.getMessage(),

@@ -34,8 +34,19 @@ public class Owner {
     @Column(name = "bank_account_encrypted", nullable = false, columnDefinition = "text") private String bankAccountEncrypted;
     @Column(name = "bank_account_name", nullable = false) private String bankAccountName;
     @Column(name = "sensitive_review", nullable = false, length = 30) private String sensitiveReview;
+    /** V31 merchant status: ACTIVE | SUSPENDED (platform admin). */
+    @Column(nullable = false, length = 20) private String status = STATUS_ACTIVE;
+    @Column(name = "suspended_at") private Instant suspendedAt;
+    @Column(name = "suspended_by") private UUID suspendedBy;
+    @Column(name = "suspend_reason", columnDefinition = "text") private String suspendReason;
+    @Column(name = "suspend_reason_code", length = 50) private String suspendReasonCode;
+    @Column(name = "restored_at") private Instant restoredAt;
+    @Column(name = "restored_by") private UUID restoredBy;
     @Column(name = "created_date_time", nullable = false) private Instant createdAt;
     @Column(name = "modified_date_time", nullable = false) private Instant updatedAt;
+
+    public static final String STATUS_ACTIVE = "ACTIVE";
+    public static final String STATUS_SUSPENDED = "SUSPENDED";
 
     protected Owner() {}
 
@@ -107,6 +118,37 @@ public class Owner {
     public String getBankAccountEncrypted() { return bankAccountEncrypted; }
     public String getBankAccountName() { return bankAccountName; }
     public String getSensitiveReview() { return sensitiveReview; }
+
+    public boolean isSuspended() { return STATUS_SUSPENDED.equals(status); }
+
+    /** Platform admin suspends the merchant (callers check the current status first). */
+    public void suspend(UUID actorId, String reason, String reasonCode) {
+        var now = Instant.now();
+        status = STATUS_SUSPENDED;
+        suspendedAt = now;
+        suspendedBy = actorId;
+        suspendReason = reason;
+        suspendReasonCode = reasonCode;
+        updatedAt = now;
+    }
+
+    public void reactivate(UUID actorId) {
+        var now = Instant.now();
+        status = STATUS_ACTIVE;
+        restoredAt = now;
+        restoredBy = actorId;
+        updatedAt = now;
+    }
+
+    public String getStatus() { return status; }
+    public Instant getSuspendedAt() { return suspendedAt; }
+    public UUID getSuspendedBy() { return suspendedBy; }
+    public String getSuspendReason() { return suspendReason; }
+    public String getSuspendReasonCode() { return suspendReasonCode; }
+    public Instant getRestoredAt() { return restoredAt; }
+    public UUID getRestoredBy() { return restoredBy; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 
     private static String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
 }

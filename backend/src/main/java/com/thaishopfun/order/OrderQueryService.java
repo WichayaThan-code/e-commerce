@@ -173,11 +173,15 @@ public class OrderQueryService {
             return new OrderDtos.AllowedTransitions(null, null, null, order.getRowVersion(), actions);
         }
         var previous = OrderTransitionService.parse(order.getStatusBeforeRefund());
+        var facts = OrderStateMachine.Facts.of(order);
         var list = new ArrayList<OrderDtos.AllowedTransition>();
-        for (var edge : OrderStateMachine.transitionsFrom(order.getStatus())) {
+        for (var edge : OrderStateMachine.transitionsFrom(order.getStatus(), facts)) {
             if (!edge.actors().contains(actor.type())) continue;
             list.add(new OrderDtos.AllowedTransition(edge.to().name(), action(order.getStatus(), edge.to()),
                 edge.reasonRequired() || actor.type() == OrderActorType.ADMIN, edge.shippingRequired()));
+        }
+        if (OrderStateMachine.canCollectCod(order.getStatus(), actor.type(), facts)) {
+            list.add(new OrderDtos.AllowedTransition(null, "COLLECT_COD", actor.type() == OrderActorType.ADMIN, false));
         }
         if (order.getStatus() == OrderStatus.REFUND_REQUESTED && previous != null
             && OrderStateMachine.REJECT_REFUND_ACTORS.contains(actor.type())) {
@@ -223,7 +227,7 @@ public class OrderQueryService {
             item.getQuantity(), item.getDiscountAmount(), item.getLineTotal())).toList();
         var previous = OrderTransitionService.parse(order.getStatusBeforeRefund());
         var allowed = actor.type() == OrderActorType.SYSTEM ? List.<String>of()
-            : OrderStateMachine.allowedTargets(order.getStatus(), actor.type(), previous).stream().map(Enum::name).toList();
+            : OrderStateMachine.allowedTargets(order.getStatus(), actor.type(), previous, OrderStateMachine.Facts.of(order)).stream().map(Enum::name).toList();
         return new OrderDtos.OrderDetail(order.getId(), order.getOrderNumber(), shop == null ? null : shop.getId(),
             shop == null ? null : shop.getName(), order.getChannel(), order.getStatus().name(), order.getPaymentStatus().name(),
             order.getFulfillmentStatus().name(), order.getMerchantConfirmStatus(), order.getCurrency(), order.getSubtotal(),
@@ -234,7 +238,8 @@ public class OrderQueryService {
             order.getCancelledAt(), order.getCompletedAt(), order.getRowVersion(), items, allowed,
             itemsHidden, order.getItems().size(), order.getItems().stream().mapToInt(OrderItem::getQuantity).sum(),
             ledger.captured(order.getId()), ledger.refunded(order.getId()), ledger.refundable(order.getId()),
-            actor.type() == OrderActorType.MERCHANT ? Boolean.FALSE : null);
+            actor.type() == OrderActorType.MERCHANT ? Boolean.FALSE : null,
+            order.getPaymentMethod().name(), order.getCodFee());
     }
 
     /** Merchant, not accepted yet: id, number, created time, version, accept / decline only (MerchantVisibility). */
@@ -244,7 +249,7 @@ public class OrderQueryService {
             shop == null ? null : shop.getName(), null, null, null, null, "AWAITING", null, null,
             null, null, null, null, null, null, null, null, null, null, null, null, null,
             order.getPlacedAt(), null, null, null, null, order.getRowVersion(), null, allowed,
-            true, null, null, null, null, null, Boolean.TRUE);
+            true, null, null, null, null, null, Boolean.TRUE, null, null);
     }
 
     /** Merchants see the full address only after confirming the order and with SHIPMENT_ADDRESS_READ (V1 design: reveal after confirm). */
@@ -267,13 +272,13 @@ public class OrderQueryService {
         if (MerchantVisibility.restricted(order, actor)) {
             return new OrderDtos.OrderSummary(order.getId(), order.getOrderNumber(), shop == null ? null : shop.getId(),
                 shop == null ? null : shop.getName(), null, null, null, null, null, null, null, order.getPlacedAt(), null,
-                order.getRowVersion(), true);
+                order.getRowVersion(), true, null);
         }
         int qty = order.getItems().stream().mapToInt(OrderItem::getQuantity).sum();
         return new OrderDtos.OrderSummary(order.getId(), order.getOrderNumber(), shop == null ? null : shop.getId(),
             shop == null ? null : shop.getName(), order.getStatus().name(), order.getPaymentStatus().name(),
             order.getFulfillmentStatus().name(), order.getGrandTotal(), order.getCurrency(), order.getItems().size(), qty,
-            order.getPlacedAt(), order.getPaidAt(), order.getRowVersion(), false);
+            order.getPlacedAt(), order.getPaidAt(), order.getRowVersion(), false, order.getPaymentMethod().name());
     }
 
     private Map<UUID, Shop> shopMap(Collection<UUID> ids) {

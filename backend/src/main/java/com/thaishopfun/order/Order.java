@@ -55,6 +55,8 @@ public class Order {
     @Column(name = "shipping_carrier_code_snapshot", length = 50) private String shippingCarrierCodeSnapshot;
     @Column(name = "status_before_refund", length = 40) private String statusBeforeRefund;
     @ColumnDefault("false") @Column(name = "stock_committed", nullable = false) private boolean stockCommitted;
+    @ColumnDefault("'BANK_TRANSFER'") @Enumerated(EnumType.STRING) @Column(name = "payment_method", nullable = false, length = 20) private PaymentMethod paymentMethod = PaymentMethod.BANK_TRANSFER;
+    @ColumnDefault("0") @Column(name = "cod_fee", nullable = false, precision = 18, scale = 2) private BigDecimal codFee = BigDecimal.ZERO;
     @ColumnDefault("0") @Version @Column(name = "row_version", nullable = false) private int rowVersion;
 
     @ColumnDefault("CURRENT_TIMESTAMP") @Column(name = "created_date_time", nullable = false, updatable = false) private Instant createdDateTime;
@@ -158,6 +160,11 @@ public class Order {
     public String getStatusBeforeRefund() { return statusBeforeRefund; }
     public void setStatusBeforeRefund(String statusBeforeRefund) { this.statusBeforeRefund = statusBeforeRefund; }
     public boolean isStockCommitted() { return stockCommitted; }
+    public PaymentMethod getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(PaymentMethod paymentMethod) { this.paymentMethod = paymentMethod; }
+    public boolean isCod() { return paymentMethod == PaymentMethod.COD; }
+    public BigDecimal getCodFee() { return codFee; }
+    public void setCodFee(BigDecimal codFee) { this.codFee = codFee; }
     public void setStockCommitted(boolean stockCommitted) { this.stockCommitted = stockCommitted; }
     public int getRowVersion() { return rowVersion; }
     public List<OrderItem> getItems() { return items; }

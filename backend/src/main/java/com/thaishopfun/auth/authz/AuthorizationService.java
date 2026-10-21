@@ -66,14 +66,31 @@ public class AuthorizationService {
     /** Account/platform-level permission check (never consults shop memberships). */
     public boolean hasPermission(UUID userId, String permission) {
         var snapshot = matrix.current();
+        // PLATFORM-scope codes (PLATFORM_*) are only ever granted through platform_roles whose role context is
+        // PLATFORM (or the super admin): never through the implicit BUYER / APPLICANT roles and never through a shop
+        // role, even if a mapping row were mis-seeded (defense in depth; shop memberships are not consulted here at all).
+        var platformScope = isPlatformPermission(snapshot, permission);
         // Fast path: granted to every signed-in account (BUYER / APPLICANT), no query needed.
-        if (snapshot.signedInPermissions().contains(permission)) return true;
+        if (!platformScope && snapshot.signedInPermissions().contains(permission)) return true;
         var grants = grants(userId);
         if (grants.superAdmin()) return true;
         for (var role : grants.platformRoles()) {
+            if (platformScope && !"PLATFORM".equals(snapshot.contextByRole().get(role))) continue;
             if (snapshot.permissionsOf(role).contains(permission)) return true;
         }
         return false;
+    }
+
+    /** PLATFORM scope in auth_permissions, or any PLATFORM_* code (also unknown / inactive ones). */
+    static boolean isPlatformPermission(PermissionMatrix.Snapshot snapshot, String permission) {
+        return permission != null && (permission.startsWith("PLATFORM_") || "PLATFORM".equals(snapshot.scopeByPermission().get(permission)));
+    }
+
+    /** Stored shops.status of the shop with this public number ('ACTIVE' = approved), or null when it does not exist. */
+    public String shopStatus(Long shopNo) {
+        if (shopNo == null) return null;
+        var rows = jdbc.queryForList("SELECT status FROM shops WHERE shop_no = ?", String.class, shopNo);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     /** Shop-level permission check on the shop with this public number (shops.shop_no). */

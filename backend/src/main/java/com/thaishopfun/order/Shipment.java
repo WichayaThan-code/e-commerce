@@ -6,7 +6,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 
-/** V1 {@code shipments}: one shipment per order (no split shipments yet). */
+/** V1 {@code shipments}: one shipment per order (no split shipments yet). V30: row_version, failed / returned facts. */
 @Entity
 @Table(name = "shipments")
 public class Shipment extends AuditedEntity {
@@ -23,6 +23,12 @@ public class Shipment extends AuditedEntity {
     @Column(name = "packed_by") private UUID packedBy;
     @Column(name = "dispatched_by") private UUID dispatchedBy;
     @Column(name = "oms_sync_status", nullable = false, length = 30) private String omsSyncStatus = "NOT_SYNCED";
+    @Column(name = "picked_up_at") private Instant pickedUpAt;
+    @Column(name = "last_tracking_event_at") private Instant lastTrackingEventAt;
+    @Column(name = "failed_at") private Instant failedAt;
+    @Column(name = "failure_reason", length = 500) private String failureReason;
+    @Column(name = "returned_at") private Instant returnedAt;
+    @Version @Column(name = "row_version", nullable = false) private int rowVersion;
 
     protected Shipment() {}
 
@@ -48,4 +54,18 @@ public class Shipment extends AuditedEntity {
     public void setDispatchedAt(Instant dispatchedAt, UUID by) { this.dispatchedAt = dispatchedAt; this.dispatchedBy = by; }
     public Instant getDeliveredAt() { return deliveredAt; }
     public void setDeliveredAt(Instant deliveredAt) { this.deliveredAt = deliveredAt; }
+    public UUID getShippingMethodId() { return shippingMethodId; }
+    public UUID getPackedBy() { return packedBy; }
+    public UUID getDispatchedBy() { return dispatchedBy; }
+    public Instant getPickedUpAt() { return pickedUpAt; }
+    public void setPickedUpAt(Instant pickedUpAt) { this.pickedUpAt = pickedUpAt; }
+    public Instant getLastTrackingEventAt() { return lastTrackingEventAt; }
+    public void setLastTrackingEventAt(Instant lastTrackingEventAt) { this.lastTrackingEventAt = lastTrackingEventAt; }
+    public Instant getFailedAt() { return failedAt; }
+    public String getFailureReason() { return failureReason; }
+    public void setFailed(Instant failedAt, String reason) { this.failedAt = failedAt; this.failureReason = reason; }
+    public Instant getReturnedAt() { return returnedAt; }
+    public void setReturnedAt(Instant returnedAt) { this.returnedAt = returnedAt; }
+    public int getRowVersion() { return rowVersion; }
+    public ShipmentStatus statusEnum() { return ShipmentStatus.parse(status); }
 }

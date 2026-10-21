@@ -16,7 +16,12 @@ public final class OrderDtos {
     public record AddressRequest(String recipientName, String phone, String addressLine1, String addressLine2,
                                  String subdistrict, String district, String province, String postalCode) {}
 
-    public record CheckoutRequest(AddressRequest shippingAddress, String buyerNote) {}
+    /** paymentMethod: BANK_TRANSFER (default, pay first + slip) | COD (cash on delivery; the shop must have COD enabled). */
+    public record CheckoutRequest(AddressRequest shippingAddress, String buyerNote, String paymentMethod) {
+        public CheckoutRequest(AddressRequest shippingAddress, String buyerNote) {
+            this(shippingAddress, buyerNote, null);
+        }
+    }
 
     public record CheckoutResponse(boolean replayed, List<OrderDetail> orders, BigDecimal grandTotal, String currency) {}
 
@@ -31,8 +36,14 @@ public final class OrderDtos {
     /* amount: mark-paid (must equal the order total) or refund request (partial allowed, default = all refundable). */
     public record TransitionRequest(String reason, String carrierCode, String trackingNumber, String status,
                                     String provider, BigDecimal amount, String paymentReference, Boolean restock,
-                                    Integer expectedVersion) {
-        public static TransitionRequest empty() { return new TransitionRequest(null, null, null, null, null, null, null, null, null); }
+                                    Integer expectedVersion, String shippedAt) {
+        /** Pre-shipping-API shape (no shippedAt). shippedAt: ship only — ISO-8601 or local Bangkok time; default now. */
+        public TransitionRequest(String reason, String carrierCode, String trackingNumber, String status, String provider, BigDecimal amount,
+                                 String paymentReference, Boolean restock, Integer expectedVersion) {
+            this(reason, carrierCode, trackingNumber, status, provider, amount, paymentReference, restock, expectedVersion, null);
+        }
+
+        public static TransitionRequest empty() { return new TransitionRequest(null, null, null, null, null, null, null, null, null, null); }
     }
 
     public record TransitionResponse(boolean changed, String fromStatus, String toStatus, OrderDetail order) {}
@@ -40,6 +51,7 @@ public final class OrderDtos {
     public record AllowedTransitions(String status, String paymentStatus, String fulfillmentStatus, int version,
                                      List<AllowedTransition> transitions) {}
 
+    /** toStatus null = action without a status change (ACCEPT; COLLECT_COD → POST …/cod/collect). */
     public record AllowedTransition(String toStatus, String action, boolean reasonRequired, boolean trackingRequired) {}
 
     // ---- responses ----
@@ -49,7 +61,9 @@ public final class OrderDtos {
      */
     public record OrderSummary(UUID id, String orderNumber, Long shopId, String shopName, String status, String paymentStatus,
                                String fulfillmentStatus, BigDecimal grandTotal, String currency, Integer itemCount, Integer totalQuantity,
-                               Instant placedAt, Instant paidAt, int version, boolean awaitingAcceptance) {}
+                               Instant placedAt, Instant paidAt, int version, boolean awaitingAcceptance,
+                               /* BANK_TRANSFER | COD (null while awaitingAcceptance) */
+                               String paymentMethod) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record OrderDetail(
@@ -65,7 +79,9 @@ public final class OrderDtos {
         /* money summary: captured payment, refunded with proof, still refundable */
         BigDecimal paidAmount, BigDecimal refundedAmount, BigDecimal refundableAmount,
         /* merchant views only: true = not accepted yet (only id / orderNumber / placedAt / version shown; POST …/accept) */
-        Boolean awaitingAcceptance
+        Boolean awaitingAcceptance,
+        /* BANK_TRANSFER | COD; codFee = COD surcharge already included in grandTotal (withheld while awaitingAcceptance) */
+        String paymentMethod, BigDecimal codFee
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

@@ -58,10 +58,14 @@ public class AuthorizationInterceptor implements HandlerInterceptor {
                     .or(() -> rule.defaultShop() ? defaultShop(userId) : Optional.empty())
                     .orElseThrow(() -> new AuthException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "ข้อมูลที่จำเป็นไม่ครบถ้วน"));
                 requireShop(userId, shopNo, rule.permission());
+                requireNotFrozen(request, method, shopNo);
             }
             case SHOP_FILTER -> {
                 var userId = currentUser();
-                shopParameter(request, rule.shopParam()).ifPresent(shopNo -> requireShop(userId, shopNo, rule.permission()));
+                shopParameter(request, rule.shopParam()).ifPresent(shopNo -> {
+                    requireShop(userId, shopNo, rule.permission());
+                    requireNotFrozen(request, method, shopNo);
+                });
             }
         }
         return true;
@@ -82,6 +86,21 @@ public class AuthorizationInterceptor implements HandlerInterceptor {
             case GRANTED -> { }
             case DENIED -> throw denied(permission);
             case NOT_MEMBER -> throw new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้านี้");
+        }
+    }
+
+    /**
+     * A SUSPENDED shop (platform admin suspension of the shop or of its merchant) is read-only in shop scope: every
+     * write is refused with 403 SHOP_SUSPENDED for every caller, including a super admin acting in shop scope (same as
+     * the existing SHOP_NOT_APPROVED rule of product management). Reads stay available; endpoints marked
+     * {@link AllowWhenShopSuspended} (the reinstatement request) stay writable.
+     */
+    private void requireNotFrozen(HttpServletRequest request, HandlerMethod method, Long shopNo) {
+        var verb = request.getMethod();
+        if ("GET".equals(verb) || "HEAD".equals(verb) || "OPTIONS".equals(verb)) return;
+        if (method.hasMethodAnnotation(AllowWhenShopSuspended.class)) return;
+        if ("SUSPENDED".equals(authorization.shopStatus(shopNo))) {
+            throw new AuthException(HttpStatus.FORBIDDEN, "SHOP_SUSPENDED", "ร้านนี้ถูกระงับโดยผู้ดูแลแพลตฟอร์ม จึงแก้ไขข้อมูลหรือทำรายการไม่ได้");
         }
     }
 

@@ -44,7 +44,11 @@ public class Shop {
     @Convert(converter = ShopStatusConverter.class) @Column(nullable = false, length = 30) private ShopStatus status;
     @Column(name = "published_at") private Instant publishedAt;
     @Column(name = "suspended_at") private Instant suspendedAt;
+    @Column(name = "suspended_by") private UUID suspendedBy;
+    @Column(name = "suspend_reason", columnDefinition = "text") private String suspendReason;
+    @Column(name = "suspend_reason_code", length = 50) private String suspendReasonCode;
     @Column(name = "restored_at") private Instant restoredAt;
+    @Column(name = "restored_by") private UUID restoredBy;
     @Column(name = "deleted_at") private Instant deletedAt;
     @Column(name = "created_date_time", nullable = false) private Instant createdAt;
     @Column(name = "modified_date_time", nullable = false) private Instant updatedAt;
@@ -95,18 +99,31 @@ public class Shop {
     }
 
     public void suspend() {
+        suspend(null, null, null);
+    }
+
+    /** Fills the V1 suspension columns (suspended_by / suspend_reason / suspend_reason_code) as well. */
+    public void suspend(UUID actorId, String reason, String reasonCode) {
         status = ShopStatus.SUSPENDED;
         updatedAt = Instant.now();
         suspendedAt = updatedAt;
+        suspendedBy = actorId;
+        suspendReason = reason;
+        suspendReasonCode = reasonCode;
     }
 
     public void reactivate() {
+        reactivate(null);
+    }
+
+    public void reactivate(UUID actorId) {
         if (status != ShopStatus.SUSPENDED) {
             throw new IllegalStateException("เปิดใช้งานได้เฉพาะร้านที่ถูกระงับ");
         }
         status = ShopStatus.APPROVED;
         updatedAt = Instant.now();
         restoredAt = updatedAt;
+        restoredBy = actorId;
     }
 
     public void updateSettings(
@@ -163,6 +180,13 @@ public class Shop {
     public String getInstagramUrl() { return instagramUrl; }
     public String getTiktokUrl() { return tiktokUrl; }
     public ShopStatus getStatus() { return status; }
+    public Instant getPublishedAt() { return publishedAt; }
+    public Instant getSuspendedAt() { return suspendedAt; }
+    public UUID getSuspendedBy() { return suspendedBy; }
+    public String getSuspendReason() { return suspendReason; }
+    public String getSuspendReasonCode() { return suspendReasonCode; }
+    public Instant getRestoredAt() { return restoredAt; }
+    public UUID getRestoredBy() { return restoredBy; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public UserAccount getUser() { return user; }

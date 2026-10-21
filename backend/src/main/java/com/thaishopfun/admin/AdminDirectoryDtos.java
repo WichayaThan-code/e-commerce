@@ -42,8 +42,12 @@ public final class AdminDirectoryDtos {
     public record UserDetail(
         UUID id, String firstName, String lastName, String email, String phone, String status, String accountRole,
         boolean superAdmin, Instant createdAt, Instant lastLoginAt, Instant emailVerifiedAt, Instant phoneVerifiedAt,
-        RoleRef primaryRole, List<RoleRef> roles, List<PermissionInfo> accountPermissions, List<ShopAccess> shops
+        RoleRef primaryRole, List<RoleRef> roles, List<PermissionInfo> accountPermissions, List<ShopAccess> shops,
+        UserCounts counts
     ) {}
+
+    /** Counts shown on the admin user detail (added for the platform admin API). */
+    public record UserCounts(long ownedShops, long activeMemberships, long merchantProfiles, long buyerOrders, long activeSessions) {}
 
     /** One line of a history / recent-activity feed, built from audit_logs and the role/membership tables. */
     public record ActivityEvent(

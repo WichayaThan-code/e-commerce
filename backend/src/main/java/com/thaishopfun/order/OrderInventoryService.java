@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
  *   <li>dispatched: COMMIT_SALE (on_hand -= q, reserved -= q), reservation COMMITTED</li>
  *   <li>cancel / refund before dispatch: RELEASE (reserved -= q, available += q), reservation RELEASED</li>
  *   <li>refund after dispatch with restock: RESTOCK_REFUND (on_hand += q)</li>
+ *   <li>COD failed delivery / returned unpaid: RETURN (on_hand += q)</li>
  * </ul>
  * ledger.quantity_delta = change of on_hand (0 for RESERVE / RELEASE; the reserved change is in reserved_qty_before/after).
  */
@@ -109,7 +110,8 @@ public class OrderInventoryService {
         for (var reservation : list) {
             if (!InventoryReservation.COMMITTED.equals(reservation.getStatus())) continue;
             var key = key(reservation.getOrderItemId(), "RESTOCK_REFUND");
-            if (ledger.findByIdempotencyKey(key).isPresent()) continue;
+            if (ledger.findByIdempotencyKey(key).isPresent()
+                || ledger.findByIdempotencyKey(key(reservation.getOrderItemId(), "RETURN")).isPresent()) continue;
             var level = locked.get(reservation.getSkuId());
             if (level == null) continue;
             int onHand = level.getOnHand();
@@ -117,6 +119,31 @@ public class OrderInventoryService {
             write(level, "RESTOCK_REFUND", reservation.getQuantity(), onHand, level.getOnHand(), item(order, reservation), order,
                 reservation.getId(), level.getReservedQty(), level.getReservedQty(), actorType.name(), actorId,
                 reason == null ? "คืนสินค้าเข้าสต็อกหลังคืนเงิน" : reason);
+            restocked += reservation.getQuantity();
+        }
+        return restocked;
+    }
+
+    /**
+     * COD parcel not delivered / returned unpaid (DISPATCHED → CANCELLED): the sold quantity comes back on hand as RETURN.
+     * Only COMMITTED reservations, once per line (ledger key; a later refund restock skips lines already returned).
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public int restockReturned(Order order, OrderActorType actorType, UUID actorId, String reason) {
+        var list = reservations.findByOrderIdOrderBySkuIdAsc(order.getId());
+        var locked = lock(list.stream().map(InventoryReservation::getSkuId).toList());
+        int restocked = 0;
+        for (var reservation : list) {
+            if (!InventoryReservation.COMMITTED.equals(reservation.getStatus())) continue;
+            if (ledger.findByIdempotencyKey(key(reservation.getOrderItemId(), "RETURN")).isPresent()
+                || ledger.findByIdempotencyKey(key(reservation.getOrderItemId(), "RESTOCK_REFUND")).isPresent()) continue;
+            var level = locked.get(reservation.getSkuId());
+            if (level == null) continue;
+            int onHand = level.getOnHand();
+            level.setOnHand(onHand + reservation.getQuantity());
+            write(level, "RETURN", reservation.getQuantity(), onHand, level.getOnHand(), item(order, reservation), order,
+                reservation.getId(), level.getReservedQty(), level.getReservedQty(), actorType.name(), actorId,
+                reason == null ? "คืนสินค้าเข้าสต็อก (ส่งไม่สำเร็จ)" : reason);
             restocked += reservation.getQuantity();
         }
         return restocked;

@@ -43,14 +43,16 @@ public class UserActionAudit {
         var now = Timestamp.from(Instant.now());
         var action = limit(method + " " + path, 80);
         var resourceId = resourceId(path);
+        var client = PlatformAuditService.client(request);
         try {
             jdbc.update("""
                 insert into audit_logs (
                     occurred_at, actor_id, actor_type, action, resource_type, resource_id,
-                    outcome, reason_code, auth_context, created_date_time, created_by, modified_date_time
-                ) values (?, ?, 'USER', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    outcome, reason_code, auth_context, ip_address, user_agent, created_date_time, created_by, modified_date_time
+                ) values (?, ?, 'USER', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                now, actor, action, resourceType(path), resourceId, outcome(status), "HTTP_" + status, context(path, actor), now, actor, now
+                now, actor, action, resourceType(path), resourceId, outcome(status), "HTTP_" + status, context(path, actor),
+                client[0], client[1], now, actor, now
             );
         } catch (RuntimeException exception) {
             log.warn("Could not write audit_logs for {} {}", method, path, exception);

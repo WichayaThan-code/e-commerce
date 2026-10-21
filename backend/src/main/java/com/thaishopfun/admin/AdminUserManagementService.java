@@ -1,5 +1,6 @@
 package com.thaishopfun.admin;
 
+import com.thaishopfun.audit.PlatformAuditService;
 import com.thaishopfun.admin.AdminDirectoryDtos.UserDetail;
 import com.thaishopfun.auth.AuthDtos;
 import com.thaishopfun.auth.AuthException;
@@ -29,11 +30,12 @@ public class AdminUserManagementService {
     private final AuthorizationService authorization;
     private final AdminUserDirectoryService directory;
     private final AdminRoleManagementService roles;
+    private final PlatformAuditService platformAudit;
 
     public AdminUserManagementService(NamedParameterJdbcTemplate jdbc, UserAccountRepository users,
                                       RefreshTokenRepository refreshTokens, AuthService auth,
                                       PasswordEncoder passwords, AuthorizationService authorization, AdminUserDirectoryService directory,
-                                      AdminRoleManagementService roles) {
+                                      AdminRoleManagementService roles, PlatformAuditService platformAudit) {
         this.jdbc = jdbc;
         this.users = users;
         this.refreshTokens = refreshTokens;
@@ -42,6 +44,7 @@ public class AdminUserManagementService {
         this.authorization = authorization;
         this.directory = directory;
         this.roles = roles;
+        this.platformAudit = platformAudit;
     }
 
     @Transactional
@@ -87,6 +90,12 @@ public class AdminUserManagementService {
 
     @Transactional
     public UserDetail setStatus(UUID userId, String status, UUID actorId) {
+        return setStatus(userId, status, actorId, null);
+    }
+
+    /** reason (optional here for the existing UI) is stored in audit_logs.reason together with before / after status. */
+    @Transactional
+    public UserDetail setStatus(UUID userId, String status, UUID actorId, String reason) {
         requireMutableTarget(userId, actorId);
         var user = requireUser(userId);
         if (user.getStatus().name().equals(status)) return directory.detail(userId);
@@ -96,7 +105,11 @@ public class AdminUserManagementService {
              WHERE id = :id AND deleted_at IS NULL
             """, new MapSqlParameterSource().addValue("status", status).addValue("now", Timestamp.from(now)).addValue("id", userId));
         refreshTokens.revokeAllActiveForUser(userId, now);
-        audit(actorId, status.equals("SUSPENDED") ? "ACCOUNT_SUSPENDED" : "ACCOUNT_RESTORED", userId, "SUCCESS", "ADMIN_STATUS");
+        var before = user.getStatus().name();
+        platformAudit.record(PlatformAuditService.Entry.platform(actorId, status.equals("SUSPENDED") ? "ACCOUNT_SUSPENDED" : "ACCOUNT_RESTORED", "USER", userId)
+            .permission(status.equals("SUSPENDED") ? "PLATFORM_ACCOUNT_SUSPEND" : "PLATFORM_ACCOUNT_RESTORE")
+            .reason("ADMIN_STATUS", reason == null || reason.isBlank() ? null : reason.trim())
+            .change(java.util.Map.of("status", before), java.util.Map.of("status", status, "sessionsRevoked", true)));
         return directory.detail(userId);
     }
 
@@ -139,16 +152,9 @@ public class AdminUserManagementService {
     }
 
     private void audit(UUID actorId, String action, UUID resourceId, String outcome, String reasonCode) {
-        var now = Instant.now();
-        jdbc.update("""
-            INSERT INTO audit_logs (occurred_at, actor_id, actor_type, action, resource_type, resource_id,
-                                    outcome, reason_code, auth_context, policy_version, created_date_time,
-                                    modified_date_time)
-            VALUES (:now, :actor, 'USER', :action, 'USER', :resource, :outcome, :reason, 'PLATFORM', '1.0',
-                    :now, :now)
-            """, new MapSqlParameterSource()
-            .addValue("now", Timestamp.from(now)).addValue("actor", actorId).addValue("action", action)
-            .addValue("resource", resourceId).addValue("outcome", outcome).addValue("reason", reasonCode));
+        // same row as before (USER / PLATFORM / policy 1.0), now with IP + user agent through the central writer
+        platformAudit.record(new PlatformAuditService.Entry(actorId, action, "USER", resourceId,
+            null, null, outcome, reasonCode, null, null, null, "PLATFORM", "1.0"));
     }
 
     private static String normalizePhone(String phone) { return phone.trim().replaceAll("[ -]", ""); }

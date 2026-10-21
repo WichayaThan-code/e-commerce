@@ -48,6 +48,17 @@ public class AdminPaymentController {
         return payments.confirm(admin(jwt), orderId, paymentId, request, base(orderId));
     }
 
+    /** COD cash collected recorded by an admin (e.g. carrier remittance report); reason required. */
+    @RequirePermission("PLATFORM_SHOP_SUSPEND")
+    @PostMapping("/cod/collect")
+    public PaymentDtos.PaymentActionResponse collectCod(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID orderId,
+                                                        @RequestBody(required = false) PaymentDtos.CodCollectRequest request) {
+        var req = request == null ? new PaymentDtos.CodCollectRequest(null, null, null, null, null, null) : request;
+        requireReason(req.reason());
+        return payments.collectCod(admin(jwt), orderId, req.amount() == null ? null : req.amount().toPlainString(), req.collectedAt(),
+            req.reference(), req.reason(), req.acceptAmountMismatch(), req.expectedVersion(), null, base(orderId));
+    }
+
     @RequirePermission("PLATFORM_SHOP_SUSPEND")
     @PostMapping("/payments/{paymentId}/reject")
     public PaymentDtos.PaymentActionResponse reject(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID orderId, @PathVariable UUID paymentId,

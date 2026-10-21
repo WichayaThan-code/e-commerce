@@ -1,5 +1,6 @@
 package com.thaishopfun.merchant;
 
+import com.thaishopfun.auth.authz.AllowWhenShopSuspended;
 import com.thaishopfun.auth.authz.FilterByShopPermission;
 import com.thaishopfun.auth.authz.RequirePermission;
 import com.thaishopfun.auth.authz.RequireShopPermission;
@@ -65,6 +66,7 @@ public class MerchantStoreController {
     }
 
     @RequireShopPermission("SHOP_UPDATE")
+    @AllowWhenShopSuspended
     @PostMapping("/reinstatement")
     public MerchantDtos.ReinstatementResponse submitReinstatement(
         @AuthenticationPrincipal Jwt jwt,

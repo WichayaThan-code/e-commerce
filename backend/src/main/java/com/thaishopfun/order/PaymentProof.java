@@ -54,6 +54,9 @@ public class PaymentProof extends AuditedEntity {
         this.amountMismatch = amountMismatch;
     }
 
+    /** SLIP (default) | GATEWAY_RECEIPT | COD_RECEIPT (cash collected on delivery, V29). */
+    public void setProofType(String proofType) { this.proofType = proofType; }
+    public String getProofType() { return proofType; }
     public void verify(UUID by, Instant at) { this.status = VERIFIED; this.verifiedBy = by; this.verifiedAt = at; }
     public void reject(UUID by, Instant at, String reason) { this.status = REJECTED; this.verifiedBy = by; this.verifiedAt = at; this.rejectReason = reason; }
 

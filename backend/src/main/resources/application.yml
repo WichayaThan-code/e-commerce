@@ -1,6 +1,9 @@
 spring:
   application:
     name: thaishopfun-backend
+  # Load backend/.env as properties (works when started from backend/ or the repo root). Real env vars still win.
+  config:
+    import: optional:file:.env[.properties],optional:file:backend/.env[.properties]
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/TSF_DB}
     username: ${DB_USERNAME:postgres}

@@ -347,7 +347,19 @@ public class AdminUserDirectoryService {
 
         return new UserDetail(userId, (String) u[0], (String) u[1], (String) u[2], (String) u[3], (String) u[4], accountKind(grant),
             effective.superAdmin(), (Instant) u[6], (Instant) u[7], (Instant) u[8], (Instant) u[9],
-            primaryRole(grant, roles), List.copyOf(allRoles), describe(effective.permissions(), permissions), shops);
+            primaryRole(grant, roles), List.copyOf(allRoles), describe(effective.permissions(), permissions), shops, counts(userId));
+    }
+
+    private UserCounts counts(UUID userId) {
+        var p = new MapSqlParameterSource("id", userId).addValue("now", java.sql.Timestamp.from(Instant.now()));
+        return jdbc.queryForObject("""
+            SELECT (SELECT COUNT(*) FROM shops s WHERE s.owner_user_id = :id) AS owned,
+                   (SELECT COUNT(*) FROM shop_members m WHERE m.user_id = :id AND m.status = 'ACTIVE' AND m.removed_at IS NULL) AS memberships,
+                   (SELECT COUNT(*) FROM owners o WHERE o.user_id = :id) AS merchants,
+                   (SELECT COUNT(*) FROM orders o WHERE o.buyer_user_id = :id) AS orders,
+                   (SELECT COUNT(*) FROM refresh_tokens t WHERE t.user_id = :id AND t.revoked_at IS NULL AND t.expires_at > :now) AS sessions
+            """, p, (rs, i) -> new UserCounts(rs.getLong("owned"), rs.getLong("memberships"), rs.getLong("merchants"),
+                rs.getLong("orders"), rs.getLong("sessions")));
     }
 
     private static List<PermissionInfo> describe(Collection<String> codes, Map<String, PermissionInfo> catalog) {

@@ -61,6 +61,34 @@ public class MerchantPaymentController {
         return payments.reject(actor(jwt, shopId), orderId, paymentId, request, base(shopId, orderId));
     }
 
+    /**
+     * COD: cash collected for a DELIVERED order → payment CAPTURED / order PAID. JSON {amount, collectedAt?, reference?,
+     * reason?, acceptAmountMismatch?, expectedVersion?}; 409 NOT_COD_ORDER / INVALID_STATUS_TRANSITION / PAYMENT_AMOUNT_MISMATCH.
+     */
+    @RequireShopPermission("ORDER_UPDATE")
+    @PostMapping(value = "/cod/collect", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public PaymentDtos.PaymentActionResponse collectCod(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID orderId,
+                                                        @RequestBody(required = false) PaymentDtos.CodCollectRequest request) {
+        var req = request == null ? new PaymentDtos.CodCollectRequest(null, null, null, null, null, null) : request;
+        return payments.collectCod(actor(jwt, shopId), orderId, req.amount() == null ? null : req.amount().toPlainString(), req.collectedAt(),
+            req.reference(), req.reason(), req.acceptAmountMismatch(), req.expectedVersion(), null, base(shopId, orderId));
+    }
+
+    /** Same as JSON, multipart with an optional evidence file (receipt / carrier COD remittance; JPG, PNG, WEBP, PDF). */
+    @RequireShopPermission("ORDER_UPDATE")
+    @PostMapping(value = "/cod/collect", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public PaymentDtos.PaymentActionResponse collectCodWithFile(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID orderId,
+                                                                @RequestPart(value = "file", required = false) MultipartFile file,
+                                                                @RequestParam(required = false) String amount,
+                                                                @RequestParam(required = false) String collectedAt,
+                                                                @RequestParam(required = false) String reference,
+                                                                @RequestParam(required = false) String reason,
+                                                                @RequestParam(required = false) Boolean acceptAmountMismatch,
+                                                                @RequestParam(required = false) Integer expectedVersion) {
+        return payments.collectCod(actor(jwt, shopId), orderId, amount, collectedAt, reference, reason, acceptAmountMismatch,
+            expectedVersion, file, base(shopId, orderId));
+    }
+
     @RequireShopPermission("ORDER_READ")
     @GetMapping("/refunds")
     public PaymentDtos.RefundSummary refunds(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID orderId) {

@@ -75,7 +75,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class OrderIntegrationTests {
     private static final byte[] PNG = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
     private static final String ADDRESS = """
-        {"shippingAddress":{"recipientName":"สมหญิง ผู้รับ","phone":"0812345678","addressLine1":"1 ถนนสุขุมวิท",
+        {"acceptTerms":true,"shippingAddress":{"recipientName":"สมหญิง ผู้รับ","phone":"0812345678","addressLine1":"1 ถนนสุขุมวิท",
          "subdistrict":"คลองเตย","district":"คลองเตย","province":"กรุงเทพมหานคร","postalCode":"10110"},"buyerNote":"ฝากหน้าบ้าน"}""";
 
     @Autowired MockMvc mvc;
@@ -396,7 +396,7 @@ class OrderIntegrationTests {
         call(post(mb + "/accept"), shop.token, "{}").andExpect(status().isOk());
         call(post(mb + "/mark-paid"), shop.token, "{}").andExpect(status().isOk());
         call(post(mb + "/confirm"), shop.token, "{}").andExpect(status().isOk());
-        call(post(mb + "/ship"), shop.token, "{\"carrierCode\":\"TH\",\"trackingNumber\":\"EX1\"}").andExpect(status().isOk());
+        call(post(mb + "/ship"), shop.token, "{\"carrierCode\":\"THAIPOST\",\"trackingNumber\":\"EX123456789TH\"}").andExpect(status().isOk());
         assertArrayEquals(new int[]{3, 0}, level(blkS));
         call(post("/api/orders/" + b + "/refund-request"), buyer, "{\"reason\":\"ชำรุด\"}").andExpect(status().isOk());
         call(post(mb + "/refund/approve"), shop.token, "{}").andExpect(status().isOk());
@@ -574,6 +574,32 @@ class OrderIntegrationTests {
 
     private ResultActions call(MockHttpServletRequestBuilder request, String token, String json) throws Exception {
         return call(request.contentType(MediaType.APPLICATION_JSON).content(json), token);
+    }
+
+    @Test
+    void checkoutRequiresAcceptTermsAndStoresAcceptanceTime() throws Exception {
+        var shop = openShop("o-terms@example.com", "0815000091", "TermsShop", "Terms", "1234567890491");
+        var sku = sku(publishedVariantProduct(shop, "TM"), "TM-BLK-S");
+        var buyer = token("o-terms-buyer@example.com", "0815000191");
+        add(buyer, sku, 1);
+        var noTerms = ADDRESS.replace("\"acceptTerms\":true,", "");
+        // missing -> 400, nothing created
+        call(post("/api/checkout").header("Idempotency-Key", "terms-key-missing"), buyer, noTerms)
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("TERMS_NOT_ACCEPTED"));
+        // false -> 400
+        call(post("/api/checkout").header("Idempotency-Key", "terms-key-false"), buyer, ADDRESS.replace("\"acceptTerms\":true", "\"acceptTerms\":false"))
+            .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("TERMS_NOT_ACCEPTED"));
+        assertEquals(0, orderCount());
+        // true -> 201 with terms_accepted_at stored + exposed
+        var out = checkout(buyer, "terms-key-ok01").andExpect(status().isCreated())
+            .andExpect(jsonPath("$.orders[0].termsAcceptedAt").exists()).andReturn().getResponse().getContentAsString();
+        String id = JsonPath.read(out, "$.orders[0].id");
+        assertEquals(1, jdbc.queryForObject("select count(*) from orders where id = ? and terms_accepted_at is not null",
+            Integer.class, java.util.UUID.fromString(id)));
+        // replay with the same key returns the same orders even without acceptTerms (check runs after the replay lookup)
+        call(post("/api/checkout").header("Idempotency-Key", "terms-key-ok01"), buyer, noTerms)
+            .andExpect(status().isOk()).andExpect(jsonPath("$.replayed").value(true)).andExpect(jsonPath("$.orders[0].id").value(id));
+        assertEquals(1, orderCount());
     }
 
     private ResultActions checkout(String buyer, String key) throws Exception {

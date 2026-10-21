@@ -19,13 +19,16 @@ public class StoreReviewService {
     private final MerchantStorageService storage;
     private final ShopReinstatementService reinstatements;
     private final AuthorizationService authorization;
+    private final ShopSuspensionService suspensions;
 
-    public StoreReviewService(ShopRepository shops, MerchantDocumentRepository documents, MerchantStorageService storage, ShopReinstatementService reinstatements, AuthorizationService authorization) {
+    public StoreReviewService(ShopRepository shops, MerchantDocumentRepository documents, MerchantStorageService storage, ShopReinstatementService reinstatements, AuthorizationService authorization,
+                              ShopSuspensionService suspensions) {
         this.shops = shops;
         this.documents = documents;
         this.storage = storage;
         this.reinstatements = reinstatements;
         this.authorization = authorization;
+        this.suspensions = suspensions;
     }
 
     @Transactional(readOnly = true)
@@ -65,48 +68,89 @@ public class StoreReviewService {
 
     @Transactional
     public MerchantDtos.AdminStoreApplicationResponse approve(Long shopId) {
+        return approve(shopId, null);
+    }
+
+    @Transactional
+    public MerchantDtos.AdminStoreApplicationResponse approve(Long shopId, UUID actorId) {
         var shop = shop(shopId);
         if (shop.getStatus() == ShopStatus.APPROVED || shop.getStatus() == ShopStatus.SUSPENDED) {
             throw new AuthException(HttpStatus.CONFLICT, "SHOP_ALREADY_APPROVED", "ร้านนี้ได้รับการอนุมัติแล้ว ไม่สามารถอนุมัติซ้ำได้");
         }
+        suspensions.requireMerchantActive(shop);
+        var before = shop.getStatus();
         shop.approve(); // the owner's STORE_OWNER membership (shop_members) already exists; it is the source of truth
+        suspensions.recordReview(actorId, "SHOP_APPROVED", shop, before);
         return toAdmin(shop);
     }
 
     @Transactional
     public MerchantDtos.AdminStoreApplicationResponse suspend(Long shopId) {
+        return suspend(shopId, null, null);
+    }
+
+    /** Pre-existing endpoint: 409 when not APPROVED (also when already suspended); reason optional, now audited. */
+    @Transactional
+    public MerchantDtos.AdminStoreApplicationResponse suspend(Long shopId, UUID actorId, String reason) {
         var shop = shop(shopId);
-        if (shop.getStatus() != ShopStatus.APPROVED) {
-            throw new AuthException(HttpStatus.CONFLICT, "SHOP_NOT_APPROVED", "ระงับได้เฉพาะร้านที่อนุมัติแล้ว");
-        }
-        shop.suspend();
+        suspensions.suspendShop(shop, actorId, legacyCode(reason, ShopSuspensionService.DEFAULT_SUSPEND_CODE), clean(reason), false);
         return toAdmin(shop);
     }
 
     @Transactional
     public MerchantDtos.BulkShopResponse approveMany(List<Long> shopIds) {
-        return applyMany(shopIds, ShopStatus.PENDING_REVIEW, Shop::approve);
+        return approveMany(shopIds, null);
+    }
+
+    @Transactional
+    public MerchantDtos.BulkShopResponse approveMany(List<Long> shopIds, UUID actorId) {
+        return applyMany(shopIds, ShopStatus.PENDING_REVIEW, shop -> {
+            if (suspensions.merchantSuspended(shop)) return false;
+            shop.approve();
+            suspensions.recordReview(actorId, "SHOP_APPROVED", shop, ShopStatus.PENDING_REVIEW);
+            return true;
+        });
     }
 
     @Transactional
     public MerchantDtos.BulkShopResponse rejectMany(List<Long> shopIds) {
-        return applyMany(shopIds, ShopStatus.PENDING_REVIEW, Shop::reject);
+        return rejectMany(shopIds, null);
+    }
+
+    @Transactional
+    public MerchantDtos.BulkShopResponse rejectMany(List<Long> shopIds, UUID actorId) {
+        return applyMany(shopIds, ShopStatus.PENDING_REVIEW, shop -> {
+            shop.reject();
+            suspensions.recordReview(actorId, "SHOP_REJECTED", shop, ShopStatus.PENDING_REVIEW);
+            return true;
+        });
     }
 
     @Transactional
     public MerchantDtos.BulkShopResponse suspendMany(List<Long> shopIds) {
-        return applyMany(shopIds, ShopStatus.APPROVED, Shop::suspend);
+        return suspendMany(shopIds, null);
+    }
+
+    @Transactional
+    public MerchantDtos.BulkShopResponse suspendMany(List<Long> shopIds, UUID actorId) {
+        return applyMany(shopIds, ShopStatus.APPROVED,
+            shop -> suspensions.suspendShop(shop, actorId, ShopSuspensionService.LEGACY_NO_REASON, null, false));
     }
 
     @Transactional
     public MerchantDtos.BulkShopResponse reactivateMany(List<Long> shopIds) {
+        return reactivateMany(shopIds, null);
+    }
+
+    @Transactional
+    public MerchantDtos.BulkShopResponse reactivateMany(List<Long> shopIds, UUID actorId) {
         return applyMany(shopIds, ShopStatus.SUSPENDED, shop -> {
-            shop.reactivate();
-            reinstatements.approvePending(shop.getId());
+            if (suspensions.merchantSuspended(shop)) return false;
+            return suspensions.reactivateShop(shop, actorId, ShopSuspensionService.LEGACY_NO_REASON, null, false);
         });
     }
 
-    private MerchantDtos.BulkShopResponse applyMany(List<Long> shopIds, ShopStatus required, java.util.function.Consumer<Shop> action) {
+    private MerchantDtos.BulkShopResponse applyMany(List<Long> shopIds, ShopStatus required, java.util.function.Predicate<Shop> action) {
         var updated = new java.util.ArrayList<MerchantDtos.AdminStoreApplicationResponse>();
         var skipped = 0;
         for (var shopId : shopIds.stream().distinct().toList()) {
@@ -115,7 +159,10 @@ public class StoreReviewService {
                 skipped++;
                 continue;
             }
-            action.accept(shop);
+            if (!action.test(shop)) {
+                skipped++;
+                continue;
+            }
             updated.add(toAdmin(shop));
         }
         return new MerchantDtos.BulkShopResponse(updated.size(), skipped, updated);
@@ -123,20 +170,39 @@ public class StoreReviewService {
 
     @Transactional
     public MerchantDtos.AdminStoreApplicationResponse reject(Long shopId) {
+        return reject(shopId, null);
+    }
+
+    @Transactional
+    public MerchantDtos.AdminStoreApplicationResponse reject(Long shopId, UUID actorId) {
         var shop = shop(shopId);
-        if (shop.getStatus() != ShopStatus.REJECTED) shop.reject();
+        if (shop.getStatus() != ShopStatus.REJECTED) {
+            var before = shop.getStatus();
+            shop.reject();
+            suspensions.recordReview(actorId, "SHOP_REJECTED", shop, before);
+        }
         return toAdmin(shop);
     }
 
     @Transactional
     public MerchantDtos.AdminStoreApplicationResponse reactivate(Long shopId) {
+        return reactivate(shopId, null, null);
+    }
+
+    /** Pre-existing endpoint: 409 when not SUSPENDED (or the merchant is suspended); reason optional, now audited. */
+    @Transactional
+    public MerchantDtos.AdminStoreApplicationResponse reactivate(Long shopId, UUID actorId, String reason) {
         var shop = shop(shopId);
-        if (shop.getStatus() != ShopStatus.SUSPENDED) {
-            throw new AuthException(HttpStatus.CONFLICT, "SHOP_NOT_SUSPENDED", "เปิดใช้งานได้เฉพาะร้านที่ถูกระงับ");
-        }
-        shop.reactivate();
-        reinstatements.approvePending(shop.getId());
+        suspensions.reactivateShop(shop, actorId, legacyCode(reason, ShopSuspensionService.DEFAULT_RESTORE_CODE), clean(reason), false);
         return toAdmin(shop);
+    }
+
+    private static String clean(String reason) {
+        return reason == null || reason.isBlank() ? null : reason.trim();
+    }
+
+    private static String legacyCode(String reason, String withReason) {
+        return clean(reason) == null ? ShopSuspensionService.LEGACY_NO_REASON : withReason;
     }
 
     @Transactional(readOnly = true)

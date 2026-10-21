@@ -21,7 +21,8 @@ import java.util.UUID;
  * Every order status change goes through {@link #transition}: row lock (SELECT … FOR UPDATE) + optional
  * expectedVersion check, validation against {@link OrderStateMachine}, side effects on payment / fulfillment / stock /
  * coupon usage, and one order_status_history row (actor, reason, metadata). Repeating a transition the order is
- * already in returns changed=false without side effects.
+ * already in returns changed=false without side effects. Shipment side effects also write the shipment timeline
+ * (shipment_tracking_events) and SHIP validates carrier / tracking number via {@link CarrierService}.
  */
 @Service
 public class OrderTransitionService {
@@ -56,10 +57,19 @@ public class OrderTransitionService {
     /**
      * Internal options for callers inside the backend (payment / refund services), never from a request body.
      * receivedAmount: captured amount when it differs from the order total (shop accepted a mismatch);
-     * skipAmountCheck: the caller already validated the amount; event: timeline event name override.
+     * skipAmountCheck: the caller already validated the amount; event: timeline event name override;
+     * shipmentEvent: note / location / event time / source for the shipment timeline entry (shipment API, carrier updates).
      */
-    public record Internal(BigDecimal receivedAmount, boolean skipAmountCheck, String event) {
-        public static Internal none() { return new Internal(null, false, null); }
+    public record Internal(BigDecimal receivedAmount, boolean skipAmountCheck, String event, ShipmentTimeline.Detail shipmentEvent) {
+        public Internal(BigDecimal receivedAmount, boolean skipAmountCheck, String event) {
+            this(receivedAmount, skipAmountCheck, event, null);
+        }
+
+        public static Internal none() { return new Internal(null, false, null, null); }
+
+        public static Internal shipment(ShipmentTimeline.Detail detail) { return new Internal(null, false, null, detail); }
+
+        ShipmentTimeline.Detail detail() { return shipmentEvent == null ? ShipmentTimeline.Detail.none() : shipmentEvent; }
     }
 
     private final OrderRepository orders;
@@ -73,11 +83,16 @@ public class OrderTransitionService {
     private final OrderItemRevealLogRepository revealLogs;
     private final PaymentProofRepository proofs;
     private final MerchantOrderConfirmationRepository confirmations;
+    private final CarrierService carriers;
+    private final ShipmentTimeline timeline;
 
     public OrderTransitionService(OrderRepository orders, OrderStatusHistoryRepository history, OrderInventoryService inventory,
                                   ShipmentRepository shipments, PaymentRepository payments, RefundRepository refunds,
                                   OrderPromotionUsageRepository usages, OrderMoneyLedger ledger, OrderItemRevealLogRepository revealLogs,
-                                  PaymentProofRepository proofs, MerchantOrderConfirmationRepository confirmations) {
+                                  PaymentProofRepository proofs, MerchantOrderConfirmationRepository confirmations,
+                                  CarrierService carriers, ShipmentTimeline timeline) {
+        this.carriers = carriers;
+        this.timeline = timeline;
         this.confirmations = confirmations;
         this.ledger = ledger;
         this.revealLogs = revealLogs;
@@ -108,6 +123,7 @@ public class OrderTransitionService {
                 "ออเดอร์ถูกแก้ไขไปแล้ว กรุณาโหลดใหม่ (version ปัจจุบัน " + order.getRowVersion() + ")");
         }
         var from = order.getStatus();
+        var facts = OrderStateMachine.Facts.of(order);
         boolean accepted = order.getMerchantConfirmedAt() != null;
         if (actor.type() == OrderActorType.MERCHANT && !accepted && action != Action.ACCEPT && action != Action.CONFIRM
             && !(action == Action.CANCEL && from == OrderStatus.PENDING_PAYMENT)
@@ -119,10 +135,10 @@ public class OrderTransitionService {
             if (accepted) return new Result(false, from, from, order);
             if (!OrderStateMachine.canAccept(from, actor.type())) {
                 throw new InvalidStatusTransitionException(from, null,
-                    OrderStateMachine.allowedTargets(from, actor.type(), parse(order.getStatusBeforeRefund())), "INVALID_STATUS_TRANSITION");
+                    OrderStateMachine.allowedTargets(from, actor.type(), parse(order.getStatusBeforeRefund()), facts), "INVALID_STATUS_TRANSITION");
             }
-            if (OrderStateMachine.acceptTarget(from) == null) return acceptInPlace(order, actor, req);
-            action = Action.CONFIRM; // PAID_AWAITING_MERCHANT_CONFIRM: accept = the CONFIRM edge
+            if (OrderStateMachine.acceptTarget(from, facts) == null) return acceptInPlace(order, actor, req);
+            action = Action.CONFIRM; // PAID_AWAITING_MERCHANT_CONFIRM (or unpaid COD): accept = the CONFIRM edge
         }
         var to = resolveTarget(order, actor, action, req);
 
@@ -144,9 +160,9 @@ public class OrderTransitionService {
         } else {
             OrderStateMachine.Transition edge;
             try {
-                edge = OrderStateMachine.require(from, to, actor.type());
+                edge = OrderStateMachine.require(from, to, actor.type(), facts);
             } catch (InvalidStatusTransitionException exception) {
-                throw invalid(order, to, actor);
+                throw invalid(order, to, actor, exception.getCode()); // keeps COD_ORDER / COD_NOT_COLLECTED / …
             }
             reasonRequired = edge.reasonRequired();
             trackingRequired = edge.shippingRequired();
@@ -159,11 +175,25 @@ public class OrderTransitionService {
         if (reason != null && reason.length() > MAX_REASON) violations.add(new FieldViolation("reason", "MAX_LENGTH", "เหตุผลยาวเกิน " + MAX_REASON + " ตัวอักษร"));
         var carrier = clean(req.carrierCode());
         var tracking = clean(req.trackingNumber());
+        CarrierService.Checked checkedTracking = null;
+        Shipment existingShipment = null;
+        Instant shippedAt = null;
         if (trackingRequired) {
-            if (carrier == null) violations.add(new FieldViolation("carrierCode", "REQUIRED", "กรุณาระบุบริษัทขนส่ง"));
-            else if (carrier.length() > 50) violations.add(new FieldViolation("carrierCode", "MAX_LENGTH", "ชื่อขนส่งยาวเกิน 50 ตัวอักษร"));
-            if (tracking == null) violations.add(new FieldViolation("trackingNumber", "REQUIRED", "กรุณาระบุเลขพัสดุ"));
-            else if (tracking.length() > 100) violations.add(new FieldViolation("trackingNumber", "MAX_LENGTH", "เลขพัสดุยาวเกิน 100 ตัวอักษร"));
+            // carrier / tracking set earlier (PUT …/shipment/tracking) or the order's shipping method carrier are defaults
+            existingShipment = shipments.findFirstByOrderIdOrderByCreatedDateTimeDesc(order.getId()).orElse(null);
+            if (carrier == null && existingShipment != null) carrier = existingShipment.getCarrierCode();
+            if (tracking == null && existingShipment != null) tracking = existingShipment.getTrackingNumber();
+            if (carrier == null) carrier = carriers.methodCarrier(order.getShippingMethodId());
+            if (carrier != null && carrier.length() > 50) violations.add(new FieldViolation("carrierCode", "MAX_LENGTH", "ชื่อขนส่งยาวเกิน 50 ตัวอักษร"));
+            else checkedTracking = carriers.check(order.getShopId(), carrier, tracking, violations);
+            shippedAt = ShipmentTimeline.parseTime(req.shippedAt(), "shippedAt", order.getPlacedAt(), violations);
+        }
+        if (to == OrderStatus.DELIVERED) {
+            var current = shipments.findFirstByOrderIdOrderByCreatedDateTimeDesc(order.getId()).orElse(null);
+            if (current != null && ShipmentStatus.RETURNED.name().equals(current.getStatus())) {
+                throw new ShipmentTransitionException("SHIPMENT_RETURNED", "พัสดุถูกตีกลับแล้ว ไม่สามารถตั้งเป็นจัดส่งสำเร็จได้",
+                    ShipmentStatus.RETURNED, ShipmentStatus.DELIVERED, List.of());
+            }
         }
         String provider = null;
         if (to == OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM) {
@@ -181,6 +211,11 @@ public class OrderTransitionService {
             violations.add(new FieldViolation("amount", "INVALID", "ยอดคืนเงินต้องมากกว่า 0"));
         }
         if (!violations.isEmpty()) throw new ValidationException(violations);
+        if (checkedTracking != null) {
+            carriers.requireUnique(checkedTracking, existingShipment == null ? null : existingShipment.getId());
+            carrier = checkedTracking.carrier().getCode();
+            tracking = checkedTracking.trackingNumber();
+        }
         var reference = to == OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM ? clean(req.paymentReference()) : null;
         if (reference != null && (payments.existsByProviderAndProviderPaymentId(provider, reference)
             || proofs.findLiveByReference(order.getShopId(), reference).stream().anyMatch(p -> !p.getOrderId().equals(order.getId())))) {
@@ -199,7 +234,7 @@ public class OrderTransitionService {
             if (opts.event() == null) ledger.rejectOpen(order, actor, reason);
             metadata.put("event", opts.event() == null ? "REFUND_REJECTED" : opts.event());
         } else {
-            apply(order, from, to, actor, req, opts, reason, carrier, tracking, provider, metadata);
+            apply(order, from, to, actor, req, opts, reason, carrier, tracking, provider, shippedAt, metadata);
         }
         order.setStatus(to);
         order.stamp(actor.userId());
@@ -285,8 +320,10 @@ public class OrderTransitionService {
     }
 
     private void apply(Order order, OrderStatus from, OrderStatus to, OrderActor actor, OrderDtos.TransitionRequest req,
-                       Internal opts, String reason, String carrier, String tracking, String provider, Map<String, Object> metadata) {
+                       Internal opts, String reason, String carrier, String tracking, String provider, Instant shippedAt,
+                       Map<String, Object> metadata) {
         var now = Instant.now();
+        var detail = opts.detail();
         switch (to) {
             case PAID_AWAITING_MERCHANT_CONFIRM -> {
                 order.setPaymentStatus(PaymentStatus.PAID);
@@ -298,21 +335,35 @@ public class OrderTransitionService {
             case MERCHANT_CONFIRMED -> {
                 order.setMerchantConfirmStatus("CONFIRMED");
                 if (order.getMerchantConfirmedAt() == null) recordAcceptance(order, actor, now, reason);
+                if (from == OrderStatus.PENDING_PAYMENT && order.isCod()) {
+                    // COD accepted: nothing to verify; the reservation is held for shipping like a paid order (payment stays UNPAID)
+                    inventory.markPaid(order);
+                    metadata.put("event", "COD_ACCEPTED");
+                    metadata.put("paymentMethod", PaymentMethod.COD.name());
+                }
             }
             case READY_TO_PACK, PACKING, PACKED -> {
+                var previous = shipments.findFirstByOrderIdOrderByCreatedDateTimeDesc(order.getId()).map(Shipment::getStatus).orElse(null);
                 var shipment = shipment(order, actor);
                 shipment.setStatus(to.name());
                 if (to == OrderStatus.PACKED) shipment.setPackedAt(now, actor.userId());
+                timeline.statusChanged(shipment, previous, actor, reason, detail);
                 ensureConfirmed(order, actor, now);
                 metadata.put("event", "FULFILLMENT_" + to.name());
             }
             case DISPATCHED -> {
+                var previous = shipments.findFirstByOrderIdOrderByCreatedDateTimeDesc(order.getId()).map(Shipment::getStatus).orElse(null);
                 var shipment = shipment(order, actor);
+                var shipped = shippedAt == null ? now : shippedAt;
                 shipment.setStatus("DISPATCHED");
                 shipment.setCarrierCode(carrier);
                 shipment.setTrackingNumber(tracking);
-                if (shipment.getPackedAt() == null) shipment.setPackedAt(now, actor.userId());
-                shipment.setDispatchedAt(now, actor.userId());
+                if (shipment.getPackedAt() == null) shipment.setPackedAt(shipped, actor.userId());
+                shipment.setDispatchedAt(shipped, actor.userId());
+                timeline.record(shipment, ShipmentTrackingEvent.STATUS_CHANGED, previous, actor, reason,
+                    new ShipmentTimeline.Detail(detail.source(), detail.note() == null ? carrier + " " + tracking : detail.note(),
+                        detail.location(), shipped, detail.carrierStatusCode(), detail.externalEventId(), detail.safePayload()));
+                if (shippedAt != null) metadata.put("shippedAt", shippedAt.toString());
                 ensureConfirmed(order, actor, now);
                 order.setFulfillmentStatus(FulfillmentStatus.FULFILLED);
                 inventory.commit(order, actor.type(), actor.userId());
@@ -322,9 +373,11 @@ public class OrderTransitionService {
             }
             case DELIVERED -> {
                 shipments.findFirstByOrderIdOrderByCreatedDateTimeDesc(order.getId()).ifPresent(shipment -> {
+                    var previous = shipment.getStatus();
                     shipment.setStatus("DELIVERED");
-                    shipment.setDeliveredAt(now);
+                    shipment.setDeliveredAt(detail.eventAt() == null ? now : detail.eventAt());
                     shipment.stamp(actor.userId());
+                    timeline.statusChanged(shipment, previous, actor, reason, detail);
                 });
                 metadata.put("event", "DELIVERED");
             }
@@ -348,10 +401,24 @@ public class OrderTransitionService {
                     }
                 }
                 int released = inventory.release(order, actor.type(), actor.userId(), "ยกเลิกออเดอร์ " + order.getOrderNumber());
+                boolean failedDelivery = from == OrderStatus.DISPATCHED; // COD only (state machine): parcel refused / returned unpaid
                 shipments.findFirstByOrderIdOrderByCreatedDateTimeDesc(order.getId()).ifPresent(shipment -> {
-                    shipment.setStatus("CANCELLED");
+                    var previous = shipment.getStatus();
+                    shipment.setStatus(failedDelivery ? "RETURNED" : "CANCELLED");
+                    if (failedDelivery) {
+                        var at = detail.eventAt() == null ? now : detail.eventAt();
+                        shipment.setReturnedAt(at);
+                        if (shipment.getFailedAt() == null) shipment.setFailed(at, reason);
+                    }
                     shipment.stamp(actor.userId());
+                    timeline.statusChanged(shipment, previous, actor, reason, detail);
                 });
+                if (failedDelivery) {
+                    metadata.put("restockedQuantity", inventory.restockReturned(order, actor.type(), actor.userId(),
+                        "พัสดุ COD ส่งไม่สำเร็จ/ตีกลับ ออเดอร์ " + order.getOrderNumber()));
+                    order.setFulfillmentStatus(FulfillmentStatus.RETURNED);
+                    metadata.put("deliveryFailed", true);
+                }
                 if (from == OrderStatus.PENDING_PAYMENT) {
                     ledger.cancelPendingPayment(order, actor, reason == null ? "ยกเลิกออเดอร์" : reason);
                     if (order.getPaymentStatus() == PaymentStatus.PENDING || order.getPaymentStatus() == PaymentStatus.FAILED) {
@@ -362,7 +429,7 @@ public class OrderTransitionService {
                     ledger.openForCancellation(order, actor, reason == null ? "ยกเลิกออเดอร์" : reason, metadata);
                 }
                 int coupons = usages.deleteByOrderId(order.getId());
-                metadata.put("event", "CANCELLED");
+                metadata.put("event", failedDelivery ? "DELIVERY_FAILED" : "CANCELLED");
                 metadata.put("releasedQuantity", released);
                 if (coupons > 0) metadata.put("couponUsageReleased", true);
             }
@@ -385,8 +452,11 @@ public class OrderTransitionService {
                         metadata.put("restockedQuantity", inventory.restockAfterRefund(order, actor.type(), actor.userId(), "คืนสินค้าออเดอร์ " + order.getOrderNumber()));
                         order.setFulfillmentStatus(FulfillmentStatus.RETURNED);
                         shipments.findFirstByOrderIdOrderByCreatedDateTimeDesc(order.getId()).ifPresent(shipment -> {
+                            var previous = shipment.getStatus();
                             shipment.setStatus("RETURNED");
+                            if (shipment.getReturnedAt() == null) shipment.setReturnedAt(now);
                             shipment.stamp(actor.userId());
+                            timeline.statusChanged(shipment, previous, actor, reason == null ? "คืนสินค้าหลังคืนเงิน" : reason, detail);
                         });
                     }
                 }
@@ -418,8 +488,13 @@ public class OrderTransitionService {
     }
 
     private InvalidStatusTransitionException invalid(Order order, OrderStatus to, OrderActor actor) {
+        return invalid(order, to, actor, "INVALID_STATUS_TRANSITION");
+    }
+
+    private InvalidStatusTransitionException invalid(Order order, OrderStatus to, OrderActor actor, String code) {
         return new InvalidStatusTransitionException(order.getStatus(), to,
-            OrderStateMachine.allowedTargets(order.getStatus(), actor.type(), parse(order.getStatusBeforeRefund())), "INVALID_STATUS_TRANSITION");
+            OrderStateMachine.allowedTargets(order.getStatus(), actor.type(), parse(order.getStatusBeforeRefund()), OrderStateMachine.Facts.of(order)),
+            code == null ? "INVALID_STATUS_TRANSITION" : code);
     }
 
     static OrderStatus parse(String raw) {

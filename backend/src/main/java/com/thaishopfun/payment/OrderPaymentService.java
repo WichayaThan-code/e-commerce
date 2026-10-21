@@ -55,10 +55,12 @@ public class OrderPaymentService {
     private final OrderQueryService queries;
     private final PaymentAccountService accounts;
     private final PaymentFileService files;
+    private final com.thaishopfun.merchant.ShopRepository shops;
 
     public OrderPaymentService(OrderRepository orders, PaymentRepository payments, PaymentProofRepository proofs,
                                PaymentStatusHistoryRepository paymentHistory, OrderMoneyLedger ledger, OrderTransitionService transitions,
-                               OrderQueryService queries, PaymentAccountService accounts, PaymentFileService files) {
+                               OrderQueryService queries, PaymentAccountService accounts, PaymentFileService files,
+                               com.thaishopfun.merchant.ShopRepository shops) {
         this.orders = orders;
         this.payments = payments;
         this.proofs = proofs;
@@ -68,6 +70,7 @@ public class OrderPaymentService {
         this.queries = queries;
         this.accounts = accounts;
         this.files = files;
+        this.shops = shops;
     }
 
     // ---------------- reads ----------------
@@ -75,11 +78,12 @@ public class OrderPaymentService {
     @Transactional(readOnly = true)
     public PaymentDtos.PaymentInfo info(OrderActor actor, UUID orderId, String fileBase) {
         var order = load(actor, orderId);
-        boolean awaiting = order.getStatus() == OrderStatus.PENDING_PAYMENT;
-        // receiving accounts only while this buyer still has to pay
+        boolean awaiting = order.getStatus() == OrderStatus.PENDING_PAYMENT && !order.isCod();
+        // receiving accounts only while this buyer still has to pay by transfer (COD: cash on delivery, no slip)
         var accountList = awaiting ? accounts.activeForBuyer(order.getShopId()) : List.<PaymentDtos.PaymentAccountView>of();
         return new PaymentDtos.PaymentInfo(order.getId(), order.getOrderNumber(), order.getStatus().name(), order.getPaymentStatus().name(),
-            order.getGrandTotal(), order.getCurrency(), awaiting && !accountList.isEmpty(), accountList, views(actor, order, fileBase));
+            order.getGrandTotal(), order.getCurrency(), awaiting && !accountList.isEmpty(), accountList, views(actor, order, fileBase),
+            order.getPaymentMethod().name(), order.getCodFee());
     }
 
     @Transactional(readOnly = true)
@@ -101,8 +105,13 @@ public class OrderPaymentService {
     public PaymentDtos.PaymentView submitSlip(OrderActor buyer, UUID orderId, MultipartFile file, String rawAmount, String rawTransferredAt,
                                               String rawReference, String rawBank, String rawProvider, String fileBase) {
         var order = lock(buyer, orderId);
+        requireNotCod(order);
         if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new AuthException(HttpStatus.CONFLICT, "ORDER_NOT_AWAITING_PAYMENT", "ออเดอร์นี้ไม่อยู่ในสถานะรอชำระเงิน");
+        }
+        // platform admin suspension: the shop cannot sell, so no new payment is accepted for its open orders
+        if (shops.findById(order.getShopId()).map(shop -> shop.getStatus() == com.thaishopfun.merchant.ShopStatus.SUSPENDED).orElse(false)) {
+            throw new AuthException(HttpStatus.CONFLICT, "SHOP_SUSPENDED", "ร้านนี้ถูกระงับชั่วคราว ยังไม่รับชำระเงิน");
         }
         var active = accounts.activeProviders(order.getShopId());
         if (active.isEmpty()) {
@@ -186,6 +195,7 @@ public class OrderPaymentService {
     public PaymentDtos.PaymentActionResponse confirm(OrderActor actor, UUID orderId, UUID paymentId, PaymentDtos.PaymentActionRequest body, String fileBase) {
         var req = body == null ? new PaymentDtos.PaymentActionRequest(null, null, null) : body;
         var order = lock(actor, orderId);
+        requireNotCod(order);
         checkVersion(order, req.expectedVersion());
         var payment = payment(order, paymentId);
         if (Payment.CAPTURED.equals(payment.getStatus()) || Payment.REFUNDED.equals(payment.getStatus())) {
@@ -217,6 +227,7 @@ public class OrderPaymentService {
     public PaymentDtos.PaymentActionResponse reject(OrderActor actor, UUID orderId, UUID paymentId, PaymentDtos.PaymentActionRequest body, String fileBase) {
         var req = body == null ? new PaymentDtos.PaymentActionRequest(null, null, null) : body;
         var order = lock(actor, orderId);
+        requireNotCod(order);
         checkVersion(order, req.expectedVersion());
         var payment = payment(order, paymentId);
         if (Payment.FAILED.equals(payment.getStatus())) return response(false, actor, order, payment, fileBase);
@@ -247,6 +258,106 @@ public class OrderPaymentService {
         return response(true, actor, order, payment, fileBase);
     }
 
+    // ---------------- COD: cash collected on delivery ----------------
+
+    /**
+     * Shop (or admin / system for a carrier COD report) records the cash for a DELIVERED COD order: payments row provider COD
+     * CAPTURED (+ COD_RECEIPT proof when a reference or file is given), order payment_status UNPAID → PAID, timeline
+     * COD_COLLECTED. The order status does not change (the buyer / system then completes it). Repeating answers changed=false.
+     */
+    @Transactional
+    public PaymentDtos.PaymentActionResponse collectCod(OrderActor actor, UUID orderId, String rawAmount, String rawCollectedAt,
+                                                        String rawReference, String rawReason, Boolean acceptAmountMismatch,
+                                                        Integer expectedVersion, MultipartFile file, String fileBase) {
+        var order = lock(actor, orderId);
+        if (!order.isCod()) {
+            throw new AuthException(HttpStatus.CONFLICT, "NOT_COD_ORDER", "ออเดอร์นี้ไม่ใช่เก็บเงินปลายทาง (COD)");
+        }
+        checkVersion(order, expectedVersion);
+        var facts = OrderStateMachine.Facts.of(order);
+        if (facts.codCollected()) {
+            var done = payments.findFirstByOrderIdAndStatusOrderByAttemptNoDesc(order.getId(), Payment.CAPTURED)
+                .or(() -> payments.findFirstByOrderIdAndStatusOrderByAttemptNoDesc(order.getId(), Payment.REFUNDED)).orElse(null);
+            return new PaymentDtos.PaymentActionResponse(false, done == null ? null : view(actor, done, fileBase), queries.detail(order, actor));
+        }
+        if (!OrderStateMachine.canCollectCod(order.getStatus(), actor.type(), facts)) {
+            throw new InvalidStatusTransitionException(order.getStatus(), null,
+                OrderStateMachine.allowedTargets(order.getStatus(), actor.type(), null, facts), "INVALID_STATUS_TRANSITION");
+        }
+        var violations = new ArrayList<FieldViolation>();
+        var amount = amount(rawAmount, violations);
+        var collectedAt = collectedAt(rawCollectedAt, order, violations);
+        var reference = PaymentAccountService.clean(rawReference);
+        if (reference != null && !REFERENCE.matcher(reference).matches()) {
+            violations.add(new FieldViolation("reference", "INVALID", "เลขอ้างอิงต้องยาว 4-120 ตัว (ตัวอักษร ตัวเลข . _ / # -)"));
+        }
+        var reason = PaymentAccountService.clean(rawReason);
+        if (reason != null && reason.length() > 500) violations.add(new FieldViolation("reason", "MAX_LENGTH", "เหตุผลยาวเกิน 500 ตัวอักษร"));
+        if (!violations.isEmpty()) throw new ValidationException(violations);
+        boolean mismatch = amount.compareTo(order.getGrandTotal()) != 0;
+        if (mismatch) {
+            if (!Boolean.TRUE.equals(acceptAmountMismatch)) {
+                throw new AuthException(HttpStatus.CONFLICT, "PAYMENT_AMOUNT_MISMATCH",
+                    "ยอดที่เก็บได้ ฿" + amount + " ไม่ตรงกับยอดออเดอร์ ฿" + order.getGrandTotal() + " — ยืนยันรับยอดนี้พร้อมเหตุผล (acceptAmountMismatch)");
+            }
+            if (reason == null) throw new ValidationException(List.of(new FieldViolation("reason", "REQUIRED", "กรุณาระบุเหตุผลที่รับยอดไม่ตรง")));
+        }
+        if (reference != null && (proofs.findLiveByReference(order.getShopId(), reference).stream().anyMatch(p -> !p.getOrderId().equals(order.getId()))
+            || payments.existsByProviderPaymentIdIgnoreCaseAndShopIdAndOrderIdNot(reference, order.getShopId(), order.getId()))) {
+            throw new AuthException(HttpStatus.CONFLICT, "PAYMENT_REFERENCE_DUPLICATE", "เลขอ้างอิงนี้ถูกใช้กับออเดอร์อื่นแล้ว", "reference");
+        }
+        var stored = file == null || file.isEmpty() ? null : files.store(order.getId(), order.getShopId(), actor.userId(), file, DELIVERY_PROOF);
+        var now = Instant.now();
+        var payment = Payment.captured(order.getId(), order.getShopId(), CodSettingsService.PROVIDER, amount, reference, collectedAt, nextAttempt(order.getId()));
+        payment.stamp(actor.userId());
+        payments.saveAndFlush(payment);
+        UUID proofId = null;
+        if (stored != null || reference != null) {
+            var proof = new PaymentProof(payment.getId(), order.getId(), order.getShopId(), actor.userId(), stored == null ? null : stored.getId(),
+                reference, amount, collectedAt, null, mismatch);
+            proof.setProofType(COD_RECEIPT);
+            proof.verify(actor.userId(), now);
+            proof.stamp(actor.userId());
+            proofs.saveAndFlush(proof);
+            proofId = proof.getId();
+        }
+        var meta = new LinkedHashMap<String, Object>();
+        meta.put("paymentId", payment.getId());
+        meta.put("provider", CodSettingsService.PROVIDER);
+        meta.put("amount", amount);
+        meta.put("collectedAt", collectedAt.toString());
+        if (reference != null) meta.put("reference", reference);
+        if (proofId != null) meta.put("proofId", proofId);
+        if (mismatch) meta.put("amountMismatch", true);
+        ledger.paymentHistory(payment, null, Payment.CAPTURED, "COD_COLLECTED", actor, reason, meta, proofId);
+        order.setPaymentStatus(PaymentStatus.PAID);
+        order.setPaidAt(collectedAt);
+        order.stamp(actor.userId());
+        orders.saveAndFlush(order);
+        ledger.orderEvent(order, actor, "COD_COLLECTED", reason, meta);
+        ledger.snapshot(order);
+        return response(true, actor, order, payment, fileBase);
+    }
+
+    static final String DELIVERY_PROOF = "DELIVERY_PROOF";
+    static final String COD_RECEIPT = "COD_RECEIPT";
+
+    /** Slip endpoints (submit / confirm / reject) do not apply to cash on delivery. */
+    private static void requireNotCod(Order order) {
+        if (order.isCod()) {
+            throw new AuthException(HttpStatus.CONFLICT, "COD_NO_SLIP", "ออเดอร์เก็บเงินปลายทาง (COD) ไม่ใช้สลิปโอนเงิน — ร้านบันทึกรับเงินสดหลังส่งถึง");
+        }
+    }
+
+    /** Optional; default now. ISO instant / offset, or local date-time read as Bangkok time; not in the future, not before the order. */
+    static Instant collectedAt(String raw, Order order, List<FieldViolation> violations) {
+        if (PaymentAccountService.clean(raw) == null) return Instant.now();
+        var probe = new ArrayList<FieldViolation>();
+        var at = transferredAt(raw, order, probe);
+        for (var v : probe) violations.add(new FieldViolation("collectedAt", v.code(), v.message().replace("โอน", "รับเงิน")));
+        return at;
+    }
+
     // ---------------- helpers ----------------
 
     private PaymentDtos.PaymentActionResponse response(boolean changed, OrderActor actor, Order order, Payment payment, String fileBase) {
@@ -262,7 +373,7 @@ public class OrderPaymentService {
             .filter(p -> p.getPaymentId().equals(payment.getId()))
             .map(p -> new PaymentDtos.ProofView(p.getId(), p.getStatus(), p.getReferenceNo(), p.getAmountDeclared(), p.isAmountMismatch(),
                 p.getBankName(), p.getTransferredAt(), p.getMediaFileId() == null ? null : fileBase + "/payments/proofs/" + p.getId() + "/file",
-                null, p.getCreatedDateTime(), p.getVerifiedAt(), p.getRejectReason())).toList();
+                null, p.getCreatedDateTime(), p.getVerifiedAt(), p.getRejectReason(), p.getProofType())).toList();
         var history = paymentHistory.findByOrderIdOrderByIdAsc(payment.getOrderId()).stream()
             .filter(h -> h.getPaymentId().equals(payment.getId()))
             .map(h -> new PaymentDtos.StatusEntry(h.getId(), h.getEvent(), h.getFromStatus(), h.getToStatus(), h.getActorType(),

@@ -73,13 +73,15 @@ public class OrderCheckoutService {
     private final OrderQueryService views;
     private final JdbcTemplate jdbc;
     private final OrderMoneyLedger ledger;
+    private final CodSettingsService cod;
 
     public OrderCheckoutService(CartService carts, CartRepository cartRows, CartItemRepository cartItems, CouponRepository coupons,
                                 OrderPromotionLockRepository promotionLocks, OrderPromotionUsageRepository usages,
                                 CartInventoryRepository levels, ProductSkuRepository skus, ShopRepository shops, OrderRepository orders,
                                 OrderStatusHistoryRepository history, OrderInventoryService inventory, OrderQueryService views,
-                                JdbcTemplate jdbc, OrderMoneyLedger ledger) {
+                                JdbcTemplate jdbc, OrderMoneyLedger ledger, CodSettingsService cod) {
         this.ledger = ledger;
+        this.cod = cod;
         this.carts = carts;
         this.cartRows = cartRows;
         this.cartItems = cartItems;
@@ -132,8 +134,15 @@ public class OrderCheckoutService {
         var earlier = orders.findCheckoutReplay(buyerId, prefix + "%");
         if (!earlier.isEmpty()) return response(true, earlier, OrderActor.buyer(buyerId));
 
-        var req = request == null ? new OrderDtos.CheckoutRequest(null, null) : request;
+        var req = request == null ? new OrderDtos.CheckoutRequest(null, null, null, null) : request;
+        // checked after the replay lookup: a retried request with an already-used key still gets its orders back
+        if (!Boolean.TRUE.equals(req.acceptTerms())) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "TERMS_NOT_ACCEPTED",
+                "\u0e01\u0e23\u0e38\u0e13\u0e32\u0e22\u0e2d\u0e21\u0e23\u0e31\u0e1a\u0e02\u0e49\u0e2d\u0e01\u0e33\u0e2b\u0e19\u0e14\u0e41\u0e25\u0e30\u0e40\u0e07\u0e37\u0e48\u0e2d\u0e19\u0e44\u0e02\u0e01\u0e48\u0e2d\u0e19\u0e2a\u0e31\u0e48\u0e07\u0e0b\u0e37\u0e49\u0e2d");
+        }
+        var termsAcceptedAt = Instant.now();
         validateRequest(req);
+        var method = PaymentMethod.parse(req.paymentMethod());
 
         // 1. lock promotions behind applied coupons (usage limits), then validate (locks inventory, re-prices)
         var activeCarts = cartRows.findByBuyerUserIdAndStatusOrderByCreatedDateTimeAsc(buyerId, Cart.ACTIVE);
@@ -152,6 +161,7 @@ public class OrderCheckoutService {
         if (!validation.valid()) throw new CheckoutInvalidException(validation.issues());
 
         var view = validation.cart();
+        var codSettings = codSettings(view, method);
         var skuIds = view.groups().stream().flatMap(g -> g.items().stream()).filter(CartDtos.Line::selected)
             .map(CartDtos.Line::skuId).distinct().toList();
         Map<UUID, InventoryLevel> locked = levels.lockForCheckout(skuIds).stream()
@@ -170,6 +180,8 @@ public class OrderCheckoutService {
             order.setIdempotencyKey(prefix + group.shopId());
             order.setBuyerNote(OrderTransitionService.clean(req.buyerNote()));
             order.setMerchantConfirmStatus("NOT_REQUIRED");
+            order.setPaymentMethod(method);
+            order.setTermsAcceptedAt(termsAcceptedAt);
 
             var totals = group.totals();
             var discount = money(totals.discount());
@@ -206,6 +218,13 @@ public class OrderCheckoutService {
             if (gross.subtract(discount).add(order.getShippingFee()).compareTo(order.getGrandTotal()) != 0) {
                 throw new IllegalStateException("cart totals inconsistent for shop " + group.shopId());
             }
+            if (method == PaymentMethod.COD) {
+                // COD: nothing to pay or verify now; the shop accepts the order, ships, and collects the total (incl. COD fee) on delivery
+                var fee = money(codSettings.get(group.shopId()).fee());
+                order.setCodFee(fee);
+                order.setGrandTotal(order.getGrandTotal().add(fee));
+                order.setMerchantConfirmStatus("AWAITING");
+            }
             var shipping = group.shipping();
             if (shipping != null) {
                 order.setShippingMethodId(shipping.methodId());
@@ -241,6 +260,8 @@ public class OrderCheckoutService {
             var metadata = new LinkedHashMap<String, Object>();
             metadata.put("event", "ORDER_PLACED");
             metadata.put("grandTotal", order.getGrandTotal());
+            metadata.put("paymentMethod", method.name());
+            if (method == PaymentMethod.COD) metadata.put("codFee", order.getCodFee());
             if (couponUsed) metadata.put("couponCode", coupon.code());
             var entry = new OrderStatusHistory(order.getId(), null, OrderStatus.PENDING_PAYMENT, buyerId, OrderActorType.BUYER, null);
             entry.setMetadataJson(OrderJson.write(metadata));
@@ -263,6 +284,38 @@ public class OrderCheckoutService {
             }
         }
         return response(false, created, OrderActor.buyer(buyerId));
+    }
+
+    /**
+     * COD must be enabled by every shop in the checkout, and each order total incl. the COD fee must fit the shop's limit;
+     * otherwise 409 CHECKOUT_INVALID with PAYMENT_METHOD_NOT_AVAILABLE / COD_LIMIT_EXCEEDED per shop. BANK_TRANSFER is
+     * always accepted (the receiving account is checked when the slip is sent: PAYMENT_ACCOUNT_NOT_CONFIGURED).
+     */
+    private Map<Long, CodSettingsService.Settings> codSettings(CartDtos.CartResponse view, PaymentMethod method) {
+        var result = new LinkedHashMap<Long, CodSettingsService.Settings>();
+        if (method != PaymentMethod.COD) return result;
+        var issues = new ArrayList<CartDtos.Issue>();
+        for (var group : view.groups()) {
+            if (group.items().stream().noneMatch(CartDtos.Line::selected)) continue;
+            var shop = shops.findByShopId(group.shopId())
+                .orElseThrow(() -> new AuthException(HttpStatus.CONFLICT, "CHECKOUT_INVALID", "ร้านค้าไม่พร้อมขาย"));
+            var settings = cod.settings(shop.getUuid());
+            if (!settings.enabled()) {
+                issues.add(new CartDtos.Issue("PAYMENT_METHOD_NOT_AVAILABLE", "ERROR", group.shopId(), null, null, "paymentMethod",
+                    "ร้านนี้ไม่รับเก็บเงินปลายทาง (COD)", Map.of("paymentMethod", PaymentMethod.COD.name())));
+                continue;
+            }
+            var total = money(group.totals().grandTotal()).add(money(settings.fee()));
+            if (settings.maxOrderAmount() != null && total.compareTo(settings.maxOrderAmount()) > 0) {
+                issues.add(new CartDtos.Issue("COD_LIMIT_EXCEEDED", "ERROR", group.shopId(), null, null, "paymentMethod",
+                    "ยอดเกินวงเงินเก็บเงินปลายทางของร้าน ฿" + settings.maxOrderAmount(),
+                    Map.of("maxOrderAmount", settings.maxOrderAmount(), "orderTotal", total, "codFee", money(settings.fee()))));
+                continue;
+            }
+            result.put(group.shopId(), settings);
+        }
+        if (!issues.isEmpty()) throw new CheckoutInvalidException(issues);
+        return result;
     }
 
     private OrderDtos.CheckoutResponse response(boolean replayed, List<Order> list, OrderActor actor) {
@@ -318,6 +371,9 @@ public class OrderCheckoutService {
             }
         }
         optional(req.buyerNote(), "buyerNote", 1000, violations);
+        if (PaymentMethod.parse(req.paymentMethod()) == null) {
+            violations.add(new FieldViolation("paymentMethod", "INVALID", "วิธีชำระเงินต้องเป็น BANK_TRANSFER หรือ COD"));
+        }
         if (!violations.isEmpty()) throw new ValidationException(violations);
     }
 

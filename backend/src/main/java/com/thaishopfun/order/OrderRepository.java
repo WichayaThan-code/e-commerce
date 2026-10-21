@@ -22,8 +22,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     @Query("select o from Order o where o.buyerUserId = :buyer and o.idempotencyKey like :prefix order by o.placedAt asc, o.orderNumber asc")
     List<Order> findCheckoutReplay(@Param("buyer") UUID buyer, @Param("prefix") String prefix);
 
-    /** Unpaid and not waiting for a slip review (a slip under review is never expired automatically). */
+    /** Unpaid and not waiting for a slip review (a slip under review is never expired automatically). COD is paid at delivery, never expired. */
     @Query("select o.id from Order o where o.status = com.thaishopfun.order.OrderStatus.PENDING_PAYMENT and o.placedAt < :before"
-        + " and o.paymentStatus <> com.thaishopfun.order.PaymentStatus.PENDING")
+        + " and o.paymentStatus <> com.thaishopfun.order.PaymentStatus.PENDING"
+        + " and o.paymentMethod <> com.thaishopfun.order.PaymentMethod.COD")
     List<UUID> findUnpaidPlacedBefore(@Param("before") java.time.Instant before);
 }

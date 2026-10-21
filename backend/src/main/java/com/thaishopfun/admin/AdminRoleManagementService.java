@@ -1,5 +1,6 @@
 package com.thaishopfun.admin;
 
+import com.thaishopfun.audit.PlatformAuditService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.authz.AuthorizationService;
 import com.thaishopfun.auth.authz.PermissionMatrix;
@@ -24,11 +25,14 @@ public class AdminRoleManagementService {
     private final NamedParameterJdbcTemplate jdbc;
     private final AuthorizationService authorization;
     private final PermissionMatrix matrix;
+    private final PlatformAuditService platformAudit;
 
-    public AdminRoleManagementService(NamedParameterJdbcTemplate jdbc, AuthorizationService authorization, PermissionMatrix matrix) {
+    public AdminRoleManagementService(NamedParameterJdbcTemplate jdbc, AuthorizationService authorization, PermissionMatrix matrix,
+                                      PlatformAuditService platformAudit) {
         this.jdbc = jdbc;
         this.authorization = authorization;
         this.matrix = matrix;
+        this.platformAudit = platformAudit;
     }
 
     @Transactional
@@ -214,15 +218,8 @@ public class AdminRoleManagementService {
     }
 
     private void audit(UUID actorId, String action, UUID resourceId, String code) {
-        var now = Instant.now();
-        jdbc.update("""
-            INSERT INTO audit_logs (occurred_at, actor_id, actor_type, action, resource_type, resource_id,
-                                    outcome, reason_code, auth_context, policy_version, created_date_time,
-                                    modified_date_time)
-            VALUES (:now, :actor, 'USER', :action, 'ROLE', :resource, 'SUCCESS', :reason, 'PLATFORM', 'CUSTOM',
-                    :now, :now)
-            """, new MapSqlParameterSource().addValue("now", Timestamp.from(now)).addValue("actor", actorId)
-            .addValue("action", action).addValue("resource", resourceId).addValue("reason", code));
+        // same row as before (ROLE / PLATFORM / policy CUSTOM), now with IP + user agent through the central writer
+        platformAudit.record(PlatformAuditService.Entry.platform(actorId, action, "ROLE", resourceId).reason(code, null).policy("CUSTOM"));
     }
 
     private void afterCommitInvalidate() {

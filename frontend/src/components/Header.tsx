@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import {
   Menu, Search, ShoppingCart, UserRound, ChevronDown,
-  ChevronRight, Gift, Headphones, LogOut, X, ShoppingBag, Store
+  ChevronRight, Gift, Headphones, LogOut, X, ShoppingBag, Store, Package
 } from "lucide-react";
 
 function Brand({ homeAria }: { homeAria: string }) {
@@ -135,6 +135,9 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
                     <Link to={dashboardPath}><Store /> {accountKind(user) === "ADMIN" ? t('account.admin') : t('account.store')} <ChevronRight /></Link>
                   )}
                   <Link to="/cart"><ShoppingCart /> {t('account.cart')} <ChevronRight /></Link>
+                  {accountKind(user) !== "ADMIN" && (
+                    <Link to="/account/orders"><Package /> {t('account.orders')} <ChevronRight /></Link>
+                  )}
                   <Link to="/deals"><Gift /> {t('account.deals')} <ChevronRight /></Link>
                   <Link to="/help"><Headphones /> {t('account.help')} <ChevronRight /></Link>
                   <button className="member-signout" disabled={signingOut} onClick={() => void signOut()}>

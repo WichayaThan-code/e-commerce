@@ -892,17 +892,39 @@ export type OrderDetail = {
   currency: string; subtotal: Money; discountTotal: Money; shippingFee: Money; grandTotal: Money; couponCode?: string | null
   shipping?: { methodId?: string | null; methodName?: string | null; carrierCode?: string | null } | null
   placedAt?: string | null; items?: OrderItem[] | null; itemCount?: number | null; totalQuantity?: number | null
+  shipment?: { status?: string | null; carrierCode?: string | null; trackingNumber?: string | null; packedAt?: string | null; dispatchedAt?: string | null; deliveredAt?: string | null } | null
+  shippingAddress?: { recipientName?: string | null; phone?: string | null; addressLine1?: string | null; addressLine2?: string | null; subdistrict?: string | null; district?: string | null; province?: string | null; postalCode?: string | null; masked?: boolean } | null
+  buyerNote?: string | null; cancelReason?: string | null; paidAt?: string | null; cancelledAt?: string | null; completedAt?: string | null
+  allowedTransitions?: string[] | null; paidAmount?: Money | null; refundedAmount?: Money | null
 }
+export type OrderSummary = { id: string; orderNumber: string; shopId: number; shopName: string; status: string; paymentStatus: string; fulfillmentStatus?: string | null; grandTotal: Money; currency: string; itemCount?: number | null; totalQuantity?: number | null; placedAt?: string | null; paidAt?: string | null }
+export type OrderPage = { items: OrderSummary[]; page: number; size: number; totalItems: number; totalPages: number }
+export type OrderTimelineEntry = { id: number; event: string; fromStatus?: string | null; toStatus?: string | null; actorType?: string | null; reason?: string | null; at: string }
+export type PaymentProofView = { id: string; status: string; referenceNo?: string | null; amountDeclared?: Money | null; amountMismatch?: boolean; transferredAt?: string | null; fileUrl?: string | null; contentType?: string | null; uploadedAt?: string | null; rejectReason?: string | null }
+export type PaymentView = { id: string; provider: string; status: string; amount: Money; attemptNo: number; createdAt?: string | null; proofs?: PaymentProofView[] | null }
 export type CheckoutResult = { replayed: boolean; orders: OrderDetail[]; grandTotal: Money; currency: string }
 export type PaymentAccount = { provider: string; displayName?: string | null; bankName?: string | null; accountNumber?: string | null; accountName?: string | null; promptPayId?: string | null; active: boolean; masked: boolean }
-export type OrderPaymentInfo = { orderId: string; orderNumber: string; orderStatus: string; paymentStatus: string; amountDue: Money; currency: string; canSubmitSlip: boolean; accounts: PaymentAccount[] }
+export type OrderPaymentInfo = { orderId: string; orderNumber: string; orderStatus: string; paymentStatus: string; amountDue: Money; currency: string; canSubmitSlip: boolean; accounts: PaymentAccount[]; payments?: PaymentView[] | null }
 
+export type CheckoutRequestBody = { shippingAddress: CheckoutAddress; buyerNote?: string; acceptTerms?: boolean }
 export const checkoutApi = {
   /** idempotencyKey: 8?100 chars [A-Za-z0-9._:-]; reuse the same key when retrying the same attempt. */
-  place: (idempotencyKey: string, shippingAddress: CheckoutAddress, buyerNote?: string) =>
-    request<CheckoutResult>('/api/checkout', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey }, body: JSON.stringify({ shippingAddress, buyerNote: buyerNote || undefined }) }, true),
+  place: (idempotencyKey: string, shippingAddress: CheckoutAddress, buyerNote?: string, acceptTerms?: boolean) =>
+    request<CheckoutResult>('/api/checkout', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify({ shippingAddress, buyerNote: buyerNote || undefined, acceptTerms: acceptTerms ? true : undefined } satisfies CheckoutRequestBody) }, true),
 }
 export const buyerOrderApi = {
   get: (orderId: string) => request<OrderDetail>(`/api/orders/${orderId}`, {}, true),
   paymentInfo: (orderId: string) => request<OrderPaymentInfo>(`/api/orders/${orderId}/payment-info`, {}, true),
+  list: (params: { status?: string; page?: number; size?: number }) => {
+    const query = new URLSearchParams()
+    if (params.status) query.set('status', params.status)
+    query.set('page', String(params.page ?? 0)); query.set('size', String(params.size ?? 10))
+    query.set('sort', 'placedAt'); query.set('direction', 'desc')
+    return request<OrderPage>(`/api/orders?${query}`, {}, true)
+  },
+  timeline: (orderId: string) => request<OrderTimelineEntry[]>(`/api/orders/${orderId}/timeline`, {}, true),
+  submitSlip: (orderId: string, form: FormData) => request<PaymentView>(`/api/orders/${orderId}/payments`, { method: 'POST', body: form }, true),
+  cancel: (orderId: string, reason: string) => request<unknown>(`/api/orders/${orderId}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }, true),
+  confirmReceived: (orderId: string) => request<unknown>(`/api/orders/${orderId}/confirm-received`, { method: 'POST', body: JSON.stringify({}) }, true),
 }

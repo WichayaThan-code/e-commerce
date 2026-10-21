@@ -36,6 +36,9 @@ export function cartErrorMessage(error: unknown, tp: (key: string, options?: Rec
   if (error instanceof ApiError && error.code === "OWN_SHOP_PURCHASE_FORBIDDEN") {
     return tp("cart.own.toast");
   }
+  if (error instanceof ApiError && error.code === "TERMS_NOT_ACCEPTED") {
+    return tp("checkout.terms.rejected");
+  }
   if (error instanceof ApiError) {
     if (KNOWN_ERRORS.has(error.code)) return tp(`cart.errors.${error.code}`);
     return error.message || tp("cart.errors.generic");

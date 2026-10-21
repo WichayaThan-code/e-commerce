@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, CreditCard, MapPin, ShieldCheck, Store, Tag, Truck } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -33,6 +33,7 @@ export default function CheckoutPage() {
   const [area, setArea] = useState<ThaiAddressValue>(emptyThaiAddress);
   const [note, setNote] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const termsRef = useRef<HTMLInputElement>(null);
   const [shippingBusy, setShippingBusy] = useState<number | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [checking, setChecking] = useState(true);
@@ -48,6 +49,11 @@ export default function CheckoutPage() {
       navigate(`/login?next=${encodeURIComponent("/checkout")}`, { replace: true });
     }
   }, [authLoading, user, navigate]);
+
+  // admin / accounts without cart permission: /cart shows the friendly blocked message
+  useEffect(() => {
+    if (cart.access === "blocked") navigate("/cart", { replace: true });
+  }, [cart.access, navigate]);
 
   /** Restore address/note for this buyer (never acceptTerms). */
   useEffect(() => {
@@ -114,10 +120,15 @@ export default function CheckoutPage() {
     }
   };
 
+  const focusTerms = () => {
+    termsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    termsRef.current?.focus({ preventScroll: true });
+  };
+
   const place = async (event: FormEvent) => {
     event.preventDefault();
     if (placing) return;
-    if (!acceptTerms) { setProblem(tp("checkout.terms.required")); return; }
+    if (!acceptTerms) { setProblem(tp("checkout.terms.required")); focusTerms(); return; }
     if (!check()) return;
     setPlacing(true);
     setProblem("");
@@ -135,7 +146,7 @@ export default function CheckoutPage() {
         province: area.province,
         postalCode: area.postalCode,
       };
-      const result = await checkoutApi.place(checkoutKey(), address, note.trim());
+      const result = await checkoutApi.place(checkoutKey(), address, note.trim(), acceptTerms);
       clearCheckoutKey();
       clearCheckoutForm();
       await cart.refresh();
@@ -150,6 +161,12 @@ export default function CheckoutPage() {
       if (error instanceof ApiError && error.code === "OWN_SHOP_PURCHASE_FORBIDDEN") {
         // keep Idempotency-Key; buyer must remove own-shop lines and retry
         setProblem(tp("cart.own.checkout"));
+        return;
+      }
+      if (error instanceof ApiError && error.code === "TERMS_NOT_ACCEPTED") {
+        setAcceptTerms(false);
+        setProblem(tp("checkout.terms.rejected"));
+        focusTerms();
         return;
       }
       if (error instanceof ApiError && error.code === "VALIDATION_ERROR") {
@@ -260,7 +277,7 @@ export default function CheckoutPage() {
         <section className="checkout-card" aria-labelledby="checkout-terms">
           <h2 id="checkout-terms">{tp("checkout.terms.title")}</h2>
           <label className={`checkout-payment-option${acceptTerms ? " is-selected" : ""}`}>
-            <input type="checkbox" checked={acceptTerms} disabled={placing} onChange={(event) => setAcceptTerms(event.target.checked)}/>
+            <input ref={termsRef} type="checkbox" checked={acceptTerms} disabled={placing} onChange={(event) => setAcceptTerms(event.target.checked)}/>
             <span>
               <b>{tp("checkout.terms.label")}</b>
               {policyLinks.length > 0 ? <small className="checkout-terms-shops">{tp("checkout.terms.policiesOf")}: {policyLinks}</small> : null}

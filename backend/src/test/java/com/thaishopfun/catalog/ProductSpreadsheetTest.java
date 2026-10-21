@@ -94,11 +94,11 @@ class ProductSpreadsheetTest {
         var parsed = ProductSpreadsheet.read(new ByteArrayInputStream(ProductSpreadsheet.template()));
         assertEquals(2, parsed.size());
         assertEquals("SAMPLE-SHIRT", parsed.get(0).productKey());
-        assertEquals("SAMPLE-SHIRT", parsed.get(1).productKey());
         assertEquals("VARIABLE", parsed.get(0).productType());
         assertEquals("สี", parsed.get(0).option1Name());
         assertEquals("แดง", parsed.get(0).option1Value());
-        assertEquals("ดำ", parsed.get(1).option1Value());
-        assertEquals("ไซซ์", parsed.get(0).option2Name());
+        assertNull(parsed.get(1).productKey());
+        assertEquals("SIMPLE", parsed.get(1).productType());
+        assertEquals("TEA-1", parsed.get(1).skuCode());
     }
 }

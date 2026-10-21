@@ -1109,11 +1109,18 @@ public class ProductService {
         );
     }
 
+    private static UUID uuidOf(byte[] bytes) {
+        var buffer = java.nio.ByteBuffer.wrap(bytes);
+        return new UUID(buffer.getLong(), buffer.getLong());
+    }
+
     private Map<UUID, SkuRollup> rollup(List<UUID> ids) {
         if (ids.isEmpty()) return Map.of();
         var totals = new HashMap<UUID, SkuRollup>();
         for (var row : skus.summarizeActiveSkus(ids)) {
-            var id = row[0] instanceof UUID uuid ? uuid : UUID.fromString(String.valueOf(row[0]));
+            var id = row[0] instanceof UUID uuid ? uuid
+                : row[0] instanceof byte[] bytes && bytes.length == 16 ? uuidOf(bytes)
+                : UUID.fromString(String.valueOf(row[0]));
             totals.put(id, new SkuRollup(number(row[1]), number(row[2]), decimal(row[3]), decimal(row[4]), number(row[5])));
         }
         return totals;

@@ -63,6 +63,8 @@ import ShopsPage from "../pages/ShopsPage";
 import SearchPage from "../pages/SearchPage";
 import CheckoutPage from "../pages/CheckoutPage";
 import CheckoutSuccessPage from "../pages/CheckoutSuccessPage";
+import MyOrdersPage from "../pages/MyOrdersPage";
+import MyOrderDetailPage from "../pages/MyOrderDetailPage";
 
 /** Wraps a page with the permission declared for its path in services/permissions.ts. */
 function guarded(path: string, page: ReactElement) {
@@ -89,6 +91,8 @@ export const routes: RouteObject[] = [
       { path: "/cart", element: <CartPage /> },
       { path: "/checkout", element: <CheckoutPage /> },
       { path: "/checkout/success", element: <CheckoutSuccessPage /> },
+      { path: "/account/orders", element: <MyOrdersPage /> },
+      { path: "/account/orders/:orderId", element: <MyOrderDetailPage /> },
       { path: "/shops", element: <ShopsPage /> },
       { path: "/search", element: <SearchPage /> },
       {

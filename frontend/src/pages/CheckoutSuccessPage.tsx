@@ -63,9 +63,13 @@ export default function CheckoutSuccessPage() {
               {account.accountName ? <small>{account.accountName}</small> : null}
             </li>)}
           </ul> : <p className="checkout-meta muted">{tp("checkout.success.noAccounts")}</p>}
+          <p className="checkout-meta"><Link to={`/account/orders/${order.id}`}>{tp("orders.viewDetail")}</Link></p>
         </article>)}
         <p className="checkout-success-note">{tp("checkout.success.payNote")}</p>
-        <div className="checkout-success-actions"><Link className="checkout-secondary" to="/">{tp("cart.backToShopping")}</Link></div>
+        <div className="checkout-success-actions">
+          <Link className="checkout-secondary" to="/account/orders">{tp("orders.title")}</Link>
+          <Link className="checkout-secondary" to="/">{tp("cart.backToShopping")}</Link>
+        </div>
       </>}
     </section>
   </main>;

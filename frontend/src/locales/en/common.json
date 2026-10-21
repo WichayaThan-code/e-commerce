@@ -28,6 +28,7 @@
     "admin": "Admin console",
     "store": "Manage shop",
     "cart": "My cart",
+    "orders": "My orders",
     "deals": "Special deals",
     "help": "Help center",
     "logout": "Log out",

@@ -1,13 +1,33 @@
 /* Storefront coupon tickets (Q2). Shared --shop-* tokens (ShopThemeShell) + a small per-template flavour below.
-   Fallbacks keep it readable outside a theme. Card list = horizontal scroll-snap; never wider than the viewport. */
+   Rail matches product rails (arrows + drag + scroll-snap); no "see all" until a coupon vault page exists. */
 .shop-coupons{margin-top:var(--shop-gap,16px);scroll-margin-top:calc(var(--shop-tabs-h,44px) + 12px);min-width:0;max-width:100%}
-.shop-coupons-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px;margin-bottom:10px}
-.shop-coupons-head h2{margin:0;font-size:18px;color:var(--shop-text,#08245d)}
-.shop-coupons-head p{margin:0;font-size:12px;color:var(--shop-muted,#5f7ca8)}
-.shop-coupons-list{list-style:none;margin:0;padding:2px 2px 8px;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(300px,360px);gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-padding-inline:2px;scrollbar-width:thin;min-width:0}
+.shop-coupons-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:4px 12px;margin-bottom:10px}
+.shop-coupons-head h2{margin:0;font-size:18px;font-weight:600;line-height:1.3;color:var(--shop-text,#08245d)}
+.shop-coupons-head p{margin:4px 0 0;font-size:12px;color:var(--shop-muted,#5f7ca8)}
+.shop-coupons-rail{position:relative;min-width:0}
+.shop-coupons-list{
+  list-style:none;margin:0;padding:2px;display:flex;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;
+  scroll-snap-type:x mandatory;scroll-padding-inline:2px;scrollbar-width:none;-ms-overflow-style:none;
+  touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;cursor:grab;min-width:0;
+}
+.shop-coupons-list::-webkit-scrollbar{display:none}
+.shop-coupons-list.is-dragging,.shop-coupons-rail.is-dragging .shop-coupons-list{cursor:grabbing;user-select:none}
+.shop-coupons-list.is-dragging .shop-ticket-btn{pointer-events:none}
+.shop-coupons-arrow{
+  display:none;position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:36px;height:36px;border:0;border-radius:50%;
+  background:var(--shop-card-bg,var(--shop-bg,#fff));color:var(--shop-text,#08245d);
+  box-shadow:0 6px 16px color-mix(in srgb,var(--shop-text,#08245d) 14%,transparent);place-items:center;cursor:pointer;
+}
+.shop-coupons-arrow.is-prev{left:4px}
+.shop-coupons-arrow.is-next{right:4px}
+.shop-coupons-arrow svg{width:18px;height:18px}
+.shop-coupons-arrow.is-disabled{opacity:.35;pointer-events:none}
+.shop-coupons-arrow:hover{color:var(--shop-primary,#0878f5)}
+@media(hover:hover) and (pointer:fine){.shop-coupons-arrow{display:grid}}
+@media(hover:none){.shop-coupons-arrow{display:none!important}}
 
 /* ticket */
-.shop-ticket{--tk-notch:9px;--tk-stub:92px;--tk-cut:var(--shop-page-bg,var(--shop-bg,#f4f7fb));position:relative;scroll-snap-align:start;display:grid;grid-template-columns:var(--tk-stub) minmax(0,1fr);min-height:132px;min-width:0;background:var(--shop-card-bg,#fff);border:1px solid var(--shop-border,#d7e5f3);border-radius:var(--shop-radius,12px);box-shadow:0 6px 18px -12px rgba(8,36,93,.35);color:var(--shop-text,#08245d);overflow:hidden}
+.shop-ticket{--tk-notch:9px;--tk-stub:92px;--tk-cut:var(--shop-page-bg,var(--shop-bg,#f4f7fb));position:relative;flex:0 0 min(360px,88vw);width:min(360px,88vw);max-width:360px;scroll-snap-align:start;display:grid;grid-template-columns:var(--tk-stub) minmax(0,1fr);min-height:132px;min-width:0;background:var(--shop-card-bg,#fff);border:1px solid var(--shop-border,#d7e5f3);border-radius:var(--shop-radius,12px);box-shadow:0 6px 18px -12px rgba(8,36,93,.35);color:var(--shop-text,#08245d);overflow:hidden}
 .shop-ticket::before,.shop-ticket::after{content:"";position:absolute;left:calc(var(--tk-stub) - var(--tk-notch));width:calc(var(--tk-notch) * 2);height:calc(var(--tk-notch) * 2);border-radius:50%;background:var(--tk-cut);border:1px solid var(--shop-border,#d7e5f3);z-index:1}
 .shop-ticket::before{top:calc(var(--tk-notch) * -1 - 1px)}
 .shop-ticket::after{bottom:calc(var(--tk-notch) * -1 - 1px)}
@@ -57,5 +77,4 @@
 [data-template="FOOD_BEVERAGE"] .shop-ticket-main{background:color-mix(in srgb,var(--shop-primary,#e8590c) 4%,var(--shop-card-bg,#fff))}
 [data-template="FOOD_BEVERAGE"] .shop-ticket-btn,[data-template="FOOD_BEVERAGE"] .shop-ticket-code{border-radius:999px}
 
-@container (max-width:520px){.shop-coupons-list{grid-auto-columns:minmax(272px,88%)}}
-@media (max-width:520px){.shop-coupons-list{grid-auto-columns:minmax(272px,88%)}.shop-ticket{--tk-stub:78px}.shop-ticket-stub strong{font-size:20px}.shop-ticket-main{padding:12px 12px 12px 14px}.shop-ticket-code{font-size:12px;padding:3px 6px;letter-spacing:.03em}[data-template="FASHION"] .shop-ticket-stub strong{font-size:21px}}
+@media (max-width:520px){.shop-ticket{flex-basis:min(300px,88vw);width:min(300px,88vw);--tk-stub:78px}.shop-ticket-stub strong{font-size:20px}.shop-ticket-main{padding:12px 12px 12px 14px}.shop-ticket-code{font-size:12px;padding:3px 6px;letter-spacing:.03em}[data-template="FASHION"] .shop-ticket-stub strong{font-size:21px}}

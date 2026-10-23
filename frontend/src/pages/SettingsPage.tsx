@@ -11,6 +11,8 @@ import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
 import ShopPoliciesEditor from "../components/merchant/ShopPoliciesEditor";
+import ShippingMethodsSettings from "../components/merchant/ShippingMethodsSettings";
+import PaymentSettings from "../components/merchant/PaymentSettings";
 import ConfirmDialog from "../components/form/ConfirmDialog";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
@@ -127,6 +129,8 @@ export default function SettingsPage(){
       </div><aside className="settings-side">
         <section className="settings-card danger-card"><header><Trash2/><div><h2>จัดการร้านค้า</h2><p>การดำเนินการนี้ไม่สามารถย้อนกลับได้</p></div></header><div><Clock3/><p><b>พักการใช้งานร้านค้า</b><small>ปิดการแสดงร้านชั่วคราว</small></p><button disabled={!canClose} title={deniedTitle(canClose)} onClick={()=>notify("พักการใช้งานร้านค้าแล้ว")}>พักร้าน</button></div><div><Trash2/><p><b>ลบร้านค้า</b><small>ลบข้อมูลร้านค้าและสินค้าทั้งหมด</small></p><button className="delete" disabled={!canClose} title={deniedTitle(canClose)} onClick={()=>notify("ต้องยืนยันตัวตนก่อนลบร้านค้า")}>ลบร้านค้า</button></div></section>
       </aside></div>
+      :activeTab==="shipping"?<div className="settings-layout"><div className="settings-main"><ShippingMethodsSettings shopId={shopId} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} notify={notify}/>{current.link&&<p className="settings-note"><a href={current.link.href}>{current.link.label} →</a></p>}</div></div>
+      :activeTab==="payment"?<div className="settings-layout"><div className="settings-main"><PaymentSettings shopId={shopId} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} notify={notify}/>{current.link&&<p className="settings-note"><a href={current.link.href}>{current.link.label} →</a></p>}</div></div>
       :<section className="settings-card settings-soon"><header><div><h2><CurrentIcon/>{current.label}</h2><p>ฟีเจอร์นี้จะเปิดให้ใช้เร็วๆ นี้</p></div></header>{current.link&&<a href={current.link.href}>{current.link.label} →</a>}</section>}
     </section>{pendingLeave&&<ConfirmDialog title={t("storeTheme.confirm.leave.title")} message={t("storeTheme.confirm.leave.message")} confirmLabel={t("storeTheme.confirm.leave.confirm")} cancelLabel={t("storeTheme.confirm.leave.stay")} danger onConfirm={confirmLeave} onCancel={()=>setPendingLeave(null)}/>}{notice&&<div className="merchant-toast" role="status">{notice}</div>}
   </main>

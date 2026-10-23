@@ -1,0 +1,297 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { RotateCcw } from "lucide-react";
+import ConfirmDialog from "../form/ConfirmDialog";
+import { Skeleton } from "../feedback/Skeleton";
+import { formatBaht } from "../cart/cartFormat";
+import { usePublicTranslation } from "../../hooks/usePublicTranslation";
+import {
+  ApiError,
+  merchantOrderApi,
+  merchantPaymentApi,
+  type OrderDetail,
+  type RefundSummary,
+  type RefundView,
+} from "../../services/api";
+import SlipPreview from "./SlipPreview";
+import { formatBangkokDateTime, isStaleOrderError, orderErrorMessage } from "./orderFormat";
+
+export type RefundDialogRequest = { kind: "approve" | "reject"; nonce: number } | null;
+
+type Props = {
+  shopId: number;
+  order: OrderDetail;
+  canRefund: boolean;
+  deniedTitle?: string;
+  /** drawer actions APPROVE_REFUND / REJECT_REFUND open the same dialogs */
+  openRequest: RefundDialogRequest;
+  onOrderChanged: (order: OrderDetail) => void;
+  onStale: () => void;
+  notify: (text: string, tone?: "ok" | "fail") => void;
+};
+
+type Dialog =
+  | { kind: "approve"; refund?: RefundView }
+  | { kind: "reject"; refund?: RefundView }
+  | { kind: "proof"; refund: RefundView }
+  | null;
+
+const MAX_FILE = 5 * 1024 * 1024;
+const REFUND_STATUSES = new Set(["REFUND_REQUESTED", "REFUNDED", "CANCELLED"]);
+
+export function showsRefundPanel(order: OrderDetail) {
+  return REFUND_STATUSES.has(order.status)
+    || order.paymentStatus === "REFUNDED"
+    || order.paymentStatus === "PARTIALLY_REFUNDED"
+    || !!order.statusBeforeRefund;
+}
+
+export default function OrderRefundPanel({ shopId, order, canRefund, deniedTitle, openRequest, onOrderChanged, onStale, notify }: Props) {
+  const { t } = useTranslation("merchant");
+  const { localeTag } = usePublicTranslation();
+  const money = (value: number | string | null | undefined) => formatBaht(value, localeTag);
+  const [summary, setSummary] = useState<RefundSummary | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const [busy, setBusy] = useState(false);
+  const [restock, setRestock] = useState(true);
+  const [reason, setReason] = useState("");
+  const [reference, setReference] = useState("");
+  const [transferredAt, setTransferredAt] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState("");
+  const summaryRef = useRef<RefundSummary | null>(null);
+  summaryRef.current = summary;
+
+  const load = useCallback(() => {
+    let alive = true;
+    setFailed(null);
+    merchantPaymentApi
+      .refunds(shopId, order.id)
+      .then((value) => { if (alive) setSummary(value); })
+      .catch((caught) => { if (alive) setFailed(orderErrorMessage(t, caught)); });
+    return () => { alive = false; };
+  }, [shopId, order.id, t]);
+
+  useEffect(() => load(), [load, order.version, order.status, order.paymentStatus]);
+
+  const reset = () => {
+    setRestock(true);
+    setReason("");
+    setReference("");
+    setTransferredAt("");
+    setFile(null);
+    setErrors({});
+    setFormError("");
+  };
+
+  const lastNonce = useRef(0);
+  useEffect(() => {
+    if (!openRequest || openRequest.nonce === lastNonce.current) return;
+    lastNonce.current = openRequest.nonce;
+    if (!canRefund) return;
+    const open = summaryRef.current?.refunds.find((r) => r.status === "REQUESTED");
+    reset();
+    setDialog({ kind: openRequest.kind, refund: open });
+  }, [openRequest, canRefund]);
+
+  const close = () => { if (!busy) setDialog(null); };
+
+  const run = async (call: () => Promise<{ changed: boolean; order: OrderDetail }>, doneKey: string) => {
+    setBusy(true);
+    setErrors({});
+    setFormError("");
+    try {
+      const result = await call();
+      setDialog(null);
+      onOrderChanged(result.order);
+      load();
+      notify(t(result.changed ? doneKey : "orderManagement.drawer.toast.unchanged"));
+    } catch (caught) {
+      if (isStaleOrderError(caught)) {
+        setDialog(null);
+        notify(orderErrorMessage(t, caught), "fail");
+        onStale();
+      } else if (caught instanceof ApiError && caught.fieldErrors.length > 0) {
+        const next: Record<string, string> = {};
+        for (const item of caught.fieldErrors) if (!next[item.field]) next[item.field] = item.message;
+        setErrors(next);
+      } else {
+        setFormError(orderErrorMessage(t, caught));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const approve = (refund?: RefundView) => run(
+    () => (refund
+      ? merchantPaymentApi.approveRefund(shopId, order.id, refund.id, { restock })
+      : merchantOrderApi.approveRefund(shopId, order.id, { restock })),
+    "orderManagement.refund.toast.approved",
+  );
+
+  const reject = (refund?: RefundView) => {
+    if (!reason.trim()) { setErrors({ reason: t("orderManagement.refund.reasonRequired") }); return; }
+    return run(
+      () => (refund
+        ? merchantPaymentApi.rejectRefund(shopId, order.id, refund.id, { reason: reason.trim() })
+        : merchantOrderApi.rejectRefund(shopId, order.id, { reason: reason.trim() })),
+      "orderManagement.refund.toast.rejected",
+    );
+  };
+
+  const uploadProof = (refund: RefundView) => {
+    const next: Record<string, string> = {};
+    if (!file) next.file = t("orderManagement.refund.fileRequired");
+    else if (file.size > MAX_FILE) next.file = t("orderManagement.payment.fileTooLarge");
+    setErrors(next);
+    if (Object.keys(next).length || !file) return;
+    const form = new FormData();
+    form.set("file", file);
+    if (reference.trim()) form.set("reference", reference.trim());
+    if (transferredAt) form.set("transferredAt", transferredAt);
+    return run(() => merchantPaymentApi.uploadRefundProof(shopId, order.id, refund.id, form), "orderManagement.refund.toast.proofUploaded");
+  };
+
+  const refunds = (summary?.refunds ?? []).slice().sort((a, b) => String(b.requestedAt ?? "").localeCompare(String(a.requestedAt ?? "")));
+  if (summary && refunds.length === 0 && !failed && order.status !== "REFUND_REQUESTED") return null;
+  const fieldError = (name: string) => (errors[name] ? <small className="om-field-error" role="alert">{errors[name]}</small> : null);
+
+  return (
+    <section className="om-section om-refund" aria-label={t("orderManagement.refund.title")}>
+      <header className="om-section-head">
+        <h3><RotateCcw /> {t("orderManagement.refund.title")}</h3>
+      </header>
+      {failed && <p className="om-error" role="alert">{failed}</p>}
+      {!failed && !summary && <div className="om-skel"><Skeleton height={16} /><Skeleton height={64} radius={8} /></div>}
+      {summary && (
+        <dl className="om-kv om-kv-money">
+          <div><dt>{t("orderManagement.refund.paid")}</dt><dd className="num">{money(summary.paidAmount)}</dd></div>
+          <div><dt>{t("orderManagement.refund.refunded")}</dt><dd className="num">{money(summary.refundedAmount)}</dd></div>
+          <div><dt>{t("orderManagement.refund.refundable")}</dt><dd className="num">{money(summary.refundableAmount)}</dd></div>
+        </dl>
+      )}
+
+      {refunds.map((refund) => (
+        <article className="om-payment-card" key={refund.id}>
+          <div className="om-payment-top">
+            <b>{t("orderManagement.refund.requestOf", { amount: money(refund.amount) })}</b>
+            <span className={`om-pill ${refund.status === "COMPLETED" ? "paid" : refund.status === "REJECTED" ? "cancelled" : "pending"}`}>
+              {t(`orderManagement.refund.status.${refund.status}`, { defaultValue: refund.status })}
+            </span>
+          </div>
+          <dl className="om-kv">
+            {refund.reason && <div><dt>{t("orderManagement.refund.reason")}</dt><dd>{refund.reason}</dd></div>}
+            {refund.requesterType && <div><dt>{t("orderManagement.refund.requester")}</dt><dd>{t(`orderManagement.refund.requesters.${refund.requesterType}`, { defaultValue: refund.requesterType })}</dd></div>}
+            <div><dt>{t("orderManagement.refund.requestedAt")}</dt><dd>{formatBangkokDateTime(refund.requestedAt, localeTag)}</dd></div>
+            {refund.approvedAt && <div><dt>{t("orderManagement.refund.approvedAt")}</dt><dd>{formatBangkokDateTime(refund.approvedAt, localeTag)}</dd></div>}
+            {refund.rejectedAt && <div><dt>{t("orderManagement.refund.rejectedAt")}</dt><dd>{formatBangkokDateTime(refund.rejectedAt, localeTag)}</dd></div>}
+            {refund.rejectReason && <div><dt>{t("orderManagement.refund.rejectReason")}</dt><dd>{refund.rejectReason}</dd></div>}
+            {refund.restock != null && <div><dt>{t("orderManagement.refund.restock")}</dt><dd>{t(refund.restock ? "orderManagement.refund.yes" : "orderManagement.refund.no")}</dd></div>}
+            {refund.proofReference && <div><dt>{t("orderManagement.refund.proofReference")}</dt><dd className="num">{refund.proofReference}</dd></div>}
+            {refund.proofTransferredAt && <div><dt>{t("orderManagement.refund.proofTransferredAt")}</dt><dd>{formatBangkokDateTime(refund.proofTransferredAt, localeTag)}</dd></div>}
+            {refund.completedAt && <div><dt>{t("orderManagement.refund.completedAt")}</dt><dd>{formatBangkokDateTime(refund.completedAt, localeTag)}</dd></div>}
+            {refund.buyerAckStatus && <div><dt>{t("orderManagement.refund.buyerAck")}</dt><dd>{refund.buyerAckStatus}{refund.buyerAckNote ? ` — ${refund.buyerAckNote}` : ""}</dd></div>}
+          </dl>
+          {refund.proofFileUrl && (
+            <div className="om-proof-file">
+              <SlipPreview path={refund.proofFileUrl} alt={t("orderManagement.refund.proofAlt")} />
+            </div>
+          )}
+          {refund.status === "REQUESTED" && (
+            <div className="om-btn-row">
+              <button type="button" className="om-btn primary" disabled={!canRefund} title={deniedTitle} onClick={() => { reset(); setDialog({ kind: "approve", refund }); }}>
+                {t("orderManagement.refund.approve")}
+              </button>
+              <button type="button" className="om-btn danger" disabled={!canRefund} title={deniedTitle} onClick={() => { reset(); setDialog({ kind: "reject", refund }); }}>
+                {t("orderManagement.refund.reject")}
+              </button>
+            </div>
+          )}
+          {refund.status === "APPROVED" && (
+            <div className="om-btn-row">
+              <button type="button" className="om-btn primary" disabled={!canRefund} title={deniedTitle} onClick={() => { reset(); setDialog({ kind: "proof", refund }); }}>
+                {t("orderManagement.refund.uploadProof")}
+              </button>
+            </div>
+          )}
+        </article>
+      ))}
+
+      {dialog?.kind === "approve" && (
+        <ConfirmDialog
+          title={t("orderManagement.refund.approveTitle")}
+          message={t("orderManagement.refund.approveMessage", { amount: money(dialog.refund?.amount ?? summary?.refundableAmount) })}
+          confirmLabel={t("orderManagement.refund.approve")}
+          cancelLabel={t("orderManagement.drawer.cancel")}
+          confirmDisabled={busy}
+          onCancel={close}
+          onConfirm={() => void approve(dialog.refund)}
+        >
+          <div className="om-dialog-fields">
+            <label className="om-check">
+              <input type="checkbox" checked={restock} onChange={(e) => setRestock(e.target.checked)} />
+              {t("orderManagement.refund.restockLabel")}
+            </label>
+            {formError && <p className="om-error" role="alert">{formError}</p>}
+          </div>
+        </ConfirmDialog>
+      )}
+
+      {dialog?.kind === "reject" && (
+        <ConfirmDialog
+          title={t("orderManagement.refund.rejectTitle")}
+          message={t("orderManagement.refund.rejectMessage")}
+          confirmLabel={t("orderManagement.refund.reject")}
+          cancelLabel={t("orderManagement.drawer.cancel")}
+          danger
+          confirmDisabled={busy || !reason.trim()}
+          onCancel={close}
+          onConfirm={() => void reject(dialog.refund)}
+        >
+          <div className="om-dialog-fields">
+            <label className="om-field">
+              <span>{t("orderManagement.refund.reasonLabel")}</span>
+              <textarea rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+              {fieldError("reason")}
+            </label>
+            {formError && <p className="om-error" role="alert">{formError}</p>}
+          </div>
+        </ConfirmDialog>
+      )}
+
+      {dialog?.kind === "proof" && (
+        <ConfirmDialog
+          title={t("orderManagement.refund.proofTitle")}
+          message={t("orderManagement.refund.proofMessage", { amount: money(dialog.refund.amount) })}
+          confirmLabel={t("orderManagement.refund.uploadProof")}
+          cancelLabel={t("orderManagement.drawer.cancel")}
+          confirmDisabled={busy}
+          onCancel={close}
+          onConfirm={() => void uploadProof(dialog.refund)}
+        >
+          <div className="om-dialog-fields">
+            <label className="om-field">
+              <span>{t("orderManagement.refund.proofFile")}</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              {fieldError("file")}
+            </label>
+            <label className="om-field">
+              <span>{t("orderManagement.refund.proofReference")}</span>
+              <input maxLength={120} value={reference} onChange={(e) => setReference(e.target.value)} />
+              {fieldError("reference")}
+            </label>
+            <label className="om-field">
+              <span>{t("orderManagement.refund.proofTransferredAt")}</span>
+              <input type="datetime-local" value={transferredAt} onChange={(e) => setTransferredAt(e.target.value)} />
+              {fieldError("transferredAt")}
+            </label>
+            {formError && <p className="om-error" role="alert">{formError}</p>}
+          </div>
+        </ConfirmDialog>
+      )}
+    </section>
+  );
+}

@@ -51,3 +51,31 @@
 .settings-soon a:hover{text-decoration:underline}
 .settings-note{margin:10px 0 0;font-size:11px;color:#6780a3}
 .settings-note a{color:#087bf5}
+
+/* Y1 shop settings (shipping methods / payment accounts) */
+.shop-settings-card header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.shop-settings-card header h2{display:flex;align-items:center;gap:8px;margin:0}
+.shop-settings-card .num{font-family:var(--font-mono),ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.shop-settings-primary{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 16px;border:0;border-radius:8px;background:var(--shop-primary,#0878f5);color:var(--shop-on-primary,#fff);font:700 13px var(--font-sans);cursor:pointer}
+.shop-settings-primary:disabled{opacity:.55;cursor:not-allowed}
+.shop-settings-form-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.shop-settings-form-actions .secondary{min-height:40px;padding:0 14px;border:1px solid var(--shop-border,#d7e5f3);border-radius:8px;background:var(--shop-card-bg,#fff);cursor:pointer}
+.shop-settings-form-actions .danger{min-height:40px;padding:0 14px;border:1px solid #c62828;border-radius:8px;background:transparent;color:#c62828;cursor:pointer}
+.shop-settings-table-wrap{overflow-x:auto;margin-top:12px}
+.shop-settings-table{width:100%;border-collapse:collapse;font-size:13px}
+.shop-settings-table th,.shop-settings-table td{padding:10px 8px;border-bottom:1px solid var(--shop-border,#e1e7f0);text-align:left;vertical-align:middle}
+.shop-settings-table th{color:var(--shop-muted,#5f7ca8);font-weight:600}
+.shop-settings-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--shop-border,#d7e5f3);border-radius:8px;background:var(--shop-card-bg,#fff);cursor:pointer;color:var(--shop-primary,#0878f5)}
+.shop-settings-icon:disabled{opacity:.55;cursor:not-allowed}
+.shop-settings-empty{display:grid;gap:8px;justify-items:start;padding:24px 0;color:var(--shop-muted,#5f7ca8)}
+.shop-settings-warn{margin:8px 0;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--shop-primary,#0878f5) 8%,#fff);color:var(--shop-text,#08245d);font-size:12px}
+.shop-settings-form{margin-top:16px;padding-top:16px;border-top:1px solid var(--shop-border,#e1e7f0)}
+.shop-settings-form h3{margin:0 0 10px;font-size:15px}
+.shop-settings-toggle{gap:8px;margin:0}
+.shop-settings-account,.shop-settings-method{margin-top:16px;padding-top:16px;border-top:1px solid var(--shop-border,#e1e7f0)}
+.shop-settings-account:first-of-type,.shop-settings-method:first-of-type{border-top:0;padding-top:0}
+.shop-settings-account h3,.shop-settings-method-row{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.shop-settings-method-row{justify-content:space-between}
+.shop-settings-method-row small{display:block;color:var(--shop-muted,#5f7ca8);font-weight:500}
+.shop-settings-badge{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:999px;font:700 11px var(--font-sans);background:var(--shop-primary-soft,#e4f1ff);color:var(--shop-primary,#0878f5)}
+.shop-settings-skeleton{display:grid;gap:10px;padding:8px 0}

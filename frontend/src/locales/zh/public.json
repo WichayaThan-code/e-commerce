@@ -202,6 +202,21 @@
       "checkout": "结算",
       "done": "完成"
     },
+    "addressBook": {
+      "title": "地址簿",
+      "hint": "选择已保存地址，或保存当前地址以便下次使用（保存在本设备）",
+      "empty": "暂无已保存地址",
+      "save": "保存此地址",
+      "saved": "地址已保存",
+      "labelPlaceholder": "标签，如 家 / 公司",
+      "remove": "删除",
+      "removeTitle": "删除此地址？",
+      "removeBody": "将从本设备的地址簿中删除该地址"
+    },
+    "coupon": {
+      "title": "优惠券",
+      "hint": "输入券码或从已领取的券中选择 — 每个店铺限用一张"
+    },
     "address": {
       "title": "收货地址",
       "recipient": "收件人",
@@ -212,19 +227,83 @@
     "errors": {
       "required": "必填",
       "phone": "电话号码无效",
-      "postal": "邮编须为 5 位数字"
+      "postal": "邮编须为 5 位数字",
+      "COUPON_NOT_FOUND": "未找到该优惠券",
+      "COUPON_INACTIVE": "该优惠券未启用",
+      "COUPON_NOT_STARTED": "该优惠券尚未开始",
+      "COUPON_EXPIRED": "该优惠券已过期",
+      "COUPON_USAGE_LIMIT_REACHED": "该优惠券已达使用上限",
+      "COUPON_PER_CUSTOMER_LIMIT_REACHED": "您已用完该优惠券的可用次数",
+      "COUPON_MIN_SUBTOTAL_NOT_MET": "商品金额未达到优惠券最低要求",
+      "COUPON_LOGIN_REQUIRED": "请先登录后再使用优惠券",
+      "COUPON_NOT_COLLECTED": "请先领取优惠券再使用",
+      "COUPON_INVALID": "无法使用该优惠券",
+      "PRICE_CHANGED": "价格已变更，请返回购物车核对",
+      "OUT_OF_STOCK": "商品已售罄",
+      "INSUFFICIENT_STOCK": "库存不足",
+      "PRODUCT_UNAVAILABLE": "商品不可购买",
+      "CART_EMPTY": "购物车为空，无法下单",
+      "SHIPPING_METHOD_NOT_FOUND": "未找到所选配送方式",
+      "SHIPPING_METHOD_REQUIRED": "请选择配送方式",
+      "SHIPPING_METHOD_UNAVAILABLE": "该配送方式暂不可用",
+      "SHIPPING_NOT_COVERED": "该地址不在所选配送范围内",
+      "COD_NOT_ALLOWED": "无法使用货到付款",
+      "COD_NOT_AVAILABLE": "货到付款暂不可用",
+      "COD_MAX_AMOUNT_EXCEEDED": "订单金额超过货到付款限额",
+      "ORDER_VERSION_CONFLICT": "订单已更新，请重试",
+      "ORDER_NOT_ACCEPTED": "该订单尚未被接受",
+      "ORDER_GENERIC": "订单出现问题，请重试",
+      "TERMS_NOT_ACCEPTED": "请先接受下单条款",
+      "TERMS_VERSION_OUTDATED": "条款已更新，请重新阅读并接受",
+      "CHECKOUT_CONFLICT": "上一笔下单仍在处理中，请再试一次",
+      "VALIDATION_FAILED": "收货地址有误，请检查",
+      "LOGIN_REQUIRED": "请先登录再下单"
     },
     "payment": {
       "title": "支付方式",
       "transfer": "银行转账 / PromptPay",
-      "transferHint": "下单后显示店铺收款账户，请在 24 小时内付款"
+      "transferHint": "下单后显示店铺收款账户，请在 24 小时内付款",
+      "cod": "货到付款 (COD)",
+      "codHint": "收货时以现金支付",
+      "codHintFee": "含货到付款手续费 {{fee}}",
+      "codFee": "货到付款手续费",
+      "codUnavailable": "目前无法使用货到付款",
+      "codUnavailableShop": "{{shop}} 不支持货到付款",
+      "codLimitShop": "{{shop}} 订单金额超过货到付款限额 {{max}}"
     },
     "terms": {
       "title": "下单条款",
       "label": "我已阅读并接受店铺政策",
+      "read": "阅读条款",
+      "dialogTitle": "ThaiShopFun 下单条款",
+      "version": "版本",
+      "accept": "接受条款",
+      "close": "关闭",
       "policiesOf": "政策来自",
       "required": "请先接受下单条款再付款",
-      "rejected": "请先接受订单条款。"
+      "rejected": "请先接受订单条款。",
+      "doc": {
+        "s1": {
+          "title": "下单",
+          "body": "确认结算后，平台将按店铺分别创建订单。各店自行负责履约。请在确认前核对商品、地址与金额。"
+        },
+        "s2": {
+          "title": "付款与货到付款 (COD)",
+          "body": "银行转账 / PromptPay：请按应付金额付款并在店铺时限内提交凭证。货到付款：收货时以现金支付，可能含结算页显示的手续费。逾期未付订单可能被取消。"
+        },
+        "s3": {
+          "title": "配送",
+          "body": "送达时间取决于配送方式、库存与收货地址。请确保地址与电话准确。信息不全时店铺可能先联系确认再发货。"
+        },
+        "s4": {
+          "title": "退款与取消",
+          "body": "取消与退款遵循各店政策及订单状态。如商品损坏或发错，请在店铺规定时间内联系并提供证明。"
+        },
+        "s5": {
+          "title": "个人数据",
+          "body": "姓名、地址与电话仅用于履约、配送及必要联系。详情请参阅各店政策与平台隐私政策。"
+        }
+      }
     },
     "shippingTitle": "配送方式",
     "shippingDefault": "本店使用标准运费 ฿40",
@@ -255,6 +334,19 @@
       "status": "状态",
       "noAccounts": "店铺尚未设置收款账户",
       "payNote": "请在 24 小时内按各订单金额转账，否则订单将被取消",
+      "codPay": "货到付款",
+      "codAmount": "{{total}}（含货到付款手续费 {{fee}}）",
+      "codNote": "请按各订单金额在收货时以现金支付",
+      "copyOrder": "复制单号",
+      "copyAccount": "复制",
+      "copied": "已复制",
+      "nextPayTitle": "下一步：付款",
+      "nextPayBody": "按金额转账后，在订单详情页上传凭证",
+      "payAndSlip": "付款 / 上传凭证",
+      "shipTo": "寄送至",
+      "shippingMethod": "配送方式",
+      "eta": "预计送达",
+      "etaLocal": "平台估算，实际以物流为准",
       "loadError": "订单加载失败",
       "missing": "未找到订单"
     }
@@ -262,6 +354,41 @@
   "orders": {
     "title": "我的订单",
     "all": "全部",
+    "list": {
+      "subtitle": "在此跟踪付款、打包与配送状态",
+      "found": "共",
+      "searchPlaceholder": "按订单号或店铺名搜索",
+      "search": "搜索",
+      "searchEmpty": "没有匹配的订单",
+      "searchEmptyHint": "换个关键词试试，或清除搜索查看全部",
+      "clearSearch": "清除搜索",
+      "emptyHint": "先逛逛泰国店铺，再回来跟踪订单",
+      "hintPay": "请先付款，以便店铺继续处理",
+      "hintShip": "包裹运送中 — 打开详情可跟踪",
+      "hintDetail": "查看商品、付款与物流信息",
+      "actionPay": "去付款",
+      "actionCod": "查看货到付款订单",
+      "actionTrack": "跟踪物流",
+      "actionBuyAgain": "查看详情",
+      "pageAria": "订单分页",
+      "tabs": {
+        "to-pay": "待付款",
+        "to-ship": "待发货",
+        "shipping": "运送中",
+        "delivered": "已送达",
+        "completed": "已完成",
+        "cancelled": "已取消",
+        "refund": "退款"
+      },
+      "paymentStatus": {
+        "UNPAID": "未付款",
+        "PENDING": "审核中",
+        "PAID": "已付款",
+        "FAILED": "付款失败",
+        "PARTIALLY_REFUNDED": "部分退款",
+        "REFUNDED": "已退款"
+      }
+    },
     "empty": "暂无订单",
     "blocked": "管理员账号无法查看买家订单",
     "notFound": "未找到订单",
@@ -270,6 +397,18 @@
     "placedAt": "下单时间",
     "viewDetail": "查看详情",
     "back": "我的订单",
+    "detail": {
+      "orderNo": "订单编号",
+      "hintPay": "请付款并上传转账凭证，以便店铺继续处理",
+      "hintCod": "货到付款 — 店铺将按顺序发货",
+      "hintPrepare": "店铺正在准备您的商品",
+      "hintShip": "包裹运送中 — 可在下方查看物流单号",
+      "hintDelivered": "已送达 — 确认收齐后请点击确认收货",
+      "hintDone": "订单已完成",
+      "hintCancel": "此订单已取消",
+      "hintRefund": "可在下方查看退款进度",
+      "timelineHint": "订单状态记录"
+    },
     "products": "商品",
     "address": "收货地址",
     "note": "给店铺留言",
@@ -308,7 +447,74 @@
     "confirmReceivedAsk": "确认已收到全部商品？",
     "prev": "上一页",
     "next": "下一页",
-    "page": "第 {{current}}/{{total}} 页"
+    "page": "第 {{current}}/{{total}} 页",
+    "termsAcceptedAt": "接受条款时间",
+    "shipment": {
+      "title": "物流跟踪",
+      "status": "物流状态",
+      "carrier": "承运商",
+      "trackWeb": "在承运商网站跟踪",
+      "empty": "店铺尚未发货",
+      "loadError": "物流信息加载失败",
+      "statusValue": {
+        "READY_TO_PACK": "待打包",
+        "PACKING": "打包中",
+        "PACKED": "已打包",
+        "DISPATCHED": "已出库",
+        "IN_TRANSIT": "运输中",
+        "OUT_FOR_DELIVERY": "派送中",
+        "DELIVERED": "已送达",
+        "DELIVERY_FAILED": "派送失败",
+        "RETURNED": "已退回",
+        "CANCELLED": "已取消"
+      }
+    },
+    "paymentsHistory": {
+      "title": "付款记录",
+      "method": "支付方式",
+      "bankTransfer": "银行转账 / PromptPay",
+      "cod": "货到付款 (COD)",
+      "codPay": "收货时以现金支付",
+      "codAmount": "{{total}}（含货到付款手续费 {{fee}}）",
+      "empty": "暂无付款记录",
+      "loadError": "付款记录加载失败"
+    },
+    "refund": {
+      "title": "退款",
+      "request": "申请退款/退货",
+      "requestAsk": "确认申请退款 — 请填写原因",
+      "submit": "提交申请",
+      "reason": "原因",
+      "reasonRequired": "请填写原因",
+      "amountOptional": "金额（留空则退还可退全额）",
+      "amountInvalid": "金额无效",
+      "amountTooHigh": "金额超过可退金额",
+      "refundable": "可退金额",
+      "rejectReason": "拒绝原因",
+      "proofRef": "退款参考号",
+      "proofAt": "退款转账时间",
+      "viewProof": "查看退款凭证",
+      "confirmReceived": "已收到退款",
+      "dispute": "尚未收到退款",
+      "disputeAsk": "报告尚未收到退款 — 请填写说明",
+      "disputeSubmit": "提交报告",
+      "note": "说明",
+      "noteRequired": "请填写说明",
+      "ackStatus": "确认状态",
+      "empty": "暂无退款申请",
+      "loadError": "退款信息加载失败",
+      "status": {
+        "REQUESTED": "处理中",
+        "APPROVED": "已批准",
+        "REJECTED": "已拒绝",
+        "COMPLETED": "已完成",
+        "CANCELLED": "已取消"
+      },
+      "ack": {
+        "CONFIRMED": "已确认收到",
+        "DISPUTED": "已提出异议"
+      }
+    }
   },
   "footer": {
     "tagline": "泰国人的空间，服务每一家泰国店铺",

@@ -24,6 +24,9 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   '/admin/users': { permission: 'PLATFORM_ACCOUNT_READ', scope: 'platform' },
   '/admin/roles': { permission: 'PLATFORM_ACCOUNT_READ', scope: 'platform' }, // role catalog read (GET /api/admin/roles)
   '/admin/role-assignments': { permission: 'PLATFORM_ACCOUNT_READ', scope: 'platform' },
+  '/admin/orders': { permission: 'PLATFORM_SHOP_READ', scope: 'platform' }, // Y7: no PLATFORM_ORDER_* code in the seed
+  '/admin/merchants': { permission: 'PLATFORM_SHOP_READ', scope: 'platform' },
+  '/admin/audit-logs': { permission: 'PLATFORM_AUDIT_READ', scope: 'platform' },
   '/merchant/dashboard': { permission: 'SHOP_READ', scope: 'shop' },
   '/merchant/products': { permission: 'PRODUCT_READ', scope: 'shop' },
   '/merchant/orders': { permission: 'ORDER_READ', scope: 'shop' },

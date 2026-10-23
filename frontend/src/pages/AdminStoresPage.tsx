@@ -9,14 +9,14 @@ import {
   Tags, TrendingUp, UserCog, UsersRound, WalletCards,
 } from 'lucide-react'
 import { SkeletonTable, LoadError } from '../components/feedback/Skeleton'
-import ConfirmDialog from '../components/form/ConfirmDialog'
+import ReasonDialog from '../components/admin/ReasonDialog'
 import { useDelayedLoading } from '../hooks/useDelayedLoading'
 import AdminHeader from '../components/AdminHeader'
-import AdminSidebar from '../components/AdminSidebar'
+import AdminSidebar, { refreshAdminStoreApplications } from '../components/AdminSidebar'
 import { useAuth } from '../contexts/AuthContext'
 import { hasPlatformAccess } from '../services/permissions'
 import { usePermissions } from '../hooks/usePermissions'
-import { adminApplicationApi, ApiError, mediaUrl, type AdminStoreApplication } from '../services/api'
+import { adminApplicationApi, adminPlatformApi, ApiError, mediaUrl, type AdminStoreApplication } from '../services/api'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-stores.css'
 
@@ -94,6 +94,7 @@ export default function AdminStoresPage(){
   const [loaded,setLoaded]=useState(false)
   const [busyId,setBusyId]=useState<number|null>(null)
   const [storeConfirm,setStoreConfirm]=useState<StoreRecord|null>(null)
+  const [confirmError,setConfirmError]=useState('')
   const [query,setQuery]=useState('')
   const [status,setStatus]=useState('ทั้งหมด')
   const [category,setCategory]=useState('ทั้งหมด')
@@ -157,20 +158,28 @@ export default function AdminStoresPage(){
       return
     }
     if(busyId)return
+    setConfirmError('')
     setStoreConfirm(store)
   }
-  const applyStoreStatus=async()=>{
+  const applyStoreStatus=async(reason:string)=>{
     const store=storeConfirm
     if(!store||busyId)return
     const reactivate=store.status==='ถูกระงับ'
-    setStoreConfirm(null)
+    setConfirmError('')
     setBusyId(store.id)
     try {
-      const updated=reactivate?await adminApplicationApi.reactivate(store.id):await adminApplicationApi.suspend(store.id)
-      replaceStore(updated)
-      notify(reactivate?`เปิดใช้งานร้าน ${updated.shopName} แล้ว`:`ระงับร้าน ${updated.shopName} แล้ว`)
+      // platform API (reason is mandatory and audited); the response is a shop detail, so reload the application list instead of patching a row
+      if(reactivate) await adminPlatformApi.reactivateShop(store.id,{reason})
+      else await adminPlatformApi.suspendShop(store.id,{reason})
+      setStoreConfirm(null)
+      try {
+        const data=await adminApplicationApi.list()
+        setRows(data.map(mapStore))
+      } catch { /* the status change succeeded; the list refreshes on the next visit */ }
+      refreshAdminStoreApplications()
+      notify(reactivate?`เปิดใช้งานร้าน ${store.name} แล้ว`:`ระงับร้าน ${store.name} แล้ว`)
     } catch (error) {
-      notify(error instanceof ApiError ? error.message : 'บันทึกสถานะร้านไม่สำเร็จ')
+      setConfirmError(error instanceof ApiError ? error.message : 'บันทึกสถานะร้านไม่สำเร็จ')
     } finally {
       setBusyId(null)
     }
@@ -230,18 +239,18 @@ export default function AdminStoresPage(){
     </div>
     {notice&&<div className="admin-toast" role="status">{notice}</div>}
     {storeConfirm && (
-      <ConfirmDialog
+      <ReasonDialog
         title={t(storeConfirm.status === 'ถูกระงับ' ? 'confirm.reactivateStoreTitle' : 'confirm.suspendStoreTitle')}
         message={[
           t(storeConfirm.status === 'ถูกระงับ' ? 'confirm.reactivateStoreBody' : 'confirm.suspendStoreBody', { name: storeConfirm.name }),
           storeConfirm.status === 'ถูกระงับ' && storeConfirm.appeal ? t('confirm.appealNote', { appeal: storeConfirm.appeal }) : '',
         ].filter(Boolean).join(' ')}
-        cancelLabel={t('confirm.cancel')}
         confirmLabel={t('confirm.confirm')}
         danger={storeConfirm.status !== 'ถูกระงับ'}
-        confirmDisabled={busyId === storeConfirm.id}
-        onCancel={() => setStoreConfirm(null)}
-        onConfirm={() => void applyStoreStatus()}
+        busy={busyId === storeConfirm.id}
+        error={confirmError}
+        onCancel={() => { setStoreConfirm(null); setConfirmError('') }}
+        onConfirm={reason => void applyStoreStatus(reason)}
       />
     )}
   </main>

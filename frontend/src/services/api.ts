@@ -47,7 +47,7 @@ function withLanguage(headers: Headers) {
   headers.set('Accept-Language', acceptLanguageHeader())
 }
 
-async function request<T>(path:string, init:RequestInit = {}, authenticate = false, retry = true):Promise<T> {
+export async function request<T>(path:string, init:RequestInit = {}, authenticate = false, retry = true):Promise<T> {
   if (authenticate && !accessToken) await refreshSession()
   const headers = new Headers(init.headers)
   withLanguage(headers)
@@ -882,6 +882,24 @@ export const walletApi = {
   collect: (shopId: number, code: string) => request<CollectCouponResult>('/api/me/coupons', json('POST', { shopId, code: code.trim().toUpperCase() }), true),
 }
 
+/** Buyer address book (V1 buyer_addresses): /api/me/addresses — BUYER_ADDRESS_READ / BUYER_ADDRESS_UPDATE. */
+export type BuyerAddress = {
+  id: string; label?: string | null; recipientName: string; phone: string
+  addressLine1: string; addressLine2?: string | null; subdistrict?: string | null
+  district: string; province: string; postalCode: string; countryCode?: string
+  isDefault: boolean; updatedAt: string
+}
+export type BuyerAddressRequest = {
+  label?: string; recipientName: string; phone: string; addressLine1: string; addressLine2?: string
+  subdistrict?: string; district: string; province: string; postalCode: string; isDefault?: boolean
+}
+export const addressBookApi = {
+  list: () => request<BuyerAddress[]>('/api/me/addresses', { cache: 'no-store' }, true),
+  create: (body: BuyerAddressRequest) => request<BuyerAddress>('/api/me/addresses', json('POST', body), true),
+  update: (id: string, body: BuyerAddressRequest) => request<BuyerAddress>(`/api/me/addresses/${id}`, json('PUT', body), true),
+  remove: (id: string) => request<void>(`/api/me/addresses/${id}`, { method: 'DELETE' }, true),
+}
+
 export type CheckoutAddress = {
   recipientName: string; phone: string; addressLine1: string; addressLine2?: string
   subdistrict?: string; district: string; province: string; postalCode: string
@@ -896,29 +914,59 @@ export type OrderDetail = {
   shippingAddress?: { recipientName?: string | null; phone?: string | null; addressLine1?: string | null; addressLine2?: string | null; subdistrict?: string | null; district?: string | null; province?: string | null; postalCode?: string | null; masked?: boolean } | null
   buyerNote?: string | null; cancelReason?: string | null; paidAt?: string | null; cancelledAt?: string | null; completedAt?: string | null
   allowedTransitions?: string[] | null; paidAmount?: Money | null; refundedAmount?: Money | null
+  // merchant order management (Y2)
+  channel?: string | null; merchantConfirmStatus?: string | null; taxTotal?: Money | null; buyerUserId?: string | null; shopCustomerId?: string | null
+  statusBeforeRefund?: string | null; merchantConfirmedAt?: string | null; version?: number; itemsHidden?: boolean; refundableAmount?: Money | null
+  awaitingAcceptance?: boolean | null; paymentMethod?: string | null; codFee?: Money | null; termsAcceptedAt?: string | null
 }
-export type OrderSummary = { id: string; orderNumber: string; shopId: number; shopName: string; status: string; paymentStatus: string; fulfillmentStatus?: string | null; grandTotal: Money; currency: string; itemCount?: number | null; totalQuantity?: number | null; placedAt?: string | null; paidAt?: string | null }
+export type OrderSummary = { id: string; orderNumber: string; shopId: number; shopName: string; status: string; paymentStatus: string; fulfillmentStatus?: string | null; grandTotal: Money; currency: string; itemCount?: number | null; totalQuantity?: number | null; placedAt?: string | null; paidAt?: string | null; version: number; awaitingAcceptance: boolean; paymentMethod?: string | null }
 export type OrderPage = { items: OrderSummary[]; page: number; size: number; totalItems: number; totalPages: number }
 export type OrderTimelineEntry = { id: number; event: string; fromStatus?: string | null; toStatus?: string | null; actorType?: string | null; reason?: string | null; at: string }
-export type PaymentProofView = { id: string; status: string; referenceNo?: string | null; amountDeclared?: Money | null; amountMismatch?: boolean; transferredAt?: string | null; fileUrl?: string | null; contentType?: string | null; uploadedAt?: string | null; rejectReason?: string | null }
-export type PaymentView = { id: string; provider: string; status: string; amount: Money; attemptNo: number; createdAt?: string | null; proofs?: PaymentProofView[] | null }
+export type PaymentProofView = { id: string; status: string; referenceNo?: string | null; amountDeclared?: Money | null; amountMismatch?: boolean; transferredAt?: string | null; fileUrl?: string | null; contentType?: string | null; uploadedAt?: string | null; rejectReason?: string | null; bankName?: string | null; reviewedAt?: string | null; proofType?: string | null }
+export type PaymentView = { id: string; provider: string; status: string; amount: Money; attemptNo: number; createdAt?: string | null; proofs?: PaymentProofView[] | null; currency?: string | null; capturedAt?: string | null; failureCode?: string | null; history?: PaymentStatusEntry[] | null }
+export type PaymentStatusEntry = { id?: number | null; event: string; fromStatus?: string | null; toStatus?: string | null; actorType?: string | null; actorUserId?: string | null; reason?: string | null; metadata?: Record<string, unknown> | null; at: string }
 export type CheckoutResult = { replayed: boolean; orders: OrderDetail[]; grandTotal: Money; currency: string }
 export type PaymentAccount = { provider: string; displayName?: string | null; bankName?: string | null; accountNumber?: string | null; accountName?: string | null; promptPayId?: string | null; active: boolean; masked: boolean }
-export type OrderPaymentInfo = { orderId: string; orderNumber: string; orderStatus: string; paymentStatus: string; amountDue: Money; currency: string; canSubmitSlip: boolean; accounts: PaymentAccount[]; payments?: PaymentView[] | null }
+export type OrderPaymentInfo = { orderId: string; orderNumber: string; orderStatus: string; paymentStatus: string; amountDue: Money; currency: string; canSubmitSlip: boolean; accounts: PaymentAccount[]; payments?: PaymentView[] | null; paymentMethod?: string | null; codFee?: Money | null }
 
-export type CheckoutRequestBody = { shippingAddress: CheckoutAddress; buyerNote?: string; acceptTerms?: boolean }
+export type CheckoutRequestBody = {
+  shippingAddress: CheckoutAddress; buyerNote?: string; acceptTerms?: boolean; paymentMethod?: 'BANK_TRANSFER' | 'COD'
+  termsVersion?: string; shippingAddressId?: string
+}
+export type CheckoutExtras = { termsVersion?: string; shippingAddressId?: string }
 export const checkoutApi = {
   /** idempotencyKey: 8?100 chars [A-Za-z0-9._:-]; reuse the same key when retrying the same attempt. */
-  place: (idempotencyKey: string, shippingAddress: CheckoutAddress, buyerNote?: string, acceptTerms?: boolean) =>
-    request<CheckoutResult>('/api/checkout', { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey },
-      body: JSON.stringify({ shippingAddress, buyerNote: buyerNote || undefined, acceptTerms: acceptTerms ? true : undefined } satisfies CheckoutRequestBody) }, true),
+  place: (
+    idempotencyKey: string,
+    shippingAddress: CheckoutAddress,
+    buyerNote?: string,
+    acceptTerms?: boolean,
+    paymentMethod?: 'BANK_TRANSFER' | 'COD',
+    extras?: CheckoutExtras,
+  ) => {
+    const body: CheckoutRequestBody = {
+      shippingAddress,
+      buyerNote: buyerNote || undefined,
+      acceptTerms: acceptTerms ? true : undefined,
+      paymentMethod: paymentMethod === 'COD' ? 'COD' : undefined,
+    }
+    if (extras?.termsVersion) body.termsVersion = extras.termsVersion
+    if (extras?.shippingAddressId) body.shippingAddressId = extras.shippingAddressId
+    return request<CheckoutResult>('/api/checkout', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify(body),
+    }, true)
+  },
+  paymentMethods: (shopId: number) => request<PaymentMethodsView>(`/api/checkout/payment-methods?shopId=${shopId}`, {}, true),
 }
 export const buyerOrderApi = {
   get: (orderId: string) => request<OrderDetail>(`/api/orders/${orderId}`, {}, true),
   paymentInfo: (orderId: string) => request<OrderPaymentInfo>(`/api/orders/${orderId}/payment-info`, {}, true),
-  list: (params: { status?: string; page?: number; size?: number }) => {
+  list: (params: { status?: string; page?: number; size?: number; q?: string }) => {
     const query = new URLSearchParams()
     if (params.status) query.set('status', params.status)
+    if (params.q?.trim()) query.set('q', params.q.trim())
     query.set('page', String(params.page ?? 0)); query.set('size', String(params.size ?? 10))
     query.set('sort', 'placedAt'); query.set('direction', 'desc')
     return request<OrderPage>(`/api/orders?${query}`, {}, true)
@@ -927,4 +975,336 @@ export const buyerOrderApi = {
   submitSlip: (orderId: string, form: FormData) => request<PaymentView>(`/api/orders/${orderId}/payments`, { method: 'POST', body: form }, true),
   cancel: (orderId: string, reason: string) => request<unknown>(`/api/orders/${orderId}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }, true),
   confirmReceived: (orderId: string) => request<unknown>(`/api/orders/${orderId}/confirm-received`, { method: 'POST', body: JSON.stringify({}) }, true),
+  shipment: (orderId: string) => request<ShipmentDetail>(`/api/orders/${orderId}/shipment`, {}, true),
+  payments: (orderId: string) => request<PaymentView[]>(`/api/orders/${orderId}/payments`, {}, true),
+  refundRequest: (orderId: string, body: { reason: string; amount?: number }) =>
+    request<TransitionResponse>(`/api/orders/${orderId}/refund-request`, { method: 'POST', body: JSON.stringify(body) }, true),
+  refunds: (orderId: string) => request<RefundSummary>(`/api/orders/${orderId}/refunds`, {}, true),
+  confirmRefundReceived: (orderId: string, refundId: string, note?: string) =>
+    request<RefundActionResponse>(`/api/orders/${orderId}/refunds/${refundId}/confirm-received`, {
+      method: 'POST', body: JSON.stringify(note ? { note } : {}),
+    }, true),
+  disputeRefund: (orderId: string, refundId: string, note: string) =>
+    request<RefundActionResponse>(`/api/orders/${orderId}/refunds/${refundId}/dispute`, {
+      method: 'POST', body: JSON.stringify({ note }),
+    }, true),
+}
+
+/* ---------------------------------------------------------------- merchant shop settings (Y1) */
+export type ShippingMethod = {
+  id: string; shopId: number; name: string; carrierCode?: string | null
+  feeType: 'FLAT' | 'WEIGHT' | 'FREE'; feeAmount?: number | null; extraFeePerKg?: number | null
+  freeShippingMinAmount?: number | null; estimatedDaysMin?: number | null; estimatedDaysMax?: number | null; active: boolean
+}
+export type ShippingMethodInput = Omit<ShippingMethod, 'id' | 'shopId' | 'active'> & { active?: boolean }
+export type PaymentAccountInput = { displayName?: string; bankName?: string; accountNumber?: string; accountName?: string; promptPayId?: string; active?: boolean }
+export type PaymentMethodView = { method: 'BANK_TRANSFER' | 'COD'; enabled: boolean; fee?: number | null; maxOrderAmount?: number | null; accountsConfigured?: boolean | null; updatedAt?: string | null }
+export type PaymentMethodsView = { shopId: number; methods: PaymentMethodView[] }
+export type Carrier = { code: string; nameTh: string; nameEn: string; trackingPattern?: string | null; active: boolean; sortOrder: number }
+
+const shopPath = (shopId: number, path: string) => `/api/merchant/shops/${shopId}${path}`
+
+export const carrierApi = {
+  list: () => request<Carrier[]>('/api/carriers', {}, true),
+}
+
+export const merchantShopSettingsApi = {
+  shippingMethods: (shopId: number) => request<ShippingMethod[]>(shopPath(shopId, '/shipping-methods'), {}, true),
+  createShippingMethod: (shopId: number, body: ShippingMethodInput) =>
+    request<ShippingMethod>(shopPath(shopId, '/shipping-methods'), { method: 'POST', body: JSON.stringify(body) }, true),
+  updateShippingMethod: (shopId: number, methodId: string, body: ShippingMethodInput) =>
+    request<ShippingMethod>(shopPath(shopId, `/shipping-methods/${methodId}`), { method: 'PUT', body: JSON.stringify(body) }, true),
+  setShippingMethodActive: (shopId: number, methodId: string, active: boolean) =>
+    request<ShippingMethod>(shopPath(shopId, `/shipping-methods/${methodId}/${active ? 'enable' : 'disable'}`), { method: 'POST' }, true),
+  paymentAccounts: (shopId: number) => request<PaymentAccount[]>(shopPath(shopId, '/payment-accounts'), {}, true),
+  savePaymentAccount: (shopId: number, provider: 'BANK_TRANSFER' | 'PROMPTPAY', body: PaymentAccountInput) =>
+    request<PaymentAccount>(shopPath(shopId, `/payment-accounts/${provider}`), { method: 'PUT', body: JSON.stringify(body) }, true),
+  deactivatePaymentAccount: (shopId: number, provider: 'BANK_TRANSFER' | 'PROMPTPAY') =>
+    request<PaymentAccount>(shopPath(shopId, `/payment-accounts/${provider}`), { method: 'DELETE' }, true),
+  paymentMethods: (shopId: number) => request<PaymentMethodsView>(shopPath(shopId, '/payment-methods'), {}, true),
+  saveCod: (shopId: number, body: { enabled: boolean; fee?: number | null; maxOrderAmount?: number | null }) =>
+    request<PaymentMethodsView>(shopPath(shopId, '/payment-methods/cod'), { method: 'PUT', body: JSON.stringify(body) }, true),
+}
+
+/* ---------------------------------------------------------------- merchant order management (Y2) */
+export type AllowedTransition = { toStatus?: string | null; action: string; reasonRequired: boolean; trackingRequired: boolean }
+export type AllowedTransitions = { status?: string | null; paymentStatus?: string | null; fulfillmentStatus?: string | null; version: number; transitions: AllowedTransition[] }
+export type TransitionBody = { reason?: string; carrierCode?: string; trackingNumber?: string; status?: string; provider?: string; amount?: number; paymentReference?: string; restock?: boolean; expectedVersion?: number; shippedAt?: string }
+export type TransitionResponse = { changed: boolean; fromStatus: string; toStatus: string; order: OrderDetail }
+
+function queryOf(params: Record<string, string | number | boolean | null | undefined>) {
+  const search = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue
+    search.set(key, String(value))
+  }
+  const text = search.toString()
+  return text ? `?${text}` : ''
+}
+
+const merchantOrders = (shopId: number, path = '') => shopPath(shopId, `/orders${path}`)
+
+export const merchantOrderApi = {
+  /** query: status, paymentStatus, fulfillmentStatus, from, to, q, page, size, sort, direction, acceptance */
+  list: (shopId: number, params: Record<string, string | number | boolean | null | undefined> = {}) =>
+    request<OrderPage>(`${merchantOrders(shopId)}${queryOf(params)}`, { cache: 'no-store' }, true),
+  get: (shopId: number, orderId: string) => request<OrderDetail>(merchantOrders(shopId, `/${orderId}`), { cache: 'no-store' }, true),
+  timeline: (shopId: number, orderId: string) => request<OrderTimelineEntry[]>(merchantOrders(shopId, `/${orderId}/timeline`), { cache: 'no-store' }, true),
+  transitions: (shopId: number, orderId: string) => request<AllowedTransitions>(merchantOrders(shopId, `/${orderId}/transitions`), { cache: 'no-store' }, true),
+  /** POST …/orders/{id}/{endpoint}: accept | mark-paid | confirm | process | ship | deliver | cancel */
+  act: (shopId: number, orderId: string, endpoint: string, body?: TransitionBody) =>
+    request<TransitionResponse>(merchantOrders(shopId, `/${orderId}/${endpoint}`), json('POST', body ?? {}), true),
+  approveRefund: (shopId: number, orderId: string, body?: { restock?: boolean }) =>
+    request<RefundActionResponse>(merchantOrders(shopId, `/${orderId}/refund/approve`), json('POST', body ?? {}), true),
+  rejectRefund: (shopId: number, orderId: string, body: { reason: string }) =>
+    request<RefundActionResponse>(merchantOrders(shopId, `/${orderId}/refund/reject`), json('POST', body), true),
+}
+
+/* ---------------------------------------------------------------- merchant payments / refunds (Y3) */
+export type RefundView = {
+  id: string; status: string; amount: Money; currency?: string | null; reason?: string | null; requesterType?: string | null; requestedBy?: string | null
+  requestedAt?: string | null; approvedAt?: string | null; rejectedAt?: string | null; rejectReason?: string | null; restock?: boolean | null
+  proofReference?: string | null; proofTransferredAt?: string | null; proofUploadedAt?: string | null; proofFileUrl?: string | null; completedAt?: string | null
+  buyerAckStatus?: string | null; buyerAckAt?: string | null; buyerAckNote?: string | null; history?: PaymentStatusEntry[] | null
+}
+export type RefundSummary = {
+  orderId: string; orderStatus: string; paymentStatus: string; paidAmount?: Money | null; refundedAmount?: Money | null; refundableAmount?: Money | null
+  refunds: RefundView[]
+}
+export type PaymentActionResponse = { changed: boolean; payment: PaymentView; order: OrderDetail }
+export type RefundActionResponse = { changed: boolean; refund: RefundView; order: OrderDetail }
+export type CodCollectBody = { amount: number | string; collectedAt?: string; reference?: string; reason?: string; acceptAmountMismatch?: boolean; expectedVersion?: number }
+
+export const merchantPaymentApi = {
+  list: (shopId: number, orderId: string) => request<PaymentView[]>(merchantOrders(shopId, `/${orderId}/payments`), { cache: 'no-store' }, true),
+  confirm: (shopId: number, orderId: string, paymentId: string, body?: { reason?: string; acceptAmountMismatch?: boolean; expectedVersion?: number }) =>
+    request<PaymentActionResponse>(merchantOrders(shopId, `/${orderId}/payments/${paymentId}/confirm`), json('POST', body ?? {}), true),
+  reject: (shopId: number, orderId: string, paymentId: string, body: { reason: string; expectedVersion?: number }) =>
+    request<PaymentActionResponse>(merchantOrders(shopId, `/${orderId}/payments/${paymentId}/reject`), json('POST', body), true),
+  /** COD cash collected: JSON, or multipart when an evidence file is attached. */
+  collectCod: (shopId: number, orderId: string, body: CodCollectBody, file?: File | null) => {
+    const path = merchantOrders(shopId, `/${orderId}/cod/collect`)
+    if (!file) return request<PaymentActionResponse>(path, json('POST', body), true)
+    const form = new FormData()
+    form.set('amount', String(body.amount))
+    if (body.collectedAt) form.set('collectedAt', body.collectedAt)
+    if (body.reference) form.set('reference', body.reference)
+    if (body.reason) form.set('reason', body.reason)
+    if (body.acceptAmountMismatch) form.set('acceptAmountMismatch', 'true')
+    if (body.expectedVersion != null) form.set('expectedVersion', String(body.expectedVersion))
+    form.set('file', file)
+    return request<PaymentActionResponse>(path, { method: 'POST', body: form }, true)
+  },
+  refunds: (shopId: number, orderId: string) => request<RefundSummary>(merchantOrders(shopId, `/${orderId}/refunds`), { cache: 'no-store' }, true),
+  approveRefund: (shopId: number, orderId: string, refundId: string, body?: { restock?: boolean }) =>
+    request<RefundActionResponse>(merchantOrders(shopId, `/${orderId}/refunds/${refundId}/approve`), json('POST', body ?? {}), true),
+  rejectRefund: (shopId: number, orderId: string, refundId: string, body: { reason: string }) =>
+    request<RefundActionResponse>(merchantOrders(shopId, `/${orderId}/refunds/${refundId}/reject`), json('POST', body), true),
+  /** multipart: file (refund slip), reference?, transferredAt? */
+  uploadRefundProof: (shopId: number, orderId: string, refundId: string, form: FormData) =>
+    request<RefundActionResponse>(merchantOrders(shopId, `/${orderId}/refunds/${refundId}/proof`), { method: 'POST', body: form }, true),
+  slipPath: (shopId: number, orderId: string, proofId: string) => merchantOrders(shopId, `/${orderId}/payments/proofs/${proofId}/file`),
+  refundProofPath: (shopId: number, orderId: string, refundId: string) => merchantOrders(shopId, `/${orderId}/refunds/${refundId}/proof-file`),
+}
+
+/* ---------------------------------------------------------------- merchant shipments (Y6) */
+export type TrackingEventView = {
+  id: number; eventType: string; source?: string | null; actorType?: string | null; actorUserId?: string | null; fromStatus?: string | null
+  status?: string | null; carrierStatusCode?: string | null; note?: string | null; location?: string | null; eventAt: string; recordedAt?: string | null
+}
+export type ShipmentSummary = {
+  id: string; orderId: string; orderNumber: string; orderStatus: string; status: string; carrierCode?: string | null; trackingNumber?: string | null
+  shippedAt?: string | null; deliveredAt?: string | null; lastTrackingEventAt?: string | null; version: number
+}
+export type ShipmentDetail = {
+  id: string; orderId: string; orderNumber: string; orderStatus: string; orderVersion: number; paymentMethod?: string | null
+  status: string; carrierCode?: string | null; carrierName?: string | null; trackingNumber?: string | null; trackingUrl?: string | null
+  packedAt?: string | null; shippedAt?: string | null; pickedUpAt?: string | null; deliveredAt?: string | null; failedAt?: string | null
+  failureReason?: string | null; returnedAt?: string | null; lastTrackingEventAt?: string | null; version: number
+  allowedStatuses?: string[] | null; events?: TrackingEventView[] | null
+}
+export type ShipmentActionResponse = {
+  changed: boolean; fromStatus?: string | null; toStatus?: string | null; orderFromStatus?: string | null; orderToStatus?: string | null; shipment: ShipmentDetail
+}
+export type ShopCarrierView = { code: string; nameTh: string; nameEn: string; trackingPattern?: string | null; active: boolean; enabled: boolean }
+export type ShopCarriersResponse = { restricted: boolean; carriers: ShopCarrierView[] }
+export type ShipmentUpdateBody = {
+  status?: string; reason?: string; note?: string; location?: string; eventAt?: string; carrierStatusCode?: string
+  returned?: boolean; expectedVersion?: number; expectedOrderVersion?: number
+}
+export type ShipmentCreateBody = { carrierCode?: string; trackingNumber?: string; shippedAt?: string; note?: string; expectedOrderVersion?: number }
+export type ShipmentTrackingBody = { carrierCode?: string; trackingNumber?: string; reason?: string; expectedVersion?: number }
+
+const shipmentOf = (shopId: number, orderId: string, path = '') => shopPath(shopId, `/orders/${orderId}/shipment${path}`)
+
+export const merchantShipmentApi = {
+  list: (shopId: number, params: Record<string, string | number | boolean | null | undefined> = {}) =>
+    request<{ items: ShipmentSummary[]; page: number; size: number; totalItems: number; totalPages: number }>(`${shopPath(shopId, '/shipments')}${queryOf(params)}`, { cache: 'no-store' }, true),
+  get: (shopId: number, orderId: string) => request<ShipmentDetail>(shipmentOf(shopId, orderId), { cache: 'no-store' }, true),
+  create: (shopId: number, orderId: string, body?: ShipmentCreateBody) =>
+    request<ShipmentActionResponse>(shipmentOf(shopId, orderId), json('POST', body ?? {}), true),
+  updateTracking: (shopId: number, orderId: string, body: ShipmentTrackingBody) =>
+    request<ShipmentActionResponse>(shipmentOf(shopId, orderId, '/tracking'), json('PUT', body), true),
+  event: (shopId: number, orderId: string, body: ShipmentUpdateBody) =>
+    request<ShipmentActionResponse>(shipmentOf(shopId, orderId, '/events'), json('POST', body), true),
+  inTransit: (shopId: number, orderId: string, body?: ShipmentUpdateBody) =>
+    request<ShipmentActionResponse>(shipmentOf(shopId, orderId, '/in-transit'), json('POST', body ?? {}), true),
+  outForDelivery: (shopId: number, orderId: string, body?: ShipmentUpdateBody) =>
+    request<ShipmentActionResponse>(shipmentOf(shopId, orderId, '/out-for-delivery'), json('POST', body ?? {}), true),
+  delivered: (shopId: number, orderId: string, body?: ShipmentUpdateBody) =>
+    request<ShipmentActionResponse>(shipmentOf(shopId, orderId, '/delivered'), json('POST', body ?? {}), true),
+  failed: (shopId: number, orderId: string, body: ShipmentUpdateBody) =>
+    request<ShipmentActionResponse>(shipmentOf(shopId, orderId, '/failed'), json('POST', body), true),
+  returned: (shopId: number, orderId: string, body: ShipmentUpdateBody) =>
+    request<ShipmentActionResponse>(shipmentOf(shopId, orderId, '/returned'), json('POST', body), true),
+  carriers: (shopId: number) => request<ShopCarriersResponse>(shopPath(shopId, '/carriers'), { cache: 'no-store' }, true),
+  setCarrier: (shopId: number, code: string, enabled: boolean) =>
+    request<ShopCarriersResponse>(shopPath(shopId, `/carriers/${encodeURIComponent(code)}`), json('PUT', { enabled }), true),
+}
+
+/* ---------------------------------------------------------------- admin platform (Y7) */
+export type PlatformPage<T> = { items: T[]; page: number; size: number; totalItems: number; totalPages: number }
+export type ReasonRequest = { reason: string; reasonCode?: string }
+export type AdminSuspension = {
+  status?: string | null; suspendedAt?: string | null; suspendedBy?: string | null; suspendedByName?: string | null
+  reasonCode?: string | null; reason?: string | null; restoredAt?: string | null; restoredBy?: string | null; restoredByName?: string | null
+}
+export type AdminUserRef = {
+  id: string; firstName?: string | null; lastName?: string | null; email?: string | null; phone?: string | null; status?: string | null
+}
+export type AdminMerchantRow = {
+  merchantId: string; ownerType?: string | null; displayName?: string | null; email?: string | null; phone?: string | null
+  province?: string | null; status: string; user?: AdminUserRef | null; shopCount: number; approvedShops: number
+  suspendedShops: number; pendingShops: number; createdAt?: string | null; suspendedAt?: string | null
+}
+export type AdminMerchantShopRef = {
+  shopId: number; name?: string | null; slug?: string | null; status?: string | null; suspendReasonCode?: string | null; createdAt?: string | null
+}
+export type AdminMerchantCounts = {
+  shops: number; approvedShops: number; suspendedShops: number; products: number; orders: number; activeStaff: number
+}
+export type AdminMerchantDetail = {
+  merchantId: string; ownerType?: string | null; title?: string | null; firstName?: string | null; lastName?: string | null
+  email?: string | null; phone?: string | null; province?: string | null; district?: string | null; sensitiveReview?: string | null
+  status: string; suspension?: AdminSuspension | null; user?: AdminUserRef | null; shops?: AdminMerchantShopRef[] | null
+  counts?: AdminMerchantCounts | null; createdAt?: string | null; updatedAt?: string | null
+}
+export type MerchantActionResponse = { changed: boolean; merchant: AdminMerchantDetail; affectedShopIds?: number[] | null }
+export type AdminShopRow = {
+  shopId: number; name: string; nameEn?: string | null; slug?: string | null; status: string; category?: string | null
+  province?: string | null; merchantId?: string | null; merchantName?: string | null; merchantStatus?: string | null
+  owner?: AdminUserRef | null; activeMembers: number; products: number; orders: number
+  createdAt?: string | null; publishedAt?: string | null; suspendedAt?: string | null
+}
+export type AdminShopMemberView = {
+  userId: string; firstName?: string | null; lastName?: string | null; email?: string | null; role?: string | null
+  roleNameTh?: string | null; status?: string | null; joinedAt?: string | null; removedAt?: string | null
+}
+export type AdminPlanLimits = {
+  products?: number | null; ordersPerMonth?: number | null; staff?: number | null; storageBytes?: number | null
+}
+export type AdminProductUsage = {
+  total: number; published: number; draft: number; archived: number; activeSkus: number; images: number
+}
+export type AdminOrderUsage = {
+  total: number; last30Days: number; open: number; completed: number; cancelled: number; paidGrandTotal?: Money | null
+}
+export type AdminStaffUsage = { active: number; byRole?: Record<string, number> | null }
+export type AdminStorageUsage = {
+  mediaFiles: number; mediaBytes: number; documents: number; documentBytes: number; productImages: number
+  trackedBytes: number; note?: string | null
+}
+export type AdminShopUsage = {
+  shopId: number; shopName: string; status: string; planCode?: string | null; limits?: AdminPlanLimits | null
+  products?: AdminProductUsage | null; orders?: AdminOrderUsage | null; staff?: AdminStaffUsage | null
+  customers: number; activeCoupons: number; storage?: AdminStorageUsage | null; computedAt?: string | null
+}
+export type AdminShopDetail = {
+  shopId: number; name: string; nameEn?: string | null; slug?: string | null; status: string; category?: string | null
+  description?: string | null; address?: string | null; province?: string | null; district?: string | null
+  subdistrict?: string | null; postalCode?: string | null; merchantId?: string | null; merchantName?: string | null
+  merchantStatus?: string | null; owner?: AdminUserRef | null; suspension?: AdminSuspension | null
+  pendingReinstatementMessage?: string | null; members?: AdminShopMemberView[] | null; usage?: AdminShopUsage | null
+  createdAt?: string | null; updatedAt?: string | null; publishedAt?: string | null
+}
+export type ShopActionResponse = { changed: boolean; shop: AdminShopDetail }
+export type AdminPlan = { code: string; name: string; limits?: AdminPlanLimits | null }
+export type AdminPlanCatalog = { source: string; plans: AdminPlan[]; note?: string | null }
+export type AdminAuditActor = { id?: string | null; type?: string | null; name?: string | null; email?: string | null }
+export type AdminAuditTarget = { type?: string | null; id?: string | null; shopId?: number | null; shopName?: string | null }
+export type AdminAuditLogView = {
+  id: number; occurredAt: string; actor?: AdminAuditActor | null; action: string; target?: AdminAuditTarget | null
+  permission?: string | null; outcome?: string | null; reasonCode?: string | null; reason?: string | null
+  before?: Record<string, unknown> | null; after?: Record<string, unknown> | null
+  ipAddress?: string | null; userAgent?: string | null; requestId?: string | null; authContext?: string | null
+  policyVersion?: string | null; kind?: string | null
+}
+
+const adminPath = (path: string) => `/api/admin${path}`
+
+export const adminPlatformApi = {
+  merchants: (params: Record<string, string | number | boolean | null | undefined> = {}) =>
+    request<PlatformPage<AdminMerchantRow>>(`${adminPath('/merchants')}${queryOf(params)}`, { cache: 'no-store' }, true),
+  merchant: (merchantId: string) =>
+    request<AdminMerchantDetail>(adminPath(`/merchants/${merchantId}`), { cache: 'no-store' }, true),
+  suspendMerchant: (merchantId: string, body: ReasonRequest) =>
+    request<MerchantActionResponse>(adminPath(`/merchants/${merchantId}/suspend`), json('POST', body), true),
+  reactivateMerchant: (merchantId: string, body: ReasonRequest) =>
+    request<MerchantActionResponse>(adminPath(`/merchants/${merchantId}/reactivate`), json('POST', body), true),
+  shops: (params: Record<string, string | number | boolean | null | undefined> = {}) =>
+    request<PlatformPage<AdminShopRow>>(`${adminPath('/shops')}${queryOf(params)}`, { cache: 'no-store' }, true),
+  shop: (shopId: number) =>
+    request<AdminShopDetail>(adminPath(`/shops/${shopId}`), { cache: 'no-store' }, true),
+  shopUsage: (shopId: number) =>
+    request<AdminShopUsage>(adminPath(`/shops/${shopId}/usage`), { cache: 'no-store' }, true),
+  suspendShop: (shopId: number, body: ReasonRequest) =>
+    request<ShopActionResponse>(adminPath(`/shops/${shopId}/suspend`), json('POST', body), true),
+  reactivateShop: (shopId: number, body: ReasonRequest) =>
+    request<ShopActionResponse>(adminPath(`/shops/${shopId}/reactivate`), json('POST', body), true),
+  plans: () => request<AdminPlanCatalog>(adminPath('/plans'), { cache: 'no-store' }, true),
+  planUsage: (params: Record<string, string | number | boolean | null | undefined> = {}) =>
+    request<PlatformPage<AdminShopUsage>>(`${adminPath('/plans/usage')}${queryOf(params)}`, { cache: 'no-store' }, true),
+  auditLogs: (params: Record<string, string | number | boolean | null | undefined> = {}) =>
+    request<PlatformPage<AdminAuditLogView>>(`${adminPath('/audit-logs')}${queryOf(params)}`, { cache: 'no-store' }, true),
+  auditLog: (id: number) =>
+    request<AdminAuditLogView>(adminPath(`/audit-logs/${id}`), { cache: 'no-store' }, true),
+}
+
+export const adminOrderApi = {
+  list: (params: Record<string, string | number | boolean | null | undefined> = {}) =>
+    request<OrderPage>(`${adminPath('/orders')}${queryOf(params)}`, { cache: 'no-store' }, true),
+  get: (orderId: string) =>
+    request<OrderDetail>(adminPath(`/orders/${orderId}`), { cache: 'no-store' }, true),
+  timeline: (orderId: string) =>
+    request<OrderTimelineEntry[]>(adminPath(`/orders/${orderId}/timeline`), { cache: 'no-store' }, true),
+  transitions: (orderId: string) =>
+    request<AllowedTransitions>(adminPath(`/orders/${orderId}/transitions`), { cache: 'no-store' }, true),
+  transition: (orderId: string, body: TransitionBody & { status?: string; reason: string }) =>
+    request<TransitionResponse>(adminPath(`/orders/${orderId}/transition`), json('POST', body), true),
+  payments: (orderId: string) =>
+    request<PaymentView[]>(adminPath(`/orders/${orderId}/payments`), { cache: 'no-store' }, true),
+  confirmPayment: (orderId: string, paymentId: string, body: { reason: string; acceptAmountMismatch?: boolean; expectedVersion?: number }) =>
+    request<PaymentActionResponse>(adminPath(`/orders/${orderId}/payments/${paymentId}/confirm`), json('POST', body), true),
+  rejectPayment: (orderId: string, paymentId: string, body: { reason: string; expectedVersion?: number }) =>
+    request<PaymentActionResponse>(adminPath(`/orders/${orderId}/payments/${paymentId}/reject`), json('POST', body), true),
+  collectCod: (orderId: string, body: CodCollectBody & { reason: string }) =>
+    request<PaymentActionResponse>(adminPath(`/orders/${orderId}/cod/collect`), json('POST', body), true),
+  refunds: (orderId: string) =>
+    request<RefundSummary>(adminPath(`/orders/${orderId}/refunds`), { cache: 'no-store' }, true),
+  approveRefund: (orderId: string, refundId: string, body: { reason: string; restock?: boolean; note?: string }) =>
+    request<RefundActionResponse>(adminPath(`/orders/${orderId}/refunds/${refundId}/approve`), json('POST', body), true),
+  rejectRefund: (orderId: string, refundId: string, body: { reason: string; note?: string }) =>
+    request<RefundActionResponse>(adminPath(`/orders/${orderId}/refunds/${refundId}/reject`), json('POST', body), true),
+  resolveRefund: (orderId: string, refundId: string, body: { reason: string; note?: string }) =>
+    request<RefundActionResponse>(adminPath(`/orders/${orderId}/refunds/${refundId}/resolve`), json('POST', body), true),
+  shipments: (params: Record<string, string | number | boolean | null | undefined> = {}) =>
+    request<PlatformPage<ShipmentSummary>>(`${adminPath('/shipments')}${queryOf(params)}`, { cache: 'no-store' }, true),
+  shipment: (orderId: string) =>
+    request<ShipmentDetail>(adminPath(`/orders/${orderId}/shipment`), { cache: 'no-store' }, true),
+  shipmentStatus: (orderId: string, body: ShipmentUpdateBody & { reason: string }) =>
+    request<ShipmentActionResponse>(adminPath(`/orders/${orderId}/shipment/status`), json('POST', body), true),
+  shipmentTracking: (orderId: string, body: ShipmentTrackingBody) =>
+    request<ShipmentActionResponse>(adminPath(`/orders/${orderId}/shipment/tracking`), json('PUT', body), true),
+  proofFilePath: (orderId: string, proofId: string) => adminPath(`/orders/${orderId}/payments/proofs/${proofId}/file`),
+  refundProofPath: (orderId: string, refundId: string) => adminPath(`/orders/${orderId}/refunds/${refundId}/proof-file`),
 }

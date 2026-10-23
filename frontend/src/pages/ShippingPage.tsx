@@ -1,84 +1,195 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  BarChart3, Bell, Box, CalendarDays, CheckCircle2, ChevronDown, ChevronLeft,
+  BarChart3, Box, CheckCircle2, ChevronLeft,
   ChevronRight, CircleHelp, CircleUserRound, Clock3, Crown, Headphones, Home,
-  MapPin, MoreHorizontal, Package, Plus, Printer, Search, Settings, ShoppingBag,
+  MapPin, Package, Plus, Printer, Search, Settings, ShoppingBag,
   Store, TicketPercent, Truck, WalletCards, XCircle,
 } from "lucide-react";
 import MerchantBell from "../components/merchant/MerchantBell";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
+import ShipmentDrawer, { statusClass } from "../components/merchant/ShipmentDrawer";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
+import ToggleSwitch from "../components/form/ToggleSwitch";
+import { LoadError, SkeletonTable } from "../components/feedback/Skeleton";
+import { formatBangkokDateTime, orderErrorMessage, periodRange, type PeriodKey } from "../components/merchant/orderFormat";
+import { useActiveShop } from "../contexts/ActiveShopContext";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
+import { usePublicTranslation } from "../hooks/usePublicTranslation";
+import { merchantShipmentApi, type ShipmentSummary, type ShopCarriersResponse } from "../services/api";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/shipping.css";
 
-type Shipment = { tracking:string; order:string; customer:string; carrier:string; date:string; status:string };
-const shipments: Shipment[] = [
-  {tracking:"TH0123456789",order:"#TSF202609120045",customer:"คุณณัชชา",carrier:"Flash Express",date:"12 ก.ย. 2566 10:32",status:"รอจัดส่ง"},
-  {tracking:"SPXTH001234567",order:"#TSF202609120044",customer:"คุณสมชาย",carrier:"Shopee Express",date:"12 ก.ย. 2566 09:15",status:"อยู่ระหว่างขนส่ง"},
-  {tracking:"KEX1234567890",order:"#TSF202609120043",customer:"คุณวรภา",carrier:"KERRY Express",date:"11 ก.ย. 2566 18:45",status:"จัดส่งสำเร็จ"},
-  {tracking:"TH9876543210",order:"#TSF202609120042",customer:"คุณกิตติ",carrier:"ไปรษณีย์ไทย",date:"11 ก.ย. 2566 16:20",status:"อยู่ระหว่างขนส่ง"},
-  {tracking:"JNT123456789",order:"#TSF202609120041",customer:"คุณปิยะ",carrier:"J&T Express",date:"10 ก.ย. 2566 14:08",status:"จัดส่งสำเร็จ"},
-  {tracking:"BEST12345678",order:"#TSF202609120040",customer:"คุณสุนิสา",carrier:"Best Express",date:"10 ก.ย. 2566 10:30",status:"จัดส่งไม่สำเร็จ"},
-  {tracking:"TH5566778899",order:"#TSF202609120039",customer:"คุณอรทัย",carrier:"ไปรษณีย์ไทย",date:"9 ก.ย. 2566 13:25",status:"รอจัดส่ง"},
-  {tracking:"SPXTH009988776",order:"#TSF202609120038",customer:"คุณณัฐวุฒิ",carrier:"Shopee Express",date:"9 ก.ย. 2566 11:12",status:"อยู่ระหว่างขนส่ง"},
-];
 const menu = [
   [Home,"หน้าหลัก","/merchant/dashboard"],[Box,"จัดการสินค้า","/merchant/products"],
-  [ShoppingBag,"คำสั่งซื้อ","/merchant/orders","12"],[CircleUserRound,"ลูกค้า","/merchant/customers"],
+  [ShoppingBag,"คำสั่งซื้อ","/merchant/orders"],[CircleUserRound,"ลูกค้า","/merchant/customers"],
   [TicketPercent,"โปรโมชั่น/คูปอง","/merchant/promotions"],[BarChart3,"รายงาน","/merchant/reports"],
   [WalletCards,"การเงิน","/merchant/finance"],[Truck,"การจัดส่ง","/merchant/shipping"],
   [Store,"ร้านของฉัน","/merchant/store"],[Settings,"ตั้งค่า","/merchant/settings"],
 ] as const;
-const stats = [
-  [Package,"พัสดุทั้งหมด","532","↑ 12%","ในช่วงนี้","all"],
-  [Clock3,"รอจัดส่ง","68","12%","รอแพ็คสินค้า","wait"],
-  [Truck,"อยู่ระหว่างขนส่ง","420","↑ 18%","กำลังจัดส่ง","moving"],
-  [CheckCircle2,"จัดส่งสำเร็จ","418","↑ 15%","คิดเป็น 78%","success"],
-  [XCircle,"จัดส่งไม่สำเร็จ","26","5%","ตีกลับ / ลูกค้าไม่รับ","failed"],
-] as const;
-const carrierCode:Record<string,string>={"Flash Express":"FLASH","KERRY Express":"KERRY","ไปรษณีย์ไทย":"TH POST","J&T Express":"J&T","Shopee Express":"S","Best Express":"BEST"};
+
+/** [tab/KPI key, status filter] — a tab is a shortcut for one shipment status (the status select offers all of them) */
+const TABS: readonly (readonly [string, string])[] = [
+  ["all", ""],
+  ["wait", "PACKED"],
+  ["moving", "IN_TRANSIT"],
+  ["success", "DELIVERED"],
+  ["failed", "DELIVERY_FAILED"],
+];
+const KPI_ICONS = { all: Package, wait: Clock3, moving: Truck, success: CheckCircle2, failed: XCircle } as const;
+const ALL_STATUSES = ["READY_TO_PACK", "PACKING", "PACKED", "DISPATCHED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "DELIVERY_FAILED", "RETURNED", "CANCELLED"];
+const SIZES = [10, 20, 50];
+
 function Brand(){return <a className="merchant-brand" href="/"><span><ShoppingBag/><i>✓</i></span><div><b>ThaiShop<span>Fun</span></b><small>Shop Local · Support Thai · Smile Together</small></div></a>}
 
+function pageNumbers(page: number, pages: number) {
+  const first = Math.max(0, Math.min(page - 2, pages - 5));
+  const last = Math.min(pages - 1, first + 4);
+  const numbers: number[] = [];
+  for (let n = first; n <= last; n += 1) numbers.push(n);
+  return numbers;
+}
+
 export default function ShippingPage(){
+  const { t } = useTranslation("merchant");
+  const { localeTag } = usePublicTranslation();
   const {user,loading}=useAuth();
+  const { shopId } = useActiveShop();
   const {canInShop,canSeeMenuItem,deniedTitle}=usePermissions();
-  const canPack=canInShop("SHIPMENT_PACK");
   const canConfigure=canInShop("SHOP_UPDATE");
   const [notice,setNotice]=useState("");
-  const [tab,setTab]=useState("ทั้งหมด");
+  const [tone,setTone]=useState<"ok"|"fail">("ok");
+  const [status,setStatus]=useState("");
   const [query,setQuery]=useState("");
-  const [carrier,setCarrier]=useState("ทั้งหมด");
-  const [status,setStatus]=useState("ทั้งหมด");
-  const [selected,setSelected]=useState<string[]>([]);
+  const [tracking,setTracking]=useState("");
+  const [carrier,setCarrier]=useState("");
+  const [period,setPeriod]=useState<PeriodKey>("all");
+  const [page,setPage]=useState(0);
+  const [size,setSize]=useState(10);
+  const [data,setData]=useState<{items:ShipmentSummary[];totalItems:number;totalPages:number}|null>(null);
+  const [fetching,setFetching]=useState(true);
+  const [error,setError]=useState<string|null>(null);
+  const [reload,setReload]=useState(0);
+  const [kpis,setKpis]=useState<(number|null)[]>([null,null,null,null,null]);
+  const [carrierData,setCarrierData]=useState<ShopCarriersResponse|null>(null);
+  const [carrierFailed,setCarrierFailed]=useState(false);
+  const [toggling,setToggling]=useState<string|null>(null);
+  const [openOrderId,setOpenOrderId]=useState<string|null>(null);
+  const toastTimer=useRef<number|undefined>(undefined);
+  const trackingRef=useRef("");
+  const carriersRef=useRef<HTMLElement|null>(null);
+  const unsupported=t("orderManagement.notSupported");
+
+  const notify=useCallback((text:string,next:"ok"|"fail"="ok")=>{setTone(next);setNotice(text);window.clearTimeout(toastTimer.current);toastTimer.current=window.setTimeout(()=>setNotice(""),2400)},[]);
+  useEffect(()=>()=>window.clearTimeout(toastTimer.current),[]);
+
+  useEffect(()=>{
+    const handle=window.setTimeout(()=>{
+      const next=query.trim();
+      if(next===trackingRef.current)return;
+      trackingRef.current=next;
+      setTracking(next);
+      setPage(0);
+    },300);
+    return ()=>window.clearTimeout(handle);
+  },[query]);
+
+  useEffect(()=>{
+    if(shopId==null)return;
+    let alive=true;
+    setCarrierFailed(false);
+    merchantShipmentApi.carriers(shopId)
+      .then(res=>{if(alive)setCarrierData(res)})
+      .catch(()=>{if(alive){setCarrierData(null);setCarrierFailed(true)}});
+    return ()=>{alive=false};
+  },[shopId]);
+
+  useEffect(()=>{
+    if(shopId==null)return;
+    let alive=true;
+    setFetching(true);
+    setError(null);
+    const range=periodRange(period);
+    merchantShipmentApi.list(shopId,{status:status||undefined,carrierCode:carrier||undefined,trackingNumber:tracking||undefined,from:range.from,to:range.to,page,size})
+      .then(res=>{if(alive)setData(res)})
+      .catch(caught=>{if(alive)setError(orderErrorMessage(t,caught))})
+      .finally(()=>{if(alive)setFetching(false)});
+    return ()=>{alive=false};
+  },[shopId,status,carrier,tracking,period,page,size,reload,t]);
+
+  useEffect(()=>{
+    if(shopId==null)return;
+    let alive=true;
+    Promise.all(TABS.map(([,value])=>merchantShipmentApi.list(shopId,{status:value||undefined,size:1}).then(r=>r.totalItems).catch(()=>null)))
+      .then(values=>{if(alive)setKpis(values)});
+    return ()=>{alive=false};
+  },[shopId,reload]);
+
+  const handleChanged=useCallback(()=>setReload(n=>n+1),[]);
+
   if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
   if(!user){window.location.replace("/login?next=/merchant/shipping");return null}
   if((hasPlatformAccess(user) && !hasMerchantAccess(user))){window.location.replace("/admin");return null}
   if(!hasMerchantAccess(user)){window.location.replace("/");return null}
-  const notify=(text:string)=>{setNotice(text);window.setTimeout(()=>setNotice(""),1900)};
-  const shopName=(user.firstName||"MaeSomchai").toLowerCase()==="merchant"?"MaeSomchai Official":`${user.firstName||"MaeSomchai"} Official`;
-  const visible=shipments.filter(x=>(tab==="ทั้งหมด"||x.status===tab)&&(status==="ทั้งหมด"||x.status===status)&&(carrier==="ทั้งหมด"||x.carrier===carrier)&&(`${x.tracking} ${x.order} ${x.customer}`.toLowerCase().includes(query.toLowerCase())));
-  const reset=()=>{setTab("ทั้งหมด");setQuery("");setCarrier("ทั้งหมด");setStatus("ทั้งหมด");notify("รีเซ็ตตัวกรองแล้ว")};
+
+  const carrierList=carrierData?.carriers.filter(c=>c.active)??[];
+  const carrierName=(code?:string|null)=>{
+    if(!code)return "—";
+    const hit=carrierData?.carriers.find(c=>c.code===code);
+    return hit?((localeTag.startsWith("en")?hit.nameEn:hit.nameTh)||hit.code):code;
+  };
+  const logo=(code?:string|null)=><span className={`carrier-logo ${(code??"").toLowerCase()}`}>{(code??"?").slice(0,5)}</span>;
+  const items=data?.items??[];
+  const total=data?.totalItems??0;
+  const pages=Math.max(1,data?.totalPages??1);
+  const from=total===0?0:page*size+1;
+  const to=Math.min(total,page*size+items.length);
+  const filtersOn=!!(status||carrier||tracking||period!=="all");
+  const reset=()=>{setStatus("");setCarrier("");setQuery("");trackingRef.current="";setTracking("");setPeriod("all");setPage(0)};
+  const empty=!fetching&&!error&&items.length===0;
+  const kpiValue=(i:number)=>kpis[i]==null?"—":kpis[i]!.toLocaleString(localeTag);
+
+  const toggleCarrier=async(code:string,enabled:boolean)=>{
+    if(shopId==null)return;
+    setToggling(code);
+    try{
+      setCarrierData(await merchantShipmentApi.setCarrier(shopId,code,enabled));
+      notify(t("shippingPage.carriers.saved"));
+    }catch(caught){
+      notify(orderErrorMessage(t,caught),"fail");
+    }finally{
+      setToggling(null);
+    }
+  };
+
   return <main className="merchant-shell pm-shell shipping-shell">
     <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
-    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href,badge])=><a className={label==="การจัดส่ง"?"active":""} href={href} key={label} onClick={e=>{if((href as string)==="#"){e.preventDefault();notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}}}><Icon/>{label}{badge&&<i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button></div></aside>
+    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href])=><a className={label==="การจัดส่ง"?"active":""} href={href} key={label}><Icon/>{label}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button></div></aside>
     <section className="pm-content shipping-content">
-      <header className="pm-heading shipping-heading"><div><h1><Truck/>การจัดส่ง</h1><p>จัดการการจัดส่งพัสดุ เชื่อมต่อบริษัทขนส่ง ติดตามสถานะได้ง่ายในที่เดียว</p></div><div className="pm-actions"><button disabled={!canPack} title={deniedTitle(canPack)} onClick={()=>notify("พร้อมพิมพ์ใบปะหน้าสำหรับรายการที่เลือก")}><Printer/>พิมพ์ใบปะหน้า<ChevronDown/></button><button disabled={!canConfigure} title={deniedTitle(canConfigure)} className="primary" onClick={()=>notify("เปิดหน้าต่างเชื่อมต่อบริษัทขนส่ง")}><Plus/>เชื่อมต่อขนส่งเพิ่ม</button></div></header>
-      <section className="shipping-kpis">{stats.map(([Icon,title,value,trend,sub,kind])=><article className={kind} key={title}><span><Icon/></span><div><small>{title}</small><b>{value}<i>{trend}</i></b><em>{sub}</em></div></article>)}</section>
+      <header className="pm-heading shipping-heading"><div><h1><Truck/>{t("shippingPage.title")}</h1><p>{t("shippingPage.subtitle")}</p></div><div className="pm-actions"><button disabled title={unsupported}><Printer/>{t("shippingPage.printLabels")}</button><button disabled={!canConfigure} title={deniedTitle(canConfigure)} className="primary" onClick={()=>carriersRef.current?.scrollIntoView({behavior:"smooth",block:"start"})}><Plus/>{t("shippingPage.connectMore")}</button></div></header>
+      <section className="shipping-kpis">{TABS.map(([key],i)=>{const Icon=KPI_ICONS[key as keyof typeof KPI_ICONS];return <article className={key} key={key}><span><Icon/></span><div><small>{t(`shippingPage.kpi.${key}`)}</small><b>{kpiValue(i)}</b><em>{t(`shippingPage.kpi.${key}Hint`)}</em></div></article>})}</section>
       <div className="shipping-layout"><article className="shipping-table-card">
-        <nav className="shipping-tabs">{[["ทั้งหมด","532"],["รอจัดส่ง","68"],["อยู่ระหว่างขนส่ง","420"],["จัดส่งสำเร็จ","418"],["จัดส่งไม่สำเร็จ","26"]].map(([x,n])=><button className={tab===x?"active":""} onClick={()=>setTab(x)} key={x}>{x} ({n})</button>)}</nav>
-        <div className="shipping-filters"><label className="shipping-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="ค้นหาด้วยเลขพัสดุ, ชื่อลูกค้า, หมายเลขคำสั่งซื้อ..."/></label><label>บริษัทขนส่ง<select value={carrier} onChange={e=>setCarrier(e.target.value)}><option>ทั้งหมด</option>{Object.keys(carrierCode).map(x=><option key={x}>{x}</option>)}</select></label><label>สถานะ<select value={status} onChange={e=>setStatus(e.target.value)}><option>ทั้งหมด</option><option>รอจัดส่ง</option><option>อยู่ระหว่างขนส่ง</option><option>จัดส่งสำเร็จ</option><option>จัดส่งไม่สำเร็จ</option></select></label><label>ช่วงวันที่<button className="date"><CalendarDays/>1 ก.ย. 2026 - 12 ก.ย. 2026<ChevronDown/></button></label><div><button onClick={reset}>รีเซ็ต</button><button className="primary" onClick={()=>notify(`พบ ${visible.length} รายการ`)}>ค้นหา</button></div></div>
-        <div className="shipping-table-wrap"><table><thead><tr><th>#</th><th><input aria-label="เลือกทั้งหมด" type="checkbox" checked={selected.length===shipments.length} onChange={e=>setSelected(e.target.checked?shipments.map(x=>x.tracking):[])}/></th><th>เลขพัสดุ</th><th>คำสั่งซื้อ</th><th>ลูกค้า</th><th>บริษัทขนส่ง</th><th>วันที่จัดส่ง</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>{visible.map((row,i)=><tr key={row.tracking}><td>{i+1}</td><td><input aria-label={`เลือก ${row.tracking}`} type="checkbox" checked={selected.includes(row.tracking)} onChange={e=>setSelected(e.target.checked?[...selected,row.tracking]:selected.filter(x=>x!==row.tracking))}/></td><td><b>{row.tracking}</b> ↗</td><td>{row.order}</td><td>{row.customer}</td><td><span className={`carrier-logo ${row.carrier.split(" ")[0].toLowerCase()}`}>{carrierCode[row.carrier]}</span>{row.carrier}</td><td>{row.date}</td><td><span className={`shipping-status ${row.status==="รอจัดส่ง"?"wait":row.status==="อยู่ระหว่างขนส่ง"?"moving":row.status==="จัดส่งสำเร็จ"?"success":"failed"}`}>{row.status}</span></td><td><div className="shipping-actions"><button disabled={!(row.status!=="รอจัดส่ง"||canPack)} title={deniedTitle((row.status!=="รอจัดส่ง"||canPack))} onClick={()=>notify(row.status==="รอจัดส่ง"?`พิมพ์ใบปะหน้า ${row.tracking}`:row.status==="อยู่ระหว่างขนส่ง"?`ติดตามพัสดุ ${row.tracking}`:`ดูรายละเอียด ${row.tracking}`)}>{row.status==="รอจัดส่ง"?"พิมพ์ใบปะหน้า":row.status==="อยู่ระหว่างขนส่ง"?"ติดตามพัสดุ":"ดูรายละเอียด"}</button><button aria-label="ตัวเลือกเพิ่มเติม" onClick={()=>notify(`เปิดเมนู ${row.tracking}`)}><MoreHorizontal/></button></div></td></tr>)}</tbody></table>{!visible.length&&<div className="pm-empty">ไม่พบรายการจัดส่งที่ตรงกับตัวกรอง</div>}</div>
-        <footer className="pm-pagination"><span>แสดง 1 - {visible.length} จาก 532 รายการ</span><label>แสดง <select><option>8</option><option>20</option></select> รายการ</label><nav><button><ChevronLeft/></button><button className="active">1</button><button>2</button><button>3</button><button>4</button><button>5</button><span>...</span><button>67</button><button><ChevronRight/></button></nav></footer>
+        <nav className="shipping-tabs" role="tablist">{TABS.map(([key,value],i)=><button role="tab" aria-selected={status===value} className={status===value?"active":""} onClick={()=>{setStatus(value);setPage(0)}} key={key}>{t(`shippingPage.tabs.${key}`)}{kpis[i]!=null?` (${kpis[i]})`:""}</button>)}</nav>
+        <div className="shipping-filters"><label className="shipping-search"><Search/><input aria-label={t("shippingPage.filters.searchLabel")} value={query} onChange={e=>setQuery(e.target.value)} placeholder={t("shippingPage.filters.searchPlaceholder")}/></label><label>{t("shippingPage.filters.carrier")}<select value={carrier} onChange={e=>{setCarrier(e.target.value);setPage(0)}}><option value="">{t("shippingPage.filters.all")}</option>{carrierList.map(c=><option key={c.code} value={c.code}>{carrierName(c.code)}</option>)}</select></label><label>{t("shippingPage.filters.status")}<select value={status} onChange={e=>{setStatus(e.target.value);setPage(0)}}><option value="">{t("shippingPage.filters.all")}</option>{ALL_STATUSES.map(s=><option key={s} value={s}>{t(`shippingPage.status.${s}`)}</option>)}</select></label><label>{t("shippingPage.filters.period")}<select value={period} onChange={e=>{setPeriod(e.target.value as PeriodKey);setPage(0)}}><option value="all">{t("orderManagement.filters.periods.all")}</option><option value="7d">{t("orderManagement.filters.periods.7d")}</option><option value="30d">{t("orderManagement.filters.periods.30d")}</option><option value="month">{t("orderManagement.filters.periods.month")}</option></select></label><div><button type="button" disabled={!filtersOn} onClick={reset}>{t("orderManagement.filters.reset")}</button></div></div>
+        <div className="shipping-table-wrap" aria-busy={fetching}>{error?<LoadError message={error} onRetry={()=>setReload(n=>n+1)} retryLabel={t("shopSettings.retry")}/>:fetching&&items.length===0?<SkeletonTable rows={6} cols={8}/>:<table className={fetching?"is-refetching":undefined}><thead><tr><th>#</th><th><input aria-label={t("shippingPage.columns.selectAll")} type="checkbox" disabled title={unsupported}/></th><th>{t("shippingPage.columns.tracking")}</th><th>{t("shippingPage.columns.order")}</th><th>{t("shippingPage.columns.orderStatus")}</th><th>{t("shippingPage.columns.carrier")}</th><th>{t("shippingPage.columns.shippedAt")}</th><th>{t("shippingPage.columns.status")}</th><th>{t("shippingPage.columns.actions")}</th></tr></thead><tbody>{items.map((row,i)=>{const live=["DISPATCHED","IN_TRANSIT","OUT_FOR_DELIVERY"].includes(row.status);return <tr key={row.id}><td>{page*size+i+1}</td><td><input aria-label={row.trackingNumber||row.orderNumber} type="checkbox" disabled title={unsupported}/></td><td><b>{row.trackingNumber||"—"}</b></td><td>{row.orderNumber}</td><td>{t(`orderManagement.status.${row.orderStatus}`,{defaultValue:row.orderStatus})}</td><td>{logo(row.carrierCode)}{carrierName(row.carrierCode)}</td><td>{formatBangkokDateTime(row.shippedAt,localeTag)}</td><td><span className={`shipping-status ${statusClass(row.status)}`}>{t(`shippingPage.status.${row.status}`,{defaultValue:row.status})}</span></td><td><div className="shipping-actions"><button onClick={()=>setOpenOrderId(row.orderId)}>{live?t("shippingPage.rowTrack"):t("shippingPage.rowDetails")}</button><button aria-label={t("shippingPage.printOne")} disabled title={unsupported}><Printer/></button></div></td></tr>})}</tbody></table>}{empty&&<div className="pm-empty">{t("shippingPage.empty")}</div>}</div>
+        <footer className="pm-pagination"><span>{t("orderManagement.pagination.range",{from,to,total})}</span><label>{t("orderManagement.pagination.show")} <select aria-label={t("orderManagement.pagination.perPage")} value={size} onChange={e=>{setSize(Number(e.target.value));setPage(0)}}>{SIZES.map(n=><option key={n} value={n}>{n}</option>)}</select> {t("orderManagement.pagination.rows")}</label><nav><button aria-label={t("orderManagement.pagination.prev")} disabled={page===0} onClick={()=>setPage(page-1)}><ChevronLeft/></button>{pageNumbers(page,pages).map(n=><button key={n} className={n===page?"active":""} onClick={()=>setPage(n)}>{n+1}</button>)}{pageNumbers(page,pages).slice(-1)[0]<pages-1&&<span>...</span>}<button aria-label={t("orderManagement.pagination.next")} disabled={page>=pages-1} onClick={()=>setPage(page+1)}><ChevronRight/></button></nav></footer>
       </article><aside className="shipping-side">
-        <section><header><h2>เชื่อมต่อบริษัทขนส่ง</h2><button onClick={()=>notify("แสดงบริษัทขนส่งทั้งหมด")}>ดูทั้งหมด →</button></header>{Object.keys(carrierCode).map((name,i)=><p key={name}><span className={`carrier-logo ${name.split(" ")[0].toLowerCase()}`}>{carrierCode[name]}</span><b>{name}</b><button disabled={!(!(i===3||i===5)||canConfigure)} title={deniedTitle((!(i===3||i===5)||canConfigure))} className={i===3||i===5?"connect":"connected"} onClick={()=>notify(i===3||i===5?`เริ่มเชื่อมต่อ ${name}`:`${name} เชื่อมต่อแล้ว`)}>{i===3||i===5?"เชื่อมต่อเลย":"เชื่อมต่อแล้ว"}</button></p>)}</section>
-        <section className="shipping-tools"><h2>เครื่องมือการจัดส่ง</h2>{([[Printer,"พิมพ์ใบปะหน้า (หลายรายการ)"],[Package,"สร้างรายการจัดส่ง (Bulk)"],[Box,"ตั้งค่าขนาดพัสดุ"],[MapPin,"ตั้งค่าที่อยู่ผู้ส่ง"],[Clock3,"ประวัติการจัดส่ง"]] as [typeof Printer,string][]).map(([Icon,label])=><button key={label} onClick={()=>notify(`เปิด${label}`)}><Icon/>{label}<ChevronRight/></button>)}</section>
-        <section className="shipping-help"><Headphones/><div><b>มีปัญหาการจัดส่ง?</b><small>ติดต่อทีมงาน หรือดูคู่มือการเชื่อมต่อขนส่ง</small></div><ChevronRight/></section>
+        <section ref={carriersRef} id="shipping-carriers"><header><h2>{t("shippingPage.carriers.title")}</h2></header>
+          {carrierFailed&&<p className="sh-side-note" role="alert">{t("shippingPage.carriers.loadFailed")}</p>}
+          {carrierData&&!carrierData.restricted&&<p className="sh-side-note">{t("shippingPage.carriers.unrestricted")}</p>}
+          {!carrierData&&!carrierFailed&&<SkeletonTable rows={3} cols={1}/>}
+          {carrierList.map(c=><p key={c.code}>{logo(c.code)}<b>{carrierName(c.code)}</b><span className="sh-toggle"><ToggleSwitch checked={c.enabled} disabled={!canConfigure||toggling===c.code} label={carrierName(c.code)} onText={t("shippingPage.carriers.connected")} offText={t("shippingPage.carriers.connect")} onChange={v=>void toggleCarrier(c.code,v)}/></span></p>)}
+          {!canConfigure&&<p className="sh-side-note">{deniedTitle(false)}</p>}
+        </section>
+        <section className="shipping-tools"><h2>{t("shippingPage.tools.title")}</h2><button disabled title={unsupported}><Printer/>{t("shippingPage.tools.printBulk")}<ChevronRight/></button><a href="/merchant/orders"><Package/>{t("shippingPage.tools.createShipment")}<ChevronRight/></a><button disabled title={unsupported}><Box/>{t("shippingPage.tools.parcelSize")}<ChevronRight/></button><button disabled title={unsupported}><MapPin/>{t("shippingPage.tools.senderAddress")}<ChevronRight/></button><button disabled title={unsupported}><Clock3/>{t("shippingPage.tools.history")}<ChevronRight/></button></section>
+        <section className="shipping-help" role="link" tabIndex={0} onClick={()=>window.location.assign("/help")} onKeyDown={e=>{if(e.key==="Enter")window.location.assign("/help")}}><Headphones/><div><b>{t("shippingPage.help.title")}</b><small>{t("shippingPage.help.body")}</small></div><ChevronRight/></section>
       </aside></div>
-    </section>{notice&&<div className="merchant-toast" role="status">{notice}</div>}
+    </section>
+    {openOrderId&&shopId!=null&&<ShipmentDrawer shopId={shopId} orderId={openOrderId} carriers={carrierData?.carriers??[]} onClose={()=>setOpenOrderId(null)} onChanged={handleChanged} notify={notify}/>}
+    {notice&&<div className={`merchant-toast${tone==="fail"?" om-toast-fail":""}`} role="status">{notice}</div>}
   </main>
 }

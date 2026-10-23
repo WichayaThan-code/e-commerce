@@ -23,6 +23,9 @@ import AdminPromotionsPage from "../pages/AdminPromotionsPage";
 import AdminUsersPage from "../pages/AdminUsersPage";
 import AdminRolesPage from "../pages/AdminRolesPage";
 import AdminShopRoleAssignmentsPage from "../pages/AdminShopRoleAssignmentsPage";
+import AdminOrdersPage from "../pages/AdminOrdersPage";
+import AdminAuditLogPage from "../pages/AdminAuditLogPage";
+import AdminMerchantsPage from "../pages/AdminMerchantsPage";
 
 import MerchantDashboardPage from "../pages/MerchantDashboardPage";
 import ProductManagementPage from "../pages/ProductManagementPage";
@@ -131,6 +134,9 @@ export const routes: RouteObject[] = [
   { path: "/admin/users", element: guarded("/admin/users", <AdminUsersPage />) },
   { path: "/admin/roles", element: guarded("/admin/roles", <AdminRolesPage />) },
   { path: "/admin/role-assignments", element: guarded("/admin/role-assignments", <AdminShopRoleAssignmentsPage />) },
+  { path: "/admin/orders", element: guarded("/admin/orders", <AdminOrdersPage />) },
+  { path: "/admin/merchants", element: guarded("/admin/merchants", <AdminMerchantsPage />) },
+  { path: "/admin/audit-logs", element: guarded("/admin/audit-logs", <AdminAuditLogPage />) },
 
   // 4. กลุ่มหน้า Merchant
   {

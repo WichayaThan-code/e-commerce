@@ -28,20 +28,65 @@
 .checkout-terms-shops{display:block}
 .checkout-terms-shops a{color:#0b4cc2;text-underline-offset:2px}
 .checkout-terms-hint{display:block;margin-top:6px;font-size:12px;color:#5b6b85}
-.checkout-problem{display:flex;gap:6px;align-items:flex-start;color:#c0262d;font-size:14px}
+.checkout-problem{display:flex;gap:6px;align-items:flex-start;color:var(--shop-danger,var(--color-danger,#c0262d));font-size:14px}
+.checkout-terms-read{display:inline;margin:0;padding:0;border:0;background:none;color:var(--shop-primary,#0878f5);font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+.checkout-terms-read:disabled{opacity:.55;cursor:not-allowed}
+.checkout-terms-dialog{max-width:min(560px,92vw)}
+.checkout-terms-version{margin:0 0 12px;color:var(--shop-muted,#5f7ca8);font-size:13px}
+.checkout-terms-body{max-height:min(50vh,420px);overflow:auto;display:grid;gap:14px;padding:4px 2px 8px;margin-bottom:8px}
+.checkout-terms-body h3{margin:0 0 4px;font-size:14px;color:var(--shop-text,#08245d)}
+.checkout-terms-body p{margin:0;font-size:13px;line-height:1.55;color:var(--shop-muted,#5f7ca8);white-space:pre-wrap}
+.checkout-success-ship,.checkout-success-eta{margin-top:8px}
+.checkout-success-eta-local{display:block;margin-top:2px;color:var(--shop-muted,#5f7ca8);font-size:12px;font-weight:500}
 .checkout-success{padding:26px 0 48px;max-width:760px}
 .checkout-success-head{display:flex;align-items:center;gap:14px;margin-bottom:18px}
 .checkout-success-head>svg{width:44px;height:44px;color:#0d7a4f;flex:none}
 .checkout-success-head>div{flex:1;min-width:0}
 .checkout-success-head h1{margin:0;font-size:24px}
 .checkout-success-head>b{font-size:22px}
-.checkout-order>header{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.checkout-order-top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start}
 .checkout-order .cart-shop-head{padding:0}
 .checkout-order-number{font-weight:700;color:#0b4cc2}
+.checkout-order-number-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .checkout-accounts{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .checkout-accounts li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border:1px solid #e1e7f0;border-radius:10px}
 .checkout-accounts small{width:100%;color:#5b6b85}
 .checkout-success-note{color:#5b6b85;font-size:14px}
 .checkout-success-actions{display:flex;gap:10px;flex-wrap:wrap}
 .checkout-secondary{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border:1px solid #0b4cc2;border-radius:999px;color:#0b4cc2;text-decoration:none;font-weight:600}
-@media(max-width:780px){.checkout-grid,.checkout-page .address-grid{grid-template-columns:minmax(0,1fr)}.checkout-lines li{grid-template-columns:48px minmax(0,1fr) auto}.checkout-lines li>b{grid-column:2/-1;justify-self:end}.checkout-success-head{flex-wrap:wrap}}
+.checkout-copy-btn{display:inline-flex;align-items:center;gap:5px;min-height:30px;padding:0 10px;border:1px solid #c9d8ec;border-radius:8px;background:#fff;color:#0b4cc2;font:600 12px var(--font-sans),"IBM Plex Sans Thai",sans-serif;cursor:pointer}
+.checkout-copy-btn:hover{background:#f3f7ff}
+.checkout-success-amount{font-size:18px;color:#e11d48}
+.checkout-success-cta-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px;padding:14px 16px;border:1px solid #c9dcf7;border-radius:12px;background:#f3f8ff}
+.checkout-success-cta-banner b{display:block;color:#0b3270;font-size:14px}
+.checkout-success-cta-banner p{margin:4px 0 0;color:#5b6b85;font-size:13px}
+.checkout-success-cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 16px;border-radius:10px;background:#0b4cc2;color:#fff;font:700 13px var(--font-sans),"IBM Plex Sans Thai",sans-serif;text-decoration:none}
+.checkout-success-cta:hover{background:#093a96}
+.checkout-success-order-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.checkout-address-book{display:grid;gap:10px;margin:0 0 14px;padding:12px;border:1px solid #e1e7f0;border-radius:12px;background:#f7faff}
+.checkout-address-book-head{display:flex;gap:10px;align-items:flex-start;color:#0b3270}
+.checkout-address-book-head>div{display:grid;gap:2px}
+.checkout-address-book-head b{font-size:14px}
+.checkout-address-book-head small{color:#5b6b85;font-size:12px}
+.checkout-address-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.checkout-address-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:stretch}
+.checkout-address-pick{display:grid;gap:2px;text-align:left;padding:10px 12px;border:1px solid #d5deea;border-radius:10px;background:#fff;color:#132b50;cursor:pointer;font:500 13px var(--font-sans),"IBM Plex Sans Thai",sans-serif}
+.checkout-address-list li.is-active .checkout-address-pick{border-color:#0b4cc2;background:#eef4ff}
+.checkout-address-label{font-weight:700;color:#0b3270}
+.checkout-address-pick small{color:#5b6b85;font-size:12px}
+.checkout-address-remove{width:36px;border:1px solid #e1e7f0;border-radius:10px;background:#fff;color:#8a5b5b;cursor:pointer}
+.checkout-address-empty{margin:0;color:#5b6b85;font-size:13px}
+.checkout-address-save{display:flex;flex-wrap:wrap;gap:8px}
+.checkout-address-save input{flex:1;min-width:140px;height:38px;padding:0 10px;border:1px solid #cfdceb;border-radius:8px;font:500 13px var(--font-sans),"IBM Plex Sans Thai",sans-serif}
+.checkout-address-save button{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 12px;border:1px solid #0b4cc2;border-radius:8px;background:#fff;color:#0b4cc2;font:700 12px var(--font-sans),"IBM Plex Sans Thai",sans-serif;cursor:pointer}
+.checkout-address-save button:disabled{opacity:.45;cursor:not-allowed}
+.checkout-address-notice{margin:0;color:#0d7a4f;font-size:12px;font-weight:600}
+.checkout-coupon-card{display:grid;gap:10px}
+.checkout-coupon-lead{margin:0;color:#5b6b85;font-size:13px}
+.checkout-coupon-input{display:flex;gap:8px}
+.checkout-coupon-input input{flex:1;min-width:0;height:40px;padding:0 12px;border:1px solid #cfdceb;border-radius:8px;font:500 13px var(--font-sans),"IBM Plex Sans Thai",sans-serif}
+.checkout-coupon-input button{height:40px;padding:0 14px;border:0;border-radius:8px;background:#0b4cc2;color:#fff;font:700 13px var(--font-sans),"IBM Plex Sans Thai",sans-serif;cursor:pointer}
+.checkout-coupon-input button:disabled{opacity:.45;cursor:not-allowed}
+.checkout-coupon-applied{align-items:flex-start}
+.checkout-page .cart-offers{margin-top:4px}
+@media(max-width:780px){.checkout-grid,.checkout-page .address-grid{grid-template-columns:minmax(0,1fr)}.checkout-lines li{grid-template-columns:48px minmax(0,1fr) auto}.checkout-lines li>b{grid-column:2/-1;justify-self:end}.checkout-success-head{flex-wrap:wrap}.checkout-success-cta-banner{align-items:stretch}.checkout-success-cta{width:100%}}

@@ -202,6 +202,21 @@
       "checkout": "Checkout",
       "done": "Done"
     },
+    "addressBook": {
+      "title": "Address book",
+      "hint": "Pick a saved address, or save the current one for next time (stored on this device)",
+      "empty": "No saved addresses yet",
+      "save": "Save this address",
+      "saved": "Address saved",
+      "labelPlaceholder": "Label e.g. Home / Work",
+      "remove": "Remove",
+      "removeTitle": "Remove this address?",
+      "removeBody": "This address will be removed from the address book on this device"
+    },
+    "coupon": {
+      "title": "Coupons",
+      "hint": "Enter a code or pick from collected coupons — one coupon per shop"
+    },
     "address": {
       "title": "Shipping address",
       "recipient": "Recipient name",
@@ -212,19 +227,83 @@
     "errors": {
       "required": "Required",
       "phone": "Invalid phone number",
-      "postal": "Postal code must be 5 digits"
+      "postal": "Postal code must be 5 digits",
+      "COUPON_NOT_FOUND": "Coupon not found",
+      "COUPON_INACTIVE": "This coupon is not active",
+      "COUPON_NOT_STARTED": "This coupon is not active yet",
+      "COUPON_EXPIRED": "This coupon has expired",
+      "COUPON_USAGE_LIMIT_REACHED": "This coupon has reached its usage limit",
+      "COUPON_PER_CUSTOMER_LIMIT_REACHED": "You have already used this coupon as many times as allowed",
+      "COUPON_MIN_SUBTOTAL_NOT_MET": "Order subtotal does not meet the coupon minimum",
+      "COUPON_LOGIN_REQUIRED": "Please sign in to use this coupon",
+      "COUPON_NOT_COLLECTED": "Please collect this coupon before applying it",
+      "COUPON_INVALID": "This coupon cannot be used",
+      "PRICE_CHANGED": "Prices changed — please review your cart",
+      "OUT_OF_STOCK": "An item is out of stock",
+      "INSUFFICIENT_STOCK": "Not enough stock for an item",
+      "PRODUCT_UNAVAILABLE": "A product is unavailable",
+      "CART_EMPTY": "Your cart is empty",
+      "SHIPPING_METHOD_NOT_FOUND": "Selected shipping method was not found",
+      "SHIPPING_METHOD_REQUIRED": "Please choose a shipping method",
+      "SHIPPING_METHOD_UNAVAILABLE": "This shipping method is unavailable",
+      "SHIPPING_NOT_COVERED": "This address is outside the selected shipping coverage",
+      "COD_NOT_ALLOWED": "Cash on delivery is not allowed",
+      "COD_NOT_AVAILABLE": "Cash on delivery is unavailable",
+      "COD_MAX_AMOUNT_EXCEEDED": "Order total exceeds the COD limit",
+      "ORDER_VERSION_CONFLICT": "This order was updated — please try again",
+      "ORDER_NOT_ACCEPTED": "This order has not been accepted yet",
+      "ORDER_GENERIC": "Something went wrong with the order — please try again",
+      "TERMS_NOT_ACCEPTED": "Please accept the order terms first",
+      "TERMS_VERSION_OUTDATED": "Terms were updated — please read and accept again",
+      "CHECKOUT_CONFLICT": "Your previous order attempt is still processing — please try again",
+      "VALIDATION_FAILED": "Please check your shipping address",
+      "LOGIN_REQUIRED": "Please sign in to place an order"
     },
     "payment": {
       "title": "Payment method",
       "transfer": "Bank transfer / PromptPay",
-      "transferHint": "The shop's accounts are shown after ordering. Please pay within 24 hours"
+      "transferHint": "The shop's accounts are shown after ordering. Please pay within 24 hours",
+      "cod": "Cash on delivery (COD)",
+      "codHint": "Pay in cash when you receive the order",
+      "codHintFee": "Includes COD fee {{fee}}",
+      "codFee": "COD fee",
+      "codUnavailable": "COD is not available right now",
+      "codUnavailableShop": "{{shop}} does not accept cash on delivery",
+      "codLimitShop": "Order total for {{shop}} exceeds the COD limit {{max}}"
     },
     "terms": {
       "title": "Order terms",
       "label": "I have read and accept the shop policies",
+      "read": "Read terms",
+      "dialogTitle": "ThaiShopFun order terms",
+      "version": "Version",
+      "accept": "Accept terms",
+      "close": "Close",
       "policiesOf": "Policies of",
       "required": "Please accept the order terms before paying",
-      "rejected": "Please accept the order terms first."
+      "rejected": "Please accept the order terms first.",
+      "doc": {
+        "s1": {
+          "title": "Placing an order",
+          "body": "When you confirm checkout, the platform creates one order per shop. Each shop handles its own fulfillment. Please review items, address, and amounts before confirming."
+        },
+        "s2": {
+          "title": "Payment and cash on delivery (COD)",
+          "body": "Bank transfer / PromptPay: pay the amount due and submit proof within the shop’s window. COD: pay in cash on delivery; a COD fee may apply as shown at checkout. Unpaid or overdue orders may be cancelled."
+        },
+        "s3": {
+          "title": "Shipping",
+          "body": "Delivery time depends on the shipping method, stock, and destination. Keep your address and phone accurate. Shops may contact you to confirm details before dispatch."
+        },
+        "s4": {
+          "title": "Refunds and cancellation",
+          "body": "Cancellations and refunds follow each shop’s policy and the order status. For damaged or incorrect items, contact the shop with evidence within the timeframe they specify."
+        },
+        "s5": {
+          "title": "Personal data",
+          "body": "Name, address, and phone are used only to fulfill orders, shipping, and necessary contact. See each shop’s policy and the platform privacy policy for more detail."
+        }
+      }
     },
     "shippingTitle": "Shipping method",
     "shippingDefault": "This shop uses the standard ฿40 shipping fee",
@@ -255,6 +334,19 @@
       "status": "Status",
       "noAccounts": "The shop hasn't set up payment accounts yet",
       "payNote": "Please transfer the amount of each order within 24 hours, otherwise it will be cancelled",
+      "codPay": "Pay on delivery",
+      "codAmount": "{{total}} (includes COD fee {{fee}})",
+      "codNote": "Pay in cash on delivery for each order",
+      "copyOrder": "Copy no.",
+      "copyAccount": "Copy",
+      "copied": "Copied",
+      "nextPayTitle": "Next: pay for your order",
+      "nextPayBody": "Transfer the amount, then upload your slip on the order page",
+      "payAndSlip": "Pay / upload slip",
+      "shipTo": "Ship to",
+      "shippingMethod": "Shipping method",
+      "eta": "Estimated delivery",
+      "etaLocal": "Platform estimate — may change with the carrier",
       "loadError": "Couldn't load your orders",
       "missing": "Order not found"
     }
@@ -262,6 +354,41 @@
   "orders": {
     "title": "My orders",
     "all": "All",
+    "list": {
+      "subtitle": "Track payment, packing, and delivery in one place",
+      "found": "Total",
+      "searchPlaceholder": "Search by order number or shop name",
+      "search": "Search",
+      "searchEmpty": "No orders match your search",
+      "searchEmptyHint": "Try another keyword, or clear search to see all orders",
+      "clearSearch": "Clear search",
+      "emptyHint": "Shop Thai stores, then come back here to track your orders",
+      "hintPay": "Please pay so the shop can process your order",
+      "hintShip": "Your parcel is on the way — open details to track",
+      "hintDetail": "View items, payment, and shipping details",
+      "actionPay": "Pay now",
+      "actionCod": "View COD order",
+      "actionTrack": "Track shipment",
+      "actionBuyAgain": "View details",
+      "pageAria": "Orders pagination",
+      "tabs": {
+        "to-pay": "To pay",
+        "to-ship": "To ship",
+        "shipping": "Shipping",
+        "delivered": "Delivered",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "refund": "Refund"
+      },
+      "paymentStatus": {
+        "UNPAID": "Unpaid",
+        "PENDING": "Pending review",
+        "PAID": "Paid",
+        "FAILED": "Payment failed",
+        "PARTIALLY_REFUNDED": "Partially refunded",
+        "REFUNDED": "Refunded"
+      }
+    },
     "empty": "You have no orders yet",
     "blocked": "Admin accounts cannot view buyer orders",
     "notFound": "Order not found",
@@ -271,6 +398,18 @@
     "placedAt": "Placed at",
     "viewDetail": "View details",
     "back": "My orders",
+    "detail": {
+      "orderNo": "Order number",
+      "hintPay": "Please pay and upload your slip so the shop can process the order",
+      "hintCod": "Pay in cash on delivery — the shop will ship in order",
+      "hintPrepare": "The shop is preparing your items",
+      "hintShip": "Your parcel is on the way — tracking is below",
+      "hintDelivered": "Delivered — confirm once you’ve received everything",
+      "hintDone": "This order is complete",
+      "hintCancel": "This order was cancelled",
+      "hintRefund": "Follow refund progress in the section below",
+      "timelineHint": "Order status history"
+    },
     "products": "Products",
     "address": "Shipping address",
     "note": "Note to shop",
@@ -309,7 +448,74 @@
     "confirmReceivedAsk": "Confirm that you received everything?",
     "prev": "Previous",
     "next": "Next",
-    "page": "Page {{current}}/{{total}}"
+    "page": "Page {{current}}/{{total}}",
+    "termsAcceptedAt": "Terms accepted at",
+    "shipment": {
+      "title": "Shipment tracking",
+      "status": "Shipment status",
+      "carrier": "Carrier",
+      "trackWeb": "Track on carrier site",
+      "empty": "The shop has not shipped yet",
+      "loadError": "Couldn't load shipment details",
+      "statusValue": {
+        "READY_TO_PACK": "Ready to pack",
+        "PACKING": "Packing",
+        "PACKED": "Packed",
+        "DISPATCHED": "Dispatched",
+        "IN_TRANSIT": "In transit",
+        "OUT_FOR_DELIVERY": "Out for delivery",
+        "DELIVERED": "Delivered",
+        "DELIVERY_FAILED": "Delivery failed",
+        "RETURNED": "Returned",
+        "CANCELLED": "Cancelled"
+      }
+    },
+    "paymentsHistory": {
+      "title": "Payment history",
+      "method": "Payment method",
+      "bankTransfer": "Bank transfer / PromptPay",
+      "cod": "Cash on delivery (COD)",
+      "codPay": "Pay in cash on delivery",
+      "codAmount": "{{total}} (includes COD fee {{fee}})",
+      "empty": "No payment attempts yet",
+      "loadError": "Couldn't load payment history"
+    },
+    "refund": {
+      "title": "Refunds",
+      "request": "Request refund / return",
+      "requestAsk": "Confirm refund request — please provide a reason",
+      "submit": "Submit request",
+      "reason": "Reason",
+      "reasonRequired": "Reason is required",
+      "amountOptional": "Amount (leave blank for full refundable)",
+      "amountInvalid": "Invalid amount",
+      "amountTooHigh": "Amount exceeds refundable total",
+      "refundable": "Refundable amount",
+      "rejectReason": "Rejection reason",
+      "proofRef": "Refund reference",
+      "proofAt": "Refund transferred at",
+      "viewProof": "View refund slip",
+      "confirmReceived": "I received the refund",
+      "dispute": "I have not received it",
+      "disputeAsk": "Report that you have not received the refund — please add details",
+      "disputeSubmit": "Submit report",
+      "note": "Details",
+      "noteRequired": "Details are required",
+      "ackStatus": "Acknowledgement",
+      "empty": "No refund requests yet",
+      "loadError": "Couldn't load refund details",
+      "status": {
+        "REQUESTED": "Pending",
+        "APPROVED": "Approved",
+        "REJECTED": "Rejected",
+        "COMPLETED": "Completed",
+        "CANCELLED": "Cancelled"
+      },
+      "ack": {
+        "CONFIRMED": "Confirmed received",
+        "DISPUTED": "Disputed"
+      }
+    }
   },
   "footer": {
     "tagline": "A space for Thai people, for every Thai shop",

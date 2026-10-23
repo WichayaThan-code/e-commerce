@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
-  BarChart3, Bell, CircleDollarSign, ClipboardList, FileCheck2, FileText,
-  Headphones, Home, LogOut, Megaphone, ReceiptText, Settings, Store, Tags,
+  BarChart3, Bell, Building2, CircleDollarSign, ClipboardList, FileCheck2, FileText,
+  Headphones, Home, LogOut, Megaphone, ReceiptText, Settings, ShoppingBag, Store, Tags,
   TrendingUp, UserCog, UsersRound, WalletCards,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -14,20 +14,23 @@ export function refreshAdminStoreApplications() {
   window.dispatchEvent(new Event(STORE_APPLICATIONS_CHANGED))
 }
 
-export type AdminSection = 'home' | 'stores' | 'applications' | 'categories' | 'promotions' | 'users' | 'roles' | 'role-assignments'
+export type AdminSection = 'home' | 'stores' | 'applications' | 'categories' | 'promotions' | 'users' | 'roles' | 'role-assignments' | 'orders' | 'audit' | 'merchants'
 
 const links: { key: AdminSection; label: string; href: string; icon: typeof Store }[] = [
   { key: 'stores', label: 'ร้านค้า', href: '/admin/stores', icon: Store },
+  { key: 'merchants', label: 'ผู้ขายและแพ็กเกจ', href: '/admin/merchants', icon: Building2 },
+  { key: 'orders', label: 'คำสั่งซื้อทั้งหมด', href: '/admin/orders', icon: ShoppingBag },
   { key: 'applications', label: 'ใบสมัครร้านค้า', href: '/admin/store-applications', icon: FileCheck2 },
   { key: 'categories', label: 'หมวดหมู่สินค้า', href: '/admin/categories', icon: Tags },
   { key: 'promotions', label: 'โปรโมชั่น/แคมเปญ', href: '/admin/promotions', icon: Megaphone },
   { key: 'users', label: 'ผู้ใช้งาน', href: '/admin/users', icon: UsersRound },
   { key: 'roles', label: 'บทบาทและสิทธิ์', href: '/admin/roles', icon: UserCog },
   { key: 'role-assignments', label: 'ผูกผู้ใช้กับ role', href: '/admin/role-assignments', icon: UserCog },
+  { key: 'audit', label: 'บันทึกการใช้งาน', href: '/admin/audit-logs', icon: FileCheck2 },
 ]
 
 const groups: { label: string; keys: AdminSection[] }[] = [
-  { label: 'จัดการร้านค้า', keys: ['stores', 'applications', 'categories', 'promotions'] },
+  { label: 'จัดการร้านค้า', keys: ['stores', 'merchants', 'orders', 'applications', 'categories', 'promotions'] },
   { label: 'จัดการผู้ใช้', keys: ['users', 'roles', 'role-assignments'] },
 ]
 
@@ -112,8 +115,10 @@ export default function AdminSidebar({ active, className = '', showHelp = false,
         {extended && <>
           <button type="button" onClick={() => unavailable('จัดการเนื้อหา')}><ClipboardList />จัดการเนื้อหา</button>
           <button type="button" onClick={() => unavailable('แจ้งเตือน')}><Bell />แจ้งเตือน</button>
-          <button type="button" onClick={() => unavailable('บันทึกการใช้งาน')}><FileCheck2 />บันทึกการใช้งาน</button>
         </>}
+        {canVisit(item('audit').href) && (
+          <a className={active === 'audit' ? 'active' : ''} href={item('audit').href}><FileCheck2 />{item('audit').label}</a>
+        )}
       </section>
       {showHelp && <button className="admin-help" type="button" onClick={() => unavailable('ศูนย์ช่วยเหลือ')}><Headphones />ศูนย์ช่วยเหลือ</button>}
       <button className="admin-logout" type="button" onClick={signOut}><LogOut />ออกจากระบบ</button>

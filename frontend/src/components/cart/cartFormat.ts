@@ -1,4 +1,5 @@
 import { ApiError, moneyValue, type AuthUser, type Money } from "../../services/api";
+import { messageForCheckoutCouponCode } from "../checkout/checkoutErrors";
 
 /** True when the signed-in user is a member/staff of the shop (public shop number). */
 export function isOwnShop(user: AuthUser | null | undefined, shopNo: number | null | undefined) {
@@ -47,6 +48,10 @@ export function cartErrorMessage(error: unknown, tp: (key: string, options?: Rec
 }
 
 export function couponReasonMessage(reason: string | null | undefined, tp: (key: string, options?: Record<string, unknown>) => string, fallback?: string | null) {
+  if (reason) {
+    const fromCheckout = messageForCheckoutCouponCode(reason, tp);
+    if (fromCheckout) return fromCheckout;
+  }
   if (reason && KNOWN_ERRORS.has(reason)) return tp(`cart.errors.${reason}`);
   return fallback || tp("cart.errors.generic");
 }

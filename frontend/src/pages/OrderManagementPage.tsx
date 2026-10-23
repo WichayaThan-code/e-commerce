@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   BarChart3,
-  Bell,
   Box,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleHelp,
@@ -25,121 +24,35 @@ import {
 } from "lucide-react";
 import MerchantBell from "../components/merchant/MerchantBell";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
+import MerchantOrderDrawer from "../components/merchant/MerchantOrderDrawer";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
+import { LoadError, SkeletonTable } from "../components/feedback/Skeleton";
+import { formatBaht } from "../components/cart/cartFormat";
+import {
+  FULFILLMENT_STATUSES,
+  PAYMENT_STATUSES,
+  formatBangkokParts,
+  orderErrorMessage,
+  paymentTone,
+  periodRange,
+  statusTone,
+  type PeriodKey,
+} from "../components/merchant/orderFormat";
+import { useActiveShop } from "../contexts/ActiveShopContext";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
-import productManageImage from "../assets/images/references/merchant/product-manage.png";
+import { usePublicTranslation } from "../hooks/usePublicTranslation";
+import { merchantOrderApi, type OrderPage } from "../services/api";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/order-management.css";
 
-type Order = {
-  id: string;
-  customer: string;
-  product: string;
-  items: string;
-  amount: number;
-  payment: "ชำระแล้ว" | "รอชำระเงิน";
-  delivery: "รอจัดส่ง" | "กำลังจัดส่ง" | "จัดส่งแล้ว" | "ยกเลิก";
-  date: string;
-  crop: string;
-};
-const orders: Order[] = [
-  {
-    id: "#TSF202609120045",
-    customer: "คุณณัฐชา",
-    product: "ข้าวหอมมะลิ 5 กก.",
-    items: "2 รายการ",
-    amount: 890,
-    payment: "ชำระแล้ว",
-    delivery: "รอจัดส่ง",
-    date: "12 ก.ย. 2566\n14:32",
-    crop: "-320px -473px",
-  },
-  {
-    id: "#TSF202609120044",
-    customer: "คุณสมชาย",
-    product: "น้ำพริกแม่สมชาย",
-    items: "1 รายการ",
-    amount: 1250,
-    payment: "ชำระแล้ว",
-    delivery: "กำลังจัดส่ง",
-    date: "12 ก.ย. 2566\n13:18",
-    crop: "-320px -527px",
-  },
-  {
-    id: "#TSF202609120043",
-    customer: "คุณวรภา",
-    product: "มะม่วงอบแห้ง",
-    items: "3 รายการ",
-    amount: 760,
-    payment: "รอชำระเงิน",
-    delivery: "รอจัดส่ง",
-    date: "12 ก.ย. 2566\n12:59",
-    crop: "-320px -581px",
-  },
-  {
-    id: "#TSF202609120042",
-    customer: "คุณกิตติ",
-    product: "เซ็ตของฝากไทย",
-    items: "4 รายการ",
-    amount: 1950,
-    payment: "ชำระแล้ว",
-    delivery: "จัดส่งแล้ว",
-    date: "12 ก.ย. 2566\n11:21",
-    crop: "-320px -635px",
-  },
-  {
-    id: "#TSF202609120041",
-    customer: "คุณปิยะ",
-    product: "ต้นไม้มงคล เสริมโชค",
-    items: "1 รายการ",
-    amount: 420,
-    payment: "ชำระแล้ว",
-    delivery: "ยกเลิก",
-    date: "12 ก.ย. 2566\n10:05",
-    crop: "-320px -690px",
-  },
-  {
-    id: "#TSF202609110038",
-    customer: "คุณอารยา",
-    product: "กาแฟดอยช้าง",
-    items: "2 รายการ",
-    amount: 640,
-    payment: "ชำระแล้ว",
-    delivery: "จัดส่งแล้ว",
-    date: "11 ก.ย. 2566\n18:45",
-    crop: "-320px -744px",
-  },
-  {
-    id: "#TSF202609110035",
-    customer: "คุณธนกร",
-    product: "เสื้อยืดผ้าฝ้าย",
-    items: "2 รายการ",
-    amount: 398,
-    payment: "ชำระแล้ว",
-    delivery: "กำลังจัดส่ง",
-    date: "11 ก.ย. 2566\n16:20",
-    crop: "-320px -798px",
-  },
-  {
-    id: "#TSF202609110031",
-    customer: "คุณมณีรัตน์",
-    product: "สบู่สมุนไพร",
-    items: "5 รายการ",
-    amount: 445,
-    payment: "ชำระแล้ว",
-    delivery: "รอจัดส่ง",
-    date: "11 ก.ย. 2566\n14:08",
-    crop: "-320px -852px",
-  },
-];
 const menu = [
   [Home, "หน้าหลัก", "/merchant/dashboard"],
   [Box, "จัดการสินค้า", "/merchant/products"],
-  [ShoppingBag, "คำสั่งซื้อ", "/merchant/orders", "12"],
+  [ShoppingBag, "คำสั่งซื้อ", "/merchant/orders"],
   [CircleUserRound, "ลูกค้า", "/merchant/customers"],
   [TicketPercent, "โปรโมชั่น/คูปอง", "/merchant/promotions"],
   [BarChart3, "รายงาน", "/merchant/reports"],
@@ -148,6 +61,14 @@ const menu = [
   [Store, "ร้านของฉัน", "/merchant/store"],
   [Settings, "ตั้งค่า", "/merchant/settings"],
 ] as const;
+
+const TABS = [
+  "all", "AWAITING", "PENDING_PAYMENT", "PAID_AWAITING_MERCHANT_CONFIRM", "MERCHANT_CONFIRMED",
+  "DISPATCHED", "COMPLETED", "CANCELLED", "REFUND_REQUESTED",
+];
+const SIZES = [10, 20, 50];
+const KPI_STATUSES = [undefined, "PENDING_PAYMENT", "MERCHANT_CONFIRMED", "COMPLETED"] as const;
+
 function Brand() {
   return (
     <a className="merchant-brand" href="/">
@@ -164,33 +85,107 @@ function Brand() {
     </a>
   );
 }
-function Thumb({ order }: { order: Order }) {
-  const [left, top] = order.crop.split(" ");
-  return (
-    <span className="om-thumb">
-      <img src={productManageImage} alt="" style={{ left, top }} />
-    </span>
-  );
+
+function pageNumbers(page: number, pages: number) {
+  const first = Math.max(0, Math.min(page - 2, pages - 5));
+  const last = Math.min(pages - 1, first + 4);
+  const numbers: number[] = [];
+  for (let n = first; n <= last; n += 1) numbers.push(n);
+  return numbers;
 }
 
 export default function OrderManagementPage() {
+  const { t } = useTranslation("merchant");
+  const { localeTag } = usePublicTranslation();
   const { user, loading } = useAuth();
-  const { canInShop, canSeeMenuItem, deniedTitle } = usePermissions();
-  const canExport = canInShop("ORDER_EXPORT");
-  const canPack = canInShop("SHIPMENT_PACK");
+  const { shopId } = useActiveShop();
+  const { canSeeMenuItem } = usePermissions();
   const [query, setQuery] = useState("");
-  const [payment, setPayment] = useState("ทั้งหมด");
-  const [delivery, setDelivery] = useState("ทั้งหมด");
-  const [period, setPeriod] = useState("30 วันล่าสุด");
+  const [q, setQ] = useState("");
+  const [tab, setTab] = useState("all");
+  const [payment, setPayment] = useState("");
+  const [fulfillment, setFulfillment] = useState("");
+  const [period, setPeriod] = useState<PeriodKey>("all");
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
+  const [data, setData] = useState<OrderPage | null>(null);
+  const [fetching, setFetching] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+  const [kpis, setKpis] = useState<(number | null)[]>([null, null, null, null]);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
+  const [tone, setTone] = useState<"ok" | "fail">("ok");
+  const toastTimer = useRef<number | undefined>(undefined);
+  const qRef = useRef("");
+  const unsupported = t("orderManagement.notSupported");
+  const money = (value: number | string | null | undefined) => formatBaht(value, localeTag);
+
+  const notify = useCallback((text: string, nextTone: "ok" | "fail" = "ok") => {
+    setTone(nextTone);
+    setNotice(text);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setNotice(""), 2400);
+  }, []);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      const next = query.trim();
+      if (next === qRef.current) return;
+      qRef.current = next;
+      setQ(next);
+      setPage(0);
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [query]);
+
+  useEffect(() => {
+    if (shopId == null) return;
+    let alive = true;
+    setFetching(true);
+    setError(null);
+    const range = periodRange(period);
+    merchantOrderApi
+      .list(shopId, {
+        status: tab !== "all" && tab !== "AWAITING" ? tab : undefined,
+        acceptance: tab === "AWAITING" ? "AWAITING" : undefined,
+        paymentStatus: payment || undefined,
+        fulfillmentStatus: fulfillment || undefined,
+        from: range.from,
+        to: range.to,
+        q: q || undefined,
+        page,
+        size,
+        sort: "placedAt",
+        direction: "desc",
+      })
+      .then((result) => { if (alive) setData(result); })
+      .catch((caught) => { if (alive) setError(orderErrorMessage(t, caught)); })
+      .finally(() => { if (alive) setFetching(false); });
+    return () => { alive = false; };
+  }, [shopId, tab, payment, fulfillment, period, q, page, size, reload, t]);
+
+  useEffect(() => {
+    if (shopId == null) return;
+    let alive = true;
+    Promise.all(
+      KPI_STATUSES.map((status) =>
+        merchantOrderApi.list(shopId, { status, size: 1 }).then((r) => r.totalItems).catch(() => null),
+      ),
+    ).then((values) => { if (alive) setKpis(values); });
+    return () => { alive = false; };
+  }, [shopId, reload]);
+
+  const handleChanged = useCallback(() => setReload((n) => n + 1), []);
+
   if (loading)
     return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
   if (!user) {
     window.location.replace("/login?next=/merchant/orders");
     return null;
   }
-  if ((hasPlatformAccess(user) && !hasMerchantAccess(user))) {
+  if (hasPlatformAccess(user) && !hasMerchantAccess(user)) {
     window.location.replace("/admin");
     return null;
   }
@@ -198,32 +193,31 @@ export default function OrderManagementPage() {
     window.location.replace("/");
     return null;
   }
-  const shopName =
-    (user.firstName || "MaeSomchai").toLowerCase() === "merchant"
-      ? "MaeSomchai Official"
-      : `${user.firstName || "MaeSomchai"} Official`;
-  const notify = (text: string) => {
-    setNotice(text);
-    window.setTimeout(() => setNotice(""), 1900);
-  };
-  const visible = orders.filter(
-    (o) =>
-      `${o.id} ${o.customer} ${o.product}`
-        .toLowerCase()
-        .includes(query.trim().toLowerCase()) &&
-      (payment === "ทั้งหมด" || o.payment === payment) &&
-      (delivery === "ทั้งหมด" || o.delivery === delivery),
-  );
+
+  const items = data?.items ?? [];
+  const total = data?.totalItems ?? 0;
+  const pages = Math.max(1, data?.totalPages ?? 1);
+  const from = total === 0 ? 0 : page * size + 1;
+  const to = Math.min(total, page * size + items.length);
   const reset = () => {
     setQuery("");
-    setPayment("ทั้งหมด");
-    setDelivery("ทั้งหมด");
-    setPeriod("30 วันล่าสุด");
+    qRef.current = "";
+    setQ("");
+    setPayment("");
+    setFulfillment("");
+    setPeriod("all");
+    setTab("all");
+    setPage(0);
   };
-  const toggleAll = () =>
-    setSelected(
-      selected.length === visible.length ? [] : visible.map((o) => o.id),
-    );
+  const changeTab = (next: string) => {
+    setTab(next);
+    setPage(0);
+  };
+  const kpiValue = (index: number) => (kpis[index] == null ? "—" : kpis[index]!.toLocaleString(localeTag));
+  const tabLabel = (key: string) =>
+    key === "all" ? t("orderManagement.tabs.all") : key === "AWAITING" ? t("orderManagement.tabs.awaiting") : t(`orderManagement.status.${key}`);
+  const empty = !fetching && !error && items.length === 0;
+
   return (
     <main className="merchant-shell om-shell">
       <header className="merchant-topbar">
@@ -234,21 +228,10 @@ export default function OrderManagementPage() {
       </header>
       <aside className="merchant-sidebar pm-sidebar om-sidebar">
         <nav>
-          {menu.filter(canSeeMenuItem).map(([Icon, label, href, badge]) => (
-            <a
-              className={label === "คำสั่งซื้อ" ? "active" : ""}
-              href={href}
-              key={label}
-              onClick={(e) => {
-                if ((href as string) === "#") {
-                  e.preventDefault();
-                  notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`);
-                }
-              }}
-            >
+          {menu.filter(canSeeMenuItem).map(([Icon, label, href]) => (
+            <a className={label === "คำสั่งซื้อ" ? "active" : ""} href={href} key={label}>
               <Icon />
               {label}
-              {badge && <i>{badge}</i>}
             </a>
           ))}
         </nav>
@@ -278,28 +261,17 @@ export default function OrderManagementPage() {
       <section className="pm-content om-content">
         <header className="pm-heading om-heading">
           <div>
-            <h1>คำสั่งซื้อ</h1>
-            <p>ติดตามและจัดการคำสั่งซื้อทั้งหมดของร้านคุณ</p>
+            <h1>{t("orderManagement.title")}</h1>
+            <p>{t("orderManagement.subtitle")}</p>
           </div>
           <div className="pm-actions">
-            <button disabled={!canExport} title={deniedTitle(canExport)}
-              onClick={() => notify("ส่งออกข้อมูลคำสั่งซื้อเป็น Excel แล้ว")}
-            >
+            <button disabled title={unsupported}>
               <Download />
-              ส่งออก (Excel)
+              {t("orderManagement.export")}
             </button>
-            <button disabled={!canPack} title={deniedTitle(canPack)}
-              className="primary"
-              onClick={() =>
-                notify(
-                  selected.length
-                    ? `พิมพ์ใบปะหน้า ${selected.length} รายการ`
-                    : "กรุณาเลือกคำสั่งซื้อ",
-                )
-              }
-            >
+            <button disabled title={unsupported} className="primary">
               <Printer />
-              พิมพ์ใบปะหน้า
+              {t("orderManagement.printLabels")}
             </button>
           </div>
         </header>
@@ -309,21 +281,17 @@ export default function OrderManagementPage() {
               <ShoppingBag />
             </span>
             <div>
-              <small>คำสั่งซื้อทั้งหมด</small>
-              <b>
-                1,248<i>↑ 18%</i>
-              </b>
-              <em>จากเดือนก่อน</em>
+              <small>{t("orderManagement.kpi.all")}</small>
+              <b>{kpiValue(0)}</b>
+              <em>{t("orderManagement.kpi.allHint")}</em>
             </div>
           </article>
           <article className="low">
             <span>฿</span>
             <div>
-              <small>รอชำระเงิน</small>
-              <b>
-                8<i>1%</i>
-              </b>
-              <em>รอลูกค้าชำระเงิน</em>
+              <small>{t("orderManagement.status.PENDING_PAYMENT")}</small>
+              <b>{kpiValue(1)}</b>
+              <em>{t("orderManagement.kpi.pendingHint")}</em>
             </div>
           </article>
           <article className="empty">
@@ -331,11 +299,9 @@ export default function OrderManagementPage() {
               <Truck />
             </span>
             <div>
-              <small>รอจัดส่ง</small>
-              <b>
-                12<i>วันนี้</i>
-              </b>
-              <em>ควรจัดส่งภายในวันนี้</em>
+              <small>{t("orderManagement.status.MERCHANT_CONFIRMED")}</small>
+              <b>{kpiValue(2)}</b>
+              <em>{t("orderManagement.kpi.confirmedHint")}</em>
             </div>
           </article>
           <article className="ready">
@@ -343,229 +309,208 @@ export default function OrderManagementPage() {
               <PackageCheck />
             </span>
             <div>
-              <small>จัดส่งสำเร็จ</small>
-              <b>
-                1,189<i>95%</i>
-              </b>
-              <em>สำเร็จในเดือนนี้</em>
+              <small>{t("orderManagement.status.COMPLETED")}</small>
+              <b>{kpiValue(3)}</b>
+              <em>{t("orderManagement.kpi.completedHint")}</em>
             </div>
           </article>
         </section>
         <section className="pm-table-card om-card">
-          <div className="om-tabs">
-            <button className="active">
-              ทั้งหมด <i>1,248</i>
-            </button>
-            <button>
-              รอชำระเงิน <i>8</i>
-            </button>
-            <button>
-              รอจัดส่ง <i>12</i>
-            </button>
-            <button>
-              กำลังจัดส่ง <i>39</i>
-            </button>
-            <button>จัดส่งแล้ว</button>
-            <button>ยกเลิก</button>
+          <div className="om-tabs" role="tablist">
+            {TABS.map((key) => (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={tab === key}
+                className={tab === key ? "active" : ""}
+                onClick={() => changeTab(key)}
+              >
+                {tabLabel(key)}
+              </button>
+            ))}
           </div>
-          <form
-            className="om-filters"
-            onSubmit={(e) => {
-              e.preventDefault();
-              notify(`พบ ${visible.length} คำสั่งซื้อ`);
-            }}
-          >
+          <form className="om-filters" onSubmit={(e) => { e.preventDefault(); qRef.current = query.trim(); setQ(qRef.current); setPage(0); setReload((n) => n + 1); }}>
             <label className="om-search">
               <Search />
               <input
-                aria-label="ค้นหาคำสั่งซื้อ"
+                aria-label={t("orderManagement.filters.searchLabel")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="ค้นหาเลขที่คำสั่งซื้อ ชื่อลูกค้า หรือสินค้า..."
+                placeholder={t("orderManagement.filters.searchPlaceholder")}
               />
             </label>
             <label>
-              การชำระเงิน
+              {t("orderManagement.filters.payment")}
               <select
-                aria-label="การชำระเงิน"
+                aria-label={t("orderManagement.filters.payment")}
                 value={payment}
-                onChange={(e) => setPayment(e.target.value)}
+                onChange={(e) => { setPayment(e.target.value); setPage(0); }}
               >
-                <option>ทั้งหมด</option>
-                <option>ชำระแล้ว</option>
-                <option>รอชำระเงิน</option>
+                <option value="">{t("orderManagement.filters.all")}</option>
+                {PAYMENT_STATUSES.map((s) => (
+                  <option key={s} value={s}>{t(`orderManagement.paymentStatus.${s}`)}</option>
+                ))}
               </select>
             </label>
             <label>
-              สถานะจัดส่ง
+              {t("orderManagement.filters.fulfillment")}
               <select
-                aria-label="สถานะจัดส่ง"
-                value={delivery}
-                onChange={(e) => setDelivery(e.target.value)}
+                aria-label={t("orderManagement.filters.fulfillment")}
+                value={fulfillment}
+                onChange={(e) => { setFulfillment(e.target.value); setPage(0); }}
               >
-                <option>ทั้งหมด</option>
-                <option>รอจัดส่ง</option>
-                <option>กำลังจัดส่ง</option>
-                <option>จัดส่งแล้ว</option>
-                <option>ยกเลิก</option>
+                <option value="">{t("orderManagement.filters.all")}</option>
+                {FULFILLMENT_STATUSES.map((s) => (
+                  <option key={s} value={s}>{t(`orderManagement.fulfillmentStatus.${s}`)}</option>
+                ))}
               </select>
             </label>
             <label>
-              ช่วงเวลา
+              {t("orderManagement.filters.period")}
               <select
-                aria-label="ช่วงเวลา"
+                aria-label={t("orderManagement.filters.period")}
                 value={period}
-                onChange={(e) => setPeriod(e.target.value)}
+                onChange={(e) => { setPeriod(e.target.value as PeriodKey); setPage(0); }}
               >
-                <option>30 วันล่าสุด</option>
-                <option>7 วันล่าสุด</option>
-                <option>เดือนนี้</option>
+                <option value="all">{t("orderManagement.filters.periods.all")}</option>
+                <option value="7d">{t("orderManagement.filters.periods.7d")}</option>
+                <option value="30d">{t("orderManagement.filters.periods.30d")}</option>
+                <option value="month">{t("orderManagement.filters.periods.month")}</option>
               </select>
             </label>
             <div>
               <button type="button" onClick={reset}>
-                รีเซ็ต
+                {t("orderManagement.filters.reset")}
               </button>
-              <button className="primary">ค้นหา</button>
+              <button className="primary">{t("orderManagement.filters.search")}</button>
             </div>
           </form>
-          <div className="om-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>
-                    <input
-                      aria-label="เลือกคำสั่งซื้อทั้งหมด"
-                      type="checkbox"
-                      checked={
-                        visible.length > 0 && selected.length === visible.length
-                      }
-                      onChange={toggleAll}
-                    />
-                  </th>
-                  <th>คำสั่งซื้อ</th>
-                  <th>ลูกค้า</th>
-                  <th>สินค้า</th>
-                  <th>ยอดรวม</th>
-                  <th>การชำระเงิน</th>
-                  <th>สถานะจัดส่ง</th>
-                  <th>วันที่สั่งซื้อ</th>
-                  <th>จัดการ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((o) => (
-                  <tr key={o.id}>
-                    <td>
-                      <input
-                        aria-label={`เลือก ${o.id}`}
-                        type="checkbox"
-                        checked={selected.includes(o.id)}
-                        onChange={() =>
-                          setSelected((xs) =>
-                            xs.includes(o.id)
-                              ? xs.filter((id) => id !== o.id)
-                              : [...xs, o.id],
-                          )
-                        }
-                      />
-                    </td>
-                    <td>
-                      <b className="num">{o.id}</b>
-                    </td>
-                    <td>
-                      <span className="om-customer">
-                        {o.customer.slice(-2, -1)}
-                      </span>
-                      <b>{o.customer}</b>
-                    </td>
-                    <td>
-                      <div className="om-product">
-                        <Thumb order={o} />
-                        <p>
-                          <b>{o.product}</b>
-                          <small>{o.items}</small>
-                        </p>
-                      </div>
-                    </td>
-                    <td>
-                      <strong className="num">฿ {o.amount.toLocaleString()}</strong>
-                    </td>
-                    <td>
-                      <span
-                        className={`om-pill ${o.payment === "ชำระแล้ว" ? "paid" : "pending"}`}
-                      >
-                        {o.payment}
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        className={`om-pill ${o.delivery === "รอจัดส่ง" ? "waiting" : o.delivery === "กำลังจัดส่ง" ? "shipping" : o.delivery === "จัดส่งแล้ว" ? "delivered" : "cancelled"}`}
-                      >
-                        {o.delivery}
-                      </span>
-                    </td>
-                    <td>
-                      {o.date.split("\n").map((x) => (
-                        <span key={x}>{x}</span>
-                      ))}
-                    </td>
-                    <td>
-                      <div className="om-row-actions">
-                        <button
-                          aria-label={`ดู ${o.id}`}
-                          onClick={() => notify(`เปิดรายละเอียด ${o.id}`)}
-                        >
-                          <Eye />
-                        </button>
-                        <button disabled={!canPack} title={deniedTitle(canPack)}
-                          aria-label={`พิมพ์ ${o.id}`}
-                          onClick={() => notify(`พิมพ์ใบปะหน้า ${o.id}`)}
-                        >
-                          <Printer />
-                        </button>
-                      </div>
-                    </td>
+          <div className="om-table-wrap" aria-busy={fetching}>
+            {error ? (
+              <LoadError message={error} onRetry={() => setReload((n) => n + 1)} retryLabel={t("shopSettings.retry")} />
+            ) : fetching && items.length === 0 ? (
+              <SkeletonTable rows={6} cols={8} />
+            ) : (
+              <table className={fetching ? "is-refetching" : undefined}>
+                <thead>
+                  <tr>
+                    <th>
+                      <input aria-label={t("orderManagement.columns.selectAll")} type="checkbox" disabled title={unsupported} />
+                    </th>
+                    <th>{t("orderManagement.columns.order")}</th>
+                    <th>{t("orderManagement.columns.customer")}</th>
+                    <th>{t("orderManagement.columns.items")}</th>
+                    <th>{t("orderManagement.columns.total")}</th>
+                    <th>{t("orderManagement.columns.payment")}</th>
+                    <th>{t("orderManagement.columns.status")}</th>
+                    <th>{t("orderManagement.columns.placedAt")}</th>
+                    <th>{t("orderManagement.columns.actions")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {visible.length === 0 && (
-              <div className="om-empty">ไม่พบคำสั่งซื้อที่ตรงกับตัวกรอง</div>
+                </thead>
+                <tbody>
+                  {items.map((o) => {
+                    const hidden = o.awaitingAcceptance;
+                    const parts = formatBangkokParts(o.placedAt, localeTag);
+                    return (
+                      <tr key={o.id}>
+                        <td>
+                          <input aria-label={o.orderNumber} type="checkbox" disabled title={unsupported} />
+                        </td>
+                        <td>
+                          <b className="num">{o.orderNumber}</b>
+                          {hidden && <span className="om-badge warn">{t("orderManagement.awaitingBadge")}</span>}
+                          {!hidden && o.paymentMethod === "COD" && <span className="om-badge cod">COD</span>}
+                        </td>
+                        <td>—</td>
+                        <td>
+                          {hidden || o.itemCount == null ? "—" : (
+                            <div className="om-product">
+                              <p>
+                                <b>{t("orderManagement.itemsCount", { count: o.itemCount })}</b>
+                                {o.totalQuantity != null && <small>{t("orderManagement.quantityCount", { count: o.totalQuantity })}</small>}
+                              </p>
+                            </div>
+                          )}
+                        </td>
+                        <td>{hidden ? "—" : <strong className="num">{money(o.grandTotal)}</strong>}</td>
+                        <td>
+                          {hidden ? "—" : (
+                            <span className={`om-pill ${paymentTone(o.paymentStatus)}`}>
+                              {t(`orderManagement.paymentStatus.${o.paymentStatus}`, { defaultValue: o.paymentStatus })}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          {hidden ? "—" : (
+                            <span className={`om-pill ${statusTone(o.status)}`}>
+                              {t(`orderManagement.status.${o.status}`, { defaultValue: o.status })}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          {parts ? parts.map((x) => <span key={x}>{x}</span>) : "—"}
+                        </td>
+                        <td>
+                          <div className="om-row-actions">
+                            <button
+                              aria-label={t("orderManagement.viewOrder", { number: o.orderNumber })}
+                              onClick={() => setOpenId(o.id)}
+                            >
+                              <Eye />
+                            </button>
+                            <button disabled title={unsupported} aria-label={t("orderManagement.printOrder", { number: o.orderNumber })}>
+                              <Printer />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             )}
+            {empty && <div className="om-empty">{t("orderManagement.empty")}</div>}
           </div>
           <div className="pm-pagination">
-            <span>แสดง 1 - {visible.length} จาก 1,248 รายการ</span>
+            <span>{t("orderManagement.pagination.range", { from, to, total })}</span>
             <label>
-              แสดง{" "}
-              <select aria-label="จำนวนรายการ">
-                <option>8</option>
-                <option>16</option>
-                <option>24</option>
+              {t("orderManagement.pagination.show")}{" "}
+              <select
+                aria-label={t("orderManagement.pagination.perPage")}
+                value={size}
+                onChange={(e) => { setSize(Number(e.target.value)); setPage(0); }}
+              >
+                {SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
               </select>{" "}
-              รายการ
+              {t("orderManagement.pagination.rows")}
             </label>
             <nav>
-              <button aria-label="หน้าแรก">«</button>
-              <button aria-label="ก่อนหน้า">
+              <button aria-label={t("orderManagement.pagination.first")} disabled={page === 0} onClick={() => setPage(0)}>«</button>
+              <button aria-label={t("orderManagement.pagination.prev")} disabled={page === 0} onClick={() => setPage(page - 1)}>
                 <ChevronLeft />
               </button>
-              <button className="active">1</button>
-              <button>2</button>
-              <button>3</button>
-              <button>4</button>
-              <button>5</button>
-              <span>...</span>
-              <button>156</button>
-              <button aria-label="ถัดไป">
+              {pageNumbers(page, pages).map((n) => (
+                <button key={n} className={n === page ? "active" : ""} onClick={() => setPage(n)}>{n + 1}</button>
+              ))}
+              {pageNumbers(page, pages).slice(-1)[0] < pages - 1 && <span>...</span>}
+              <button aria-label={t("orderManagement.pagination.next")} disabled={page >= pages - 1} onClick={() => setPage(page + 1)}>
                 <ChevronRight />
               </button>
             </nav>
           </div>
         </section>
       </section>
+      {openId && shopId != null && (
+        <MerchantOrderDrawer
+          shopId={shopId}
+          orderId={openId}
+          onClose={() => setOpenId(null)}
+          onChanged={handleChanged}
+          notify={notify}
+        />
+      )}
       {notice && (
-        <div className="merchant-toast" role="status">
+        <div className={`merchant-toast${tone === "fail" ? " om-toast-fail" : ""}`} role="status">
           {notice}
         </div>
       )}

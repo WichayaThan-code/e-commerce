@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, Copy, Landmark, Package, QrCode, Store } from "lucide-react";
+import {
+  AlertTriangle, CheckCircle2, ChevronRight, Copy, Landmark, MapPin,
+  Package, QrCode, Store, Truck, Wallet,
+} from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
@@ -16,6 +19,9 @@ import {
   type OrderPaymentInfo,
   type OrderTimelineEntry,
 } from "../services/api";
+import OrderShipmentCard, { shouldShowShipmentCard } from "../components/orders/OrderShipmentCard";
+import OrderPaymentsCard from "../components/orders/OrderPaymentsCard";
+import OrderRefundCard from "../components/orders/OrderRefundCard";
 import "../styles/cart.css";
 import "../styles/checkout.css";
 import "../styles/orders.css";
@@ -27,6 +33,43 @@ const SLIP_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
 function when(value: string | null | undefined, localeTag: string) {
   if (!value) return "";
   return new Date(value).toLocaleString(localeTag, { dateStyle: "medium", timeStyle: "short" });
+}
+
+function statusTone(status: string | null | undefined) {
+  switch (status) {
+    case "PENDING_PAYMENT": return "pay";
+    case "PAID_AWAITING_MERCHANT_CONFIRM":
+    case "MERCHANT_CONFIRMED":
+    case "READY_TO_PACK":
+    case "PACKING":
+    case "PACKED": return "prepare";
+    case "DISPATCHED": return "ship";
+    case "DELIVERED": return "deliver";
+    case "COMPLETED": return "done";
+    case "CANCELLED": return "cancel";
+    case "REFUND_REQUESTED":
+    case "REFUNDED": return "refund";
+    default: return "all";
+  }
+}
+
+function statusHint(
+  order: OrderDetail,
+  tp: (key: string, o?: Record<string, unknown>) => string,
+) {
+  if (order.status === "PENDING_PAYMENT") {
+    return order.paymentMethod === "COD"
+      ? tp("orders.detail.hintCod")
+      : tp("orders.detail.hintPay");
+  }
+  if (order.status === "DISPATCHED") return tp("orders.detail.hintShip");
+  if (order.status === "DELIVERED") return tp("orders.detail.hintDelivered");
+  if (order.status === "COMPLETED") return tp("orders.detail.hintDone");
+  if (order.status === "CANCELLED") return tp("orders.detail.hintCancel");
+  if (order.status === "REFUND_REQUESTED" || order.status === "REFUNDED") {
+    return tp("orders.detail.hintRefund");
+  }
+  return tp("orders.detail.hintPrepare");
 }
 
 export default function MyOrderDetailPage() {
@@ -58,6 +101,7 @@ export default function MyOrderDetailPage() {
   const [slipRef, setSlipRef] = useState("");
   const [slipBank, setSlipBank] = useState("");
   const [slipProvider, setSlipProvider] = useState("BANK_TRANSFER");
+  const payRef = useRef<HTMLElement | null>(null);
   const blobUrls = useRef<string[]>([]);
   const money = (value: unknown) => formatBaht(value as number, localeTag);
   const idOk = UUID.test(orderId);
@@ -111,6 +155,9 @@ export default function MyOrderDetailPage() {
   const transitions = order?.allowedTransitions ?? [];
   const canCancel = transitions.includes("CANCELLED");
   const canComplete = transitions.includes("COMPLETED");
+  const needPayNow = order?.status === "PENDING_PAYMENT" && order.paymentMethod !== "COD";
+  const showShipment = order ? shouldShowShipmentCard(order) : false;
+  const tone = statusTone(order?.status);
   const proofs = useMemo(
     () => (payment?.payments ?? []).flatMap((row) => (row.proofs ?? []).map((proof) => ({ ...proof, provider: row.provider }))),
     [payment],
@@ -127,7 +174,7 @@ export default function MyOrderDetailPage() {
     }
   };
 
-  const copyTracking = async (value: string) => {
+  const copyText = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
@@ -243,24 +290,28 @@ export default function MyOrderDetailPage() {
   }
 
   const address = order?.shippingAddress;
-  const shipment = order?.shipment;
   const addressLine = address
     ? [address.addressLine1, address.addressLine2, address.subdistrict, address.district, address.province, address.postalCode]
       .filter(Boolean).join(", ")
     : "";
 
   return (
-    <main className="cart-page orders-page">
-      <div className="cart-heading cart-width">
-        <Link to="/account/orders">← {tp("orders.back")}</Link>
-      </div>
-      <section className="cart-width" style={{ display: "grid", gap: 12 }}>
+    <main className="cart-page orders-page orders-detail">
+      <div className="cart-width orders-detail-shell">
+        <Link className="orders-detail-back" to="/account/orders">
+          ← {tp("orders.back")}
+        </Link>
+
         {loading || authLoading || cart.access === "loading" ? (
-          <div className="checkout-card" aria-busy="true">
-            <Skeleton height={24} width="45%" />
-            <Skeleton height={18} />
-            <Skeleton height={18} />
-            <Skeleton height={120} />
+          <div className="orders-detail-stack" aria-busy="true">
+            <div className="orders-detail-card">
+              <Skeleton height={28} width="40%" />
+              <Skeleton height={18} />
+              <Skeleton height={56} />
+            </div>
+            <div className="orders-detail-card">
+              <Skeleton height={120} />
+            </div>
           </div>
         ) : failed || !order ? (
           <div className="cart-empty feedback-error" role="alert">
@@ -269,97 +320,132 @@ export default function MyOrderDetailPage() {
             <button type="button" onClick={() => setReload((n) => n + 1)}>{tp("cart.retry")}</button>
           </div>
         ) : (
-          <>
-            <article className="checkout-card">
-              <div className="orders-card-top">
-                <span className="cart-shop-head"><Store size={16} />{order.shopName}</span>
-                <span className="orders-status">{tp(`checkout.status.${order.status}`, { defaultValue: order.status })}</span>
+          <div className="orders-detail-stack">
+            {/* 1. Status + next action */}
+            <section className={`orders-detail-hero is-${tone}`}>
+              <div className="orders-detail-hero-top">
+                <div className="orders-detail-shop">
+                  <Store size={16} aria-hidden="true" />
+                  <span>{order.shopName}</span>
+                </div>
+                <span className={`orders-status is-${tone}`}>
+                  {tp(`checkout.status.${order.status}`, { defaultValue: order.status })}
+                </span>
               </div>
-              <p className="checkout-order-number num">{order.orderNumber}</p>
-              {order.placedAt ? (
-                <p className="checkout-meta">
-                  <span>{tp("orders.placedAt")}</span>
-                  <b>{when(order.placedAt, localeTag)}</b>
-                </p>
-              ) : null}
-              {order.cancelReason ? (
-                <p className="checkout-meta"><span>{tp("orders.cancelReason")}</span><b>{order.cancelReason}</b></p>
-              ) : null}
-            </article>
 
-            <article className="checkout-card">
-              <h2>{tp("orders.products")}</h2>
-              {(order.items ?? []).map((item) => (
-                <div key={item.id} className="orders-line">
-                  {item.imageUrl
-                    ? <img src={mediaUrl(item.imageUrl)} alt="" width={56} height={56} />
-                    : <span className="orders-line-ph" aria-hidden="true" />}
-                  <div>
-                    <h3>{item.productName}</h3>
-                    {item.optionLabel ? <small>{item.optionLabel}</small> : null}
-                    <small className="num">{money(item.unitPrice)} × {item.quantity}</small>
-                  </div>
-                  <div className="orders-line-total">
-                    <b className="num">{money(item.lineTotal)}</b>
+              <div className="orders-detail-hero-main">
+                <div>
+                  <p className="orders-detail-label">{tp("orders.detail.orderNo")}</p>
+                  <p className="orders-detail-number num">
+                    {order.orderNumber}
+                    <button
+                      type="button"
+                      className="orders-detail-icon-btn"
+                      aria-label={tp("orders.copy")}
+                      onClick={() => void copyText(order.orderNumber)}
+                    >
+                      <Copy size={14} />
+                      {copied ? tp("orders.copied") : null}
+                    </button>
+                  </p>
+                  {order.placedAt ? (
+                    <p className="orders-detail-sub">{tp("orders.placedAt")}: {when(order.placedAt, localeTag)}</p>
+                  ) : null}
+                </div>
+                <div className="orders-detail-hero-total">
+                  <small>{tp("orders.total")}</small>
+                  <b className="num">{money(order.grandTotal)}</b>
+                </div>
+              </div>
+
+              <p className="orders-detail-hint">{statusHint(order, tp)}</p>
+
+              {(canComplete || needPayNow || canCancel) ? (
+                <div className="orders-detail-cta">
+                  {needPayNow ? (
+                    <button
+                      type="button"
+                      className="orders-detail-cta-primary is-pay"
+                      onClick={() => payRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                    >
+                      <Wallet size={16} /> {tp("orders.list.actionPay")}
+                    </button>
+                  ) : null}
+                  {canComplete ? (
+                    <button
+                      type="button"
+                      className="orders-detail-cta-primary"
+                      disabled={confirming}
+                      onClick={() => void onConfirmReceived()}
+                    >
+                      <CheckCircle2 size={16} /> {tp("orders.confirmReceived")}
+                    </button>
+                  ) : null}
+                  {canCancel ? (
+                    <button
+                      type="button"
+                      className="orders-detail-cta-ghost"
+                      disabled={cancelling}
+                      onClick={() => setCancelOpen(true)}
+                    >
+                      {tp("orders.cancel")}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {cancelOpen ? (
+                <div className="orders-cancel-box">
+                  <label>
+                    <span>{tp("orders.cancelReason")}</span>
+                    <textarea
+                      value={cancelReason}
+                      onChange={(event) => setCancelReason(event.target.value)}
+                      maxLength={500}
+                      required
+                    />
+                  </label>
+                  <div className="orders-actions">
+                    <button type="button" disabled={cancelling} onClick={() => void onCancel()}>
+                      {cancelling ? tp("orders.cancelling") : tp("orders.cancelConfirm")}
+                    </button>
+                    <button type="button" className="is-danger" disabled={cancelling} onClick={() => setCancelOpen(false)}>
+                      {tp("cart.dismiss")}
+                    </button>
                   </div>
                 </div>
-              ))}
-            </article>
-
-            {(address || order.buyerNote) ? (
-              <article className="checkout-card">
-                <h2>{tp("orders.address")}</h2>
-                {address ? (
-                  <>
-                    <p className="checkout-meta"><span>{address.recipientName}</span><b className="num">{address.phone}</b></p>
-                    <p>{addressLine}</p>
-                  </>
-                ) : null}
-                {order.buyerNote ? <p className="checkout-meta"><span>{tp("orders.note")}</span><b>{order.buyerNote}</b></p> : null}
-              </article>
-            ) : null}
-
-            <article className="checkout-card">
-              <h2>{tp("orders.shipping")}</h2>
-              <p className="checkout-meta">
-                <span>{order.shipping?.methodName || tp("checkout.shippingDefault")}</span>
-              </p>
-              {shipment ? (
-                <>
-                  {shipment.carrierCode ? <p className="checkout-meta"><span>{shipment.carrierCode}</span></p> : null}
-                  {shipment.trackingNumber ? (
-                    <div className="orders-tracking">
-                      <b className="num">{shipment.trackingNumber}</b>
-                      <button type="button" onClick={() => void copyTracking(shipment.trackingNumber!)}>
-                        <Copy size={14} /> {copied ? tp("orders.copied") : tp("orders.copy")}
-                      </button>
-                    </div>
-                  ) : null}
-                  {shipment.dispatchedAt ? <p className="checkout-meta"><span>{when(shipment.dispatchedAt, localeTag)}</span></p> : null}
-                  {shipment.deliveredAt ? <p className="checkout-meta"><span>{when(shipment.deliveredAt, localeTag)}</span></p> : null}
-                </>
               ) : null}
-            </article>
+              {actionError ? <p className="orders-form-error" role="alert">{actionError}</p> : null}
+            </section>
 
-            <article className="checkout-card">
-              <h2>{tp("orders.summary")}</h2>
-              <p className="checkout-meta"><span>{tp("orders.subtotal")}</span><b className="num">{money(order.subtotal)}</b></p>
-              {moneyValue(order.discountTotal) > 0 ? (
-                <p className="checkout-meta">
-                  <span>{tp("orders.discount")}{order.couponCode ? ` (${order.couponCode})` : ""}</span>
-                  <b className="num">−{money(order.discountTotal)}</b>
-                </p>
-              ) : null}
-              <p className="checkout-meta"><span>{tp("orders.shippingFee")}</span><b className="num">{money(order.shippingFee)}</b></p>
-              <p className="checkout-meta"><span>{tp("orders.total")}</span><b className="num">{money(order.grandTotal)}</b></p>
-            </article>
+            {/* 2. Pay now (highest urgency when unpaid) */}
+            {payment && (needPayNow || payment.canSubmitSlip || proofs.length > 0 || order.status === "PENDING_PAYMENT") ? (
+              <section
+                ref={payRef}
+                className={`orders-detail-card orders-detail-pay ${needPayNow ? "is-urgent" : ""}`}
+              >
+                <div className="orders-detail-card-head">
+                  <Wallet size={18} aria-hidden="true" />
+                  <div>
+                    <h2>{tp("orders.payment")}</h2>
+                    <p>
+                      {order.paymentMethod === "COD"
+                        ? tp("orders.paymentsHistory.cod")
+                        : tp("orders.paymentsHistory.bankTransfer")}
+                      {order.paymentStatus
+                        ? ` · ${tp(`orders.list.paymentStatus.${order.paymentStatus}`, { defaultValue: order.paymentStatus })}`
+                        : ""}
+                    </p>
+                  </div>
+                </div>
 
-            {payment ? (
-              <article className="checkout-card">
-                <h2>{tp("orders.payment")}</h2>
-                <p className="checkout-meta"><span>{tp("orders.amountDue")}</span><b className="num">{money(payment.amountDue)}</b></p>
+                <div className="orders-detail-due">
+                  <span>{tp("orders.amountDue")}</span>
+                  <b className="num">{money(payment.amountDue)}</b>
+                </div>
+
                 {payment.accounts?.length ? (
-                  <ul className="checkout-accounts">
+                  <ul className="checkout-accounts orders-detail-accounts">
                     {payment.accounts.filter((account) => account.active).map((account, index) => (
                       <li key={`${account.provider}-${index}`}>
                         {account.provider === "PROMPTPAY" ? <QrCode size={16} /> : <Landmark size={16} />}
@@ -369,13 +455,13 @@ export default function MyOrderDetailPage() {
                       </li>
                     ))}
                   </ul>
-                ) : (
+                ) : needPayNow ? (
                   <p className="checkout-meta muted">{tp("checkout.success.noAccounts")}</p>
-                )}
+                ) : null}
 
                 {proofs.length > 0 ? (
-                  <>
-                    <h3 style={{ marginTop: 16 }}>{tp("orders.slips")}</h3>
+                  <div className="orders-detail-block">
+                    <h3>{tp("orders.slips")}</h3>
                     <ul className="orders-proofs">
                       {proofs.map((proof) => (
                         <li key={proof.id}>
@@ -391,7 +477,7 @@ export default function MyOrderDetailPage() {
                         </li>
                       ))}
                     </ul>
-                  </>
+                  </div>
                 ) : null}
 
                 {payment.canSubmitSlip ? (
@@ -445,14 +531,108 @@ export default function MyOrderDetailPage() {
                     </button>
                   </form>
                 ) : null}
-              </article>
+              </section>
             ) : null}
 
+            {/* 3. Tracking */}
+            {showShipment ? <OrderShipmentCard order={order} /> : null}
+
+            {/* 4. Products + money summary */}
+            <section className="orders-detail-card">
+              <div className="orders-detail-card-head">
+                <Package size={18} aria-hidden="true" />
+                <div>
+                  <h2>{tp("orders.products")}</h2>
+                  <p>{tp("orders.items", { count: order.items?.reduce((n, i) => n + i.quantity, 0) ?? 0 })}</p>
+                </div>
+              </div>
+              <div className="orders-detail-lines">
+                {(order.items ?? []).map((item) => (
+                  <div key={item.id} className="orders-line">
+                    {item.imageUrl
+                      ? <img src={mediaUrl(item.imageUrl)} alt="" width={56} height={56} />
+                      : <span className="orders-line-ph" aria-hidden="true" />}
+                    <div>
+                      <h3>{item.productName}</h3>
+                      {item.optionLabel ? <small>{item.optionLabel}</small> : null}
+                      <small className="num">{money(item.unitPrice)} × {item.quantity}</small>
+                    </div>
+                    <div className="orders-line-total">
+                      <b className="num">{money(item.lineTotal)}</b>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="orders-detail-totals">
+                <p><span>{tp("orders.subtotal")}</span><b className="num">{money(order.subtotal)}</b></p>
+                {moneyValue(order.discountTotal) > 0 ? (
+                  <p>
+                    <span>{tp("orders.discount")}{order.couponCode ? ` (${order.couponCode})` : ""}</span>
+                    <b className="num">−{money(order.discountTotal)}</b>
+                  </p>
+                ) : null}
+                <p><span>{tp("orders.shippingFee")}</span><b className="num">{money(order.shippingFee)}</b></p>
+                {order.codFee != null && moneyValue(order.codFee) > 0 ? (
+                  <p><span>{tp("checkout.payment.codFee")}</span><b className="num">{money(order.codFee)}</b></p>
+                ) : null}
+                <p className="is-grand"><span>{tp("orders.total")}</span><b className="num">{money(order.grandTotal)}</b></p>
+              </div>
+            </section>
+
+            {/* 5. Address + shipping method */}
+            {(address || order.buyerNote || order.shipping) ? (
+              <section className="orders-detail-card">
+                <div className="orders-detail-card-head">
+                  <MapPin size={18} aria-hidden="true" />
+                  <div>
+                    <h2>{tp("orders.address")}</h2>
+                    {order.shipping?.methodName ? (
+                      <p><Truck size={12} /> {order.shipping.methodName}</p>
+                    ) : (
+                      <p>{tp("checkout.shippingDefault")}</p>
+                    )}
+                  </div>
+                </div>
+                {address ? (
+                  <div className="orders-detail-address">
+                    <p className="orders-detail-recipient">
+                      <b>{address.recipientName}</b>
+                      <span className="num">{address.phone}</span>
+                    </p>
+                    <p>{addressLine}</p>
+                  </div>
+                ) : null}
+                {order.buyerNote ? (
+                  <p className="orders-detail-note">
+                    <span>{tp("orders.note")}</span>
+                    <b>{order.buyerNote}</b>
+                  </p>
+                ) : null}
+              </section>
+            ) : null}
+
+            {/* 6. Payment history (reference) */}
+            <OrderPaymentsCard
+              order={order}
+              paymentMethod={payment?.paymentMethod ?? order.paymentMethod}
+              codFee={payment?.codFee ?? order.codFee}
+            />
+
+            {/* 7. Refund */}
+            <OrderRefundCard order={order} onChanged={refreshAfterAction} />
+
+            {/* 8. Timeline */}
             {timeline.length > 0 ? (
-              <article className="checkout-card">
-                <h2>{tp("orders.timeline")}</h2>
+              <section className="orders-detail-card orders-detail-timeline">
+                <div className="orders-detail-card-head">
+                  <ChevronRight size={18} aria-hidden="true" />
+                  <div>
+                    <h2>{tp("orders.timeline")}</h2>
+                    <p>{tp("orders.detail.timelineHint")}</p>
+                  </div>
+                </div>
                 <ol className="orders-timeline">
-                  {[...timeline].sort((a, b) => a.at.localeCompare(b.at)).map((entry) => (
+                  {[...timeline].sort((a, b) => b.at.localeCompare(a.at)).map((entry) => (
                     <li key={entry.id}>
                       <time dateTime={entry.at}>{when(entry.at, localeTag)}</time>
                       <b>
@@ -464,52 +644,23 @@ export default function MyOrderDetailPage() {
                     </li>
                   ))}
                 </ol>
-              </article>
+              </section>
             ) : null}
 
-            {(canCancel || canComplete) ? (
-              <article className="checkout-card">
-                <div className="orders-actions">
-                  {canCancel ? (
-                    <button type="button" className="is-danger" disabled={cancelling} onClick={() => setCancelOpen(true)}>
-                      {tp("orders.cancel")}
-                    </button>
-                  ) : null}
-                  {canComplete ? (
-                    <button type="button" disabled={confirming} onClick={() => void onConfirmReceived()}>
-                      {tp("orders.confirmReceived")}
-                    </button>
-                  ) : null}
-                </div>
-                {cancelOpen ? (
-                  <div className="orders-cancel-box">
-                    <label>
-                      <span>{tp("orders.cancelReason")}</span>
-                      <textarea
-                        value={cancelReason}
-                        onChange={(event) => setCancelReason(event.target.value)}
-                        maxLength={500}
-                        required
-                      />
-                    </label>
-                    <div className="orders-actions">
-                      <button type="button" disabled={cancelling} onClick={() => void onCancel()}>
-                        {cancelling ? tp("orders.cancelling") : tp("orders.cancelConfirm")}
-                      </button>
-                      <button type="button" className="is-danger" disabled={cancelling} onClick={() => setCancelOpen(false)}>
-                        {tp("cart.dismiss")}
-                      </button>
-                    </div>
-                  </div>
+            {/* 9. Low-priority meta */}
+            {(order.cancelReason || order.termsAcceptedAt) ? (
+              <section className="orders-detail-meta">
+                {order.cancelReason ? (
+                  <p><span>{tp("orders.cancelReason")}</span><b>{order.cancelReason}</b></p>
                 ) : null}
-                {actionError ? <p className="orders-form-error" role="alert">{actionError}</p> : null}
-              </article>
-            ) : actionError ? (
-              <p className="orders-form-error cart-width" role="alert">{actionError}</p>
+                {order.termsAcceptedAt ? (
+                  <p><span>{tp("orders.termsAcceptedAt")}</span><b>{when(order.termsAcceptedAt, localeTag)}</b></p>
+                ) : null}
+              </section>
             ) : null}
-          </>
+          </div>
         )}
-      </section>
+      </div>
     </main>
   );
 }

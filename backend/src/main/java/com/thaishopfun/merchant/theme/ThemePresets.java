@@ -82,11 +82,17 @@ public final class ThemePresets {
         );
     }
 
+    /** CUSTOM baseline is a deep clone of GENERAL (never share the same map instance). */
+    public static Map<String, Object> customConfig() {
+        return deepCopy(generalConfig());
+    }
+
     public static Map<String, Object> forTemplate(ShopThemeTemplate template) {
         return switch (template == null ? ShopThemeTemplate.GENERAL : template) {
             case GENERAL -> generalConfig();
             case FASHION -> fashionConfig();
             case FOOD_BEVERAGE -> foodBeverageConfig();
+            case CUSTOM -> customConfig();
         };
     }
 
@@ -101,7 +107,8 @@ public final class ThemePresets {
             config.put("style", deepCopy(presetStyle));
             return;
         }
-        for (var key : List.of("radius", "cardStyle", "density", "buttonShape")) {
+        for (var key : List.of("radius", "cardStyle", "density", "buttonShape", "shadow", "headingTextShadow")) {
+            if (!presetStyle.containsKey(key)) continue;
             if (!style.containsKey(key) || style.get(key) == null || String.valueOf(style.get(key)).isBlank()) {
                 style.put(key, presetStyle.get(key));
             }

@@ -78,7 +78,7 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
   const accountName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email : "";
 
   return (
-    <header>
+    <header className="site-header">
       <div className="topbar page-width">
         <button className="mobile-menu" onClick={() => setMenuOpen(true)} aria-label={t('menu.open')}>
           <Menu />

@@ -47,6 +47,8 @@ export type CartValue = {
   refresh: () => Promise<void>;
   /** Adds a SKU; returns lastAction (adjusted = capped by stock) or null. Throws ApiError on failure. Buyers only. */
   add: (skuId: string, quantity: number) => Promise<CartActionResult | null>;
+  /** V43: adds a product-configurator line (server re-quotes; rejected while the backend flag is off). */
+  addConfigured: (skuId: string, quantity: number, configuration: { selections: Record<string, unknown>; version?: number }) => Promise<CartActionResult | null>;
   update: (itemId: string, patch: CartLinePatch) => Promise<CartActionResult | null>;
   setSelected: (itemIds: string[], selected: boolean) => Promise<void>;
   remove: (itemIds: string[]) => Promise<void>;
@@ -109,6 +111,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     dismissMergeNotes: () => {},
     refresh,
     add: (skuId, quantity) => mutate(() => cartApi.add(skuId, quantity)),
+    addConfigured: (skuId, quantity, configuration) => mutate(() => cartApi.addConfigured(skuId, quantity, configuration)),
     update: (itemId, patch) => mutate(() => cartApi.update(itemId, patch)),
     setSelected: async (itemIds, selected) => { await mutate(() => cartApi.select(itemIds, selected)); },
     remove: async (itemIds) => {

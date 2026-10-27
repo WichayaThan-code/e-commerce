@@ -501,3 +501,206 @@
    Inside the storefront that paints white bars on non-white templates (FASHION/F&B) and z-index 20 lets section heads
    paint over the sticky .shop-mall-tabs (also z-index 20). Scoped to storefront content only (site Header is outside). */
 .shop-storefront-cq .skeleton-busy header{background:transparent;z-index:auto;border-bottom-color:var(--shop-border)}
+
+/* AG1 Phase A — CUSTOM theme tokens. AG1.1: every rule is scoped to [data-template="CUSTOM"] so
+   GENERAL/FASHION/FOOD_BEVERAGE never match (scripts/check-ag1-css-scope.mjs enforces this). */
+.shop-themed[data-template="CUSTOM"] .shop-sec-bg-surface{background:var(--shop-surface)}
+.shop-themed[data-template="CUSTOM"] .shop-sec-bg-primary{background:var(--shop-primary-soft)}
+.shop-themed[data-template="CUSTOM"] .shop-sec-bg-gradient{background:var(--shop-gradient-section,var(--shop-surface))}
+.shop-themed[data-template="CUSTOM"] .shop-sec-align-center .shop-featured-head,
+.shop-themed[data-template="CUSTOM"] .shop-sec-align-center .shop-section-head{text-align:center}
+.shop-themed[data-template="CUSTOM"] .shop-sec-pad-compact{padding-block:8px}
+.shop-themed[data-template="CUSTOM"] .shop-sec-pad-normal{padding-block:12px}
+.shop-themed[data-template="CUSTOM"] .shop-sec-pad-large{padding-block:20px}
+.shop-themed[data-template="CUSTOM"] .shop-sec-cols-2 .shop-products-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.shop-themed[data-template="CUSTOM"] .shop-sec-cols-3 .shop-products-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.shop-themed[data-template="CUSTOM"] .shop-sec-cols-4 .shop-products-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.shop-themed[data-template="CUSTOM"] .shop-sec-cols-5 .shop-products-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+.shop-themed[data-template="CUSTOM"] .shop-products-edge .recommend-product{border-radius:0}
+.shop-themed[data-template="CUSTOM"] .shop-products-hide-price .shop-price-catalog,
+.shop-themed[data-template="CUSTOM"] .shop-products-hide-price .shop-price-featured{display:none}
+.shop-themed[data-template="CUSTOM"] .shop-products-no-cta .shop-cart-btn{display:none}
+.shop-themed[data-template="CUSTOM"] .shop-products-title-center .recommend-product-info h2{text-align:center}
+.shop-themed[data-template="CUSTOM"] .shop-mall-card:not(.is-menu-row) .recommend-photo,
+.shop-themed[data-template="CUSTOM"] .shop-featured .recommend-product:not(.is-menu-row) .recommend-photo,
+.shop-themed[data-template="CUSTOM"] .shop-rail .recommend-product:not(.is-menu-row) .recommend-photo,
+.shop-themed[data-template="CUSTOM"] .recommend-results .recommend-product:not(.is-menu-row) .recommend-photo{aspect-ratio:var(--shop-product-image-ratio,1)}
+.shop-themed[data-template="CUSTOM"] .shop-cart-btn{border-radius:var(--shop-product-cta-radius,var(--shop-btn-radius))}
+.shop-themed[data-template="CUSTOM"] .shop-mall-hero h1,
+.shop-themed[data-template="CUSTOM"] .shop-featured-head h2,
+.shop-themed[data-template="CUSTOM"] .shop-section-head h2{text-shadow:var(--shop-heading-shadow,none)}
+/* AG1.1 — hero gradient (CUSTOM only; class added by HeroSection when gradients.hero is set) */
+.shop-themed[data-template="CUSTOM"] .shop-mall-hero.shop-hero-gradient{background:var(--shop-gradient-hero,var(--shop-secondary))}
+.shop-themed[data-template="CUSTOM"] .shop-mall-hero.shop-hero-gradient .shop-mall-hero-cover{opacity:.35;mix-blend-mode:luminosity}
+/* AG1.1 — responsive column caps for sectionSettings.columns (CUSTOM only) */
+@media (max-width:1024px){
+  .shop-themed[data-template="CUSTOM"] .shop-sec-cols-4 .shop-products-grid,
+  .shop-themed[data-template="CUSTOM"] .shop-sec-cols-5 .shop-products-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  .shop-themed[data-template="CUSTOM"] .shop-sec-cols-3 .shop-products-grid,
+  .shop-themed[data-template="CUSTOM"] .shop-sec-cols-4 .shop-products-grid,
+  .shop-themed[data-template="CUSTOM"] .shop-sec-cols-5 .shop-products-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+/* AG3 blocks — repeatable CUSTOM layout.blocks (ShopBlockShell). Every rule is scoped to [data-template="CUSTOM"];
+   scripts/check-ag1-css-scope.mjs enforces this for everything below this marker. */
+.shop-themed[data-template="CUSTOM"] .shop-block-contents{display:contents}
+.shop-themed[data-template="CUSTOM"] .shop-block-contents > .shop-mall-tabs{
+  align-self:flex-start;width:min(1468px,calc(100% - 68px));max-width:100%;flex:0 0 44px;
+}
+@container shop (max-width:767px){
+  .shop-themed[data-template="CUSTOM"] .shop-block-contents > .shop-mall-tabs{
+    width:100cqw;max-width:100cqw;margin-left:calc(50% - 50cqw);margin-right:calc(50% - 50cqw);
+    padding:0 12px;height:44px;min-height:44px;max-height:48px;flex:0 0 44px;
+  }
+}
+.shop-themed[data-template="CUSTOM"] .shop-block-boxed{position:relative;display:block;box-sizing:border-box;width:100%;margin:0 0 var(--shop-gap,16px)}
+.shop-themed[data-template="CUSTOM"] .shop-block-fullwidth .recommend-width{
+  width:100%;max-width:none;box-sizing:border-box;border-radius:0;border-left-width:0;border-right-width:0;
+}
+.shop-themed[data-template="CUSTOM"] .shop-block-bg-image{background-size:cover;background-position:center;background-repeat:no-repeat;isolation:isolate}
+.shop-themed[data-template="CUSTOM"] .shop-block-bg-image::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:rgba(0,0,0,var(--shop-block-overlay,0));
+}
+.shop-themed[data-template="CUSTOM"] .shop-block-bg-image > :not(.shop-mall-tabs){position:relative;z-index:1}
+.shop-themed[data-template="CUSTOM"] .shop-block-bg-image.shop-block-pad-compact{padding-block:12px}
+.shop-themed[data-template="CUSTOM"] .shop-block-bg-image.shop-block-pad-normal{padding-block:24px}
+.shop-themed[data-template="CUSTOM"] .shop-block-bg-image.shop-block-pad-large{padding-block:48px}
+/* AG4 sections — CUSTOM-only content blocks (STEPS / FEATURE / GALLERY / SOCIAL / RICH_TEXT). Every rule is scoped to
+   [data-template="CUSTOM"]; scripts/check-ag1-css-scope.mjs enforces this for everything below this marker. */
+.shop-themed[data-template="CUSTOM"] .shop-block-pad-compact{--shop-ag4-pad:10px}
+.shop-themed[data-template="CUSTOM"] .shop-block-pad-normal{--shop-ag4-pad:16px}
+.shop-themed[data-template="CUSTOM"] .shop-block-pad-large{--shop-ag4-pad:28px}
+.shop-themed[data-template="CUSTOM"] .shop-ag4-panel{
+  box-sizing:border-box;margin:0 auto var(--shop-gap,16px);padding:var(--shop-ag4-pad,16px) 16px;
+  border:1px solid var(--shop-border);border-radius:var(--shop-radius,12px);
+  background:var(--shop-card-bg,var(--shop-bg));color:var(--shop-text);font-family:var(--shop-font),sans-serif;
+  min-width:0;
+}
+.shop-themed[data-template="CUSTOM"] .shop-ag4-panel.shop-sec-bg-surface{background:var(--shop-surface,var(--shop-card-bg))}
+.shop-themed[data-template="CUSTOM"] .shop-ag4-panel.shop-sec-bg-primary{background:var(--shop-primary-soft,var(--shop-card-bg))}
+.shop-themed[data-template="CUSTOM"] .shop-ag4-panel.shop-sec-bg-gradient{background:var(--shop-gradient-section,var(--shop-surface,var(--shop-card-bg)))}
+.shop-themed[data-template="CUSTOM"] .shop-block-bg-image .shop-ag4-panel{background:color-mix(in srgb,var(--shop-card-bg,var(--shop-bg)) 92%,transparent)}
+.shop-themed[data-template="CUSTOM"] .shop-block-fullwidth .shop-ag4-panel{margin-bottom:0}
+.shop-themed[data-template="CUSTOM"] .shop-block-align-center .shop-ag4-panel{text-align:center}
+.shop-themed[data-template="CUSTOM"] .shop-steps-head,
+.shop-themed[data-template="CUSTOM"] .shop-gallery-head,
+.shop-themed[data-template="CUSTOM"] .shop-social-head{margin:0 0 14px}
+.shop-themed[data-template="CUSTOM"] .shop-steps-head h2,
+.shop-themed[data-template="CUSTOM"] .shop-gallery-head h2,
+.shop-themed[data-template="CUSTOM"] .shop-social-head h2{margin:0;font-size:20px;line-height:1.25;color:var(--shop-text);text-shadow:var(--shop-heading-shadow,none)}
+.shop-themed[data-template="CUSTOM"] .shop-steps-head p{margin:4px 0 0;font-size:14px;color:var(--shop-muted)}
+
+.shop-themed[data-template="CUSTOM"] .shop-steps-list{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:0;padding:0;list-style:none;
+}
+.shop-themed[data-template="CUSTOM"] .shop-steps-item{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0}
+.shop-themed[data-template="CUSTOM"] .shop-block-align-center .shop-steps-item{align-items:center}
+.shop-themed[data-template="CUSTOM"] .shop-steps-marker{
+  display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:50%;overflow:hidden;
+  background:var(--shop-primary-soft,var(--shop-surface));color:var(--shop-primary);
+}
+.shop-themed[data-template="CUSTOM"] .shop-steps-number{font-size:18px;font-weight:700}
+.shop-themed[data-template="CUSTOM"] .shop-steps-icon{width:22px;height:22px}
+.shop-themed[data-template="CUSTOM"] .shop-steps-image{width:100%;height:100%;object-fit:cover}
+.shop-themed[data-template="CUSTOM"] .shop-steps-copy{min-width:0}
+.shop-themed[data-template="CUSTOM"] .shop-steps-order{display:block;margin-bottom:2px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--shop-muted)}
+.shop-themed[data-template="CUSTOM"] .shop-steps-copy h3{margin:0 0 4px;font-size:16px;line-height:1.3;color:var(--shop-text)}
+.shop-themed[data-template="CUSTOM"] .shop-steps-copy p{margin:0;font-size:14px;line-height:1.5;color:var(--shop-muted);overflow-wrap:anywhere}
+.shop-themed[data-template="CUSTOM"] .shop-steps-cta{margin-top:16px;min-height:40px}
+
+.shop-themed[data-template="CUSTOM"] .shop-feature-section{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:center}
+.shop-themed[data-template="CUSTOM"] .shop-feature-section.is-textonly{grid-template-columns:minmax(0,1fr)}
+.shop-themed[data-template="CUSTOM"] .shop-feature-right .shop-feature-media{order:2}
+.shop-themed[data-template="CUSTOM"] .shop-feature-media{margin:0;border-radius:var(--shop-radius,12px);overflow:hidden;background:var(--shop-surface,#f4f4f4)}
+.shop-themed[data-template="CUSTOM"] .shop-feature-media img{display:block;width:100%;height:auto;max-height:420px;object-fit:cover}
+.shop-themed[data-template="CUSTOM"] .shop-feature-copy{min-width:0}
+.shop-themed[data-template="CUSTOM"] .shop-feature-copy h2{margin:0 0 8px;font-size:22px;line-height:1.25;color:var(--shop-text);text-shadow:var(--shop-heading-shadow,none)}
+.shop-themed[data-template="CUSTOM"] .shop-feature-body{margin:0 0 12px;font-size:15px;line-height:1.6;color:var(--shop-muted);overflow-wrap:anywhere;white-space:pre-line}
+.shop-themed[data-template="CUSTOM"] .shop-feature-bullets{display:grid;gap:8px;margin:0 0 16px;padding:0;list-style:none;text-align:left}
+.shop-themed[data-template="CUSTOM"] .shop-feature-bullets li{display:flex;gap:8px;align-items:flex-start;font-size:14px;line-height:1.45;color:var(--shop-text)}
+.shop-themed[data-template="CUSTOM"] .shop-feature-bullets svg{width:18px;height:18px;flex:none;margin-top:1px;color:var(--shop-primary)}
+.shop-themed[data-template="CUSTOM"] .shop-feature-actions{display:flex;flex-wrap:wrap;gap:10px}
+.shop-themed[data-template="CUSTOM"] .shop-block-align-center .shop-feature-actions{justify-content:center}
+.shop-themed[data-template="CUSTOM"] .shop-feature-cta,
+.shop-themed[data-template="CUSTOM"] .shop-feature-product{min-height:40px}
+
+.shop-themed[data-template="CUSTOM"] .shop-gallery-frame{position:relative}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-list{margin:0;padding:0;list-style:none}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-grid .shop-gallery-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-masonry .shop-gallery-list{columns:3 160px;column-gap:10px}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-masonry .shop-gallery-item{break-inside:avoid;margin:0 0 10px}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-carousel .shop-gallery-list{
+  display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin;padding-bottom:4px;
+}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-carousel .shop-gallery-item{flex:0 0 min(260px,72%);scroll-snap-align:start}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-item{margin:0;min-width:0}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-open{
+  display:block;width:100%;padding:0;border:1px solid var(--shop-border);border-radius:var(--shop-radius,12px);overflow:hidden;
+  background:var(--shop-surface,#f4f4f4);cursor:zoom-in;
+}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-open img{display:block;width:100%;height:auto}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-grid .shop-gallery-open img{aspect-ratio:1;object-fit:cover}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-open:focus-visible,
+.shop-themed[data-template="CUSTOM"] .shop-gallery-arrow:focus-visible{outline:2px solid var(--shop-primary);outline-offset:2px}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-caption{display:block;margin-top:4px;font-size:12px;line-height:1.35;color:var(--shop-muted);overflow-wrap:anywhere}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-arrow{
+  position:absolute;top:50%;z-index:2;display:grid;place-items:center;width:40px;height:40px;transform:translateY(-50%);
+  padding:0;border:1px solid var(--shop-border);border-radius:50%;background:var(--shop-card-bg,#fff);color:var(--shop-text);cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,0,0,.16);
+}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-arrow.is-prev{left:-6px}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-arrow.is-next{right:-6px}
+.shop-themed[data-template="CUSTOM"] .shop-gallery-arrow svg{width:20px;height:20px}
+
+.shop-themed[data-template="CUSTOM"] .shop-social-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin:0;padding:0;list-style:none}
+.shop-themed[data-template="CUSTOM"] .shop-social-item{min-width:0}
+.shop-themed[data-template="CUSTOM"] .shop-social-frame{display:block;width:100%;height:575px;max-height:80vh;border:0;border-radius:var(--shop-radius,12px);background:var(--shop-surface,#f4f4f4)}
+
+.shop-themed[data-template="CUSTOM"] .shop-richtext-body{max-width:72ch;margin:0 auto;font-size:15px;line-height:1.7;color:var(--shop-text);text-align:left;overflow-wrap:anywhere}
+.shop-themed[data-template="CUSTOM"] .shop-richtext-body > :first-child{margin-top:0}
+.shop-themed[data-template="CUSTOM"] .shop-richtext-body > :last-child{margin-bottom:0}
+.shop-themed[data-template="CUSTOM"] .shop-richtext-body h2{margin:1.2em 0 .4em;font-size:21px;line-height:1.3}
+.shop-themed[data-template="CUSTOM"] .shop-richtext-body h3{margin:1.1em 0 .4em;font-size:17px;line-height:1.3}
+.shop-themed[data-template="CUSTOM"] .shop-richtext-body p{margin:0 0 .9em}
+.shop-themed[data-template="CUSTOM"] .shop-richtext-body ul,
+.shop-themed[data-template="CUSTOM"] .shop-richtext-body ol{margin:0 0 .9em;padding-left:1.4em}
+.shop-themed[data-template="CUSTOM"] .shop-richtext-body blockquote{margin:0 0 .9em;padding:4px 14px;border-left:3px solid var(--shop-primary);color:var(--shop-muted);background:var(--shop-surface,transparent)}
+.shop-themed[data-template="CUSTOM"] .shop-richtext-body a{color:var(--shop-primary);text-decoration:underline;text-underline-offset:2px}
+
+/* Lightbox is portalled to <body> (outside .shop-themed), so it carries its own data-template and neutral colours. */
+.shop-gallery-lightbox[data-template="CUSTOM"]{
+  position:fixed;inset:0;z-index:2000;display:grid;place-items:center;padding:16px;box-sizing:border-box;
+  background:rgba(8,10,14,.88);color:#fff;font-family:system-ui,sans-serif;
+}
+.shop-gallery-lightbox[data-template="CUSTOM"] .shop-gallery-lightbox-figure{
+  display:grid;gap:8px;justify-items:center;max-width:min(1100px,calc(100vw - 144px));max-height:100%;margin:0;
+}
+.shop-gallery-lightbox[data-template="CUSTOM"] .shop-gallery-lightbox-figure img{display:block;max-width:100%;max-height:calc(100vh - 140px);object-fit:contain;border-radius:8px}
+.shop-gallery-lightbox[data-template="CUSTOM"] figcaption{display:grid;gap:4px;justify-items:center;text-align:center;font-size:14px;line-height:1.4}
+.shop-gallery-lightbox[data-template="CUSTOM"] .shop-gallery-lightbox-count{font-size:12px;opacity:.75}
+.shop-gallery-lightbox[data-template="CUSTOM"] .shop-gallery-lightbox-link{color:#fff;text-decoration:underline}
+.shop-gallery-lightbox[data-template="CUSTOM"] .shop-gallery-lightbox-close,
+.shop-gallery-lightbox[data-template="CUSTOM"] .shop-gallery-lightbox-nav{
+  position:absolute;display:grid;place-items:center;width:44px;height:44px;padding:0;border:1px solid rgba(255,255,255,.35);
+  border-radius:50%;background:rgba(0,0,0,.5);color:#fff;cursor:pointer;
+}
+.shop-gallery-lightbox[data-template="CUSTOM"] .shop-gallery-lightbox-close{top:14px;right:14px}
+.shop-gallery-lightbox[data-template="CUSTOM"] .shop-gallery-lightbox-nav{top:50%;transform:translateY(-50%)}
+.shop-gallery-lightbox[data-template="CUSTOM"] .shop-gallery-lightbox-nav.is-prev{left:14px}
+.shop-gallery-lightbox[data-template="CUSTOM"] .shop-gallery-lightbox-nav.is-next{right:14px}
+.shop-gallery-lightbox[data-template="CUSTOM"] button svg{width:22px;height:22px}
+.shop-gallery-lightbox[data-template="CUSTOM"] button:focus-visible,
+.shop-gallery-lightbox[data-template="CUSTOM"] a:focus-visible{outline:2px solid #fff;outline-offset:2px}
+@container shop (max-width:767px){
+  .shop-themed[data-template="CUSTOM"] .shop-feature-section{grid-template-columns:minmax(0,1fr);gap:14px}
+  .shop-themed[data-template="CUSTOM"] .shop-feature-right .shop-feature-media{order:0}
+}
+@media (max-width:767px){
+  .shop-themed[data-template="CUSTOM"] .shop-feature-section{grid-template-columns:minmax(0,1fr);gap:14px}
+  .shop-themed[data-template="CUSTOM"] .shop-feature-right .shop-feature-media{order:0}
+  .shop-themed[data-template="CUSTOM"] .shop-gallery-arrow.is-prev{left:4px}
+  .shop-themed[data-template="CUSTOM"] .shop-gallery-arrow.is-next{right:4px}
+  .shop-gallery-lightbox[data-template="CUSTOM"] .shop-gallery-lightbox-figure{max-width:calc(100vw - 32px)}
+  .shop-gallery-lightbox[data-template="CUSTOM"] .shop-gallery-lightbox-nav{top:auto;bottom:14px;transform:none}
+}

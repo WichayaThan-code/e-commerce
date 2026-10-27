@@ -31,6 +31,11 @@ public abstract class AuditedEntity {
         modifiedDateTime = Instant.now();
     }
 
+    /** Pins the creation time before persist (e.g. to keep request order for rows saved in one request); no-op once set. */
+    public void initCreatedDateTime(Instant at) {
+        if (createdDateTime == null) createdDateTime = at;
+    }
+
     public void stamp(UUID userId) {
         if (createdBy == null) createdBy = userId;
         modifiedBy = userId;

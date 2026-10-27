@@ -52,7 +52,15 @@
       "range": "第 {{start}} - {{end}} 条，共 {{total}} 条",
       "pagination": "分页",
       "prev": "上一页",
-      "next": "下一页"
+      "next": "下一页",
+      "dateRange": "日期范围",
+      "clear": "清除",
+      "apply": "确定",
+      "presets": {
+        "d7": "7 天",
+        "d30": "30 天",
+        "month": "本月"
+      }
     },
     "reason": {
       "label": "原因",

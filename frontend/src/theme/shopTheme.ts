@@ -1,6 +1,11 @@
 /** Storefront theme types and helpers. Presets come from GET /theme/presets — only a minimal fallback lives here. */
 
-export const SHOP_THEME_TEMPLATES = ['GENERAL', 'FASHION', 'FOOD_BEVERAGE'] as const
+import {
+  NEW_BLOCK_TYPES, defaultBlockContent, resolveBlockContent, resolveLocalized,
+  type BlockContent, type LocalizedString,
+} from './blockContent'
+
+export const SHOP_THEME_TEMPLATES = ['GENERAL', 'FASHION', 'FOOD_BEVERAGE', 'CUSTOM'] as const
 export type ShopThemeTemplateKey = (typeof SHOP_THEME_TEMPLATES)[number]
 
 export const SHOP_THEME_FONTS = ['NOTO_SANS_THAI', 'NOTO_SERIF_THAI', 'PROMPT', 'MITR', 'IBM_PLEX_SANS_THAI'] as const
@@ -11,14 +16,26 @@ export const SHOP_SECTION_KEYS = [
 ] as const
 export type ShopSectionKey = (typeof SHOP_SECTION_KEYS)[number]
 
+/**
+ * AG4: block types = the ten legacy section keys + block-only content types. Only SHOP_SECTION_KEYS live in
+ * `config.sections` (the backend requires exactly those ten); the new types exist only in `layout.blocks` (CUSTOM).
+ */
+export const SHOP_BLOCK_TYPES = [...SHOP_SECTION_KEYS, ...NEW_BLOCK_TYPES] as const
+export type ShopBlockType = (typeof SHOP_BLOCK_TYPES)[number]
+
+export function isSectionKey(type: string): type is ShopSectionKey {
+  return (SHOP_SECTION_KEYS as readonly string[]).includes(type)
+}
+
 export const SHOP_TRUST_ICONS = ['AUTHENTIC', 'FAST_SHIP', 'RETURNS', 'SECURE_PAY', 'CUSTOM'] as const
 export type ShopTrustIcon = (typeof SHOP_TRUST_ICONS)[number]
 
-export type ThemeBanner = { imageUrl: string; title?: string; link?: string }
+export type ThemeBanner = { imageUrl: string; title?: string; link?: string; mediaId?: string }
 export type ThemeTrustItem = { icon: ShopTrustIcon; label: string; enabled: boolean }
 export type ThemeTrust = { enabled: boolean; items: ThemeTrustItem[] }
 
-export type HeroLayout = 'FULL' | 'STRIP'
+/** AG5: MEDIA_FULL (full-bleed image / video / gradient hero with stickers) exists for CUSTOM themes only. */
+export type HeroLayout = 'FULL' | 'STRIP' | 'MEDIA_FULL'
 export type CatalogVariant = 'GRID' | 'LARGE' | 'MENU'
 export type SectionVariant = HeroLayout | CatalogVariant | null
 
@@ -31,6 +48,27 @@ export type ShopDensity = (typeof SHOP_DENSITIES)[number]
 export const SHOP_BUTTON_SHAPES = ['ROUNDED', 'PILL', 'SQUARE'] as const
 export type ShopButtonShape = (typeof SHOP_BUTTON_SHAPES)[number]
 
+export const SHOP_SHADOWS = ['NONE', 'SOFT', 'MEDIUM', 'STRONG'] as const
+export type ShopShadow = (typeof SHOP_SHADOWS)[number]
+
+export const SHOP_IMAGE_RATIOS = ['SQUARE', 'PORTRAIT', 'LANDSCAPE'] as const
+export type ShopImageRatio = (typeof SHOP_IMAGE_RATIOS)[number]
+
+export const SHOP_CTA_STYLES = ['PILL', 'ROUNDED', 'SQUARE', 'NONE'] as const
+export type ShopCtaStyle = (typeof SHOP_CTA_STYLES)[number]
+
+export const SHOP_TITLE_ALIGNS = ['LEFT', 'CENTER'] as const
+export type ShopTitleAlign = (typeof SHOP_TITLE_ALIGNS)[number]
+
+export const SHOP_SECTION_BACKGROUNDS = ['NONE', 'SURFACE', 'PRIMARY', 'GRADIENT'] as const
+export type ShopSectionBackground = (typeof SHOP_SECTION_BACKGROUNDS)[number]
+
+export const SHOP_SECTION_ALIGNS = ['LEFT', 'CENTER'] as const
+export type ShopSectionAlign = (typeof SHOP_SECTION_ALIGNS)[number]
+
+export const SHOP_PADDING_Y = ['COMPACT', 'NORMAL', 'LARGE'] as const
+export type ShopPaddingY = (typeof SHOP_PADDING_Y)[number]
+
 export type ThemeColors = {
   primary: string
   secondary: string
@@ -38,6 +76,11 @@ export type ThemeColors = {
   text: string
   /** Optional muted accent (e.g. fashion gold) for hairlines / hover / price. */
   accent?: string
+  surface?: string
+  muted?: string
+  ctaBackground?: string
+  ctaText?: string
+  border?: string
 }
 
 export type ThemeStyle = {
@@ -45,7 +88,107 @@ export type ThemeStyle = {
   cardStyle: ShopCardStyle
   density: ShopDensity
   buttonShape: ShopButtonShape
+  shadow?: ShopShadow
+  headingTextShadow?: boolean
 }
+
+export type ThemeGradientStop = { color: string; at: number }
+export type ThemeGradient = { angle: number; stops: ThemeGradientStop[] }
+export type ThemeGradients = {
+  hero?: ThemeGradient
+  page?: ThemeGradient
+  section?: ThemeGradient
+}
+
+export type ThemeProductCard = {
+  imageRatio?: ShopImageRatio
+  ctaStyle?: ShopCtaStyle
+  showPrice?: boolean
+  edgeToEdge?: boolean
+  titleAlign?: ShopTitleAlign
+}
+
+export type ThemeSectionSetting = {
+  background?: ShopSectionBackground
+  align?: ShopSectionAlign
+  columns?: 2 | 3 | 4 | 5
+  paddingY?: ShopPaddingY
+}
+
+export type ThemeSectionSettings = Partial<Record<ShopSectionKey, ThemeSectionSetting>>
+
+/** AG3: repeatable CUSTOM layout blocks (`layout.blocks`). */
+export const SHOP_BLOCK_BACKGROUNDS = ['NONE', 'SURFACE', 'PRIMARY', 'GRADIENT', 'IMAGE'] as const
+export type ShopBlockBackground = (typeof SHOP_BLOCK_BACKGROUNDS)[number]
+
+export const MAX_LAYOUT_BLOCKS = 30
+export const LAYOUT_BLOCK_ID_PATTERN = /^[a-z0-9-]{1,40}$/
+/** Block types that may appear only once per shop page. */
+export const SINGLETON_BLOCK_TYPES: readonly ShopBlockType[] = ['HERO', 'HOURS']
+export const PRODUCT_BLOCK_TYPES: readonly ShopBlockType[] = ['FEATURED', 'BESTSELLERS', 'NEW_ARRIVALS', 'CATALOG']
+
+export type BlockSettings = {
+  background: ShopBlockBackground
+  gradient?: ThemeGradient
+  backgroundMediaId?: string
+  /** Derived by the API from backgroundMediaId (never sent back as an editable field). */
+  backgroundUrl?: string
+  /** Dark overlay over an IMAGE background, 0?80 (%). */
+  overlay?: number
+  align: ShopSectionAlign
+  columns?: 2 | 3 | 4 | 5
+  paddingY: ShopPaddingY
+  fullWidth: boolean
+}
+
+export type LayoutBlock = {
+  id: string
+  type: ShopBlockType
+  enabled: boolean
+  variant?: SectionVariant
+  settings: BlockSettings
+  /** `{}` for the ten legacy section types; typed per block type (see blockContent.ts) for STEPS/FEATURE/GALLERY/SOCIAL/RICH_TEXT. */
+  content: BlockContent
+}
+
+export type ThemeLayout = { blocks: LayoutBlock[] }
+
+/** AG5 hero extras (CUSTOM + MEDIA_FULL only; the backend strips every key below for other templates). */
+export const HERO_BACKGROUND_TYPES = ['IMAGE', 'VIDEO', 'GRADIENT'] as const
+export type HeroBackgroundType = (typeof HERO_BACKGROUND_TYPES)[number]
+export const HERO_TEXT_ALIGNS = ['LEFT', 'CENTER'] as const
+export type HeroTextAlign = (typeof HERO_TEXT_ALIGNS)[number]
+export const HERO_HEADLINE_SIZES = ['L', 'XL'] as const
+export type HeroHeadlineSize = (typeof HERO_HEADLINE_SIZES)[number]
+export const MAX_HERO_STICKERS = 6
+export const HERO_RANGES = {
+  overlay: [0, 80],
+  heightVh: [50, 100],
+  x: [0, 100],
+  y: [0, 100],
+  size: [40, 240],
+  rotate: [-30, 30],
+} as const
+
+export type ThemeHeroBackground = {
+  type: HeroBackgroundType
+  mediaId?: string
+  posterMediaId?: string
+  /** Derived by the API from mediaId / posterMediaId (never sent back as editable fields). */
+  url?: string
+  posterUrl?: string
+}
+export type ThemeHeroSticker = {
+  mediaId: string
+  x: number
+  y: number
+  size: number
+  rotate: number
+  hideOnMobile: boolean
+  /** Derived by the API from mediaId. */
+  url?: string
+}
+export type ThemeHeroCta = { label: string; link: string }
 
 export type ThemeHero = {
   layout: HeroLayout
@@ -53,6 +196,59 @@ export type ThemeHero = {
   subtitle: string
   ctaLabel: string
   ctaLink: string
+  background?: ThemeHeroBackground
+  overlay?: number
+  heightVh?: number
+  textAlign?: HeroTextAlign
+  headlineSize?: HeroHeadlineSize
+  stickers?: ThemeHeroSticker[]
+  ctaSecondary?: ThemeHeroCta
+}
+
+/** AG5 header / footer (CUSTOM only). Links are internal paths or https; text is LocalizedString `{th, en?}`. */
+export const HEADER_LAYOUTS = ['LOGO_LEFT', 'LOGO_CENTER'] as const
+export type HeaderLayout = (typeof HEADER_LAYOUTS)[number]
+export const MAX_MENU_ITEMS = 8
+export const MAX_FOOTER_COLUMNS = 4
+export const MAX_COLUMN_LINKS = 8
+
+export type ThemeChromeLink = { label: LocalizedString; link: string }
+export type ThemeAnnouncementBar = { text: LocalizedString; link?: string; backgroundColor: string; textColor: string }
+export type ThemeHeader = {
+  layout: HeaderLayout
+  background: ShopBlockBackground
+  gradient?: ThemeGradient
+  backgroundMediaId?: string
+  /** Derived by the API from backgroundMediaId. */
+  backgroundUrl?: string
+  overlay?: number
+  sticky: boolean
+  menu: ThemeChromeLink[]
+  showSearch: boolean
+  showSocialIcons: boolean
+  announcementBar?: ThemeAnnouncementBar
+}
+export type ThemeFooterColumn = { title?: LocalizedString; links: ThemeChromeLink[] }
+export type ThemeFooter = {
+  columns: ThemeFooterColumn[]
+  about?: LocalizedString
+  showContacts: boolean
+  showSocial: boolean
+  background: ShopBlockBackground
+  gradient?: ThemeGradient
+  backgroundMediaId?: string
+  backgroundUrl?: string
+  overlay?: number
+  copyright?: string
+}
+
+/** AG5: custom WOFF2 fonts from the shop's FONT media; `font` (legacy string) stays the fallback stack. */
+export type ThemeFontCustom = {
+  headingMediaId?: string
+  bodyMediaId?: string
+  headingUrl?: string
+  bodyUrl?: string
+  fallback: ShopThemeFontKey
 }
 
 export type SectionConfig = {
@@ -69,6 +265,15 @@ export type ThemeConfig = {
   banners: ThemeBanner[]
   trust: ThemeTrust
   sections: SectionConfig[]
+  gradients?: ThemeGradients
+  productCard?: ThemeProductCard
+  sectionSettings?: ThemeSectionSettings
+  /** CUSTOM only; always present (possibly synthesized from sections) after normalizeTheme. */
+  layout?: ThemeLayout
+  /** AG5, CUSTOM only. Absent = the existing mall header / tabs / footer stay as they are. */
+  header?: ThemeHeader
+  footer?: ThemeFooter
+  fontCustom?: ThemeFontCustom
 }
 
 export type ShopTheme = {
@@ -102,6 +307,7 @@ export const SHOP_BREAKPOINTS = {
 export const PREVIEW_WIDTHS = { mobile: 375, tablet: 768, desktop: 1280 } as const
 
 const HERO_VARIANTS = new Set<string>(['FULL', 'STRIP'])
+const CUSTOM_HERO_VARIANTS = new Set<string>(['FULL', 'STRIP', 'MEDIA_FULL'])
 const CATALOG_VARIANTS = new Set<string>(['GRID', 'LARGE', 'MENU'])
 
 const DEFAULT_STYLE: ThemeStyle = {
@@ -124,10 +330,10 @@ export function minimalFallbackTheme(): ShopTheme {
       trust: {
         enabled: true,
         items: [
-          { icon: 'AUTHENTIC', label: 'ของแท้ 100%', enabled: true },
-          { icon: 'FAST_SHIP', label: 'ส่งไว', enabled: true },
-          { icon: 'RETURNS', label: 'คืนสินค้าได้', enabled: true },
-          { icon: 'SECURE_PAY', label: 'ชำระปลอดภัย', enabled: true },
+          { icon: 'AUTHENTIC', label: '?????? 100%', enabled: true },
+          { icon: 'FAST_SHIP', label: '?????', enabled: true },
+          { icon: 'RETURNS', label: '????????????', enabled: true },
+          { icon: 'SECURE_PAY', label: '???????????', enabled: true },
         ],
       },
       sections: [
@@ -239,7 +445,25 @@ export function themeContrastIssues(colors: ThemeColors): Array<'textBg' | 'prim
   return issues
 }
 
-function styleCssVars(style: ThemeStyle): Record<string, string> {
+const SHADOW_CSS: Record<ShopShadow, string> = {
+  NONE: 'none',
+  SOFT: '0 2px 8px color-mix(in srgb, var(--shop-text) 6%, transparent)',
+  MEDIUM: '0 6px 18px color-mix(in srgb, var(--shop-text) 10%, transparent)',
+  STRONG: '0 12px 32px color-mix(in srgb, var(--shop-text) 16%, transparent)',
+}
+
+/** Build a safe linear-gradient from a structured token (never from raw CSS strings). */
+export function gradientCss(gradient?: ThemeGradient | null): string | null {
+  if (!gradient || !Array.isArray(gradient.stops) || gradient.stops.length < 2) return null
+  const angle = Number.isFinite(gradient.angle) ? Math.max(0, Math.min(360, Math.round(gradient.angle))) : 180
+  const stops = gradient.stops
+    .filter((stop) => stop && /^#[0-9a-fA-F]{6}$/.test(stop.color) && Number.isFinite(stop.at))
+    .map((stop) => `${stop.color} ${Math.max(0, Math.min(100, Math.round(stop.at)))}%`)
+  if (stops.length < 2) return null
+  return `linear-gradient(${angle}deg, ${stops.join(', ')})`
+}
+
+function styleCssVars(style: ThemeStyle, custom = false): Record<string, string> {
   const radius = Math.max(0, Math.min(32, style.radius))
   const gap = style.density === 'COMPACT' ? '12px' : '16px'
   const btnRadius =
@@ -249,20 +473,43 @@ function styleCssVars(style: ThemeStyle): Record<string, string> {
   const cardBorder =
     style.cardStyle === 'FLAT' ? 'transparent'
     : 'var(--shop-border)'
-  // Product cards inside Mall panels use a thin border only (no stacked shadow).
-  const cardShadow =
-    style.cardStyle === 'SHADOW' ? '0 4px 12px color-mix(in srgb, var(--shop-text) 8%, transparent)'
+  // AG1 shadow tokens are CUSTOM-only; old templates keep the pre-AG1 card shadow exactly.
+  const shadowToken = custom && SHOP_SHADOWS.includes(style.shadow as ShopShadow) ? (style.shadow as ShopShadow) : null
+  // Product cards inside Mall panels use a thin border only (no stacked shadow) unless shadow token set.
+  const cardShadow = shadowToken
+    ? SHADOW_CSS[shadowToken]
+    : style.cardStyle === 'SHADOW' ? '0 4px 12px color-mix(in srgb, var(--shop-text) 8%, transparent)'
     : 'none'
-  return {
+  const legacy = {
     '--shop-radius': `${radius}px`,
     '--shop-gap': gap,
     '--shop-btn-radius': btnRadius,
     '--shop-card-border': cardBorder,
     '--shop-card-shadow': cardShadow,
   }
+  if (!custom) return legacy
+  return {
+    ...legacy,
+    '--shop-elevation': cardShadow,
+    '--shop-heading-shadow': style.headingTextShadow ? '0 1px 2px color-mix(in srgb, var(--shop-text) 25%, transparent)' : 'none',
+  }
 }
 
-export function themeCssVars(config: ThemeConfig): Record<string, string> {
+function optionalHex(value: unknown): string | undefined {
+  return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value) ? value : undefined
+}
+
+/** CUSTOM is the only template that reads AG1 tokens (extra colors, gradients, productCard, shadow). */
+export function isCustomTemplate(templateKey?: string | null): boolean {
+  return templateKey === 'CUSTOM'
+}
+
+/**
+ * CSS variables for the themed shell. Old templates (GENERAL/FASHION/FOOD_BEVERAGE) get exactly the
+ * pre-AG1 variable set even if the config carries AG1 tokens; only CUSTOM emits the new variables.
+ */
+export function themeCssVars(config: ThemeConfig, templateKey?: ShopThemeTemplateKey | null): Record<string, string> {
+  const custom = isCustomTemplate(templateKey)
   const { primary, secondary, background, text, accent } = config.colors
   const onPrimary = contrastOnColor(primary)
   const onSecondary = contrastOnColor(secondary)
@@ -270,26 +517,74 @@ export function themeCssVars(config: ThemeConfig): Record<string, string> {
   const bgLum = relativeLuminance(background)
   const pageBgMix = bgLum != null && bgLum > 0.92 ? 5 : 4
   const pageBg = `color-mix(in srgb, ${text} ${pageBgMix}%, ${background})`
-  const accentHex = typeof accent === 'string' && /^#[0-9a-fA-F]{6}$/.test(accent) ? accent : primary
+  const accentHex = optionalHex(accent) ?? primary
+  if (!custom) {
+    return {
+      '--shop-primary': primary,
+      '--shop-secondary': secondary,
+      '--shop-bg': background,
+      '--shop-card-bg': background,
+      '--shop-page-bg': pageBg,
+      '--shop-text': text,
+      '--shop-accent': accentHex,
+      '--shop-font': shopThemeFontStack(config.font),
+      '--font-sans': shopThemeFontStack(config.font),
+      '--shop-muted': `color-mix(in srgb, ${text} 65%, ${background})`,
+      '--shop-border': `color-mix(in srgb, ${text} 10%, ${background})`,
+      '--shop-surface': `color-mix(in srgb, ${text} 4%, ${background})`,
+      '--shop-on-primary': onPrimary,
+      '--shop-primary-contrast': onPrimary,
+      '--shop-on-secondary': onSecondary,
+      '--shop-primary-soft': `color-mix(in srgb, ${primary} 12%, ${background})`,
+      '--shop-tabs-h': '44px',
+      ...styleCssVars(config.style ?? DEFAULT_STYLE, false),
+    }
+  }
+  const surface = optionalHex(config.colors.surface) ?? `color-mix(in srgb, ${text} 4%, ${background})`
+  const muted = optionalHex(config.colors.muted) ?? `color-mix(in srgb, ${text} 65%, ${background})`
+  const border = optionalHex(config.colors.border) ?? `color-mix(in srgb, ${text} 10%, ${background})`
+  const ctaBg = optionalHex(config.colors.ctaBackground) ?? primary
+  const ctaText = optionalHex(config.colors.ctaText) ?? contrastOnColor(ctaBg)
+  const heroGradient = gradientCss(config.gradients?.hero)
+  const pageGradient = gradientCss(config.gradients?.page)
+  const sectionGradient = gradientCss(config.gradients?.section)
+  const product = config.productCard ?? {}
+  const imageRatio =
+    product.imageRatio === 'PORTRAIT' ? '3 / 4'
+    : product.imageRatio === 'LANDSCAPE' ? '4 / 3'
+    : '1 / 1'
+  const ctaRadius =
+    product.ctaStyle === 'PILL' ? '999px'
+    : product.ctaStyle === 'SQUARE' ? '0px'
+    : product.ctaStyle === 'NONE' ? '0px'
+    : 'var(--shop-btn-radius)'
   return {
     '--shop-primary': primary,
     '--shop-secondary': secondary,
     '--shop-bg': background,
     '--shop-card-bg': background,
-    '--shop-page-bg': pageBg,
+    '--shop-page-bg': pageGradient || pageBg,
     '--shop-text': text,
     '--shop-accent': accentHex,
     '--shop-font': shopThemeFontStack(config.font),
     '--font-sans': shopThemeFontStack(config.font),
-    '--shop-muted': `color-mix(in srgb, ${text} 65%, ${background})`,
-    '--shop-border': `color-mix(in srgb, ${text} 10%, ${background})`,
-    '--shop-surface': `color-mix(in srgb, ${text} 4%, ${background})`,
+    '--shop-muted': muted,
+    '--shop-border': border,
+    '--shop-surface': surface,
+    '--shop-cta-bg': ctaBg,
+    '--shop-cta-text': ctaText,
     '--shop-on-primary': onPrimary,
     '--shop-primary-contrast': onPrimary,
     '--shop-on-secondary': onSecondary,
     '--shop-primary-soft': `color-mix(in srgb, ${primary} 12%, ${background})`,
     '--shop-tabs-h': '44px',
-    ...styleCssVars(config.style ?? DEFAULT_STYLE),
+    '--shop-product-image-ratio': imageRatio,
+    '--shop-product-cta-radius': ctaRadius,
+    '--shop-product-title-align': product.titleAlign === 'CENTER' ? 'center' : 'left',
+    ...(heroGradient ? { '--shop-gradient-hero': heroGradient } : {}),
+    ...(pageGradient ? { '--shop-gradient-page': pageGradient } : {}),
+    ...(sectionGradient ? { '--shop-gradient-section': sectionGradient } : {}),
+    ...styleCssVars(config.style ?? DEFAULT_STYLE, true),
   }
 }
 
@@ -298,31 +593,40 @@ function resolveFont(raw: unknown, fallback: ShopThemeFontKey): ShopThemeFontKey
   return SHOP_THEME_FONTS.includes(value as ShopThemeFontKey) ? (value as ShopThemeFontKey) : fallback
 }
 
-function resolveHeroLayout(raw: unknown, fallback: HeroLayout): HeroLayout {
+/** MEDIA_FULL is CUSTOM-only: every other template silently falls back (FULL) like the backend does. */
+function resolveHeroLayout(raw: unknown, fallback: HeroLayout, custom = false): HeroLayout {
   const value = typeof raw === 'string' ? raw.trim().toUpperCase() : ''
-  return HERO_VARIANTS.has(value) ? (value as HeroLayout) : fallback
+  if (!custom && value === 'MEDIA_FULL') return 'FULL'
+  const allowed = custom ? CUSTOM_HERO_VARIANTS : HERO_VARIANTS
+  return allowed.has(value) ? (value as HeroLayout) : (!custom && fallback === 'MEDIA_FULL' ? 'FULL' : fallback)
 }
 
-function resolveSectionVariant(key: ShopSectionKey, raw: unknown, fallback: SectionVariant): SectionVariant {
+function resolveSectionVariant(key: ShopSectionKey, raw: unknown, fallback: SectionVariant, custom = false): SectionVariant {
   if (raw == null || raw === '') return fallback
   const value = String(raw).trim().toUpperCase()
-  if (key === 'HERO') return HERO_VARIANTS.has(value) ? (value as HeroLayout) : fallback
+  if (key === 'HERO') {
+    if (!custom && value === 'MEDIA_FULL') return 'FULL'
+    return (custom ? CUSTOM_HERO_VARIANTS : HERO_VARIANTS).has(value) ? (value as HeroLayout) : fallback
+  }
   if (key === 'FEATURED' || key === 'BESTSELLERS' || key === 'NEW_ARRIVALS' || key === 'CATALOG') {
     return CATALOG_VARIANTS.has(value) ? (value as CatalogVariant) : fallback
   }
   return null
 }
 
-function resolveBanners(raw: unknown, fallback: ThemeBanner[]): ThemeBanner[] {
+/** AG2: mediaId (theme media library) is kept for CUSTOM only; every other template drops it. */
+function resolveBanners(raw: unknown, fallback: ThemeBanner[], custom = false): ThemeBanner[] {
   if (!Array.isArray(raw)) return structuredClone(fallback)
   return raw
     .map((row) => {
       if (!row || typeof row !== 'object') return null
       const item = row as Record<string, unknown>
       const imageUrl = typeof item.imageUrl === 'string' ? item.imageUrl.trim() : ''
-      if (!imageUrl) return null
+      const mediaId = custom && typeof item.mediaId === 'string' ? item.mediaId.trim() : ''
+      if (!imageUrl && !mediaId) return null
       return {
         imageUrl,
+        ...(mediaId ? { mediaId } : {}),
         title: typeof item.title === 'string' ? item.title : '',
         link: typeof item.link === 'string' ? item.link : '',
       } satisfies ThemeBanner
@@ -370,7 +674,444 @@ function resolveStyle(raw: unknown, fallback: ThemeStyle): ThemeStyle {
   const buttonShape = SHOP_BUTTON_SHAPES.includes(String(incoming.buttonShape || '').toUpperCase() as ShopButtonShape)
     ? (String(incoming.buttonShape).toUpperCase() as ShopButtonShape)
     : fallback.buttonShape
-  return { radius, cardStyle, density, buttonShape }
+  const shadowRaw = String(incoming.shadow || fallback.shadow || '').toUpperCase()
+  const shadow = SHOP_SHADOWS.includes(shadowRaw as ShopShadow) ? (shadowRaw as ShopShadow) : fallback.shadow
+  const headingTextShadow = typeof incoming.headingTextShadow === 'boolean'
+    ? incoming.headingTextShadow
+    : fallback.headingTextShadow
+  return {
+    radius, cardStyle, density, buttonShape,
+    ...(shadow ? { shadow } : {}),
+    ...(typeof headingTextShadow === 'boolean' ? { headingTextShadow } : {}),
+  }
+}
+
+function resolveGradient(raw: unknown): ThemeGradient | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const row = raw as Record<string, unknown>
+  let angle = 180
+  if (typeof row.angle === 'number' && Number.isFinite(row.angle)) angle = Math.max(0, Math.min(360, Math.round(row.angle)))
+  else if (typeof row.angle === 'string' && /^\d+$/.test(row.angle.trim())) {
+    angle = Math.max(0, Math.min(360, Number.parseInt(row.angle.trim(), 10)))
+  }
+  if (!Array.isArray(row.stops)) return undefined
+  const stops = row.stops
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null
+      const stop = item as Record<string, unknown>
+      const color = optionalHex(stop.color)
+      if (!color) return null
+      let at = 0
+      if (typeof stop.at === 'number' && Number.isFinite(stop.at)) at = Math.max(0, Math.min(100, Math.round(stop.at)))
+      else if (typeof stop.at === 'string' && /^\d+$/.test(stop.at.trim())) {
+        at = Math.max(0, Math.min(100, Number.parseInt(stop.at.trim(), 10)))
+      } else return null
+      return { color, at } satisfies ThemeGradientStop
+    })
+    .filter(Boolean) as ThemeGradientStop[]
+  if (stops.length < 2 || stops.length > 4) return undefined
+  return { angle, stops }
+}
+
+function resolveGradients(raw: unknown, fallback?: ThemeGradients): ThemeGradients | undefined {
+  const incoming = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
+  const base = fallback ?? {}
+  const hero = resolveGradient(incoming?.hero) ?? base.hero
+  const page = resolveGradient(incoming?.page) ?? base.page
+  const section = resolveGradient(incoming?.section) ?? base.section
+  if (!hero && !page && !section) return undefined
+  return { ...(hero ? { hero } : {}), ...(page ? { page } : {}), ...(section ? { section } : {}) }
+}
+
+function resolveProductCard(raw: unknown, fallback?: ThemeProductCard): ThemeProductCard | undefined {
+  const incoming = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
+  const base = fallback ?? {}
+  if (!incoming && !fallback) return undefined
+  const imageRatioRaw = String(incoming?.imageRatio || base.imageRatio || '').toUpperCase()
+  const ctaStyleRaw = String(incoming?.ctaStyle || base.ctaStyle || '').toUpperCase()
+  const titleAlignRaw = String(incoming?.titleAlign || base.titleAlign || '').toUpperCase()
+  const next: ThemeProductCard = {
+    imageRatio: SHOP_IMAGE_RATIOS.includes(imageRatioRaw as ShopImageRatio) ? (imageRatioRaw as ShopImageRatio) : base.imageRatio,
+    ctaStyle: SHOP_CTA_STYLES.includes(ctaStyleRaw as ShopCtaStyle) ? (ctaStyleRaw as ShopCtaStyle) : base.ctaStyle,
+    titleAlign: SHOP_TITLE_ALIGNS.includes(titleAlignRaw as ShopTitleAlign) ? (titleAlignRaw as ShopTitleAlign) : base.titleAlign,
+    showPrice: typeof incoming?.showPrice === 'boolean' ? incoming.showPrice : base.showPrice,
+    edgeToEdge: typeof incoming?.edgeToEdge === 'boolean' ? incoming.edgeToEdge : base.edgeToEdge,
+  }
+  if (next.imageRatio == null && next.ctaStyle == null && next.titleAlign == null
+    && next.showPrice == null && next.edgeToEdge == null) return undefined
+  return next
+}
+
+function resolveSectionSettings(raw: unknown, fallback?: ThemeSectionSettings): ThemeSectionSettings | undefined {
+  const incoming = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null
+  if (!incoming && !fallback) return undefined
+  const out: ThemeSectionSettings = {}
+  for (const key of SHOP_SECTION_KEYS) {
+    const rowRaw = incoming?.[key]
+    const base = fallback?.[key]
+    const row = rowRaw && typeof rowRaw === 'object' ? (rowRaw as Record<string, unknown>) : null
+    if (!row && !base) continue
+    const backgroundRaw = String(row?.background || base?.background || '').toUpperCase()
+    const alignRaw = String(row?.align || base?.align || '').toUpperCase()
+    const paddingRaw = String(row?.paddingY || base?.paddingY || '').toUpperCase()
+    let columns = base?.columns
+    const columnsRaw = row?.columns
+    if (typeof columnsRaw === 'number' && [2, 3, 4, 5].includes(columnsRaw)) columns = columnsRaw as 2 | 3 | 4 | 5
+    else if (typeof columnsRaw === 'string' && /^[2345]$/.test(columnsRaw.trim())) {
+      columns = Number.parseInt(columnsRaw.trim(), 10) as 2 | 3 | 4 | 5
+    }
+    const setting: ThemeSectionSetting = {
+      background: SHOP_SECTION_BACKGROUNDS.includes(backgroundRaw as ShopSectionBackground)
+        ? (backgroundRaw as ShopSectionBackground) : base?.background,
+      align: SHOP_SECTION_ALIGNS.includes(alignRaw as ShopSectionAlign)
+        ? (alignRaw as ShopSectionAlign) : base?.align,
+      paddingY: SHOP_PADDING_Y.includes(paddingRaw as ShopPaddingY)
+        ? (paddingRaw as ShopPaddingY) : base?.paddingY,
+      ...(columns != null && ['FEATURED', 'BESTSELLERS', 'NEW_ARRIVALS', 'CATALOG'].includes(key) ? { columns } : {}),
+    }
+    if (setting.background || setting.align || setting.paddingY || setting.columns != null) out[key] = setting
+  }
+  return Object.keys(out).length ? out : undefined
+}
+
+/* ????????? AG3: layout.blocks ????????? */
+
+/* AG5: hero media extras, header, footer, fontCustom (CUSTOM only; mirrors the backend whitelist) */
+
+function recordOf(raw: unknown): Record<string, unknown> | null {
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null
+}
+
+function trimmedText(raw: unknown): string | undefined {
+  return typeof raw === 'string' && raw.trim() ? raw.trim() : undefined
+}
+
+/** Integer clamped to [min, max]; numeric strings are accepted; anything else is undefined. */
+export function clampInt(raw: unknown, min: number, max: number): number | undefined {
+  const num = typeof raw === 'number' ? raw
+    : typeof raw === 'string' && /^-?\d+$/.test(raw.trim()) ? Number.parseInt(raw.trim(), 10) : Number.NaN
+  return Number.isFinite(num) ? Math.max(min, Math.min(max, Math.round(num))) : undefined
+}
+
+function resolveHeroExtras(raw: Record<string, unknown>): Partial<ThemeHero> {
+  const out: Partial<ThemeHero> = {}
+  const bg = recordOf(raw.background)
+  const type = typeof bg?.type === 'string' ? bg.type.trim().toUpperCase() : ''
+  if (bg && (HERO_BACKGROUND_TYPES as readonly string[]).includes(type)) {
+    const mediaId = type === 'GRADIENT' ? undefined : trimmedText(bg.mediaId)
+    const posterMediaId = type === 'VIDEO' ? trimmedText(bg.posterMediaId) : undefined
+    const url = mediaId ? trimmedText(bg.url) : undefined
+    const posterUrl = posterMediaId ? trimmedText(bg.posterUrl) : undefined
+    out.background = {
+      type: type as HeroBackgroundType,
+      ...(mediaId ? { mediaId } : {}),
+      ...(posterMediaId ? { posterMediaId } : {}),
+      ...(url ? { url } : {}),
+      ...(posterUrl ? { posterUrl } : {}),
+    }
+  }
+  const overlay = clampInt(raw.overlay, ...HERO_RANGES.overlay)
+  if (overlay != null) out.overlay = overlay
+  const heightVh = clampInt(raw.heightVh, ...HERO_RANGES.heightVh)
+  if (heightVh != null) out.heightVh = heightVh
+  const align = typeof raw.textAlign === 'string' ? raw.textAlign.trim().toUpperCase() : ''
+  if ((HERO_TEXT_ALIGNS as readonly string[]).includes(align)) out.textAlign = align as HeroTextAlign
+  const size = typeof raw.headlineSize === 'string' ? raw.headlineSize.trim().toUpperCase() : ''
+  if ((HERO_HEADLINE_SIZES as readonly string[]).includes(size)) out.headlineSize = size as HeroHeadlineSize
+  if (Array.isArray(raw.stickers)) {
+    const stickers: ThemeHeroSticker[] = []
+    for (const item of raw.stickers) {
+      const row = recordOf(item)
+      const mediaId = row ? trimmedText(row.mediaId) : undefined
+      if (!row || !mediaId) continue
+      const url = trimmedText(row.url)
+      stickers.push({
+        mediaId,
+        x: clampInt(row.x, ...HERO_RANGES.x) ?? 50,
+        y: clampInt(row.y, ...HERO_RANGES.y) ?? 50,
+        size: clampInt(row.size, ...HERO_RANGES.size) ?? 120,
+        rotate: clampInt(row.rotate, ...HERO_RANGES.rotate) ?? 0,
+        hideOnMobile: row.hideOnMobile === true,
+        ...(url ? { url } : {}),
+      })
+      if (stickers.length >= MAX_HERO_STICKERS) break
+    }
+    out.stickers = stickers
+  }
+  const cta = recordOf(raw.ctaSecondary)
+  const label = cta ? trimmedText(cta.label) : undefined
+  if (cta && label) out.ctaSecondary = { label, link: trimmedText(cta.link) ?? '' }
+  return out
+}
+
+function resolveChromeLinks(raw: unknown, max: number): ThemeChromeLink[] {
+  if (!Array.isArray(raw)) return []
+  const out: ThemeChromeLink[] = []
+  for (const item of raw) {
+    const row = recordOf(item)
+    if (!row) continue
+    const label = resolveLocalized(row.label)
+    const link = trimmedText(row.link)
+    if (!label && !link) continue
+    out.push({ label: label ?? { th: '' }, link: link ?? '' })
+    if (out.length >= max) break
+  }
+  return out
+}
+
+function resolveChromeBackground(row: Record<string, unknown>) {
+  const raw = typeof row.background === 'string' ? row.background.trim().toUpperCase() : ''
+  const background = SHOP_BLOCK_BACKGROUNDS.includes(raw as ShopBlockBackground) ? (raw as ShopBlockBackground) : 'NONE'
+  const gradient = resolveGradient(row.gradient)
+  const mediaId = background === 'IMAGE' ? trimmedText(row.backgroundMediaId) : undefined
+  const backgroundUrl = mediaId ? trimmedText(row.backgroundUrl) : undefined
+  const overlay = clampInt(row.overlay, ...HERO_RANGES.overlay)
+  return {
+    background,
+    ...(gradient ? { gradient } : {}),
+    ...(mediaId ? { backgroundMediaId: mediaId } : {}),
+    ...(backgroundUrl ? { backgroundUrl } : {}),
+    ...(overlay != null ? { overlay } : {}),
+  }
+}
+
+/** `undefined` when the shop has no custom header (the storefront keeps the existing mall header / tabs). */
+function resolveHeader(raw: unknown): ThemeHeader | undefined {
+  const row = recordOf(raw)
+  if (!row) return undefined
+  const layoutRaw = typeof row.layout === 'string' ? row.layout.trim().toUpperCase() : ''
+  const bar = recordOf(row.announcementBar)
+  const text = bar ? resolveLocalized(bar.text) : undefined
+  const barLink = bar ? trimmedText(bar.link) : undefined
+  return {
+    layout: HEADER_LAYOUTS.includes(layoutRaw as HeaderLayout) ? (layoutRaw as HeaderLayout) : 'LOGO_LEFT',
+    ...resolveChromeBackground(row),
+    sticky: row.sticky === true,
+    menu: resolveChromeLinks(row.menu, MAX_MENU_ITEMS),
+    showSearch: row.showSearch === true,
+    showSocialIcons: row.showSocialIcons === true,
+    ...(bar && text ? {
+      announcementBar: {
+        text,
+        ...(barLink ? { link: barLink } : {}),
+        backgroundColor: optionalHex(bar.backgroundColor) ?? '#111111',
+        textColor: optionalHex(bar.textColor) ?? '#ffffff',
+      },
+    } : {}),
+  }
+}
+
+function resolveFooter(raw: unknown): ThemeFooter | undefined {
+  const row = recordOf(raw)
+  if (!row) return undefined
+  const columns: ThemeFooterColumn[] = []
+  for (const item of Array.isArray(row.columns) ? row.columns : []) {
+    const column = recordOf(item)
+    if (!column) continue
+    const title = resolveLocalized(column.title)
+    const links = resolveChromeLinks(column.links, MAX_COLUMN_LINKS)
+    if (!title && links.length === 0) continue
+    columns.push({ ...(title ? { title } : {}), links })
+    if (columns.length >= MAX_FOOTER_COLUMNS) break
+  }
+  const about = resolveLocalized(row.about)
+  const copyright = trimmedText(row.copyright)
+  return {
+    columns,
+    ...(about ? { about } : {}),
+    showContacts: row.showContacts === true,
+    showSocial: row.showSocial === true,
+    ...resolveChromeBackground(row),
+    ...(copyright ? { copyright } : {}),
+  }
+}
+
+function resolveFontCustom(raw: unknown, font: ShopThemeFontKey): ThemeFontCustom | undefined {
+  const row = recordOf(raw)
+  if (!row) return undefined
+  const headingMediaId = trimmedText(row.headingMediaId)
+  const bodyMediaId = trimmedText(row.bodyMediaId)
+  if (!headingMediaId && !bodyMediaId) return undefined
+  const headingUrl = headingMediaId ? trimmedText(row.headingUrl) : undefined
+  const bodyUrl = bodyMediaId ? trimmedText(row.bodyUrl) : undefined
+  return {
+    ...(headingMediaId ? { headingMediaId } : {}),
+    ...(bodyMediaId ? { bodyMediaId } : {}),
+    ...(headingUrl ? { headingUrl } : {}),
+    ...(bodyUrl ? { bodyUrl } : {}),
+    fallback: resolveFont(row.fallback, font),
+  }
+}
+
+function defaultBlockVariant(type: ShopBlockType): SectionVariant {
+  if (type === 'HERO') return 'FULL'
+  return PRODUCT_BLOCK_TYPES.includes(type) ? 'GRID' : null
+}
+
+function legacyBlockId(type: ShopBlockType): string {
+  if (type === 'HERO') return 'legacy-hero'
+  if (type === 'FEATURED') return 'legacy-featured'
+  return `sec-${type.toLowerCase().replace(/_/g, '-')}`
+}
+
+/** `base`, then `base-2`, `base-3`, ? until it is not in `used` (and fits the 40-char id limit). */
+export function uniqueBlockId(base: string, used: Set<string>): string {
+  const root = base.slice(0, 36)
+  let id = base.slice(0, 40)
+  let n = 2
+  while (used.has(id)) id = `${root}-${n++}`
+  return id
+}
+
+export function defaultBlockSettings(type: ShopBlockType): BlockSettings {
+  return {
+    background: 'NONE',
+    align: 'LEFT',
+    paddingY: 'NORMAL',
+    fullWidth: false,
+    ...(PRODUCT_BLOCK_TYPES.includes(type) ? { columns: 3 as const } : {}),
+  }
+}
+
+/** A fresh block for the editor ("add block"); id is unique among `usedIds`. */
+export function createLayoutBlock(type: ShopBlockType, usedIds: Iterable<string>): LayoutBlock {
+  const used = new Set(usedIds)
+  const variant = defaultBlockVariant(type)
+  return {
+    id: uniqueBlockId(`blk-${type.toLowerCase().replace(/_/g, '-')}`, used),
+    type,
+    enabled: true,
+    ...(variant ? { variant } : {}),
+    settings: defaultBlockSettings(type),
+    content: defaultBlockContent(type),
+  }
+}
+
+/** Mirror of the backend migration: legacy sections + sectionSettings ? blocks (same order, same visuals). */
+export function synthesizeBlocks(
+  sections: SectionConfig[],
+  sectionSettings: ThemeSectionSettings | undefined,
+  heroLayout: HeroLayout,
+): LayoutBlock[] {
+  const used = new Set<string>()
+  return sections.slice(0, MAX_LAYOUT_BLOCKS).map((section) => {
+    const id = uniqueBlockId(legacyBlockId(section.key), used)
+    used.add(id)
+    const legacy = sectionSettings?.[section.key]
+    const settings: BlockSettings = {
+      background: legacy?.background ?? 'NONE',
+      align: legacy?.align ?? 'LEFT',
+      paddingY: legacy?.paddingY ?? 'NORMAL',
+      fullWidth: false,
+      ...(legacy?.columns != null && PRODUCT_BLOCK_TYPES.includes(section.key) ? { columns: legacy.columns } : {}),
+    }
+    const variant = section.key === 'HERO'
+      ? resolveSectionVariant('HERO', section.variant, heroLayout, true)
+      : resolveSectionVariant(section.key, section.variant, defaultBlockVariant(section.key), true)
+    return {
+      id,
+      type: section.key,
+      enabled: section.enabled,
+      ...(variant ? { variant } : {}),
+      settings,
+      content: {},
+    }
+  })
+}
+
+function resolveBlockSettings(raw: unknown, type: ShopBlockType): BlockSettings {
+  const row = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const upper = (value: unknown) => (typeof value === 'string' ? value.trim().toUpperCase() : '')
+  const background = SHOP_BLOCK_BACKGROUNDS.includes(upper(row.background) as ShopBlockBackground)
+    ? (upper(row.background) as ShopBlockBackground) : 'NONE'
+  const align = SHOP_SECTION_ALIGNS.includes(upper(row.align) as ShopSectionAlign) ? (upper(row.align) as ShopSectionAlign) : 'LEFT'
+  const paddingY = SHOP_PADDING_Y.includes(upper(row.paddingY) as ShopPaddingY) ? (upper(row.paddingY) as ShopPaddingY) : 'NORMAL'
+  const gradient = resolveGradient(row.gradient)
+  const columnsNum = typeof row.columns === 'number' ? row.columns
+    : typeof row.columns === 'string' && /^\d+$/.test(row.columns.trim()) ? Number.parseInt(row.columns.trim(), 10) : NaN
+  const overlayNum = typeof row.overlay === 'number' ? row.overlay
+    : typeof row.overlay === 'string' && /^\d+$/.test(row.overlay.trim()) ? Number.parseInt(row.overlay.trim(), 10) : NaN
+  const mediaId = background === 'IMAGE' && typeof row.backgroundMediaId === 'string' && row.backgroundMediaId.trim()
+    ? row.backgroundMediaId.trim() : undefined
+  const backgroundUrl = mediaId && typeof row.backgroundUrl === 'string' && row.backgroundUrl.trim() ? row.backgroundUrl.trim() : undefined
+  return {
+    background,
+    ...(gradient ? { gradient } : {}),
+    ...(mediaId ? { backgroundMediaId: mediaId } : {}),
+    ...(backgroundUrl ? { backgroundUrl } : {}),
+    ...(Number.isFinite(overlayNum) ? { overlay: Math.max(0, Math.min(80, Math.round(overlayNum))) } : {}),
+    align,
+    ...([2, 3, 4, 5].includes(columnsNum) && PRODUCT_BLOCK_TYPES.includes(type) ? { columns: columnsNum as 2 | 3 | 4 | 5 } : {}),
+    paddingY,
+    fullWidth: row.fullWidth === true,
+  }
+}
+
+/** Sanitize incoming blocks; falls back to synthesizing from the legacy sections when none are usable. */
+function resolveLayout(
+  raw: unknown,
+  sections: SectionConfig[],
+  sectionSettings: ThemeSectionSettings | undefined,
+  heroLayout: HeroLayout,
+): ThemeLayout {
+  const list = raw && typeof raw === 'object' && Array.isArray((raw as { blocks?: unknown }).blocks)
+    ? ((raw as { blocks: unknown[] }).blocks)
+    : []
+  const used = new Set<string>()
+  const singletons = new Set<ShopBlockType>()
+  const blocks: LayoutBlock[] = []
+  for (const item of list) {
+    if (blocks.length >= MAX_LAYOUT_BLOCKS) break
+    if (!item || typeof item !== 'object') continue
+    const row = item as Record<string, unknown>
+    const typeRaw = typeof row.type === 'string' ? row.type.trim().toUpperCase() : ''
+    if (!SHOP_BLOCK_TYPES.includes(typeRaw as ShopBlockType)) continue
+    const type = typeRaw as ShopBlockType
+    if (SINGLETON_BLOCK_TYPES.includes(type)) {
+      if (singletons.has(type)) continue
+      singletons.add(type)
+    }
+    const idRaw = typeof row.id === 'string' ? row.id : ''
+    const id = uniqueBlockId(LAYOUT_BLOCK_ID_PATTERN.test(idRaw) ? idRaw : `blk-${type.toLowerCase().replace(/_/g, '-')}`, used)
+    used.add(id)
+    const variant = isSectionKey(type) ? resolveSectionVariant(type, row.variant, defaultBlockVariant(type), true) : null
+    blocks.push({
+      id,
+      type,
+      enabled: typeof row.enabled === 'boolean' ? row.enabled : true,
+      ...(variant ? { variant } : {}),
+      settings: resolveBlockSettings(row.settings, type),
+      content: resolveBlockContent(type, row.content),
+    })
+  }
+  return { blocks: blocks.length ? blocks : synthesizeBlocks(sections, sectionSettings, heroLayout) }
+}
+
+/** CUSTOM configs always carry blocks (used when the editor switches a non-CUSTOM draft to CUSTOM). */
+export function withSynthesizedLayout(config: ThemeConfig): ThemeConfig {
+  if (config.layout?.blocks?.length) return config
+  return { ...config, layout: { blocks: synthesizeBlocks(config.sections, config.sectionSettings, config.hero.layout) } }
+}
+
+/** Derive the legacy `sections` list from blocks (first-seen type order, missing types appended disabled). */
+export function sectionsFromBlocks(blocks: LayoutBlock[], previous: SectionConfig[]): SectionConfig[] {
+  const out: SectionConfig[] = []
+  const seen = new Set<ShopSectionKey>()
+  const prev = new Map(previous.map((row) => [row.key, row]))
+  const variantOf = (key: ShopSectionKey, block?: LayoutBlock): SectionVariant => {
+    if (!sectionSupportsVariant(key)) return null
+    return resolveSectionVariant(key, block?.variant, prev.get(key)?.variant ?? defaultBlockVariant(key), true)
+  }
+  for (const block of blocks) {
+    // AG4: block-only content types never map to a legacy section.
+    if (!isSectionKey(block.type) || seen.has(block.type)) continue
+    seen.add(block.type)
+    out.push({ key: block.type, enabled: block.enabled, variant: variantOf(block.type, block) })
+  }
+  for (const key of SHOP_SECTION_KEYS) {
+    if (!seen.has(key)) out.push({ key, enabled: false, variant: variantOf(key) })
+  }
+  return out
 }
 
 type NormalizeOptions = { skipRegistry?: boolean }
@@ -394,29 +1135,66 @@ export function normalizeTheme(raw?: Partial<ShopTheme> | null, options: Normali
 
   const incoming = raw.config
   if (!incoming || typeof incoming !== 'object') {
-    return { templateKey, config: structuredClone(base) }
+    const cloned = structuredClone(base)
+    if (!isCustomTemplate(templateKey)) {
+      delete cloned.layout
+      return { templateKey, config: cloned }
+    }
+    return { templateKey, config: withSynthesizedLayout(cloned) }
   }
 
-  const accentRaw = (incoming.colors as ThemeColors | undefined)?.accent ?? (base.colors as ThemeColors).accent
-  const colors: ThemeColors = {
-    primary: typeof incoming.colors?.primary === 'string' && incoming.colors.primary ? incoming.colors.primary : base.colors.primary,
-    secondary: typeof incoming.colors?.secondary === 'string' && incoming.colors.secondary ? incoming.colors.secondary : base.colors.secondary,
-    background: typeof incoming.colors?.background === 'string' && incoming.colors.background ? incoming.colors.background : base.colors.background,
-    text: typeof incoming.colors?.text === 'string' && incoming.colors.text ? incoming.colors.text : base.colors.text,
-    ...(typeof accentRaw === 'string' && /^#[0-9a-fA-F]{6}$/.test(accentRaw) ? { accent: accentRaw } : {}),
+  const custom = isCustomTemplate(templateKey)
+  const colorIn = (incoming.colors || {}) as ThemeColors
+  const colorBase = base.colors as ThemeColors
+  const pickColor = (key: keyof ThemeColors, required = false) => {
+    const value = optionalHex(colorIn[key]) ?? optionalHex(colorBase[key])
+    if (required) return value || (colorBase[key] as string) || '#000000'
+    return value
+  }
+  // Old templates: pre-AG1 color resolution, and AG1 token keys are ignored even if present.
+  const legacyColor = (key: 'primary' | 'secondary' | 'background' | 'text') =>
+    typeof colorIn[key] === 'string' && colorIn[key] ? (colorIn[key] as string) : (colorBase[key] as string)
+  const colors: ThemeColors = !custom ? {
+    primary: legacyColor('primary'),
+    secondary: legacyColor('secondary'),
+    background: legacyColor('background'),
+    text: legacyColor('text'),
+    ...(pickColor('accent') ? { accent: pickColor('accent') } : {}),
+  } : {
+    primary: pickColor('primary', true)!,
+    secondary: pickColor('secondary', true)!,
+    background: pickColor('background', true)!,
+    text: pickColor('text', true)!,
+    ...(pickColor('accent') ? { accent: pickColor('accent') } : {}),
+    ...(pickColor('surface') ? { surface: pickColor('surface') } : {}),
+    ...(pickColor('muted') ? { muted: pickColor('muted') } : {}),
+    ...(pickColor('ctaBackground') ? { ctaBackground: pickColor('ctaBackground') } : {}),
+    ...(pickColor('ctaText') ? { ctaText: pickColor('ctaText') } : {}),
+    ...(pickColor('border') ? { border: pickColor('border') } : {}),
   }
 
   const font = resolveFont(incoming.font, base.font)
-  const style = resolveStyle(incoming.style, base.style ?? DEFAULT_STYLE)
-  const banners = resolveBanners(incoming.banners, base.banners ?? fallback.config.banners)
+  const resolvedStyle = resolveStyle(incoming.style, base.style ?? DEFAULT_STYLE)
+  const style: ThemeStyle = custom ? resolvedStyle : {
+    radius: resolvedStyle.radius,
+    cardStyle: resolvedStyle.cardStyle,
+    density: resolvedStyle.density,
+    buttonShape: resolvedStyle.buttonShape,
+  }
+  const banners = resolveBanners(incoming.banners, base.banners ?? fallback.config.banners, custom)
   const trust = resolveTrust(incoming.trust, base.trust ?? fallback.config.trust)
+  const gradients = custom ? resolveGradients(incoming.gradients, base.gradients) : undefined
+  const productCard = custom ? resolveProductCard(incoming.productCard, base.productCard) : undefined
+  const sectionSettings = custom ? resolveSectionSettings(incoming.sectionSettings, base.sectionSettings) : undefined
   const heroIncoming = incoming.hero || {}
   const hero: ThemeHero = {
-    layout: resolveHeroLayout(heroIncoming.layout ?? (incoming.sections?.find((s) => s.key === 'HERO')?.variant), base.hero.layout),
+    layout: resolveHeroLayout(heroIncoming.layout ?? (incoming.sections?.find((s) => s.key === 'HERO')?.variant), base.hero.layout, custom),
     title: typeof heroIncoming.title === 'string' ? heroIncoming.title : base.hero.title,
     subtitle: typeof heroIncoming.subtitle === 'string' ? heroIncoming.subtitle : base.hero.subtitle,
     ctaLabel: typeof heroIncoming.ctaLabel === 'string' ? heroIncoming.ctaLabel : base.hero.ctaLabel,
     ctaLink: typeof heroIncoming.ctaLink === 'string' ? heroIncoming.ctaLink : base.hero.ctaLink,
+    // AG5: hero media extras are CUSTOM-only (other templates never carry or read them).
+    ...(custom ? resolveHeroExtras(heroIncoming) : {}),
   }
 
   const byKey = new Map((incoming.sections || []).map((row) => [row.key, row]))
@@ -426,31 +1204,56 @@ export function normalizeTheme(raw?: Partial<ShopTheme> | null, options: Normali
     return {
       key,
       enabled: typeof row?.enabled === 'boolean' ? row.enabled : preset.enabled,
-      variant: resolveSectionVariant(key, row?.variant, preset.variant),
+      variant: resolveSectionVariant(key, row?.variant, preset.variant, custom),
     }
   })
 
-  const config: ThemeConfig = { colors, font, style, hero, banners, trust, sections }
+  const config: ThemeConfig = {
+    colors, font, style, hero, banners, trust, sections,
+    ...(gradients ? { gradients } : {}),
+    ...(productCard ? { productCard } : {}),
+    ...(sectionSettings ? { sectionSettings } : {}),
+  }
 
+  let finalSections = sections
   if (incoming.sections?.length) {
     const ordered = incoming.sections
       .map((row) => sections.find((item) => item.key === row.key))
       .filter(Boolean) as SectionConfig[]
     const missing = sections.filter((item) => !ordered.some((row) => row.key === item.key))
-    if (ordered.length > 0) {
-      return { templateKey, config: { ...config, sections: [...ordered, ...missing] } }
-    }
+    if (ordered.length > 0) finalSections = [...ordered, ...missing]
   }
 
-  return { templateKey, config }
+  // AG3: only CUSTOM keeps layout.blocks (synthesized from sections + sectionSettings when absent).
+  const layout = custom
+    ? resolveLayout((incoming as { layout?: unknown }).layout, finalSections, sectionSettings, hero.layout)
+    : undefined
+
+  // AG5: header / footer / fontCustom exist for CUSTOM only; absent means the existing mall header and footer.
+  const rawIncoming = incoming as unknown as Record<string, unknown>
+  const header = custom ? resolveHeader(rawIncoming.header) : undefined
+  const footer = custom ? resolveFooter(rawIncoming.footer) : undefined
+  const fontCustom = custom ? resolveFontCustom(rawIncoming.fontCustom, font) : undefined
+
+  return {
+    templateKey,
+    config: {
+      ...config,
+      sections: finalSections,
+      ...(layout ? { layout } : {}),
+      ...(header ? { header } : {}),
+      ...(footer ? { footer } : {}),
+      ...(fontCustom ? { fontCustom } : {}),
+    },
+  }
 }
 
 export function sectionSupportsVariant(key: ShopSectionKey) {
   return key === 'HERO' || key === 'FEATURED' || key === 'BESTSELLERS' || key === 'NEW_ARRIVALS' || key === 'CATALOG'
 }
 
-export function variantsForSection(key: ShopSectionKey): SectionVariant[] {
-  if (key === 'HERO') return ['FULL', 'STRIP']
+export function variantsForSection(key: ShopSectionKey, custom = false): SectionVariant[] {
+  if (key === 'HERO') return custom ? ['FULL', 'STRIP', 'MEDIA_FULL'] : ['FULL', 'STRIP']
   if (key === 'FEATURED' || key === 'BESTSELLERS' || key === 'NEW_ARRIVALS' || key === 'CATALOG') {
     return ['GRID', 'LARGE', 'MENU']
   }

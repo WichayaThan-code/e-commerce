@@ -958,3 +958,30 @@
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+/* Merchant logout (shared: sidebar support box + shop menu), mirrors .admin-logout */
+.merchant-support .merchant-logout {
+  width: 100%;
+  height: 40px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #e3384f;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.merchant-support .merchant-logout svg { width: 20px; height: 20px; flex: none; }
+.merchant-support .merchant-logout:hover { background: #fdecef; }
+.merchant-support .merchant-logout:focus-visible,
+.merchant-shop-menu-panel button.logout:focus-visible { outline: 2px solid #e3384f; outline-offset: 2px; }
+.merchant-support .merchant-logout:disabled,
+.merchant-shop-menu-panel button.logout:disabled { opacity: .6; cursor: progress; }
+.merchant-shop-menu-panel button.logout { justify-content: flex-start; color: #e3384f; border-top: 1px solid #e6eef6; border-radius: 0; }
+.merchant-shop-menu-panel button.logout svg { width: 16px; height: 16px; }

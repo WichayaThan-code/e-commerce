@@ -152,6 +152,7 @@
     "citizenId": "National ID",
     "citizenPh": "1 2345 67890 12 3",
     "birthDate": "Date of birth",
+    "birthDatePh": "选择出生日期",
     "nationality": "Nationality",
     "phone": "Phone",
     "email": "Email",
@@ -326,7 +327,9 @@
     "empty": "—"
   },
   "shopMenu": {
-    "openFailed": "无法打开新店铺表单"
+    "openFailed": "无法打开新店铺表单",
+    "logout": "退出登录",
+    "loggingOut": "正在退出..."
   },
   "catalog": {
     "toggle": {
@@ -690,6 +693,62 @@
     "checking": "正在检查..."
   },
   "storeTheme": {
+    "content": {
+      "legend": "内容：{{type}}",
+      "langTh": "泰语",
+      "langEn": "英语",
+      "title": "标题",
+      "subtitle": "副标题",
+      "body": "正文",
+      "cta": "行动按钮",
+      "ctaLabel": "按钮文字",
+      "ctaLink": "链接",
+      "linkHint": "仅限站内路径（如 /shop/my-shop）或 https://。",
+      "remove": "删除",
+      "stepN": "第 {{n}} 步",
+      "icon": "图标",
+      "image": "图片",
+      "addStep": "添加步骤（{{count}}/{{max}}）",
+      "icons": {
+        "AUTHENTIC": "正品",
+        "FAST_SHIP": "快速发货",
+        "RETURNS": "退换货",
+        "SECURE_PAY": "安全支付",
+        "CUSTOM": "我的图片",
+        "NUMBER": "数字"
+      },
+      "bullets": "要点（最多 5 条）",
+      "bulletN": "第 {{n}} 条",
+      "bullet": "文字",
+      "addBullet": "添加要点（{{count}}/{{max}}）",
+      "layout": "布局",
+      "featureLayouts": {
+        "IMAGE_LEFT": "图片在左",
+        "IMAGE_RIGHT": "图片在右"
+      },
+      "galleryLayouts": {
+        "GRID": "网格",
+        "MASONRY": "瀑布流",
+        "CAROUSEL": "轮播"
+      },
+      "product": "关联商品（可选）",
+      "productHint": "只能关联本店已发布的商品。",
+      "productEmpty": "暂无可选的已发布商品。",
+      "productClear": "移除关联商品",
+      "imageN": "图片 {{n}}",
+      "caption": "说明文字",
+      "itemLink": "放大查看时显示的链接（可选）",
+      "galleryHint": "最多 24 张。顾客可点击放大查看。未选择图片的行不会保存。",
+      "addImage": "添加图片（{{count}}/{{max}}）",
+      "socialHint": "只填写 TikTok 视频的数字 ID（10–25 位），不要粘贴链接或嵌入代码。",
+      "videoN": "视频 {{n}}",
+      "videoId": "TikTok 视频 ID",
+      "videoIdInvalid": "必须是 10–25 位数字",
+      "addVideo": "添加视频（{{count}}/{{max}}）",
+      "richTextHint": "支持标题（## / ###）、粗体、斜体、列表、链接（https 或站内）和引用（>）。不允许 HTML。",
+      "markdown": "文字",
+      "richTextCount": "{{count}} / {{max}} 字符"
+    },
     "tab": "店铺主题",
     "title": "店铺主题",
     "lead": "选择模板，并调整颜色、字体和店铺页面各板块的顺序。",
@@ -711,6 +770,10 @@
       "FOOD_BEVERAGE": {
         "name": "餐饮",
         "desc": "显示营业时间，商品以菜单列表呈现"
+      },
+      "CUSTOM": {
+        "name": "自定义",
+        "desc": "完全掌控颜色、渐变与各区块样式"
       }
     },
     "media": {
@@ -723,6 +786,13 @@
       "secondary": "辅助色",
       "background": "背景色",
       "text": "文字颜色",
+      "extraTitle": "扩展颜色",
+      "accent": "强调色",
+      "surface": "表面色",
+      "muted": "次要文字",
+      "ctaBackground": "CTA 背景",
+      "ctaText": "CTA 文字",
+      "border": "边框",
       "contrastWarn": "部分颜色组合未达到 WCAG AA 对比度（4.5:1）。背景文字、按钮或条幅标题可能难以阅读。"
     },
     "style": {
@@ -744,6 +814,172 @@
         "ROUNDED": "圆角",
         "PILL": "胶囊",
         "SQUARE": "直角"
+      },
+      "extraTitle": "高级样式",
+      "shadow": "层级阴影",
+      "shadows": {
+        "NONE": "无",
+        "SOFT": "轻",
+        "MEDIUM": "中",
+        "STRONG": "强"
+      },
+      "headingTextShadow": "标题文字阴影"
+    },
+    "gradients": {
+      "title": "渐变",
+      "hero": "主视觉渐变",
+      "page": "页面背景",
+      "section": "区块面板",
+      "angle": "角度（度）",
+      "stop": "色标 {{index}}",
+      "addStop": "添加色标",
+      "removeStop": "删除色标"
+    },
+    "productCard": {
+      "title": "商品卡片",
+      "imageRatio": "图片比例",
+      "ctaStyle": "加入购物车按钮",
+      "titleAlign": "标题对齐",
+      "showPrice": "显示价格",
+      "edgeToEdge": "卡片贴边",
+      "ratios": {
+        "SQUARE": "正方形 (1:1)",
+        "PORTRAIT": "竖版 (3:4)",
+        "LANDSCAPE": "横版 (4:3)"
+      },
+      "cta": {
+        "PILL": "胶囊",
+        "ROUNDED": "圆角",
+        "SQUARE": "直角",
+        "NONE": "隐藏"
+      },
+      "align": {
+        "LEFT": "左对齐",
+        "CENTER": "居中"
+      }
+    },
+    "sectionSettings": {
+      "title": "各区块布局",
+      "hint": "背景、对齐、间距与列数在设置后于店铺前台生效。",
+      "background": "背景",
+      "align": "标题对齐",
+      "paddingY": "垂直内边距",
+      "columns": "列数（网格）",
+      "backgrounds": {
+        "NONE": "默认",
+        "SURFACE": "表面",
+        "PRIMARY": "主色淡底",
+        "GRADIENT": "区块渐变"
+      },
+      "aligns": {
+        "LEFT": "左对齐",
+        "CENTER": "居中"
+      },
+      "paddings": {
+        "COMPACT": "紧凑",
+        "NORMAL": "标准",
+        "LARGE": "宽松"
+      }
+    },
+    "blocks": {
+      "title": "店铺页面区块",
+      "hint": "可重复添加区块（最多 {{max}} 个）。拖动或使用箭头调整顺序，点击设置可修改背景、对齐和列数。店铺头部和营业时间各只能出现一次。",
+      "addType": "要添加的区块类型",
+      "add": "添加区块",
+      "alternate": "粉色/奶油交替",
+      "alternateHint": "一键让区块背景交替显示",
+      "count": "{{count}}/{{max}} 个区块",
+      "limit": "已达到区块上限（{{max}}）",
+      "duplicate": "复制区块",
+      "delete": "删除区块",
+      "settings": "区块设置",
+      "singleton": "店铺头部和营业时间只能出现一次",
+      "fullWidth": "全宽",
+      "gradient": "区块渐变",
+      "backgroundImage": "媒体库背景图",
+      "overlay": "遮罩强度（0–80%）",
+      "backgrounds": {
+        "NONE": "默认",
+        "SURFACE": "表面色",
+        "PRIMARY": "主色调",
+        "GRADIENT": "渐变",
+        "IMAGE": "图片"
+      }
+    },
+    "chrome": {
+      "hero": {
+        "title": "全屏媒体首屏",
+        "hint": "整幅图片、视频或渐变背景，可叠加贴纸。可在右侧预览中拖动贴纸定位，或在下方输入数值。",
+        "bgType": "背景类型",
+        "bgTypes": { "IMAGE": "图片", "VIDEO": "视频", "GRADIENT": "渐变" },
+        "textAlign": "文字对齐",
+        "aligns": { "LEFT": "左对齐", "CENTER": "居中" },
+        "headlineSize": "标题大小",
+        "sizes": { "L": "大 (L)", "XL": "特大 (XL)" },
+        "overlay": "暗色遮罩 (0–80)",
+        "heightVh": "高度（屏幕的 50–100 %）",
+        "bgImage": "背景图片",
+        "bgVideo": "背景视频 (MP4)",
+        "poster": "视频封面图",
+        "posterHint": "视频静音循环播放。开启“减少动态效果”的访客将看到封面图。",
+        "gradientHint": "使用“渐变”设置中的首屏渐变（未设置时使用店铺主色）。",
+        "secondaryCta": "次要按钮",
+        "secondaryLabel": "次要按钮文字",
+        "secondaryLink": "次要按钮链接",
+        "stickers": "贴纸 ({{count}}/{{max}})",
+        "stickersHint": "仅限本店媒体库中的图片。位置为首屏区域的百分比。",
+        "stickerImage": "贴纸图片",
+        "stickerX": "水平位置 X (%)",
+        "stickerY": "垂直位置 Y (%)",
+        "stickerSize": "大小 (px)",
+        "stickerRotate": "旋转（度）",
+        "stickerHideMobile": "在手机上隐藏",
+        "stickerAdd": "添加贴纸",
+        "stickerRemove": "删除贴纸"
+      },
+      "header": {
+        "title": "自定义页头",
+        "hint": "店铺页面上方的菜单、搜索和公告栏。关闭则保留标准店铺页头。",
+        "enable": "使用自定义页头",
+        "layout": "Logo 位置",
+        "layouts": { "LOGO_LEFT": "Logo 靠左", "LOGO_CENTER": "Logo 居中" },
+        "sticky": "滚动时固定在顶部",
+        "showSearch": "显示搜索框",
+        "showSocial": "显示社交图标",
+        "menu": "菜单 ({{count}}/{{max}})",
+        "menuAdd": "添加菜单项",
+        "menuRemove": "删除",
+        "menuLabel": "文字",
+        "menuLink": "链接",
+        "announce": "公告栏",
+        "announceText": "公告文字",
+        "announceLink": "公告链接（可选）",
+        "announceBg": "公告背景色",
+        "announceFg": "公告文字颜色"
+      },
+      "footer": {
+        "title": "自定义页脚",
+        "hint": "显示在店铺内容之后。不需要可保持关闭。",
+        "enable": "使用自定义页脚",
+        "about": "关于本店",
+        "showContacts": "显示店铺联系方式",
+        "showSocial": "显示店铺社交渠道",
+        "copyright": "版权文字",
+        "contactsHint": "联系方式仅来自店铺设置中的公开电话/邮箱和店铺地址，绝不使用店主的私人信息。",
+        "columns": "链接栏 ({{count}}/{{max}})",
+        "columnTitle": "栏标题",
+        "columnAdd": "添加栏",
+        "columnRemove": "删除栏",
+        "linkAdd": "添加链接",
+        "linkRemove": "删除链接"
+      },
+      "fonts": {
+        "title": "自定义字体",
+        "hint": "上传自己的 WOFF2 文件（最大 1 MB）用于标题和正文。加载失败时将使用下方的备用字体。",
+        "heading": "标题字体",
+        "body": "正文字体",
+        "fallback": "备用字体",
+        "fallbackHint": "字体加载期间或加载失败时使用。"
       }
     },
     "font": {
@@ -768,6 +1004,7 @@
     "variants": {
       "FULL": "全屏",
       "STRIP": "横幅",
+      "MEDIA_FULL": "全屏媒体",
       "GRID": "网格",
       "LARGE": "大卡片",
       "MENU": "菜单列表"
@@ -785,6 +1022,12 @@
       "NEW_ARRIVALS": "新品上架",
       "CATALOG": "全部商品",
       "HOURS": "营业时间",
+      "STEPS": "步骤",
+      "FEATURE": "特色",
+      "GALLERY": "图库",
+      "SOCIAL": "TikTok 视频",
+      "RICH_TEXT": "富文本",
+      "COLLECTIONS": "商品系列",
       "comingSoon": "即将推出",
       "comingSoonHint": "在有真实销量数据之前不会在店铺页面显示",
       "bannersTitle": "横幅图片",
@@ -842,6 +1085,40 @@
         "message": "你有尚未保存的主题更改，现在离开这些更改将丢失。",
         "confirm": "不保存离开",
         "stay": "留下"
+      }
+    },
+    "media": {
+      "bannerImage": "媒体库横幅图片",
+      "library": "店铺媒体库",
+      "loading": "正在加载媒体库...",
+      "empty": "媒体库中还没有文件",
+      "none": "尚未选择文件",
+      "selected": "已选文件",
+      "uploading": "正在上传...",
+      "clear": "清除选择",
+      "delete": "删除",
+      "deleteConfirm": "再次点击确认",
+      "upload": {
+        "IMAGE": "上传图片",
+        "VIDEO": "上传视频",
+        "FONT": "上传字体"
+      },
+      "hint": {
+        "IMAGE": "JPG、PNG 或 WEBP，不超过 5 MB，单边不超过 4000 px（不支持 GIF 和 SVG）",
+        "VIDEO": "MP4，不超过 20 MB",
+        "FONT": "WOFF2，不超过 1 MB"
+      },
+      "errors": {
+        "load": "无法加载媒体库",
+        "upload": "上传失败，请重试",
+        "delete": "无法删除文件，请重试",
+        "FILE_TOO_LARGE": "文件过大（最大 {{size}}）",
+        "THEME_MEDIA_CUSTOM_ONLY": "仅自定义（CUSTOM）模板可上传媒体，请先将主题保存为 CUSTOM",
+        "THEME_MEDIA_QUOTA_EXCEEDED": "媒体库已满，请先删除不用的文件再上传",
+        "THEME_MEDIA_IN_USE": "该文件正被主题使用，请先从主题中移除并保存后再删除",
+        "THEME_MEDIA_INVALID": "文件无效，仅支持 JPG/PNG/WEBP、MP4 和 WOFF2",
+        "THEME_MEDIA_KIND_INVALID": "文件类型无效",
+        "THEME_MEDIA_NOT_FOUND": "媒体库中找不到该文件"
       }
     },
     "errors": {
@@ -1011,15 +1288,98 @@
       "payment": "付款状态",
       "fulfillment": "发货状态",
       "period": "时间范围",
+      "from": "开始日期",
+      "to": "结束日期",
+      "dateRange": "日期范围",
+      "clear": "清除",
+      "apply": "确定",
+      "presets": {
+        "d7": "近 7 天",
+        "d30": "近 30 天",
+        "month": "本月"
+      },
       "all": "全部",
+      "paymentMethod": "付款方式",
+      "carrier": "物流公司",
+      "hasTracking": "运单号",
+      "trackingYes": "有运单号",
+      "trackingNo": "无运单号",
+      "noTags": "暂无标签",
+      "tag": "标签",
+      "localOnly": "仅筛选本页",
       "periods": {
         "all": "全部时间",
         "7d": "近 7 天",
         "30d": "近 30 天",
         "month": "本月"
       },
+      "moreFilters": "更多筛选",
+      "moreFiltersCount": "更多筛选（{{count}}）",
+      "clearAll": "全部清除",
+      "clearChip": "清除{{label}}筛选",
+      "chipDate": "{{from}} – {{to}}",
       "reset": "重置",
-      "search": "搜索"
+      "search": "搜索",
+      "customerChip": "客户：{{name}}",
+      "customerUnknown": "未命名",
+      "clearCustomer": "清除客户筛选"
+    },
+    "customer": {
+      "awaiting": "待接单",
+      "filterBy": "仅筛选 {{name}}",
+      "openProfile": "查看客户资料"
+    },
+    "note": {
+      "internalLabel": "店铺内部备注 — 买家不可见",
+      "save": "保存备注",
+      "revert": "放弃修改",
+      "saved": "备注已保存"
+    },
+    "tags": {
+      "manage": "管理标签",
+      "managerTitle": "订单标签",
+      "managerHint": "创建、编辑或删除店铺标签",
+      "pickerTitle": "此订单的标签",
+      "pickerHint": "每个订单最多 10 个标签",
+      "search": "搜索标签",
+      "newName": "新标签名称",
+      "color": "标签颜色",
+      "create": "创建标签",
+      "update": "更新标签",
+      "save": "保存标签",
+      "saved": "标签已保存",
+      "edit": "编辑",
+      "editOrder": "编辑标签",
+      "delete": "删除",
+      "deleted": "标签已删除",
+      "deleteTitle": "删除此标签？",
+      "deleteBody": "将从所有使用该标签的订单中移除",
+      "nameInvalid": "标签名称须为 1–40 个字符"
+    },
+    "bulk": {
+      "barLabel": "批量操作",
+      "selected": "已选",
+      "accept": "接单",
+      "process": "备货",
+      "ship": "发货",
+      "cancel": "取消",
+      "tags": "标签",
+      "clear": "清除选择",
+      "run": "确认",
+      "stop": "停止剩余",
+      "processStatus": "备货状态",
+      "trackingFor": "{{number}} 的运单号",
+      "confirmAccept": "接单所选的 {{count}} 笔订单？",
+      "confirmProcess": "更新 {{count}} 笔订单的备货状态？",
+      "confirmShip": "发货 {{count}} 笔订单？",
+      "confirmCancel": "取消所选的 {{count}} 笔订单？",
+      "confirmTags": "为 {{count}} 笔订单添加标签？",
+      "resultsTitle": "批量结果",
+      "resultsSummary": "成功 {{ok}} · 失败 {{fail}} / 共 {{total}}",
+      "result": "结果",
+      "message": "说明",
+      "ok": "成功",
+      "selectFailed": "仅选失败项"
     },
     "columns": {
       "selectAll": "选择全部订单",
@@ -1110,7 +1470,16 @@
       "INVALID_STATUS_TRANSITION": "不能进行此状态变更，已为你加载最新数据。",
       "SHIPMENT_VERSION_CONFLICT": "包裹已被他人修改，已为你加载最新数据。",
       "ORDER_NOT_ACCEPTED": "请先接单再执行此操作",
+      "ORDER_TRANSITION_NOT_ALLOWED": "不允许此订单状态变更",
       "ORDER_NOT_FOUND": "未找到订单",
+      "TAG_NAME_DUPLICATE": "已存在同名标签",
+      "TAG_NOT_FOUND": "未找到标签",
+      "TAG_LIMIT_EXCEEDED": "每个订单最多 10 个标签",
+      "NOTE_TOO_LONG": "备注不能超过 2000 字",
+      "BULK_TOO_MANY": "最多只能选择 50 笔订单",
+      "BULK_EMPTY": "尚未选择订单",
+      "IDEMPOTENCY_KEY_REUSED": "该请求已处理过",
+      "FEATURE_DISABLED": "此功能尚未启用",
       "PAYMENT_NOT_PENDING": "该付款记录不在待审核状态",
       "PAYMENT_NOT_FOUND": "未找到付款记录",
       "COD_NO_SLIP": "货到付款订单不使用转账凭证",
@@ -1119,7 +1488,8 @@
       "FORBIDDEN": "你没有权限执行此操作",
       "NETWORK_ERROR": "无法连接服务器，请重试。",
       "INTERNAL_ERROR": "系统出错，请稍后再试。",
-      "REQUEST_FAILED": "出现错误，请重试。"
+      "REQUEST_FAILED": "出现错误，请重试。",
+      "CUSTOMER_KEY_INVALID": "客户密钥无效，已清除筛选。"
     },
     "timelineEvents": {},
     "payment": {
@@ -1368,6 +1738,220 @@
         "noteAdded": "已添加备注",
         "trackingSaved": "已保存运单号"
       }
+    }
+  },
+  "customers": {
+    "title": "客户",
+    "subtitle": "经营客户关系，持续提升销售",
+    "add": "添加客户",
+    "export": "导出 (Excel)",
+    "exporting": "正在导出...",
+    "exportMasked": "可以导出，但因无个人资料权限，姓名/电话/邮箱将被遮蔽",
+    "exportTooLarge": "导出行数过多 — 请缩小筛选条件后重试",
+    "comingSoon": "即将推出",
+    "searchLabel": "搜索客户",
+    "searchPlaceholder": "搜索姓名、电话、邮箱...",
+    "reset": "重置",
+    "retry": "重试",
+    "error": "无法加载客户",
+    "empty": "暂无客户",
+    "searchEmpty": "没有符合筛选条件的客户",
+    "piiMasked": "需要查看个人资料的权限",
+    "edit": "编辑",
+    "sendMessage": "发送消息",
+    "viewOrders": "查看订单历史",
+    "note": "备注",
+    "channelsTitle": "购买渠道",
+    "since": "成为客户自 {{date}}",
+    "kpi": {
+      "total": "全部客户",
+      "newThisMonth": "新客户",
+      "repeat": "回头客",
+      "avgOrder": "客单价",
+      "repeatHint": "下单 2 次及以上",
+      "thisMonth": "本月"
+    },
+    "tabs": {
+      "all": "全部",
+      "vip": "VIP 客户",
+      "repeat": "回头客",
+      "general": "普通"
+    },
+    "filters": {
+      "channel": "渠道",
+      "status": "状态",
+      "segment": "客户分组",
+      "joinedRange": "注册日期范围",
+      "all": "全部",
+      "clear": "清除",
+      "apply": "确定",
+      "presets": {
+        "d7": "近 7 天",
+        "d30": "近 30 天",
+        "month": "本月"
+      }
+    },
+    "status": {
+      "ACTIVE": "启用",
+      "INACTIVE": "停用"
+    },
+    "segment": {
+      "VIP": "VIP",
+      "REPEAT": "回头客",
+      "GENERAL": "普通"
+    },
+    "sort": {
+      "label": "排序",
+      "lastOrderAt": "最近下单",
+      "totalSpent": "消费金额",
+      "orderCount": "订单数",
+      "name": "姓名"
+    },
+    "table": {
+      "name": "姓名",
+      "channel": "渠道",
+      "orders": "订单",
+      "spent": "累计消费",
+      "group": "分组",
+      "status": "状态",
+      "joined": "注册日期",
+      "showing": "显示 {{from}} - {{to}} / 共 {{total}}",
+      "perPage": "每页",
+      "perPageSuffix": "条"
+    },
+    "detail": {
+      "orders": "订单",
+      "spent": "累计消费",
+      "avg": "客单价",
+      "orderHistory": "订单历史",
+      "noOrders": "暂无已确认订单",
+      "ordersDenied": "你没有权限查看订单历史",
+      "ordersError": "无法加载订单历史",
+      "viewAll": "查看全部（{{count}}）",
+      "openOrder": "打开订单详情",
+      "noData": "暂无数据",
+      "copyPhone": "复制电话号码",
+      "copied": "已复制",
+      "email": "邮箱",
+      "phone": "电话",
+      "address": "地址"
+    }
+  },
+  "notifications": {
+    "title": "通知",
+    "readAll": "全部已读",
+    "empty": "暂无通知",
+    "loadMore": "加载更多",
+    "importing": "正在导入",
+    "types": {
+      "ORDER_NEW": "新订单 {{orderNo}} · ฿{{amount}}",
+      "ORDER_PAID": "已付款 {{orderNo}} · ฿{{amount}}",
+      "ORDER_CANCELLED": "已取消 {{orderNo}}",
+      "REFUND_REQUESTED": "退款申请 {{orderNo}} · ฿{{amount}}",
+      "CUSTOMER_NEW": "新客户 {{customerName}}",
+      "LOW_STOCK": "库存不足 {{productName}} ({{skuCode}}) · 剩余 {{available}}"
+    }
+  }
+,
+  "collections": {
+    "tab": "商品系列",
+    "title": "商品系列",
+    "subtitle": "将商品分组为系列（仅在自定义主题店铺显示）",
+    "add": "添加系列",
+    "loading": "加载中…",
+    "empty": "暂无系列",
+    "draft": "草稿",
+    "published": "已发布",
+    "productCount": "{{count}} 件商品",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "newTitle": "新系列",
+    "editTitle": "编辑系列",
+    "save": "保存",
+    "saving": "保存中...",
+    "saved": "系列已保存",
+    "delete": "删除",
+    "deleted": "系列已删除",
+    "cancel": "取消",
+    "fields": {
+      "nameTh": "名称（泰语）",
+      "nameEn": "名称（英语）",
+      "slug": "链接（slug）",
+      "slugHint": "留空自动生成",
+      "description": "描述",
+      "cover": "封面图",
+      "visibility": "显示状态"
+    },
+    "products": {
+      "title": "系列中的商品（{{count}}）",
+      "search": "搜索商品",
+      "add": "添加商品",
+      "noneToAdd": "没有可添加的商品",
+      "empty": "暂无商品",
+      "remove": "移除"
+    },
+    "confirmDelete": {
+      "title": "删除系列",
+      "message": "确定删除系列\"{{name}}\"吗？商品不会被删除。"
+    },
+    "errors": {
+      "generic": "操作失败，请重试",
+      "nameRequired": "请输入系列名称"
+    },
+    "block": {
+      "limit": "最多卡片数",
+      "hint": "选择要显示的系列（不选 = 按顺序显示全部已发布）",
+      "add": "添加系列",
+      "none": "暂无系列，请在\"商品系列\"标签中创建"
+    }
+  },
+  "configurator": {
+    "title": "商品定制器",
+    "hint": "让买家选择选项并输入文字，价格由服务器计算（仅自定义主题）",
+    "saveProductFirst": "请先保存商品再设置定制器",
+    "loading": "加载中…",
+    "saved": "定制器已保存",
+    "enabled": "状态",
+    "on": "开启",
+    "off": "关闭",
+    "required": "必选",
+    "yes": "是",
+    "no": "否",
+    "labelTh": "名称（泰语）",
+    "labelEn": "名称（英语）",
+    "maxLength": "最多字符数",
+    "charset": "允许的字符",
+    "priceDelta": "加价（泰铢）",
+    "min": "最少选择",
+    "max": "最多选择",
+    "option": "选项",
+    "stock": "库存",
+    "stockUnlimited": "不限",
+    "available": "可售",
+    "image": "选项图片",
+    "addOption": "添加选项",
+    "addStep": "添加步骤",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "remove": "删除",
+    "types": {
+      "SINGLE": "单选",
+      "MULTI": "多选",
+      "TEXT": "刻字文本"
+    },
+    "charsets": {
+      "ANY": "任意",
+      "LATIN": "拉丁字母/符号",
+      "ALNUM": "字母和数字",
+      "THAI_LATIN": "泰文和拉丁字母"
+    },
+    "errors": {
+      "load": "无法加载定制器",
+      "save": "保存失败",
+      "conflict": "已在别处修改，请重新加载",
+      "invalid": "无效的值",
+      "CONFIGURATOR_SCHEMA_INVALID": "无效的值",
+      "CONFIGURATOR_MEDIA_INVALID": "图片无效或不属于本店"
     }
   }
 }

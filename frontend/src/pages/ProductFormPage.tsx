@@ -12,6 +12,7 @@ import SearchableSelect from "../components/SearchableSelect";
 import MerchantShell from "../components/merchant/MerchantShell";
 import ProductImagesField, { type LocalImage } from "../components/merchant/ProductImagesField";
 import VariantEditor from "../components/merchant/VariantEditor";
+import ProductConfiguratorEditor from "../components/merchant/ProductConfiguratorEditor";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { labelForCategory } from "../services/categories";
 import { catalogMessage } from "../services/catalogText";
@@ -518,6 +519,7 @@ export default function ProductFormPage() {
             onError={(code) => toast(t(`catalog.errors.${code}`), "fail")}
           />
           {errors.images ? <FieldError text={t(`catalog.errors.${errors.images}`)} /> : null}
+          <ProductConfiguratorEditor shopId={shopId} productId={product?.id} />
           <div className="pm-actions">
             <button type="submit" disabled={Boolean(saving)}>{saving === "draft" ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.saveDraft")}</button>
             <button type="button" className="primary" disabled={Boolean(saving)} onClick={() => void save(true)}>{saving === "publish" ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.savePublish")}</button>

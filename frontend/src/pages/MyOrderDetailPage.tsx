@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import ConfigurationSummary from "../components/cart/ConfigurationSummary";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   AlertTriangle, CheckCircle2, ChevronRight, Copy, Landmark, MapPin,
@@ -555,6 +556,7 @@ export default function MyOrderDetailPage() {
                     <div>
                       <h3>{item.productName}</h3>
                       {item.optionLabel ? <small>{item.optionLabel}</small> : null}
+                      <ConfigurationSummary configuration={item.configuration} localeTag={localeTag} />
                       <small className="num">{money(item.unitPrice)} × {item.quantity}</small>
                     </div>
                     <div className="orders-line-total">

@@ -65,19 +65,19 @@
 .orders-search {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: 42px;
   padding: 0 6px 0 12px;
-  border: 1px solid #cfdceb;
+  border: 1px solid var(--shop-border, #cfdceb);
   border-radius: 8px;
-  background: #f7f9fc;
+  background: var(--shop-surface-muted, #f7f9fc);
   color: var(--shop-muted, #6a809c);
 }
 
 .orders-search:focus-within {
   border-color: var(--shop-primary, #1268d7);
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(18, 104, 215, 0.12);
+  background: var(--shop-surface, #fff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--shop-primary, #1268d7) 12%, transparent);
 }
 
 .orders-search input {
@@ -91,20 +91,46 @@
   font: 500 13px var(--font-sans), "IBM Plex Sans Thai", sans-serif;
 }
 
-.orders-search button {
+.orders-search-clear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--shop-muted, #6a809c);
+  cursor: pointer;
+}
+
+.orders-search-clear:hover {
+  color: var(--shop-text, #132b50);
+  background: color-mix(in srgb, var(--shop-muted, #6a809c) 12%, transparent);
+}
+
+.orders-search-submit {
   flex: none;
   height: 30px;
   padding: 0 14px;
   border: 0;
   border-radius: 6px;
   background: var(--shop-primary, #1268d7);
-  color: #fff;
+  color: var(--shop-on-primary, #fff);
   font: 700 12px var(--font-sans), "IBM Plex Sans Thai", sans-serif;
   cursor: pointer;
 }
 
-.orders-search button:hover {
-  background: #0c55b4;
+.orders-search-submit:hover {
+  filter: brightness(0.92);
+}
+
+@media (max-width: 640px) {
+  .orders-search-submit {
+    display: none;
+  }
 }
 
 .orders-tabs {
@@ -1168,4 +1194,17 @@
   .orders-detail-cta-ghost {
     flex: 1 1 auto;
   }
+}
+
+.orders-extra-filters{display:flex;flex-wrap:wrap;gap:12px 14px;align-items:end;padding:14px 16px;border-bottom:1px solid var(--shop-border,#e6edf4);background:#fafbfc}
+.orders-extra-filters > .form-field,
+.orders-extra-filters > .date-picker,
+.orders-extra-filters > .orders-filter-date{margin-bottom:0;min-width:160px;flex:1 1 160px;max-width:240px}
+.orders-extra-filters .form-label{font-size:13px;font-weight:600;color:#132b50}
+.orders-extra-filters .orders-empty-clear{height:51px;align-self:end;flex:0 0 auto}
+@media (max-width:640px){
+  .orders-extra-filters > .form-field,
+  .orders-extra-filters > .date-picker,
+  .orders-extra-filters > .orders-filter-date{min-width:0;max-width:none;flex:1 1 100%}
+  .orders-extra-filters .orders-empty-clear{width:100%}
 }

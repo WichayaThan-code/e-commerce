@@ -4,6 +4,7 @@ export const shopPath = (slug: string) => `/shop/${slug}`;
 export const shopProductsPath = (slug: string) => `/shop/${slug}/products`;
 export const shopProductPath = (slug: string, productSlug: string) => `/shop/${slug}/product/${productSlug}`;
 export const shopCategoriesPath = (slug: string) => `/shop/${slug}/category`;
+export const shopCollectionPath = (slug: string, collectionSlug: string) => `/shop/${slug}/collections/${encodeURIComponent(collectionSlug)}`;
 
 /**
  * backend ยังไม่มี slug ใน category DTO → URL ใช้ id ไปก่อน;

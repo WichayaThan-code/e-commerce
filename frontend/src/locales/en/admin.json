@@ -52,7 +52,15 @@
       "range": "{{start}} - {{end}} of {{total}}",
       "pagination": "Pagination",
       "prev": "Previous page",
-      "next": "Next page"
+      "next": "Next page",
+      "dateRange": "Date range",
+      "clear": "Clear",
+      "apply": "Apply",
+      "presets": {
+        "d7": "7 days",
+        "d30": "30 days",
+        "month": "This month"
+      }
     },
     "reason": {
       "label": "Reason",

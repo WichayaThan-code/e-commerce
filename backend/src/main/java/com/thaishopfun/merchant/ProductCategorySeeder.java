@@ -19,7 +19,7 @@ public class ProductCategorySeeder implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if (categories.count() > 0) return;
+        if (categories.count() > 0) { ensureOtop(); return; }
         var seeded = categories.saveAll(List.of(
             row("แฟชั่นและเสื้อผ้า", "Fashion & apparel", "时尚服装", 1),
             row("อาหารและเครื่องดื่ม", "Food & beverages", "食品饮料", 2),
@@ -36,6 +36,15 @@ public class ProductCategorySeeder implements ApplicationRunner {
             row("เครื่องประดับและนาฬิกา", "Jewelry & watches", "珠宝手表", 13)
         ));
         seeded.forEach(translationBridge::onCategorySaved);
+        ensureOtop();
+    }
+
+    /** Marketplace OTOP category (also inserted by Flyway V38); looked up by slug, never by id. */
+    public static final String OTOP_SLUG = "otop-products";
+
+    private void ensureOtop() {
+        if (categories.findAll().stream().anyMatch(c -> OTOP_SLUG.equals(c.getSlug()))) return;
+        translationBridge.onCategorySaved(categories.save(new ProductCategory(OTOP_SLUG, "สินค้า OTOP", "OTOP Products", "OTOP 一村一品", 14)));
     }
 
     private static ProductCategory row(String nameTh, String nameEn, String nameZh, int sortOrder) {

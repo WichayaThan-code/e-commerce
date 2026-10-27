@@ -14,6 +14,8 @@ import { formatChange, formatDateTime, formatNumber, initialOf, NOT_ENABLED } fr
 import '../styles/admin-dashboard.css'
 import '../styles/admin-roles.css'
 import '../styles/admin-role-links.css'
+import '../styles/admin-form-controls.css'
+import AdminSelect from '../components/admin/AdminSelect'
 
 type Icon = ComponentType<{ size?: number }>
 const PAGE_SIZE = 10
@@ -186,7 +188,7 @@ export default function AdminRolesPage() {
         <article className="active"><span><Check/></span><div><b>ผู้ใช้งานที่เปิดใช้งาน</b><strong>{statValue(stats?.active)} <em className="flat">-</em></strong><small>ใช้งานได้ปกติ</small></div></article>
         <article className="suspended"><span><LockKeyhole/></span><div><b>ผู้ใช้งานที่ถูกระงับ</b><strong>{statValue(stats?.suspended)} <em className="flat">-</em></strong><small>ไม่สามารถเข้าสู่ระบบได้</small></div></article>
       </section>
-      <section className="roles-card"><header><nav><button className={activeTab === 'บทบาท' ? 'active' : ''} onClick={() => setActiveTab('บทบาท')}>บทบาท (Roles)</button><button className={activeTab === 'ผู้ใช้งาน' ? 'active' : ''} onClick={() => setActiveTab('ผู้ใช้งาน')}>ผู้ใช้งาน (Users)</button></nav><label><Search/><input value={query} onChange={event => { setQuery(event.target.value); setPage(0) }} placeholder="ค้นหาบทบาท (เช่น แอดมิน, เจ้าของร้าน...)" aria-label="ค้นหาบทบาท"/></label></header>
+      <section className="roles-card"><header><nav><button className={activeTab === 'บทบาท' ? 'active' : ''} onClick={() => setActiveTab('บทบาท')}>บทบาท (Roles)</button><button className={activeTab === 'ผู้ใช้งาน' ? 'active' : ''} onClick={() => setActiveTab('ผู้ใช้งาน')}>ผู้ใช้งาน (Users)</button></nav><label className="adm-search"><Search/><input value={query} onChange={event => { setQuery(event.target.value); setPage(0) }} placeholder="ค้นหาบทบาท (เช่น แอดมิน, เจ้าของร้าน...)" aria-label="ค้นหาบทบาท"/></label></header>
         {activeTab === 'บทบาท' ? <>
           <h2>รายการบทบาท ({formatNumber(filtered.length)} รายการ)</h2>
           <div className="roles-table"><div className="roles-tr roles-th"><b>#</b><b>ชื่อบทบาท</b><b>คำอธิบาย</b><b>จำนวนผู้ใช้งาน</b><b>สถานะ</b><b>การดำเนินการ</b><span/></div>
@@ -203,7 +205,7 @@ export default function AdminRolesPage() {
             {rolesError && <div className="roles-empty">{rolesError} <button type="button" onClick={() => setReloadKey(key => key + 1)}>ลองใหม่</button></div>}
             {roles && filtered.length === 0 && <div className="roles-empty">{roles.length === 0 ? 'ยังไม่มีบทบาทในตาราง auth_roles' : 'ไม่พบบทบาทที่ตรงกับคำค้นหา'}</div>}
           </div>
-          <footer><div>แสดง <select aria-label="จำนวนรายการต่อหน้า" value={PAGE_SIZE} disabled><option>{PAGE_SIZE}</option></select> รายการต่อหน้า</div><span>{filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1} - {currentPage * PAGE_SIZE + visible.length} จาก {formatNumber(filtered.length)} รายการ</span><nav><button disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} aria-label="หน้าก่อนหน้า"><ChevronLeft/></button><button className="current">{currentPage + 1}</button><button disabled={currentPage >= totalPages - 1} onClick={() => setPage(currentPage + 1)} aria-label="หน้าถัดไป"><ChevronRight/></button></nav></footer>
+          <footer><div>แสดง <AdminSelect compact disabled className="adm-page-size" label="จำนวนรายการต่อหน้า" value={String(PAGE_SIZE)} onChange={() => undefined} options={[{ value: String(PAGE_SIZE), label: String(PAGE_SIZE) }]}/> รายการต่อหน้า</div><span>{filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1} - {currentPage * PAGE_SIZE + visible.length} จาก {formatNumber(filtered.length)} รายการ</span><nav><button disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} aria-label="หน้าก่อนหน้า"><ChevronLeft/></button><button className="current">{currentPage + 1}</button><button disabled={currentPage >= totalPages - 1} onClick={() => setPage(currentPage + 1)} aria-label="หน้าถัดไป"><ChevronRight/></button></nav></footer>
         </> : <div className="role-users-empty"><UsersRound/>
           <h2>{selected ? `ผู้ใช้งานในบทบาท “${selected.nameTh ?? selected.code}” (${formatNumber(selected.userCount)})` : 'จัดการผู้ใช้งานตามบทบาท'}</h2>
           {!selected ? <p>เลือกบทบาทเพื่อดูรายชื่อผู้ใช้งาน</p>
@@ -241,11 +243,11 @@ export default function AdminRolesPage() {
     {roleDialog && <div className="admin-modal-backdrop" role="presentation">
       <form className="admin-management-dialog role-management-dialog" onSubmit={saveRole} role="dialog" aria-modal="true" aria-labelledby="role-dialog-title">
         <header><h2 id="role-dialog-title">{roleDialog === 'create' ? 'สร้างบทบาท' : `แก้ไขบทบาท ${selected?.nameTh ?? ''}`}</h2><button type="button" onClick={() => setRoleDialog(null)} aria-label="ปิด">×</button></header>
-        <label>ประเภทบทบาท<select value={roleDraft.context} disabled={roleDialog === 'edit'} onChange={event => setRoleDraft({
+        <AdminSelect className="adm-dialog-select" label="ประเภทบทบาท" value={roleDraft.context} disabled={roleDialog === 'edit'} onChange={value => setRoleDraft({
           ...roleDraft,
-          context: event.target.value as AdminRoleMutation['context'],
+          context: value as AdminRoleMutation['context'],
           permissions: [],
-        })}><option value="PLATFORM">บทบาทแพลตฟอร์ม</option><option value="STORE">บทบาทร้านค้า</option></select></label>
+        })} options={[{ value: 'PLATFORM', label: 'บทบาทแพลตฟอร์ม' }, { value: 'STORE', label: 'บทบาทร้านค้า' }]}/>
         <label>ชื่อบทบาท<input required maxLength={150} value={roleDraft.nameTh} onChange={event => setRoleDraft({ ...roleDraft, nameTh: event.target.value })}/></label>
         <label>คำอธิบาย<textarea maxLength={500} value={roleDraft.descriptionTh} onChange={event => setRoleDraft({ ...roleDraft, descriptionTh: event.target.value })}/></label>
         <fieldset><legend>{roleDraft.context === 'STORE' ? 'สิทธิ์ร้านค้า' : 'สิทธิ์แพลตฟอร์ม'}</legend>

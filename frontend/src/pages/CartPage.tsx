@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ConfigurationSummary from "../components/cart/ConfigurationSummary";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowRight, Headphones, Heart, Minus, PackageCheck, ShieldCheck, ShoppingCart, Store, Tag, Trash2, Truck } from "lucide-react";
 import { loginPathForCart, useCart } from "../contexts/CartContext";
@@ -146,7 +147,7 @@ export default function CartPage() {
           {items.map((item) => <article key={item.id} className={item.selected ? "cart-item-selected" : ""}>
             <input aria-label={tp("cart.selectLine", { name: item.productName })} type="checkbox" checked={item.selected} disabled={busy} onChange={() => toggle(item)}/>
             <span className="cart-photo cart-photo-real">{item.imageUrl ? <img src={mediaUrl(item.imageUrl)} alt={item.productName}/> : null}</span>
-            <div className="cart-item-copy"><h2><Link to={`/shop/${item.shopSlug}/product/${item.productSlug}`}>{item.productName}</Link></h2><p><Store/>{item.shopName}</p><em>{item.optionLabel || tp("cart.ready")}</em>{lineNotice(item, tp)}</div>
+            <div className="cart-item-copy"><h2><Link to={`/shop/${item.shopSlug}/product/${item.productSlug}`}>{item.productName}</Link></h2><p><Store/>{item.shopName}</p><em>{item.optionLabel || tp("cart.ready")}</em><ConfigurationSummary configuration={item.configuration} localeTag={localeTag}/>{lineNotice(item, tp)}</div>
             <div className="cart-unit-price"><b className="num">{money(item.unitPrice)}</b>{item.priceChanged
               ? <del className="num" title={tp("cart.oldPrice")}>{money(item.priceSnapshot)}</del>
               : moneyValue(item.compareAtPrice) > moneyValue(item.unitPrice) ? <><del className="num">{money(item.compareAtPrice)}</del><em className="num">-{Math.round((1 - moneyValue(item.unitPrice) / moneyValue(item.compareAtPrice)) * 100)}%</em></> : null}</div>

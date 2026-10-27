@@ -6,6 +6,8 @@ import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import recommendReference from "../../../assets/images/references/storefront/recommend-product.png";
 import { mediaUrl } from "../../../services/api";
 import { useRevealOnScroll } from "../../../hooks/useRevealOnScroll";
+import { sectionSettingClasses } from "./sectionClasses";
+import HeroMediaFull, { isMediaFullHero } from "./HeroMediaFull";
 import type { ShopSectionProps } from "./types";
 
 function ctaTarget(link: string): { href: string; external: boolean } | null {
@@ -24,7 +26,15 @@ function formatJoined(iso: string | null | undefined, locale: string) {
   return new Intl.DateTimeFormat(tag, { year: "numeric", month: "short" }).format(date);
 }
 
-export default function HeroSection({ shop, config, catalog, preview }: ShopSectionProps) {
+/** AG5: CUSTOM-only MEDIA_FULL goes to its own component; every other hero is the unchanged mall hero below. */
+export default function HeroSection(props: ShopSectionProps) {
+  if (isMediaFullHero(props.config.hero, props.section.variant, Boolean(props.config.layout))) {
+    return <HeroMediaFull {...props} />;
+  }
+  return <MallHero {...props} />;
+}
+
+function MallHero({ shop, config, catalog, preview }: ShopSectionProps) {
   const { tp, localeTag } = usePublicTranslation();
   const revealRef = useRevealOnScroll<HTMLElement>();
   const { hero } = config;
@@ -44,7 +54,12 @@ export default function HeroSection({ shop, config, catalog, preview }: ShopSect
 
   return (
     <>
-      <section id="shop-home" ref={revealRef} className="shop-mall-hero recommend-width shop-reveal" data-variant="MALL">
+      <section
+        id="shop-home"
+        ref={revealRef}
+        className={["shop-mall-hero", "recommend-width", "shop-reveal", ...sectionSettingClasses("HERO", config), config?.gradients?.hero ? "shop-hero-gradient" : ""].filter(Boolean).join(" ")}
+        data-variant="MALL"
+      >
         <div className="shop-mall-hero-cover" style={{ backgroundImage: `url(${cover})` }} aria-hidden="true" />
         <div className="shop-mall-hero-shade" aria-hidden="true" />
         <div className="shop-mall-hero-body">

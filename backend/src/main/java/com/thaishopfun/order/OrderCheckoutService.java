@@ -207,6 +207,11 @@ public class OrderCheckoutService {
                 item.setQuantity(line.quantity());
                 item.setDiscountAmount(allocated.get(index));
                 item.setLineTotal(money(line.lineTotal()).subtract(allocated.get(index)));
+                if (line.configuration() != null) {
+                    // V43: configured line (re-quoted by carts.validate above) -> copy the snapshot onto the order item
+                    item.setConfiguration(new java.util.LinkedHashMap<>(line.configuration()));
+                    item.setConfigHash(line.configuration().get("configHash") == null ? null : String.valueOf(line.configuration().get("configHash")));
+                }
                 item.stamp(buyerId);
                 order.addItem(item);
                 purchasedItemIds.add(line.id());

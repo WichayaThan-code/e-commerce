@@ -357,7 +357,7 @@
     "list": {
       "subtitle": "在此跟踪付款、打包与配送状态",
       "found": "共",
-      "searchPlaceholder": "按订单号或店铺名搜索",
+      "searchPlaceholder": "搜索订单号或店铺名称",
       "search": "搜索",
       "searchEmpty": "没有匹配的订单",
       "searchEmptyHint": "换个关键词试试，或清除搜索查看全部",
@@ -397,6 +397,28 @@
     "placedAt": "下单时间",
     "viewDetail": "查看详情",
     "back": "我的订单",
+    "filters": {
+      "label": "更多筛选",
+      "paymentStatus": "付款状态",
+      "fulfillmentStatus": "发货状态",
+      "from": "开始日期",
+      "to": "结束日期",
+      "sort": "排序",
+      "clear": "清除筛选",
+      "fulfillment": {
+        "UNFULFILLED": "未发货",
+        "PARTIAL": "部分发货",
+        "FULFILLED": "已发货",
+        "RETURNED": "已退回"
+      },
+      "sortOptions": {
+        "placedAt-desc": "最新下单",
+        "placedAt-asc": "最早下单",
+        "grandTotal-desc": "金额从高到低",
+        "grandTotal-asc": "金额从低到高",
+        "paidAt-desc": "最近付款"
+      }
+    },
     "detail": {
       "orderNo": "订单编号",
       "hintPay": "请付款并上传转账凭证，以便店铺继续处理",
@@ -550,6 +572,55 @@
     "bannerProductsCta": "查看推荐商品 →"
   },
   "shop": {
+    "chrome": {
+      "menuAria": "店铺菜单",
+      "searchPlaceholder": "搜索本店商品",
+      "searchAria": "搜索本店商品",
+      "searchSubmit": "搜索",
+      "socialAria": "店铺社交渠道",
+      "contactsAria": "店铺联系方式",
+      "footerAria": "页脚链接",
+      "social": {
+        "facebook": "店铺 Facebook",
+        "instagram": "店铺 Instagram",
+        "tiktok": "店铺 TikTok",
+        "line": "店铺 LINE",
+        "website": "店铺网站"
+      }
+    },
+    "blocks": {
+      "steps": {
+        "label": "购买流程",
+        "stepOrder": "第 {{n}} 步"
+      },
+      "feature": {
+        "label": "店铺亮点",
+        "viewProduct": "查看商品"
+      },
+      "gallery": {
+        "label": "图库",
+        "open": "放大查看",
+        "scrollPrev": "向前滚动",
+        "scrollNext": "向后滚动",
+        "close": "关闭",
+        "prev": "上一张",
+        "next": "下一张",
+        "visit": "打开链接"
+      },
+      "social": {
+        "label": "视频",
+        "videoTitle": "TikTok 视频 {{n}}"
+      },
+      "collections": {
+        "label": "商品系列",
+        "loading": "正在加载系列…",
+        "count": "{{count}} 件商品",
+        "empty": "暂无系列",
+        "emptyProducts": "该系列暂无商品",
+        "prev": "上一页",
+        "next": "下一页"
+      }
+    },
     "breadcrumb": "推荐店铺",
     "defaultDescription": "ThaiShopFun 上的泰国店铺详情",
     "noDescription": "该店铺尚未填写描述",
@@ -767,6 +838,22 @@
       "fri": "周五",
       "sat": "周六",
       "sun": "周日"
+    },
+    "configurator": {
+      "title": "定制您的商品",
+      "previewAlt": "选项预览",
+      "chars": "{{count}}/{{max}} 个字符",
+      "pickUpTo": "（最多选择 {{count}} 项）",
+      "unavailable": "已售罄",
+      "quoteError": "价格计算失败，请重试",
+      "base": "基础价格",
+      "total": "总价",
+      "incomplete": "请完成必选项",
+      "quoting": "正在计算价格…",
+      "soon": "即将推出",
+      "addSoon": "加入购物车（即将推出）",
+      "add": "加入购物车",
+      "adding": "正在加入…"
     }
   },
   "home": {

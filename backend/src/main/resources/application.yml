@@ -20,8 +20,8 @@ spring:
     validate-on-migrate: true
   servlet:
     multipart:
-      max-file-size: 5MB
-      max-request-size: 6MB
+      max-file-size: 20MB
+      max-request-size: 21MB
 
 server:
   port: ${SERVER_PORT:8081}
@@ -32,9 +32,27 @@ server:
     include-exception: false
 
 app:
+  features:
+    configurator:
+      # V42: product configurator (ตัวออกแบบสินค้าเอง) — off until Supitcha wires cart/order (see AB2 handoff note)
+      enabled: ${APP_FEATURES_CONFIGURATOR_ENABLED:false}
   merchant:
     storage-root: ${STORAGE_ROOT:./uploads}
     data-encryption-secret: ${DATA_ENCRYPTION_SECRET:thaishopfun-local-data-encryption-secret-change-before-production}
+    theme-media:
+      max-total-bytes: 209715200
+      max-images: 200
+      max-videos: 5
+      max-fonts: 4
+      max-image-bytes: 5242880
+      max-video-bytes: 20971520
+      max-font-bytes: 1048576
+      max-image-dimension: 4000
+    collections:
+      # V41: shop collections limits
+      max-per-shop: 50
+      max-products-per-collection: 500
+    customer-key-secret: ${CUSTOMER_KEY_SECRET:}
   translation:
     provider: ${TRANSLATION_PROVIDER:none}
     google-api-key: ${GOOGLE_TRANSLATE_API_KEY:}

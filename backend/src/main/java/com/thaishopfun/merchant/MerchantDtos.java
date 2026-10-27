@@ -87,6 +87,10 @@ public final class MerchantDtos {
         @NotNull Map<String, Object> config
     ) {}
     public record ShopThemePresetResponse(String templateKey, Map<String, Object> config) {}
+    public record ThemeMediaResponse(
+        UUID id, String kind, String originalFilename, String mimeType, long sizeBytes,
+        Integer width, Integer height, String url, Instant createdAt
+    ) {}
     public record AdminDocumentResponse(UUID id,String type,String label,String filename,long fileSize){}
     public record AdminStoreApplicationResponse(
         Long shopId,String shopName,String ownerName,String phone,String email,

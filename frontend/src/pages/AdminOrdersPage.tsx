@@ -18,6 +18,9 @@ import {
 } from '../services/api'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-platform.css'
+import '../styles/admin-form-controls.css'
+import AdminSelect from '../components/admin/AdminSelect'
+import AdminDateRange from '../components/admin/AdminDateRange'
 
 type Tab = 'orders' | 'shipments'
 type TP = (key: string, options?: Record<string, unknown>) => string
@@ -423,13 +426,12 @@ function OrdersTab({ tp, localeTag, notify }: { tp: TP; localeTag: string; notif
 
   return <>
     <form className="ap-filters" onSubmit={submit}>
-      <label className="ap-search wide"><Search /><input value={draft.q} onChange={event => set('q', event.target.value)} placeholder={tp('orders.filters.q')} aria-label={tp('orders.filters.q')} maxLength={100} /></label>
+      <label className="ap-search adm-search wide"><Search /><input value={draft.q} onChange={event => set('q', event.target.value)} placeholder={tp('orders.filters.q')} aria-label={tp('orders.filters.q')} maxLength={100} /></label>
       <label><span>{tp('orders.filters.shopId')}</span><input value={draft.shopId} inputMode="numeric" pattern="[0-9]*" className="num" onChange={event => set('shopId', event.target.value.replace(/\D/g, ''))} /></label>
-      <label><span>{tp('orders.filters.status')}</span><select value={draft.status} onChange={event => set('status', event.target.value)}><option value="">{tp('common.all')}</option>{ORDER_STATUSES.map(value => <option key={value} value={value}>{lab(tp, 'orderStatus', value)}</option>)}</select></label>
-      <label><span>{tp('orders.filters.paymentStatus')}</span><select value={draft.paymentStatus} onChange={event => set('paymentStatus', event.target.value)}><option value="">{tp('common.all')}</option>{PAYMENT_STATUSES.map(value => <option key={value} value={value}>{lab(tp, 'paymentStatus', value)}</option>)}</select></label>
-      <label><span>{tp('orders.filters.fulfillmentStatus')}</span><select value={draft.fulfillmentStatus} onChange={event => set('fulfillmentStatus', event.target.value)}><option value="">{tp('common.all')}</option>{FULFILLMENT_STATUSES.map(value => <option key={value} value={value}>{lab(tp, 'fulfillment', value)}</option>)}</select></label>
-      <label><span>{tp('common.from')}</span><input type="date" value={draft.from} max={draft.to || undefined} onChange={event => set('from', event.target.value)} /></label>
-      <label><span>{tp('common.to')}</span><input type="date" value={draft.to} min={draft.from || undefined} onChange={event => set('to', event.target.value)} /></label>
+      <AdminSelect label={tp('orders.filters.status')} value={draft.status} onChange={value => set('status', value)} options={[{ value: '', label: tp('common.all') }, ...ORDER_STATUSES.map(value => ({ value, label: lab(tp, 'orderStatus', value) }))]} />
+      <AdminSelect label={tp('orders.filters.paymentStatus')} value={draft.paymentStatus} onChange={value => set('paymentStatus', value)} options={[{ value: '', label: tp('common.all') }, ...PAYMENT_STATUSES.map(value => ({ value, label: lab(tp, 'paymentStatus', value) }))]} />
+      <AdminSelect label={tp('orders.filters.fulfillmentStatus')} value={draft.fulfillmentStatus} onChange={value => set('fulfillmentStatus', value)} options={[{ value: '', label: tp('common.all') }, ...FULFILLMENT_STATUSES.map(value => ({ value, label: lab(tp, 'fulfillment', value) }))]} />
+      <AdminDateRange from={draft.from} to={draft.to} onChange={range => { set('from', range.from); set('to', range.to) }} />
       <div className="ap-filter-actions"><button type="submit" className="ap-primary">{tp('common.search')}</button><button type="button" className="ap-ghost" onClick={reset}>{tp('common.reset')}</button></div>
     </form>
 
@@ -533,9 +535,9 @@ function ShipmentsTab({ tp }: { tp: TP }) {
 
   return <>
     <form className="ap-filters" onSubmit={submit}>
-      <label className="ap-search wide"><Search /><input value={draft.q} onChange={event => setDraft({ ...draft, q: event.target.value })} placeholder={tp('orders.filters.shipmentQ')} aria-label={tp('orders.filters.shipmentQ')} maxLength={100} /></label>
+      <label className="ap-search adm-search wide"><Search /><input value={draft.q} onChange={event => setDraft({ ...draft, q: event.target.value })} placeholder={tp('orders.filters.shipmentQ')} aria-label={tp('orders.filters.shipmentQ')} maxLength={100} /></label>
       <label><span>{tp('orders.filters.shopId')}</span><input value={draft.shopId} inputMode="numeric" pattern="[0-9]*" className="num" onChange={event => setDraft({ ...draft, shopId: event.target.value.replace(/\D/g, '') })} /></label>
-      <label><span>{tp('common.status')}</span><select value={draft.status} onChange={event => setDraft({ ...draft, status: event.target.value })}><option value="">{tp('common.all')}</option>{SHIPMENT_STATUSES.map(value => <option key={value} value={value}>{lab(tp, 'shipmentStatus', value)}</option>)}</select></label>
+      <AdminSelect label={tp('common.status')} value={draft.status} onChange={value => setDraft({ ...draft, status: value })} options={[{ value: '', label: tp('common.all') }, ...SHIPMENT_STATUSES.map(value => ({ value, label: lab(tp, 'shipmentStatus', value) }))]} />
       <div className="ap-filter-actions"><button type="submit" className="ap-primary">{tp('common.search')}</button><button type="button" className="ap-ghost" onClick={reset}>{tp('common.reset')}</button></div>
     </form>
 

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, LogOut, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { ApiError, merchantApi, type StoreAccess } from "../services/api";
 import { writeMerchantDraft } from "../services/merchantDraft";
+import { useMerchantSignOut } from "./merchant/MerchantLogoutButton";
 import "../styles/product-management.css";
 
 const STATUS_LABEL: Record<NonNullable<StoreAccess["status"]>, string> = {
@@ -48,6 +49,8 @@ export default function MerchantShopMenu() {
     }
   };
 
+  const { signingOut, signOut } = useMerchantSignOut();
+
   return (
     <>
     <div className="merchant-shop-menu" ref={root}>
@@ -80,6 +83,10 @@ export default function MerchantShopMenu() {
           <button type="button" className="add" disabled={busy || !current?.ownerId} onClick={() => void addShop()}>
             <Plus />
             {busy ? "กำลังเตรียมร้านใหม่..." : "เพิ่มร้านค้า"}
+          </button>
+          <button type="button" className="logout" disabled={signingOut} aria-busy={signingOut} onClick={() => void signOut()}>
+            <LogOut aria-hidden="true" />
+            {signingOut ? t("shopMenu.loggingOut") : t("shopMenu.logout")}
           </button>
         </div>
       )}

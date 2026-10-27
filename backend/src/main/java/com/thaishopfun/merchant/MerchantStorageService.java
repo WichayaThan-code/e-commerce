@@ -80,6 +80,52 @@ public class MerchantStorageService {
         }
     }
 
+    private static final java.util.Set<String> THEME_MEDIA_EXTENSIONS = java.util.Set.of(".jpg", ".png", ".webp", ".mp4", ".woff2");
+
+    /**
+     * AG2 theme media: writes {@code {root}/theme-media/{shopUuid}/{random uuid}{ext}}. The file name is always a fresh
+     * UUID (never the client's name) and the extension must be one of the whitelisted, already content-sniffed types.
+     */
+    public StoredFile storeThemeMedia(UUID shopUuid, byte[] bytes, String extension, String contentType) {
+        if (bytes == null || bytes.length == 0) throw bad("กรุณาเลือกไฟล์");
+        if (extension == null || !THEME_MEDIA_EXTENSIONS.contains(extension)) throw bad("ชนิดไฟล์ไม่รองรับ");
+        var directory = root.resolve("theme-media").resolve(shopUuid.toString()).normalize();
+        if (!directory.startsWith(root)) throw bad("ตำแหน่งจัดเก็บไฟล์ไม่ถูกต้อง");
+        try {
+            Files.createDirectories(directory);
+            var digest = MessageDigest.getInstance("SHA-256");
+            digest.update(bytes);
+            for (var attempt = 0; attempt < 8; attempt++) {
+                var name = UUID.randomUUID() + extension;
+                var target = directory.resolve(name).normalize();
+                if (!target.startsWith(directory)) continue;
+                try {
+                    Files.write(target, bytes, StandardOpenOption.CREATE_NEW);
+                } catch (java.nio.file.FileAlreadyExistsException ignored) {
+                    continue;
+                }
+                return new StoredFile(name, name, target.toString(), contentType, bytes.length, HexFormat.of().formatHex(digest.digest()));
+            }
+            throw new IOException("ไม่สามารถสร้างชื่อไฟล์ที่ไม่ซ้ำได้");
+        } catch (Exception exception) {
+            throw new AuthException(HttpStatus.INTERNAL_SERVER_ERROR, "FILE_STORAGE_ERROR", "ไม่สามารถจัดเก็บไฟล์ได้");
+        }
+    }
+
+    /** Open a stored theme media file (image / mp4 / woff2); must live under {@code {root}/theme-media/}. */
+    public Optional<Path> openThemeMediaFile(String path) {
+        if (path == null || path.isBlank()) return Optional.empty();
+        try {
+            var target = Path.of(path).toAbsolutePath().normalize();
+            if (!target.startsWith(root.resolve("theme-media")) || !Files.isRegularFile(target)) return Optional.empty();
+            var name = target.getFileName().toString().toLowerCase(Locale.ROOT);
+            if (THEME_MEDIA_EXTENSIONS.stream().noneMatch(name::endsWith)) return Optional.empty();
+            return Optional.of(target);
+        } catch (Exception exception) {
+            return Optional.empty();
+        }
+    }
+
     public void deleteQuietly(String path) {
         if (path == null) return;
         try {

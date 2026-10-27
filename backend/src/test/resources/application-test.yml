@@ -11,12 +11,33 @@ spring:
     enabled: false
 
 app:
+  features:
+    configurator:
+      # V42: product configurator (ตัวออกแบบสินค้าเอง) — off until Supitcha wires cart/order (see AB2 handoff note)
+      enabled: false
   translation:
     provider: fake
     retry-backoff-ms: 0
+    # deterministic tests: no async after-commit / background poll; tests call processPendingForTests()
+    process-after-commit: false
+    poll-delay-ms: 86400000
   merchant:
     storage-root: ./target/test-uploads
     data-encryption-secret: integration-test-data-encryption-secret
+    theme-media:
+      max-total-bytes: 209715200
+      max-images: 200
+      max-videos: 5
+      max-fonts: 4
+      max-image-bytes: 5242880
+      max-video-bytes: 20971520
+      max-font-bytes: 1048576
+      max-image-dimension: 4000
+    collections:
+      # V41: shop collections limits
+      max-per-shop: 50
+      max-products-per-collection: 500
+    customer-key-secret:
   security:
     jwt-secret: integration-test-secret-with-at-least-thirty-two-characters
     access-token-minutes: 15

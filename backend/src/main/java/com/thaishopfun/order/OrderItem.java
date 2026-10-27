@@ -30,6 +30,9 @@ public class OrderItem extends AuditedEntity {
     @Column(name = "line_total", nullable = false, precision = 18, scale = 2) private BigDecimal lineTotal;
     @JdbcTypeCode(SqlTypes.CHAR) @Column(nullable = false, length = 3) private String currency = "THB";
     @Column(name = "image_url_snapshot", length = 700) private String imageUrlSnapshot;
+    /** V43: configurator snapshot copied from the cart line (null = normal item). */
+    @JdbcTypeCode(SqlTypes.JSON) @Column(name = "configuration") private java.util.Map<String, Object> configuration;
+    @Column(name = "config_hash", length = 64) private String configHash;
 
     protected OrderItem() {}
 
@@ -50,6 +53,10 @@ public class OrderItem extends AuditedEntity {
     public void setSkuCodeSnapshot(String skuCodeSnapshot) { this.skuCodeSnapshot = skuCodeSnapshot; }
     public String getProductNameSnapshot() { return productNameSnapshot; }
     public void setProductNameSnapshot(String productNameSnapshot) { this.productNameSnapshot = productNameSnapshot; }
+    public java.util.Map<String, Object> getConfiguration() { return configuration; }
+    public void setConfiguration(java.util.Map<String, Object> configuration) { this.configuration = configuration; }
+    public String getConfigHash() { return configHash; }
+    public void setConfigHash(String configHash) { this.configHash = configHash; }
     public String getOptionLabelSnapshot() { return optionLabelSnapshot; }
     public void setOptionLabelSnapshot(String optionLabelSnapshot) { this.optionLabelSnapshot = optionLabelSnapshot; }
     public String getBarcodeSnapshot() { return barcodeSnapshot; }

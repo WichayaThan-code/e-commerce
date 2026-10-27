@@ -13,6 +13,8 @@ import com.thaishopfun.merchant.ProductCategoryRepository;
 import com.thaishopfun.merchant.Shop;
 import com.thaishopfun.merchant.ShopRepository;
 import com.thaishopfun.merchant.ShopStatus;
+import com.thaishopfun.order.OrderStatus;
+import com.thaishopfun.order.PaymentStatus;
 import com.thaishopfun.translation.ContentTranslationBridge;
 import com.thaishopfun.translation.ContentTranslationIndex;
 import com.thaishopfun.translation.TranslationEntityType;
@@ -29,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -512,7 +515,162 @@ public class ProductService {
         var ids = result.items().stream().map(product -> product.getId().toString()).toList();
         var index = translations.loadIndex(TranslationEntityType.PRODUCT, ids);
         var options = translations.loadIndex(TranslationEntityType.PRODUCT_OPTION, ids);
-        return new CatalogDtos.PageResponse<>(result.items().stream().map(product -> toPublic(product, index, options, locale)).toList(), result.page(), result.size(), result.total());
+        var sold = soldCounts(result.items().stream().map(Product::getId).toList());
+        return new CatalogDtos.PageResponse<>(result.items().stream()
+            .map(product -> toPublic(product, index, options, locale).withSoldCount(sold.getOrDefault(product.getId(), 0L)))
+            .toList(), result.page(), result.size(), result.total());
+    }
+
+    // ---- Best sellers (read-only aggregate over orders/order_items; no buyer data is selected or returned) ----
+
+    /**
+     * An order line counts as "sold" when the order is DELIVERED/COMPLETED, or is PAID and still moving through
+     * fulfilment. Unpaid, cancelled and refund states never count. Enum literals are inlined so the clause can also be
+     * used inside the ORDER BY sub-query of {@link #orderClause}.
+     */
+    static final String SOLD_ORDER_FILTER = "(o.status in (com.thaishopfun.order.OrderStatus.DELIVERED, com.thaishopfun.order.OrderStatus.COMPLETED)"
+        + " or (o.paymentStatus = com.thaishopfun.order.PaymentStatus.PAID and o.status in ("
+        + "com.thaishopfun.order.OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM, com.thaishopfun.order.OrderStatus.MERCHANT_CONFIRMED,"
+        + " com.thaishopfun.order.OrderStatus.READY_TO_PACK, com.thaishopfun.order.OrderStatus.PACKING,"
+        + " com.thaishopfun.order.OrderStatus.PACKED, com.thaishopfun.order.OrderStatus.DISPATCHED)))";
+
+    /**
+     * V41 collections: public cards for products the caller already filtered (PUBLISHED, not deleted, same shop),
+     * kept in the given order. Same shape as {@link #publicList} so the storefront can reuse ProductGrid.
+     */
+    @Transactional(readOnly = true)
+    public List<CatalogDtos.PublicProductResponse> publicCards(List<Product> items, String locale) {
+        if (items == null || items.isEmpty()) return List.of();
+        var ids = items.stream().map(product -> product.getId().toString()).toList();
+        var index = translations.loadIndex(TranslationEntityType.PRODUCT, ids);
+        var options = translations.loadIndex(TranslationEntityType.PRODUCT_OPTION, ids);
+        var sold = soldCounts(items.stream().map(Product::getId).toList());
+        return items.stream()
+            .map(product -> toPublic(product, index, options, locale).withSoldCount(sold.getOrDefault(product.getId(), 0L)))
+            .toList();
+    }
+
+    /** All-time sold quantity per product (missing = 0). */
+    private Map<UUID, Long> soldCounts(List<UUID> productIds) {
+        var out = new HashMap<UUID, Long>();
+        if (productIds.isEmpty()) return out;
+        var rows = entities.createQuery("select oi.productId, sum(oi.quantity) from OrderItem oi join oi.order o"
+                + " where oi.productId in :ids and " + SOLD_ORDER_FILTER + " group by oi.productId", Object[].class)
+            .setParameter("ids", productIds)
+            .getResultList();
+        for (var row : rows) out.put((UUID) row[0], ((Number) row[1]).longValue());
+        return out;
+    }
+
+    static Instant bestSellerSince(String period, Instant now) {
+        if (period == null || period.isBlank()) return null;
+        return switch (period.trim().toLowerCase(Locale.ROOT)) {
+            case "7d" -> now.minus(Duration.ofDays(7));
+            case "30d" -> now.minus(Duration.ofDays(30));
+            case "all" -> null;
+            default -> throw bad("INVALID_PERIOD", "ช่วงเวลาไม่ถูกต้อง (7d, 30d, all)");
+        };
+    }
+
+    /**
+     * Marketplace best sellers: PUBLISHED, not deleted products in APPROVED shops ranked by sold quantity (see
+     * {@link #SOLD_ORDER_FILTER}) within the period (by order placed_at). Products with no qualifying sales are not listed.
+     */
+    @Transactional(readOnly = true)
+    public CatalogDtos.PageResponse<CatalogDtos.PublicBestSellerResponse> publicBestSellers(Long categoryId, String shopSlug, String period,
+                                                                                          BigDecimal minPrice, BigDecimal maxPrice,
+                                                                                          Integer page, Integer size, String locale) {
+        return publicBestSellers(categoryId, null, shopSlug, period, minPrice, maxPrice, null, page, size, locale);
+    }
+
+    /**
+     * {@code categorySlug} (e.g. {@code otop-products}) filters by hub category slug; {@code sort=top_rated} ranks by
+     * PUBLISHED review avg desc (products with >= 1 review only), then review count, then sold quantity.
+     */
+    @Transactional(readOnly = true)
+    public CatalogDtos.PageResponse<CatalogDtos.PublicBestSellerResponse> publicBestSellers(Long categoryId, String categorySlug, String shopSlug, String period,
+                                                                                          BigDecimal minPrice, BigDecimal maxPrice, String sort,
+                                                                                          Integer page, Integer size, String locale) {
+        var mode = sort == null || sort.isBlank() ? "best_selling" : sort.trim().toLowerCase(Locale.ROOT);
+        if (!mode.equals("best_selling") && !mode.equals("top_rated")) throw bad("INVALID_SORT", "รูปแบบการเรียงไม่ถูกต้อง (best_selling, top_rated)");
+        var topRated = mode.equals("top_rated");
+        var catSlug = categorySlug == null || categorySlug.isBlank() ? null : categorySlug.trim().toLowerCase(Locale.ROOT);
+        var since = bestSellerSince(period, Instant.now());
+        var pageNumber = page == null || page < 0 ? 0 : page;
+        var pageSize = size == null || size < 1 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
+        var slug = shopSlug == null || shopSlug.isBlank() ? null : shopSlug.trim().toLowerCase(Locale.ROOT);
+        var where = new StringBuilder(" from OrderItem oi join oi.order o, Product p where p.id = oi.productId")
+            .append(" and p.deletedAt is null and p.status = :status and p.shop.status = :approved and ").append(SOLD_ORDER_FILTER);
+        if (categoryId != null) where.append(" and p.category.categoryNo = :categoryId");
+        if (catSlug != null) where.append(" and lower(p.category.slug) = :catSlug");
+        if (topRated) where.append(" and exists (select r.id from ProductReview r where r.productId = p.id and r.status = 'PUBLISHED' and r.deletedAt is null)");
+        if (slug != null) where.append(" and lower(p.shop.slug) = :slug");
+        if (minPrice != null) where.append(" and p.basePrice >= :minPrice");
+        if (maxPrice != null) where.append(" and p.basePrice <= :maxPrice");
+        if (since != null) where.append(" and o.placedAt >= :since");
+        var query = entities.createQuery("select p.id, sum(oi.quantity)" + where
+            + " group by p.id order by sum(oi.quantity) desc, max(p.createdDateTime) desc, p.id asc", Object[].class);
+        var count = entities.createQuery("select count(distinct p.id)" + where, Long.class);
+        for (var target : List.<jakarta.persistence.Query>of(query, count)) {
+            target.setParameter("status", ProductStatus.PUBLISHED);
+            target.setParameter("approved", ShopStatus.APPROVED);
+            if (categoryId != null) target.setParameter("categoryId", categoryId);
+            if (catSlug != null) target.setParameter("catSlug", catSlug);
+            if (slug != null) target.setParameter("slug", slug);
+            if (minPrice != null) target.setParameter("minPrice", minPrice);
+            if (maxPrice != null) target.setParameter("maxPrice", maxPrice);
+            if (since != null) target.setParameter("since", since);
+        }
+        var total = count.getSingleResult();
+        List<Object[]> rows;
+        Map<UUID, BigDecimal[]> ratings;
+        if (topRated) {
+            // Reviewed products only (small set): rank in memory by avg desc, count desc, sold desc.
+            var all = new ArrayList<>(query.getResultList());
+            ratings = reviewAggregates(all.stream().map(row -> (UUID) row[0]).toList());
+            all.sort(java.util.Comparator.<Object[], BigDecimal>comparing(row -> ratings.get((UUID) row[0])[0]).reversed()
+                .thenComparing(java.util.Comparator.<Object[], BigDecimal>comparing(row -> ratings.get((UUID) row[0])[1]).reversed())
+                .thenComparing(java.util.Comparator.<Object[], Long>comparing(row -> ((Number) row[1]).longValue()).reversed()));
+            var from = Math.min(all.size(), pageNumber * pageSize);
+            rows = all.subList(from, Math.min(all.size(), from + pageSize));
+        } else {
+            rows = query.setFirstResult(pageNumber * pageSize).setMaxResults(pageSize).getResultList();
+            ratings = reviewAggregates(rows.stream().map(row -> (UUID) row[0]).toList());
+        }
+        var ids = rows.stream().map(row -> (UUID) row[0]).toList();
+        var byId = new HashMap<UUID, Product>();
+        for (var product : products.findAllById(ids)) byId.put(product.getId(), product);
+        var textIds = ids.stream().map(UUID::toString).toList();
+        var index = translations.loadIndex(TranslationEntityType.PRODUCT, textIds);
+        var options = translations.loadIndex(TranslationEntityType.PRODUCT_OPTION, textIds);
+        var items = new ArrayList<CatalogDtos.PublicBestSellerResponse>();
+        for (int i = 0; i < rows.size(); i++) {
+            var product = byId.get(ids.get(i));
+            if (product == null) continue;
+            var view = toPublic(product, index, options, locale);
+            var shop = product.getShop();
+            items.add(new CatalogDtos.PublicBestSellerResponse(
+                pageNumber * pageSize + i + 1, ((Number) rows.get(i)[1]).longValue(),
+                view.id(), view.slug(), view.nameTh(), view.nameEn(), view.nameZh(), view.categoryId(), view.brand(),
+                view.basePrice(), view.compareAtPrice(), view.currency(), view.skus(), view.images(),
+                shop.getSlug(), shop.getName(), shop.getNameEn(),
+                ratings.containsKey(view.id()) ? ratings.get(view.id())[0] : null,
+                ratings.containsKey(view.id()) ? ratings.get(view.id())[1].longValue() : null));
+        }
+        return new CatalogDtos.PageResponse<>(items, pageNumber, pageSize, total);
+    }
+
+    /** product id -> [avg rating (1 decimal), count] over PUBLISHED reviews (see review.ProductReviewService). */
+    private Map<UUID, BigDecimal[]> reviewAggregates(List<UUID> productIds) {
+        var result = new HashMap<UUID, BigDecimal[]>();
+        if (productIds.isEmpty()) return result;
+        for (var row : entities.createQuery("select r.productId, avg(r.rating), count(r) from ProductReview r"
+                + " where r.productId in :ids and r.status = 'PUBLISHED' and r.deletedAt is null group by r.productId", Object[].class)
+            .setParameter("ids", productIds).getResultList())
+            result.put((UUID) row[0], new BigDecimal[] {
+                BigDecimal.valueOf(((Number) row[1]).doubleValue()).setScale(1, java.math.RoundingMode.HALF_UP),
+                BigDecimal.valueOf(((Number) row[2]).longValue())});
+        return result;
     }
 
     /** Public sort keys accepted by the marketplace search (no stock/updated ordering for guests). */
@@ -1389,7 +1547,7 @@ public class ProductService {
     }
 
     /**
-     * Sort whitelist. Accepts the UI keys (newest, oldest, updated, name, name_desc, price_asc, price_desc, stock)
+     * Sort whitelist. Accepts the UI keys (newest, oldest, updated, name, name_desc, price_asc, price_desc, stock, best_selling)
      * and field,direction pairs for createdAt, updatedAt, name, price (e.g. "updatedAt,desc"). Anything else is 400.
      */
     private static String parseSort(String value) {
@@ -1405,6 +1563,7 @@ public class ProductService {
             case "price_asc", "price,asc", "price" -> "price_asc";
             case "price_desc", "price,desc" -> "price_desc";
             case "stock", "stock,desc" -> "stock";
+            case "best_selling", "bestselling", "sold", "sold,desc" -> "best_selling";
             default -> null;
         };
         if (mapped == null) throw bad("INVALID_SORT", "การเรียงลำดับไม่ถูกต้อง");
@@ -1458,6 +1617,8 @@ public class ProductService {
             case "name_desc" -> " order by lower(p.nameTh) desc, p.id asc";
             case "price_asc" -> " order by p.basePrice asc nulls last, p.createdDateTime desc, p.id asc";
             case "price_desc" -> " order by p.basePrice desc nulls last, p.createdDateTime desc, p.id asc";
+            case "best_selling" -> " order by (select coalesce(sum(oi.quantity), 0) from OrderItem oi join oi.order o where oi.productId = p.id and "
+                + SOLD_ORDER_FILTER + ") desc, p.createdDateTime desc, p.id asc";
             case "stock" -> " order by (select coalesce(sum(l.available), 0) from InventoryLevel l where l.sku.product = p and l.sku.deletedAt is null) desc, p.createdDateTime desc, p.id asc";
             default -> " order by p.createdDateTime desc, p.id asc";
         };

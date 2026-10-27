@@ -287,6 +287,7 @@ export default function OwnerInfoPage() {
                     value={birthDate}
                     max={new Date().toISOString().slice(0, 10)}
                     error={fieldErrors.birthDate}
+                    placeholder={o.birthDatePh}
                     onChange={setBirthDate}
                     onBlur={() => blurOwner('birthDate')}
                   />

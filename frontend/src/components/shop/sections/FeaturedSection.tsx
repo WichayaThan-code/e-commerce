@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { shopApi, type PublicProduct } from "../../../services/api";
 import { shopProductsPath } from "../../../services/shopRoutes";
-import { resolveVariant } from "./sectionClasses";
+import { resolveVariant, sectionSettingClasses } from "./sectionClasses";
 import ProductRail from "./ProductRail";
 import type { ProductCardVariant } from "../ProductCard";
 import type { ShopSectionProps } from "./types";
@@ -15,7 +15,7 @@ function cardVariantFor(variant: string): ProductCardVariant {
   return "featured-row";
 }
 
-export default function FeaturedSection({ shop, section, products, catalog, preview }: ShopSectionProps) {
+export default function FeaturedSection({ shop, section, products, catalog, preview, config }: ShopSectionProps) {
   const { tp } = usePublicTranslation();
   const variant = resolveVariant("FEATURED", section.variant) || "GRID";
   const [items, setItems] = useState<PublicProduct[]>([]);
@@ -58,7 +58,7 @@ export default function FeaturedSection({ shop, section, products, catalog, prev
       favorites={catalog.favorites}
       onToggleFavorite={catalog.onToggleFavorite}
       onNotify={catalog.onNotify}
-      className={`shop-featured-${String(variant).toLowerCase()}`}
+      className={[`shop-featured-${String(variant).toLowerCase()}`, ...sectionSettingClasses("FEATURED", config)].filter(Boolean).join(" ")}
     />
   );
 }

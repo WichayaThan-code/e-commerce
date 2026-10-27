@@ -246,7 +246,8 @@ class TranslationIntegrationTests {
             .contentType(MediaType.APPLICATION_JSON).content("""
                 {"nameTh":"เสื้อ","productType":"VARIABLE","basePrice":100.00,
                  "optionSchema":[{"name":"สี","values":["แดง","S"]},{"name":"ไซซ์","values":["XL","128GB"]}],
-                 "skus":[{"skuCode":"SHIRT-1","price":100.00,"optionValues":{"สี":"แดง","ไซซ์":"XL"},"optionLabel":"แดง / XL"}]}
+                 "skus":[{"skuCode":"SHIRT-1","price":100.00,"optionValues":{"สี":"แดง","ไซซ์":"XL"},"optionLabel":"แดง / XL"},
+                         {"skuCode":"SHIRT-2","price":100.00,"optionValues":{"สี":"S","ไซซ์":"128GB"},"optionLabel":"S / 128GB"}]}
                 """))
             .andExpect(status().isOk())
             .andReturn();

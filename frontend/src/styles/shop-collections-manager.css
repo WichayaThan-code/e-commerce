@@ -1,0 +1,21 @@
+/* Merchant "คอลเลกชัน" tab (/merchant/store?tab=collections). Merchant-only; never loaded on storefronts. */
+.store-collections{display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:20px;align-items:start}
+.store-collections-list header,.store-collections-editor header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.store-collections-add{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:1px solid #087bf5;border-radius:6px;background:#fff;color:#087bf5;font:600 12px var(--font-sans);cursor:pointer}
+.store-collections-add svg{width:15px;height:15px}
+.store-collections-add:disabled{opacity:.55;cursor:not-allowed}
+.store-collections .theme-content-row.active{border-color:#087bf5;background:#f2f8ff}
+.store-collections-pick{display:flex;flex-direction:column;align-items:flex-start;gap:2px;flex:1;min-width:0;border:0;background:none;padding:0;text-align:left;cursor:pointer;color:inherit;font:inherit}
+.store-collections-pick small{color:#6b7f99;font-size:11px}
+.store-collections-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+.store-collections-actions .store-cancel{display:inline-flex;align-items:center;gap:6px}
+.store-collections-actions .store-cancel svg{width:14px;height:14px}
+.store-collections-products{margin-top:22px;border-top:1px solid #e3edf8;padding-top:16px;display:grid;gap:12px}
+.store-collections-products h3{margin:0;font-size:14px;color:#12366e}
+@media (max-width:900px){.store-collections{grid-template-columns:1fr}}
+/* ProductFormPage → ตัวออกแบบสินค้าเอง (merchant only, behind FEATURES.productConfigurator) */
+.pm-configurator{margin-top:22px;border:1px solid #dbe8f6;border-radius:8px;padding:16px;background:#fff}
+.pm-configurator-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+.pm-configurator-head h3{margin:0 0 4px}
+.pm-configurator-options{list-style:none;margin:8px 0;padding:0 0 0 12px;display:grid;gap:10px;border-left:2px solid #e3edf8}
+.pm-configurator-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}

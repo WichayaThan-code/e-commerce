@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   BarChart3, Box, CalendarDays, CheckCircle2, CircleHelp, CircleUserRound,
-  Crown, ExternalLink, Facebook, Headphones, Home, Instagram, LineChart, MapPin,
+  Crown, ExternalLink, Layers, Facebook, Headphones, Home, Instagram, LineChart, MapPin,
   Palette, PackageCheck, Settings, ShieldCheck, ShoppingBag, Store,
   TicketPercent, Truck, WalletCards, type LucideIcon,
 } from "lucide-react";
@@ -11,6 +11,7 @@ import MerchantBell from "../components/merchant/MerchantBell";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
+import MerchantLogoutButton from "../components/merchant/MerchantLogoutButton";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { useActiveShop } from "../contexts/ActiveShopContext";
@@ -19,6 +20,7 @@ import { SkeletonForm } from "../components/feedback/Skeleton";
 import ConfirmDialog from "../components/form/ConfirmDialog";
 import ShopThemeEditor, { type ShopThemeShopInfo } from "../components/merchant/ShopThemeEditor";
 import ShopHoursEditor from "../components/merchant/ShopHoursEditor";
+import ShopCollectionsManager from "../components/merchant/ShopCollectionsManager";
 import MerchantSaveButton from "../components/merchant/MerchantSaveButton";
 import { ApiError, catalogApi, mediaUrl, merchantApi, type MerchantSettings, type MerchantSettingsPayload, type ShopHour } from "../services/api";
 import { MERCHANT_CATEGORY_VALUES } from "../i18n/merchantOnboardingCopy";
@@ -36,15 +38,16 @@ const menu = [
   [Store,"ร้านของฉัน","/merchant/store"],[Settings,"ตั้งค่า","/merchant/settings"],
 ] as const;
 /** /merchant/store = shop profile & appearance. Operational settings (policies, payment, …) live in /merchant/settings. */
-type StoreTabKey="info"|"theme"|"hours";
+type StoreTabKey="info"|"theme"|"hours"|"collections";
 const STORE_TABS:{key:StoreTabKey;label:string;icon:LucideIcon}[]=[
   {key:"info",label:"ข้อมูลร้าน",icon:Store},
   {key:"theme",label:"ธีมร้าน",icon:Palette},
   {key:"hours",label:"เวลาทำการ",icon:CalendarDays},
+  {key:"collections",label:"คอลเลกชัน",icon:Layers},
 ];
 /** Old store tabs that moved to /merchant/settings (?tab=<value> → settings tab). */
 const MOVED_TO_SETTINGS:Record<string,string>={settings:"policies",policies:"policies",policy:"policies",channels:"integrations",members:"team",team:"team",plan:"plan"};
-const resolveStoreTab=(raw:string|null):StoreTabKey=>raw==="theme"||raw==="hours"?raw:"info";
+const resolveStoreTab=(raw:string|null):StoreTabKey=>raw==="theme"||raw==="hours"||raw==="collections"?raw:"info";
 type PendingLeave={kind:"tab";tab:StoreTabKey}|{kind:"href";href:string}|null;
 const PUBLIC_PHONE_RE=/^[0-9+ -]{9,20}$/;
 const PUBLIC_EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -281,13 +284,13 @@ export default function MyStorePage(){
   const themeShop:ShopThemeShopInfo={shopName:form.shopName,shopNameEn:form.shopNameEn,description:form.description,category:form.category,address:form.address,province:form.province,district:form.district,subdistrict:form.subdistrict,postalCode:form.postalCode,slug:form.slug,status:form.status,logoUrl:form.logoUrl,coverUrl:form.coverUrl,createdAt:form.createdAt||null,openingHours:form.openingHours};
   return <main className="merchant-shell pm-shell my-store-shell">
     <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
-    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href,badge])=><a className={label==="ร้านของฉัน"?"active":""} href={href} key={label} onClick={e=>{if((href as string)==="#"){e.preventDefault();notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}else if(hasUnsavedTheme){e.preventDefault();setPendingLeave({kind:"href",href:href as string})}}}><Icon/>{label}{badge&&<i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button></div></aside>
+    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href,badge])=><a className={label==="ร้านของฉัน"?"active":""} href={href} key={label} onClick={e=>{if((href as string)==="#"){e.preventDefault();notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}else if(hasUnsavedTheme){e.preventDefault();setPendingLeave({kind:"href",href:href as string})}}}><Icon/>{label}{badge&&<i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button><MerchantLogoutButton /></div></aside>
     <section className="pm-content my-store-content">
       <div className="store-page-head">
         <header className="pm-heading my-store-heading"><div><h1><Store/>ร้านของฉัน</h1><p>จัดการข้อมูลร้านค้า ปรับแต่งหน้าร้าน และตั้งค่าการขาย</p></div><button type="button" onClick={openStorefront} disabled={!form.slug}><ExternalLink/>ดูหน้าร้านจริง</button></header>
-        <nav className="store-tabs" aria-label="หมวดร้านของฉัน">{STORE_TABS.map(({key,label,icon:Icon})=><button key={key} type="button" className={activeTab===key?"active":""} aria-current={activeTab===key?"page":undefined} onClick={()=>requestTab(key)}><Icon/>{key==="theme"?t("storeTheme.tab"):label}</button>)}</nav>
+        <nav className="store-tabs" aria-label="หมวดร้านของฉัน">{STORE_TABS.map(({key,label,icon:Icon})=><button key={key} type="button" className={activeTab===key?"active":""} aria-current={activeTab===key?"page":undefined} onClick={()=>requestTab(key)}><Icon/>{key==="theme"?t("storeTheme.tab"):key==="collections"?t("collections.tab"):label}</button>)}</nav>
       </div>
-      {activeTab==="theme"?<ShopThemeEditor shopId={shopId} shop={themeShop} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} logoControl={logoControl} coverControl={coverControl} onDirtyChange={onThemeDirty} notify={notify}/>:activeTab==="hours"?<div className="store-hours"><ShopHoursEditor shopId={shopId} initialHours={form.openingHours} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} notify={notify} onDirtyChange={onHoursDirty} onSaved={hours=>{patch({openingHours:hours});baseline.current={...baseline.current,openingHours:hours};}}/></div>:<div className="store-layout"><section className="store-form-card"><header><div><h2>ข้อมูลร้านค้า</h2><p>ข้อมูลพื้นฐานของร้านค้า จะแสดงบนหน้าร้านและใช้ในการติดต่อ</p></div><div className="store-enabled"><span><CheckCircle2/>{statusLabel}</span>{createdLabel&&<small>สร้างเมื่อ {createdLabel}</small>}{form.status==="SUSPENDED"&&<a href="/merchant/reinstatement">ยื่นคำร้องปลดระงับ</a>}</div><div className="store-head-actions">{infoDirty&&<button type="button" className="store-cancel" onClick={cancel} disabled={saving}>ยกเลิก</button>}<MerchantSaveButton saving={saving} disabled={!canUpdate} title={deniedTitle(canUpdate)} onClick={()=>void save()}/></div></header>
+      {activeTab==="collections"?<ShopCollectionsManager shopId={shopId} shopSlug={form.slug} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} notify={notify}/>:activeTab==="theme"?<ShopThemeEditor shopId={shopId} shop={themeShop} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} logoControl={logoControl} coverControl={coverControl} onDirtyChange={onThemeDirty} notify={notify}/>:activeTab==="hours"?<div className="store-hours"><ShopHoursEditor shopId={shopId} initialHours={form.openingHours} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} notify={notify} onDirtyChange={onHoursDirty} onSaved={hours=>{patch({openingHours:hours});baseline.current={...baseline.current,openingHours:hours};}}/></div>:<div className="store-layout"><section className="store-form-card"><header><div><h2>ข้อมูลร้านค้า</h2><p>ข้อมูลพื้นฐานของร้านค้า จะแสดงบนหน้าร้านและใช้ในการติดต่อ</p></div><div className="store-enabled"><span><CheckCircle2/>{statusLabel}</span>{createdLabel&&<small>สร้างเมื่อ {createdLabel}</small>}{form.status==="SUSPENDED"&&<a href="/merchant/reinstatement">ยื่นคำร้องปลดระงับ</a>}</div><div className="store-head-actions">{infoDirty&&<button type="button" className="store-cancel" onClick={cancel} disabled={saving}>ยกเลิก</button>}<MerchantSaveButton saving={saving} disabled={!canUpdate} title={deniedTitle(canUpdate)} onClick={()=>void save()}/></div></header>
         {coverControl}
         <div className="store-form-grid">{logoControl}
         <div className="store-fields"><label>ชื่อร้านค้า <i>*</i><input value={form.shopName} maxLength={100} onChange={e=>patch({shopName:e.target.value})}/><small>{form.shopName.length}/100</small></label><label>คำอธิบายร้านค้า<textarea value={form.description} maxLength={500} onChange={e=>patch({description:e.target.value})}/><small>{form.description.length}/500</small></label></div></div>

@@ -254,8 +254,23 @@ public final class CatalogDtos {
         List<PublicSkuResponse> skus,
         List<ImageResponse> images,
         List<OptionGroupResponse> optionGroups,
-        List<OptionGroup> optionSchema
-    ) {}
+        List<OptionGroup> optionSchema,
+        Long soldCount
+    ) {
+        /** Arity used before soldCount existed; soldCount stays null (not computed for this view). */
+        public PublicProductResponse(UUID id, String slug, String nameTh, String nameEn, String nameZh, String descriptionTh,
+                                     String descriptionEn, String descriptionZh, Long categoryId, String brand, BigDecimal basePrice,
+                                     BigDecimal compareAtPrice, String currency, List<PublicSkuResponse> skus, List<ImageResponse> images,
+                                     List<OptionGroupResponse> optionGroups, List<OptionGroup> optionSchema) {
+            this(id, slug, nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId, brand, basePrice,
+                compareAtPrice, currency, skus, images, optionGroups, optionSchema, null);
+        }
+
+        public PublicProductResponse withSoldCount(long sold) {
+            return new PublicProductResponse(id, slug, nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId,
+                brand, basePrice, compareAtPrice, currency, skus, images, optionGroups, optionSchema, sold);
+        }
+    }
 
     public record PublicSkuResponse(
         UUID id,
@@ -291,4 +306,30 @@ public final class CatalogDtos {
     public record PublicSearchShopRef(String slug, String name, String nameEn) {}
     public record PublicSearchProductResponse(PublicProductResponse product, PublicSearchShopRef shop) {}
     public record PublicBrandResponse(String name, long productCount) {}
+
+    /**
+     * Marketplace best-seller row (GET /api/products/best-sellers). Public product fields + ranking data. Contains no buyer
+     * or order data: soldCount is an aggregate quantity only. rating / reviewCount are always null (no review system yet).
+     */
+    public record PublicBestSellerResponse(
+        int rank,
+        long soldCount,
+        UUID id,
+        String slug,
+        String nameTh,
+        String nameEn,
+        String nameZh,
+        Long categoryId,
+        String brand,
+        BigDecimal basePrice,
+        BigDecimal compareAtPrice,
+        String currency,
+        List<PublicSkuResponse> skus,
+        List<ImageResponse> images,
+        String shopSlug,
+        String shopName,
+        String shopNameEn,
+        BigDecimal rating,
+        Long reviewCount
+    ) {}
 }

@@ -13,6 +13,7 @@ import { localizedText } from "../services/catalogText";
 import { ApiError, mediaUrl, shopApi, type PublicProduct, type PublicShopCategory, type PublicSku } from "../services/api";
 import { shopCategoryPath, shopPath, shopProductPath } from "../services/shopRoutes";
 import NotFoundPage from "./NotFoundPage";
+import ProductConfiguratorPanel from "../components/shop/ProductConfiguratorPanel";
 import "../styles/recommended-products.css";
 import "../styles/shop-page.css";
 
@@ -181,7 +182,7 @@ export default function ShopProductPage() {
     }
   };
   /** Adds the chosen SKU through the cart API. Returns true when at least 1 piece was added. */
-  const placeInCart = async () => {
+  const placeInCart = async (configuration?: { selections: Record<string, unknown>; version?: number }) => {
     // guests sign in first; admins blocked; merchants may buy other shops but not their own
     if (cart.access === "guest") { notify(tp("cart.loginToAdd")); window.location.assign(loginPathForCart()); return false; }
     if (cart.access === "blocked") { notify(tp("cart.blocked.toast")); return false; }
@@ -194,7 +195,7 @@ export default function ShopProductPage() {
     }
     setAdding(true);
     try {
-      const result = await cart.add(selectedSku.id, qty);
+      const result = configuration ? await cart.addConfigured(selectedSku.id, qty, configuration) : await cart.add(selectedSku.id, qty);
       if (result?.adjusted) {
         if (result.appliedQuantity < 1) { notify(tp("cart.errors.stockLeftInCart", { count: stock, inCart: stock })); return false; }
         notify(tp("cart.quantityAdjusted", { count: result.appliedQuantity }));
@@ -347,6 +348,13 @@ export default function ShopProductPage() {
                 <button type="button" className="buy" disabled={soldOut || adding || own} onClick={() => void buyNow()}>{tp("shop.view.buyNow")}</button>
               </div>
               {own ? <p className="buyer-warn">{tp("cart.own.label")}</p> : null}
+              {product ? <ProductConfiguratorPanel shop={shop} productId={product.id} money={(value) => money(value, localeTag)}
+                onAddToCart={async ({ selections, version }) => {
+                  if (adding) return false;
+                  const ok = await placeInCart({ selections, version });
+                  if (ok) notify(tp("shop.view.added"));
+                  return ok;
+                }} /> : null}
             </div>
           </article>
           <section className="buyer-card buyer-shop">

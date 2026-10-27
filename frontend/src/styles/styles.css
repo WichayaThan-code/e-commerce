@@ -9,6 +9,8 @@ button { cursor:pointer; }
 a { color:inherit; text-decoration:none; }
 .page-width { width:min(1370px,calc(100% - 48px)); margin-inline:auto; }
 header { background:#fff; position:relative; z-index:20; border-bottom:1px solid #eef2f8; }
+/* Site header dropdowns (account/lang) must stack above storefront sticky .shop-mall-tabs (z20, later in DOM); stays below filter sheet 60 / toasts / lightbox / drawer 100. */
+header.site-header{z-index:50}
 .topbar { height:70px; display:flex; align-items:center; gap:36px; }
 .brand { display:flex; align-items:center; gap:10px; flex:0 0 auto; }
 .brand-mark { width:37px; height:41px; border:3px solid var(--navy); border-radius:6px 6px 10px 10px; position:relative; display:grid; place-items:center; color:var(--navy); }

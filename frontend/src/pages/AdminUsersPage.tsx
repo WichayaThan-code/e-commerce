@@ -16,9 +16,12 @@ import {
   adminDirectoryApi, ApiError,
   type AdminActivityEvent, type AdminRoleSummary, type AdminUserDetail, type AdminUserFilterOptions, type AdminUserPage, type AdminUserQuery, type AdminUserRow, type AdminUserStats,
 } from '../services/api'
-import { formatChange, formatDate, formatDateTime, formatNumber, initialOf, NOT_ENABLED, percentOf } from '../services/adminFormat'
+import { formatChange, formatDateTime, formatNumber, initialOf, NOT_ENABLED, percentOf } from '../services/adminFormat'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-users.css'
+import '../styles/admin-form-controls.css'
+import AdminSelect from '../components/admin/AdminSelect'
+import AdminDateRange from '../components/admin/AdminDateRange'
 
 type Tab = 'ข้อมูลผู้ใช้' | 'สิทธิ์การใช้งาน' | 'ประวัติ'
 type Filters = { q: string; role: string; status: string; from: string; to: string }
@@ -72,7 +75,6 @@ export default function AdminUsersPage() {
   const [historyError, setHistoryError] = useState('')
   const [selectedRows, setSelectedRows] = useState<string[]>([])
   const [tab, setTab] = useState<Tab>('ข้อมูลผู้ใช้')
-  const [dateOpen, setDateOpen] = useState(false)
   const [showTip, setShowTip] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [notice, setNotice] = useState('')
@@ -171,7 +173,7 @@ export default function AdminUsersPage() {
   const selectedRow = items.find(item => item.id === selectedId) ?? null
   const apply = (next: Partial<Filters>) => { const merged = { ...draft, ...next }; setDraft(merged); setFilters(merged); setPage(0) }
   const search = () => { setFilters({ ...draft }); setPage(0); setReloadKey(key => key + 1) }
-  const reset = () => { setDraft(EMPTY_FILTERS); setFilters(EMPTY_FILTERS); setPage(0); setDateOpen(false) }
+  const reset = () => { setDraft(EMPTY_FILTERS); setFilters(EMPTY_FILTERS); setPage(0) }
   const toggle = (id: string) => setSelectedRows(rows => rows.includes(id) ? rows.filter(row => row !== id) : [...rows, id])
   const openCreate = () => {
     setAccountForm({ firstName: '', lastName: '', email: '', phone: '' })
@@ -273,7 +275,6 @@ export default function AdminUsersPage() {
     const change = formatChange(metric)
     return <>{stats ? formatNumber(metric?.value) : statsError ? '-' : '…'} <em className={change.tone}>{stats ? change.text : ''}</em></>
   }
-  const rangeLabel = draft.from || draft.to ? `${formatDate(draft.from) || '…'} - ${formatDate(draft.to) || '…'}` : 'เลือกช่วงวันที่'
   const start = totalItems === 0 ? 0 : page * size + 1
   const end = Math.min(totalItems, page * size + items.length)
   const head = detail ?? null
@@ -295,14 +296,10 @@ export default function AdminUsersPage() {
         <article className="general"><span><UsersRound/></span><div><b>ผู้ใช้งานทั่วไป</b><strong>{kpi(stats?.generalUsers)}</strong><small>คิดเป็น {percentOf(stats?.generalUsers.value, stats?.total.value)}</small></div></article>
       </section>
       <form className="user-filters" onSubmit={event => { event.preventDefault(); search() }}>
-        <label className="user-search"><Search/><input value={draft.q} onChange={event => setDraft({ ...draft, q: event.target.value })} placeholder="ค้นหาผู้ใช้ (ชื่อ-นามสกุล, อีเมล, เบอร์โทร...)" aria-label="ค้นหาผู้ใช้งาน" maxLength={100}/></label>
-        <label><span>บทบาท</span><select value={draft.role} onChange={event => apply({ role: event.target.value })}><option value="">ทั้งหมด</option>{options?.roles.map(option => <option key={option.value} value={option.value}>{option.label} ({formatNumber(option.count)})</option>)}{draft.role && !options?.roles.some(option => option.value === draft.role) && <option value={draft.role}>{draft.role}</option>}</select></label>
-        <label><span>สถานะ</span><select value={draft.status} onChange={event => apply({ status: event.target.value })}><option value="">ทั้งหมด</option>{options?.statuses.map(option => <option key={option.value} value={option.value}>{option.label} ({formatNumber(option.count)})</option>)}</select></label>
-        <div className="user-date"><span>วันที่สมัคร</span><button type="button" onClick={() => setDateOpen(open => !open)} aria-expanded={dateOpen}><CalendarDays/>{rangeLabel}</button>{dateOpen && <div className="user-date-pop">
-          <label>ตั้งแต่<input type="date" value={draft.from} max={draft.to || undefined} onChange={event => apply({ from: event.target.value })}/></label>
-          <label>ถึง<input type="date" value={draft.to} min={draft.from || undefined} onChange={event => apply({ to: event.target.value })}/></label>
-          <div><button type="button" onClick={() => apply({ from: '', to: '' })}>ล้าง</button><button type="button" onClick={() => setDateOpen(false)}>ตกลง</button></div>
-        </div>}</div>
+        <label className="user-search adm-search"><Search/><input value={draft.q} onChange={event => setDraft({ ...draft, q: event.target.value })} placeholder="ค้นหาผู้ใช้ (ชื่อ-นามสกุล, อีเมล, เบอร์โทร...)" aria-label="ค้นหาผู้ใช้งาน" maxLength={100}/></label>
+        <AdminSelect label="บทบาท" value={draft.role} onChange={value => apply({ role: value })} options={[{ value: '', label: 'ทั้งหมด' }, ...(options?.roles ?? []).map(option => ({ value: option.value, label: `${option.label} (${formatNumber(option.count)})` })), ...(draft.role && !options?.roles.some(option => option.value === draft.role) ? [{ value: draft.role, label: draft.role }] : [])]}/>
+        <AdminSelect label="สถานะ" value={draft.status} onChange={value => apply({ status: value })} options={[{ value: '', label: 'ทั้งหมด' }, ...(options?.statuses ?? []).map(option => ({ value: option.value, label: `${option.label} (${formatNumber(option.count)})` }))]}/>
+        <AdminDateRange className="user-date-range" label="วันที่สมัคร" from={draft.from} to={draft.to} onChange={range => apply({ from: range.from, to: range.to })}/>
         <button type="submit" className="user-find">ค้นหา</button><button type="button" className="user-reset" onClick={reset}>รีเซ็ต</button>
       </form>
       <section className="users-table-card"><header><h2>รายการผู้ใช้งาน ({formatNumber(totalItems)} รายการ)</h2><div><button onClick={exportCsv} disabled={exporting || listLoading || totalItems === 0} title={totalItems > 10000 ? 'นำออกได้สูงสุด 10,000 รายการ' : 'นำออกรายการตามตัวกรองปัจจุบันเป็นไฟล์ CSV'}><Download/>{exporting ? 'กำลังนำออก...' : 'นำออก (Export)'}</button><button disabled title={NOT_ENABLED}><Settings/>จัดการคอลัมน์</button></div></header>
@@ -326,7 +323,7 @@ export default function AdminUsersPage() {
           {!listLoading && listError && <LoadError message={listError} onRetry={() => setReloadKey(key => key + 1)} />}
           {!listLoading && !listError && items.length === 0 && <div className="users-empty">{totalItems === 0 && !Object.values(filters).some(Boolean) ? 'ยังไม่มีผู้ใช้งานในระบบ' : 'ไม่พบผู้ใช้งานที่ตรงกับตัวกรอง'}</div>}
         </div></div>
-        <footer><div>แสดง <select aria-label="จำนวนรายการต่อหน้า" value={size} onChange={event => { setSize(Number(event.target.value)); setPage(0) }}>{PAGE_SIZES.map(value => <option key={value} value={value}>{value}</option>)}</select> รายการต่อหน้า</div><span>{formatNumber(start)} - {formatNumber(end)} จาก {formatNumber(totalItems)} รายการ</span>
+        <footer><div>แสดง <AdminSelect compact className="adm-page-size" label="จำนวนรายการต่อหน้า" value={String(size)} onChange={value => { setSize(Number(value)); setPage(0) }} options={PAGE_SIZES.map(value => ({ value: String(value), label: String(value) }))}/> รายการต่อหน้า</div><span>{formatNumber(start)} - {formatNumber(end)} จาก {formatNumber(totalItems)} รายการ</span>
           <nav aria-label="แบ่งหน้า"><button disabled={page === 0 || listLoading} onClick={() => setPage(page - 1)} aria-label="หน้าก่อนหน้า"><ChevronLeft/></button>{pageWindow(page, totalPages).map((value, index) => value === '…' ? <button key={`gap-${index}`} disabled>…</button> : <button key={value} className={value === page ? 'current' : ''} onClick={() => setPage(value)} disabled={listLoading}>{value + 1}</button>)}<button disabled={page >= totalPages - 1 || listLoading} onClick={() => setPage(page + 1)} aria-label="หน้าถัดไป"><ChevronRight/></button></nav>
         </footer>
       </section>
@@ -363,13 +360,11 @@ export default function AdminUsersPage() {
         {actionError && <p className="admin-action-error" role="alert">{actionError}</p>}
         {detail && <footer className="user-actions">
           {canUpdate && <button onClick={openEdit} disabled={saving || detail.superAdmin}><Settings/>แก้ไขข้อมูล</button>}
-          {canAssignRole && !detail.superAdmin && <label className="user-role-assignment">บทบาทแพลตฟอร์ม
-            <select value={roleChoice} onChange={event => setRoleChoice(event.target.value)} disabled={saving || detail.status !== 'ACTIVE'}>
-              <option value="">ไม่มีบทบาท</option>
-              {platformRoles.map(role => <option key={role.code} value={role.code}>{role.nameTh ?? role.code}</option>)}
-            </select>
+          {canAssignRole && !detail.superAdmin && <div className="user-role-assignment"><span>บทบาทแพลตฟอร์ม</span>
+            <AdminSelect compact className="user-role-select" label="บทบาทแพลตฟอร์ม" value={roleChoice} onChange={setRoleChoice} disabled={saving || detail.status !== 'ACTIVE'}
+              options={[{ value: '', label: 'ไม่มีบทบาท' }, ...platformRoles.map(role => ({ value: role.code, label: role.nameTh ?? role.code }))]}/>
             <button onClick={saveRole} disabled={saving || detail.status !== 'ACTIVE' || roleChoice === selectedPlatformRole}>บันทึกบทบาท</button>
-          </label>}
+          </div>}
           {headStatus === 'ACTIVE' && canSuspend && <button className="suspend" onClick={() => setUserConfirm('suspend')} disabled={saving || detail.superAdmin || detail.id === user.id}><AlertTriangle/>ระงับการใช้งาน</button>}
           {headStatus === 'SUSPENDED' && canRestore && <button onClick={() => setUserConfirm('restore')} disabled={saving || detail.superAdmin || detail.id === user.id}><Check/>คืนสถานะ</button>}
           {canDelete && <button className="delete" onClick={() => setUserConfirm('delete')} disabled={saving || detail.superAdmin || detail.id === user.id}><Trash2/>ลบผู้ใช้งาน</button>}

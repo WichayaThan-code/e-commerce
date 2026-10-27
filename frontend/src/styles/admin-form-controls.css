@@ -1,0 +1,156 @@
+/* Admin form controls: same look as /merchant/orders filters (styles/order-management.css .om-filters).
+   Everything is scoped to .admin-shell so merchant/storefront pages are not affected. */
+.admin-shell {
+  --adm-control-h: 40px;
+  --adm-label-gap: 6px;
+  --adm-border: var(--shop-border, #dce2eb);
+}
+
+/* Labelled select / date range: 18px label row + 40px control (om-filters grid) */
+.admin-shell .adm-select,
+.admin-shell .adm-select .searchable-select-wrap,
+.admin-shell .adm-date-range {
+  min-width: 0;
+  margin: 0;
+}
+.admin-shell .adm-select { position: relative; align-self: end; }
+.admin-shell .adm-select .searchable-select-wrap:not(.compact),
+.admin-shell .adm-date-range {
+  display: grid;
+  grid-template-rows: 18px var(--adm-control-h);
+  gap: var(--adm-label-gap);
+  align-content: end;
+}
+.admin-shell .adm-select .select-label,
+.admin-shell .adm-date-range .date-picker-label {
+  display: block;
+  margin: 0;
+  padding: 0;
+  font: 600 13px/18px var(--font-sans), sans-serif;
+  color: var(--shop-text, #132b50);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-shell .adm-select .searchable-select-btn,
+.admin-shell .adm-date-range .date-picker-trigger {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--adm-control-h);
+  margin: 0;
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--shop-text, #132b50);
+  font: 500 14px var(--font-sans), sans-serif;
+}
+.admin-shell .adm-select .searchable-select-btn > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-shell .adm-select .searchable-select-btn.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.admin-shell .adm-select .searchable-dropdown { z-index: 40; }
+.admin-shell .adm-date-range .date-range-trigger-row { height: var(--adm-control-h); margin: 0; }
+.admin-shell .adm-date-range .date-range-clear-btn {
+  width: var(--adm-control-h);
+  height: var(--adm-control-h);
+  border-radius: 8px;
+}
+.admin-shell .adm-date-range .date-picker-panel { z-index: 40; }
+
+/* Hidden mirror input that keeps native `required` validation for AdminSelect */
+.admin-shell .adm-select-required {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Compact selects (pagination "per page", inline role pickers) */
+.admin-shell .adm-page-size { display: inline-block; vertical-align: middle; }
+.admin-shell .adm-page-size .searchable-select-btn { min-width: 76px; height: 36px; font-weight: 600; }
+.admin-shell .user-role-assignment > span { grid-column: 1 / -1; }
+.admin-shell .user-role-select { grid-column: 1; }
+.admin-shell .user-role-select .searchable-select-btn { min-width: 0; height: 36px; font-size: 13px; }
+.admin-shell .user-filters .user-date-range { grid-column: 1 / -1; }
+
+/* Search boxes with icon (.om-search) */
+.admin-shell .adm-search {
+  box-sizing: border-box;
+  height: var(--adm-control-h);
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--shop-muted, #8593a5);
+}
+.admin-shell .adm-search svg { width: 18px; height: 18px; flex-shrink: 0; }
+.admin-shell .adm-search input {
+  border: 0 !important;
+  outline: 0 !important;
+  background: none !important;
+  width: 100%;
+  min-width: 0;
+  height: 100% !important;
+  padding: 0 10px !important;
+  font: 500 14px var(--font-sans), sans-serif;
+  color: var(--shop-text, #132b50);
+}
+.admin-shell .adm-search:focus-within,
+.admin-shell .adm-select .searchable-select-btn:focus-visible,
+.admin-shell .adm-date-range .date-picker-trigger:focus-visible {
+  outline: 2px solid var(--shop-primary, #087bf5);
+  outline-offset: 2px;
+}
+
+/* Plain text / number / datetime inputs and textareas in admin filters and dialogs */
+.admin-shell .ap-filters label > span,
+.admin-shell .ap-dialog-fields label > span {
+  font: 600 13px/18px var(--font-sans), sans-serif;
+  color: var(--shop-text, #132b50);
+}
+.admin-shell .ap-filters label:not(.adm-search) > input,
+.admin-shell .ap-dialog-fields label > input:not([type="checkbox"]):not([type="radio"]),
+.admin-shell .admin-management-dialog > label > input {
+  box-sizing: border-box;
+  height: var(--adm-control-h);
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--shop-text, #132b50);
+  font: 500 14px var(--font-sans), sans-serif;
+}
+.admin-shell .ap-filters label:not(.adm-search) > input:focus-visible,
+.admin-shell .ap-dialog-fields label > input:focus-visible,
+.admin-shell .admin-management-dialog > label > input:focus-visible,
+.admin-shell .admin-management-dialog > label > textarea:focus-visible,
+.admin-shell .ap-reason textarea:focus-visible {
+  outline: 2px solid var(--shop-primary, #087bf5);
+  outline-offset: 2px;
+  border-color: var(--shop-primary, #087bf5);
+}
+.admin-shell .admin-management-dialog > label > textarea,
+.admin-shell .ap-reason textarea {
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: 500 14px var(--font-sans), sans-serif;
+  color: var(--shop-text, #132b50);
+}
+.admin-shell .admin-management-dialog > .adm-select { margin: 0; }
+.admin-shell input:disabled,
+.admin-shell textarea:disabled { opacity: 0.6; cursor: not-allowed; }

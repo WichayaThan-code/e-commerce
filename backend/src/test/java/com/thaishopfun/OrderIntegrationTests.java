@@ -128,6 +128,7 @@ class OrderIntegrationTests {
         for (var t : List.of("merchant_order_confirmations", "order_item_reveal_logs", "order_financial_snapshots", "refund_status_history", "payment_status_history",
                 "payment_webhook_events", "payment_proofs", "refunds", "payments", "media_files", "shop_payment_gateways",
                 "order_status_history", "inventory_reservations",
+                "order_tag_assignments", "order_tags", "order_bulk_requests",
                 "promotion_usages", "order_items", "order_addresses")) jdbc.update("DELETE FROM " + t);
         ledger.deleteAll();
         jdbc.update("DELETE FROM orders");

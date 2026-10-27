@@ -1,19 +1,43 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  AlertTriangle, ChevronLeft, ChevronRight, Package, Search, Store, Truck, Wallet,
+  AlertTriangle, ChevronLeft, ChevronRight, Package, Search, Store, Truck, Wallet, X,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import { Skeleton } from "../components/feedback/Skeleton";
+import DatePicker from "../components/form/DatePicker";
+import FormField from "../components/form/FormField";
 import { formatBaht } from "../components/cart/cartFormat";
 import { buyerOrderApi, type OrderPage, type OrderSummary } from "../services/api";
 import "../styles/cart.css";
 import "../styles/checkout.css";
+import "../styles/form-fields.css";
 import "../styles/orders.css";
 
+const SEARCH_DEBOUNCE_MS = 400;
+
+/** Empty → clear q; single non-digit → hold; otherwise trimmed query. */
+function liveSearchQuery(draft: string): string | null {
+  const trimmed = draft.trim();
+  if (!trimmed) return "";
+  if (trimmed.length === 1 && !/^\d$/.test(trimmed)) return null;
+  return trimmed;
+}
+
 const PAGE_SIZE = 10;
+
+const PAYMENT_FILTERS = ["UNPAID", "PENDING", "PAID", "FAILED", "PARTIALLY_REFUNDED", "REFUNDED"] as const;
+const FULFILLMENT_FILTERS = ["UNFULFILLED", "PARTIAL", "FULFILLED", "RETURNED"] as const;
+const SORT_OPTIONS: { value: string; sort: string; direction: string }[] = [
+  { value: "placedAt-desc", sort: "placedAt", direction: "desc" },
+  { value: "placedAt-asc", sort: "placedAt", direction: "asc" },
+  { value: "grandTotal-desc", sort: "grandTotal", direction: "desc" },
+  { value: "grandTotal-asc", sort: "grandTotal", direction: "asc" },
+  { value: "paidAt-desc", sort: "paidAt", direction: "desc" },
+];
 
 /** Shopee/Lazada-style buckets → one backend status (API filters a single status). */
 const ORDER_TABS: { value: string; status: string; tone: string }[] = [
@@ -68,6 +92,7 @@ export default function MyOrdersPage() {
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
   const [searchDraft, setSearchDraft] = useState(params.get("q") ?? "");
+  const debouncedDraft = useDebouncedValue(searchDraft, SEARCH_DEBOUNCE_MS);
 
   const legacyStatus = params.get("status") ?? "";
   const tabFromLegacy = ORDER_TABS.find((row) => row.status && row.status === legacyStatus)?.value;
@@ -76,7 +101,43 @@ export default function MyOrdersPage() {
   const status = tab.status || (ORDER_TABS.some((row) => row.status === legacyStatus) ? "" : legacyStatus);
   const page = Math.max(0, Number(params.get("page") || 0) || 0);
   const q = (params.get("q") ?? "").trim();
+  const paymentStatus = params.get("paymentStatus") ?? "";
+  const fulfillmentStatus = params.get("fulfillmentStatus") ?? "";
+  const from = params.get("from") ?? "";
+  const to = params.get("to") ?? "";
+  const sortKey = params.get("sortKey") ?? "placedAt-desc";
+  const sortOpt = SORT_OPTIONS.find((row) => row.value === sortKey) ?? SORT_OPTIONS[0];
   const money = (value: unknown) => formatBaht(value as number, localeTag);
+
+  const setFilter = (patch: {
+    tab?: string;
+    page?: number;
+    q?: string;
+    paymentStatus?: string;
+    fulfillmentStatus?: string;
+    from?: string;
+    to?: string;
+    sortKey?: string;
+  }) => {
+    const next = new URLSearchParams();
+    const nextTab = patch.tab ?? tab.value;
+    const nextQ = patch.q ?? q;
+    const nextPayment = patch.paymentStatus ?? paymentStatus;
+    const nextFulfillment = patch.fulfillmentStatus ?? fulfillmentStatus;
+    const nextFrom = patch.from ?? from;
+    const nextTo = patch.to ?? to;
+    const nextSort = patch.sortKey ?? sortKey;
+    const nextPage = patch.page ?? 0;
+    if (nextTab) next.set("tab", nextTab);
+    if (nextQ.trim()) next.set("q", nextQ.trim());
+    if (nextPayment) next.set("paymentStatus", nextPayment);
+    if (nextFulfillment) next.set("fulfillmentStatus", nextFulfillment);
+    if (nextFrom) next.set("from", nextFrom);
+    if (nextTo) next.set("to", nextTo);
+    if (nextSort && nextSort !== "placedAt-desc") next.set("sortKey", nextSort);
+    if (nextPage > 0) next.set("page", String(nextPage));
+    setParams(next, { replace: true });
+  };
 
   useEffect(() => {
     setSearchDraft(q);
@@ -90,16 +151,43 @@ export default function MyOrdersPage() {
   }, [authLoading, user, navigate, location.search]);
 
   useEffect(() => {
+    const next = liveSearchQuery(debouncedDraft);
+    if (next === null) return;
+    if (next === q) return;
+    setFilter({ tab: tab.value, page: 0, q: next });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- apply debounced q only; avoid loops with URL sync
+  }, [debouncedDraft]);
+
+  useEffect(() => {
     if (authLoading || !user || cart.access === "blocked" || cart.access === "loading") return;
     let alive = true;
+    const controller = new AbortController();
     setLoading(true);
     setFailed(false);
-    buyerOrderApi.list({ status: status || undefined, page, size: PAGE_SIZE, q: q || undefined })
+    buyerOrderApi.list({
+      status: status || undefined,
+      page,
+      size: PAGE_SIZE,
+      q: q || undefined,
+      paymentStatus: paymentStatus || undefined,
+      fulfillmentStatus: fulfillmentStatus || undefined,
+      from: from || undefined,
+      to: to || undefined,
+      sort: sortOpt.sort,
+      direction: sortOpt.direction,
+      signal: controller.signal,
+    })
       .then((data) => { if (alive) setPageData(data); })
-      .catch(() => { if (alive) { setFailed(true); setPageData(null); } })
+      .catch((error: unknown) => {
+        if (!alive || controller.signal.aborted) return;
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error && typeof error === "object" && "name" in error && (error as { name?: string }).name === "AbortError") return;
+        setFailed(true);
+        setPageData(null);
+      })
       .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [authLoading, user?.id, status, page, q, cart.access, reload]);
+    return () => { alive = false; controller.abort(); };
+  }, [authLoading, user?.id, status, page, q, paymentStatus, fulfillmentStatus, from, to, sortOpt.sort, sortOpt.direction, cart.access, reload]);
 
   const totalItems = pageData?.totalItems ?? 0;
   const pageCount = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
@@ -113,18 +201,30 @@ export default function MyOrdersPage() {
       : tp(`orders.list.tabs.${row.value}`),
   })), [tp]);
 
-  const setFilter = (nextTab: string, nextPage = 0, nextQ = q) => {
-    const next = new URLSearchParams();
-    if (nextTab) next.set("tab", nextTab);
-    if (nextQ.trim()) next.set("q", nextQ.trim());
-    if (nextPage > 0) next.set("page", String(nextPage));
-    setParams(next, { replace: true });
+  const clearExtraFilters = () => {
+    setFilter({
+      tab: tab.value,
+      page: 0,
+      q,
+      paymentStatus: "",
+      fulfillmentStatus: "",
+      from: "",
+      to: "",
+      sortKey: "placedAt-desc",
+    });
   };
 
   const onSearch = (event: FormEvent) => {
     event.preventDefault();
-    setFilter(tab.value, 0, searchDraft);
+    setFilter({ tab: tab.value, page: 0, q: searchDraft });
   };
+
+  const clearSearch = () => {
+    setSearchDraft("");
+    setFilter({ tab: tab.value, page: 0, q: "" });
+  };
+
+  const hasExtraFilters = Boolean(paymentStatus || fulfillmentStatus || from || to || sortKey !== "placedAt-desc");
 
   if (cart.access === "blocked") {
     return (
@@ -162,7 +262,17 @@ export default function MyOrdersPage() {
                 placeholder={tp("orders.list.searchPlaceholder")}
                 aria-label={tp("orders.list.searchPlaceholder")}
               />
-              <button type="submit">{tp("orders.list.search")}</button>
+              {searchDraft ? (
+                <button
+                  type="button"
+                  className="orders-search-clear"
+                  onClick={clearSearch}
+                  aria-label={tp("orders.list.clearSearch")}
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
+              ) : null}
+              <button type="submit" className="orders-search-submit">{tp("orders.list.search")}</button>
             </form>
           </div>
 
@@ -174,11 +284,68 @@ export default function MyOrdersPage() {
                 role="tab"
                 aria-selected={tab.value === row.value}
                 className={`is-${row.tone}`}
-                onClick={() => setFilter(row.value, 0, q)}
+                onClick={() => setFilter({ tab: row.value, page: 0 })}
               >
                 {row.label}
               </button>
             ))}
+          </div>
+
+          <div className="orders-extra-filters" aria-label={tp("orders.filters.label")}>
+            <FormField label={tp("orders.filters.paymentStatus")} className="flush">
+              <select
+                value={paymentStatus}
+                onChange={(event) => setFilter({ paymentStatus: event.target.value, page: 0 })}
+                aria-label={tp("orders.filters.paymentStatus")}
+              >
+                <option value="">{tp("orders.all")}</option>
+                {PAYMENT_FILTERS.map((code) => (
+                  <option key={code} value={code}>{tp(`orders.list.paymentStatus.${code}`)}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label={tp("orders.filters.fulfillmentStatus")} className="flush">
+              <select
+                value={fulfillmentStatus}
+                onChange={(event) => setFilter({ fulfillmentStatus: event.target.value, page: 0 })}
+                aria-label={tp("orders.filters.fulfillmentStatus")}
+              >
+                <option value="">{tp("orders.all")}</option>
+                {FULFILLMENT_FILTERS.map((code) => (
+                  <option key={code} value={code}>{tp(`orders.filters.fulfillment.${code}`)}</option>
+                ))}
+              </select>
+            </FormField>
+            <DatePicker
+              className="orders-filter-date"
+              label={tp("orders.filters.from")}
+              value={from}
+              onChange={(value) => setFilter({ from: value, page: 0 })}
+              max={to || undefined}
+            />
+            <DatePicker
+              className="orders-filter-date"
+              label={tp("orders.filters.to")}
+              value={to}
+              onChange={(value) => setFilter({ to: value, page: 0 })}
+              min={from || undefined}
+            />
+            <FormField label={tp("orders.filters.sort")} className="flush">
+              <select
+                value={sortKey}
+                onChange={(event) => setFilter({ sortKey: event.target.value, page: 0 })}
+                aria-label={tp("orders.filters.sort")}
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{tp(`orders.filters.sortOptions.${opt.value}`)}</option>
+                ))}
+              </select>
+            </FormField>
+            {hasExtraFilters ? (
+              <button type="button" className="orders-empty-clear" onClick={clearExtraFilters}>
+                {tp("orders.filters.clear")}
+              </button>
+            ) : null}
           </div>
 
           <div className="orders-panel-body">
@@ -205,8 +372,20 @@ export default function MyOrdersPage() {
                 <Package />
                 <h2>{q ? tp("orders.list.searchEmpty") : tp("orders.empty")}</h2>
                 <p>{q ? tp("orders.list.searchEmptyHint") : tp("orders.list.emptyHint")}</p>
-                {q ? (
-                  <button type="button" className="orders-empty-clear" onClick={() => setFilter(tab.value, 0, "")}>
+                {q || hasExtraFilters ? (
+                  <button type="button" className="orders-empty-clear" onClick={() => {
+                    setSearchDraft("");
+                    setFilter({
+                      tab: tab.value,
+                      page: 0,
+                      q: "",
+                      paymentStatus: "",
+                      fulfillmentStatus: "",
+                      from: "",
+                      to: "",
+                      sortKey: "placedAt-desc",
+                    });
+                  }}>
                     {tp("orders.list.clearSearch")}
                   </button>
                 ) : (
@@ -287,7 +466,7 @@ export default function MyOrdersPage() {
                     <button
                       type="button"
                       disabled={displayPage <= 1}
-                      onClick={() => setFilter(tab.value, Math.max(0, page - 1), q)}
+                      onClick={() => setFilter({ page: Math.max(0, page - 1) })}
                       aria-label={tp("shops.pagePrev")}
                     >
                       <ChevronLeft />
@@ -297,7 +476,7 @@ export default function MyOrdersPage() {
                         type="button"
                         className={`num${displayPage === number ? " current" : ""}`}
                         key={number}
-                        onClick={() => setFilter(tab.value, number - 1, q)}
+                        onClick={() => setFilter({ page: number - 1 })}
                       >
                         {number}
                       </button>
@@ -305,7 +484,7 @@ export default function MyOrdersPage() {
                     <button
                       type="button"
                       disabled={displayPage >= pageCount}
-                      onClick={() => setFilter(tab.value, Math.min(pageCount - 1, page + 1), q)}
+                      onClick={() => setFilter({ page: Math.min(pageCount - 1, page + 1) })}
                       aria-label={tp("shops.pageNext")}
                     >
                       <ChevronRight />

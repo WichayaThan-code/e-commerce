@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { ApiError, type PlatformPage } from '../../services/api'
 import '../../styles/admin-platform.css'
+import '../../styles/admin-form-controls.css'
+import AdminSelect from './AdminSelect'
 
 export const PAGE_SIZES = [10, 20, 50, 100]
 
@@ -90,9 +92,8 @@ export function Pager({ page, size, totalItems, totalPages, itemCount, loading =
     <footer className="ap-pager">
       <div>
         <span>{t('adminPlatform.common.perPage')}</span>
-        <select aria-label={t('adminPlatform.common.perPage')} value={size} onChange={event => onSize(Number(event.target.value))}>
-          {PAGE_SIZES.map(value => <option key={value} value={value}>{value}</option>)}
-        </select>
+        <AdminSelect compact className="adm-page-size" label={t('adminPlatform.common.perPage')} value={String(size)} onChange={value => onSize(Number(value))}
+          options={PAGE_SIZES.map(value => ({ value: String(value), label: String(value) }))} />
       </div>
       <span className="num">{t('adminPlatform.common.range', { start: formatCount(start), end: formatCount(end), total: formatCount(totalItems) })}</span>
       <nav aria-label={t('adminPlatform.common.pagination')}>

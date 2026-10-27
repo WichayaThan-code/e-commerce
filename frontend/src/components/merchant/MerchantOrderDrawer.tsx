@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ConfigurationSummary from "../cart/ConfigurationSummary";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import ConfirmDialog from "../form/ConfirmDialog";
+import FormTextarea from "../form/FormTextarea";
 import { LoadError, Skeleton } from "../feedback/Skeleton";
 import { formatBaht } from "../cart/cartFormat";
+import { FEATURES } from "../../config/features";
 import { usePermissions } from "../../hooks/usePermissions";
 import { usePublicTranslation } from "../../hooks/usePublicTranslation";
 import {
@@ -17,10 +20,19 @@ import {
   type ShopCarriersResponse,
   type TransitionBody,
 } from "../../services/api";
+import {
+  setOrderTags,
+  updateInternalNote,
+  type OrderTag,
+} from "../../services/merchantOrderExtensions";
 import "../../styles/order-management.css";
 import AuthImage from "./AuthImage";
 import OrderPaymentPanel from "./OrderPaymentPanel";
 import OrderRefundPanel, { showsRefundPanel, type RefundDialogRequest } from "./OrderRefundPanel";
+import OrderTagChips from "./OrderTagChips";
+import OrderTagPicker from "./OrderTagPicker";
+import SearchableSelect from "../SearchableSelect";
+import { labelOf, uniqueOptions, valueOf } from "./selectOptions";
 import {
   bangkokNowInput,
   formatBangkokDateTime,
@@ -31,13 +43,16 @@ import {
   statusTone,
 } from "./orderFormat";
 
-type Props = {
+type DrawerProps = {
   shopId: number;
   orderId: string;
   onClose: () => void;
-  /** order changed on the server: the list should reload */
   onChanged: () => void;
   notify: (text: string, tone?: "ok" | "fail") => void;
+  /** Shop tag catalog (cached by parent). */
+  shopTags?: OrderTag[];
+  onShopTagsChanged?: (tags: OrderTag[]) => void;
+  onCreateShopTag?: (name: string, color: string | null) => Promise<OrderTag | null>;
 };
 
 type ActionMeta = { endpoint?: string; permission: string; tone?: "primary" | "danger" };
@@ -69,7 +84,15 @@ function actionLabelKey(action: AllowedTransition) {
     : `orderManagement.actions.${action.action}`;
 }
 
-export default function MerchantOrderDrawer({ shopId, orderId, onClose, onChanged, notify }: Props) {
+export default function MerchantOrderDrawer({
+  shopId,
+  orderId,
+  onClose,
+  onChanged,
+  notify,
+  shopTags = [],
+  onCreateShopTag,
+}: DrawerProps) {
   const { t } = useTranslation("merchant");
   const { localeTag } = usePublicTranslation();
   const { canInShop, deniedTitle } = usePermissions();
@@ -78,6 +101,10 @@ export default function MerchantOrderDrawer({ shopId, orderId, onClose, onChange
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [timeline, setTimeline] = useState<OrderTimelineEntry[]>([]);
   const [transitions, setTransitions] = useState<AllowedTransitions | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteBusy, setNoteBusy] = useState(false);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [tagBusy, setTagBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -106,6 +133,7 @@ export default function MerchantOrderDrawer({ shopId, orderId, onClose, onChange
     try {
       const detail = await merchantOrderApi.get(shopId, orderId);
       setOrder(detail);
+      setNoteDraft(detail.internalNote ?? "");
       await loadAux();
     } catch (caught) {
       setError(orderErrorMessage(t, caught));
@@ -142,6 +170,7 @@ export default function MerchantOrderDrawer({ shopId, orderId, onClose, onChange
 
   const afterChange = useCallback((next: OrderDetail) => {
     setOrder(next);
+    setNoteDraft(next.internalNote ?? "");
     onChanged();
     void loadAux();
   }, [onChanged, loadAux]);
@@ -150,6 +179,45 @@ export default function MerchantOrderDrawer({ shopId, orderId, onClose, onChange
     onChanged();
     void loadAll();
   }, [onChanged, loadAll]);
+
+  const saveInternalNote = async () => {
+    if (!order || noteBusy) return;
+    setNoteBusy(true);
+    try {
+      const result = await updateInternalNote(shopId, order.id, {
+        internalNote: noteDraft.trim() ? noteDraft.trim() : null,
+        expectedVersion: order.version ?? 0,
+      });
+      afterChange({ ...order, internalNote: result.internalNote, version: result.version });
+      notify(t("orderManagement.note.saved"));
+    } catch (caught) {
+      const message = orderErrorMessage(t, caught);
+      notify(message, "fail");
+      if (isStaleOrderError(caught)) reloadStale();
+    } finally {
+      setNoteBusy(false);
+    }
+  };
+
+  const saveOrderTags = async (tagIds: string[]) => {
+    if (!order || tagBusy) return;
+    setTagBusy(true);
+    try {
+      const result = await setOrderTags(shopId, order.id, {
+        tagIds,
+        expectedVersion: order.version ?? 0,
+      });
+      afterChange({ ...order, tags: result.tags, version: result.version });
+      setTagPickerOpen(false);
+      notify(t("orderManagement.tags.saved"));
+    } catch (caught) {
+      const message = orderErrorMessage(t, caught);
+      notify(message, "fail");
+      if (isStaleOrderError(caught)) reloadStale();
+    } finally {
+      setTagBusy(false);
+    }
+  };
 
   const version = transitions?.version ?? order?.version;
   const actions = useMemo(
@@ -224,6 +292,7 @@ export default function MerchantOrderDrawer({ shopId, orderId, onClose, onChange
     () => (carrierData ? carrierData.carriers.filter((c) => c.active && (!carrierData.restricted || c.enabled)) : []),
     [carrierData],
   );
+  const carrierOptions = uniqueOptions(carriers.map((carrier) => ({ value: carrier.code, label: carrierLabel(carrier) })));
   const carrierName = (code?: string | null) => {
     if (!code) return "—";
     const hit = carrierData?.carriers.find((c) => c.code === code);
@@ -253,6 +322,14 @@ export default function MerchantOrderDrawer({ shopId, orderId, onClose, onChange
               </p>
             )}
             {order && awaiting && <p><span className="om-badge warn">{t("orderManagement.awaitingBadge")}</span></p>}
+            {FEATURES.orderTagsApi && order && !awaiting ? (
+              <div className="om-drawer-tags">
+                <OrderTagChips tags={order.tags} />
+                <button type="button" className="om-tag-edit" disabled={tagBusy} onClick={() => setTagPickerOpen(true)}>
+                  {t("orderManagement.tags.editOrder")}
+                </button>
+              </div>
+            ) : null}
           </div>
           <button type="button" className="om-drawer-close" aria-label={t("orderManagement.drawer.close")} onClick={onClose}><X /></button>
         </header>
@@ -291,6 +368,7 @@ export default function MerchantOrderDrawer({ shopId, orderId, onClose, onChange
                           <div>
                             <b>{item.productName}</b>
                             {item.optionLabel && <small>{item.optionLabel}</small>}
+                            <ConfigurationSummary configuration={item.configuration} localeTag={localeTag} />
                             {item.skuCode && <small className="num">{item.skuCode}</small>}
                           </div>
                           <span className="num">{money(item.unitPrice)} × {item.quantity}</span>
@@ -351,6 +429,34 @@ export default function MerchantOrderDrawer({ shopId, orderId, onClose, onChange
                       <p className="om-note-text">{order.buyerNote}</p>
                     </section>
                   )}
+
+                  {FEATURES.orderNotesApi && !awaiting ? (
+                    <section className="om-section">
+                      <h3>{t("orderManagement.note.internalLabel")}</h3>
+                      <FormTextarea
+                        label={t("orderManagement.note.internalLabel")}
+                        value={noteDraft}
+                        maxLength={2000}
+                        rows={4}
+                        disabled={noteBusy}
+                        onChange={(event) => setNoteDraft(event.target.value)}
+                      />
+                      <p className="om-muted"><span className="num">{noteDraft.length}</span>/2000</p>
+                      <div className="om-row-actions">
+                        <button type="button" className="om-btn primary" disabled={noteBusy} onClick={() => void saveInternalNote()}>
+                          {t("orderManagement.note.save")}
+                        </button>
+                        <button
+                          type="button"
+                          className="om-btn"
+                          disabled={noteBusy}
+                          onClick={() => setNoteDraft(order.internalNote ?? "")}
+                        >
+                          {t("orderManagement.note.revert")}
+                        </button>
+                      </div>
+                    </section>
+                  ) : null}
 
                   <OrderPaymentPanel
                     shopId={shopId}
@@ -440,17 +546,24 @@ export default function MerchantOrderDrawer({ shopId, orderId, onClose, onChange
             )}
             {needsTracking && (
               <>
-                <label className="om-field">
-                  <span>{t("orderManagement.drawer.carrier")} *</span>
-                  {carriers.length > 0 ? (
-                    <select value={carrierCode} onChange={(e) => setCarrierCode(e.target.value)}>
-                      <option value="">{t("orderManagement.drawer.chooseCarrier")}</option>
-                      {carriers.map((carrier) => <option key={carrier.code} value={carrier.code}>{carrierLabel(carrier)}</option>)}
-                    </select>
-                  ) : (
+                {carriers.length > 0 ? (
+                  <div className="om-field">
+                    <span>{t("orderManagement.drawer.carrier")} *</span>
+                    <SearchableSelect
+                      compact
+                      label={t("orderManagement.drawer.carrier")}
+                      options={carrierOptions.map((opt) => opt.label)}
+                      value={labelOf(carrierOptions, carrierCode)}
+                      placeholder={t("orderManagement.drawer.chooseCarrier")}
+                      onChange={(picked) => setCarrierCode(valueOf(carrierOptions, picked))}
+                    />
+                  </div>
+                ) : (
+                  <label className="om-field">
+                    <span>{t("orderManagement.drawer.carrier")} *</span>
                     <input value={carrierCode} onChange={(e) => setCarrierCode(e.target.value.toUpperCase())} />
-                  )}
-                </label>
+                  </label>
+                )}
                 <label className="om-field">
                   <span>{t("orderManagement.drawer.tracking")} *</span>
                   <input maxLength={64} value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} />
@@ -471,6 +584,19 @@ export default function MerchantOrderDrawer({ shopId, orderId, onClose, onChange
           </div>
         </ConfirmDialog>
       )}
+      {FEATURES.orderTagsApi && tagPickerOpen && order ? (
+        <OrderTagPicker
+          tags={shopTags}
+          selectedIds={(order.tags ?? []).map((tag) => tag.id)}
+          busy={tagBusy}
+          onClose={() => setTagPickerOpen(false)}
+          onSave={(tagIds) => void saveOrderTags(tagIds)}
+          onCreate={async (name, color) => {
+            if (!onCreateShopTag) return null;
+            return onCreateShopTag(name, color);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

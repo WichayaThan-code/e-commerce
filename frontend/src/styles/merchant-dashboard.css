@@ -16,6 +16,31 @@
 .merchant-notify-panel ul { margin: 0; padding: 0; list-style: none; max-height: 120px; overflow: auto; }
 .merchant-notify-panel li { padding: 6px 0; border-top: 1px solid #f3d5cc; color: #9d1230; font-size: 12px; }
 .merchant-notify-panel article > button { height: 36px; border: 0; border-radius: 8px; background: #1268d7; color: #fff; font-weight: 700; cursor: pointer; }
+.merchant-notify-panel > header .merchant-notify-read-all{border:0;background:none;color:#087bf5;font:600 12px var(--font-sans);cursor:pointer;padding:4px 0}
+.merchant-notify-panel > header .merchant-notify-read-all:focus-visible{outline:2px solid var(--focus-ring,#087bf5);outline-offset:2px}
+.merchant-notify-import{margin-bottom:10px}
+.merchant-notify-import > h3,.merchant-notify-feed > h3{margin:0 0 8px;font:700 12px var(--font-sans);color:#5d7694;text-transform:uppercase;letter-spacing:.02em}
+.merchant-notify-feed{max-height:min(420px,55vh);overflow:auto;margin:0 -4px;padding:0 4px}
+.merchant-notify-list{list-style:none;margin:0;padding:0}
+.merchant-notify-list > li{border-top:1px solid #e8f0f8}
+.merchant-notify-list > li:first-child{border-top:0}
+.merchant-notify-list button{width:100%;display:grid;grid-template-columns:10px 28px 1fr;gap:10px;align-items:start;padding:10px 4px;border:0;background:transparent;text-align:left;cursor:pointer;font:inherit;color:#08245d;border-radius:8px}
+.merchant-notify-list button:hover{background:#f3f8fd}
+.merchant-notify-list button:focus-visible{outline:2px solid var(--focus-ring,#087bf5);outline-offset:1px}
+.merchant-notify-dot{width:8px;height:8px;border-radius:50%;background:#087bf5;margin-top:6px;display:block}
+.merchant-notify-dot.spacer{background:transparent}
+.merchant-notify-icon{width:28px;height:28px;border-radius:8px;background:#eef5fc;color:#087bf5;display:grid;place-items:center;margin-top:1px}
+.merchant-notify-icon svg{width:15px;height:15px}
+.merchant-notify-body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.merchant-notify-body b{font:600 13px/1.4 var(--font-sans)}
+.merchant-notify-body small{color:#5d7694;font:500 11px var(--font-sans)}
+.merchant-notify-body .num{font-variant-numeric:tabular-nums}
+.merchant-notify-skeleton{display:grid;gap:10px;padding:8px 0}
+.merchant-notify-skeleton span{display:block;height:44px;border-radius:8px;background:linear-gradient(90deg,#eef4fb 0%,#f7fafd 50%,#eef4fb 100%);background-size:200% 100%;animation:merchant-notify-shimmer 1.2s linear infinite}
+@keyframes merchant-notify-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.merchant-notify-more{width:100%;margin-top:8px;height:36px;border:1px solid #d7e6f5;border-radius:8px;background:#fff;color:#087bf5;font:700 12px var(--font-sans);cursor:pointer}
+.merchant-notify-more:disabled{opacity:.6;cursor:wait}
+.merchant-notify-more:focus-visible{outline:2px solid var(--focus-ring,#087bf5);outline-offset:2px}
 
 /* Shared card-header save button (MerchantSaveButton) — same values as .general-card>header>button (settings.css, ?????????) */
 .merchant-save-btn{height:40px;padding:0 20px;border:0;border-radius:6px;background:#087bf5;color:#fff;font:700 12px var(--font-sans);display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:none;white-space:nowrap;cursor:pointer}

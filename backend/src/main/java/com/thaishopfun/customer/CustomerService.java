@@ -200,9 +200,12 @@ public class CustomerService {
         customers.saveAndFlush(customer);
         boolean anyShipping = addressRequests.stream().anyMatch(a -> Boolean.TRUE.equals(a.defaultShipping()));
         boolean anyBilling = addressRequests.stream().anyMatch(a -> Boolean.TRUE.equals(a.defaultBilling()));
+        // one request → strictly increasing created times so list order = request order (Instant.now() can tie on Windows)
+        var createdBase = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         for (int i = 0; i < addressRequests.size(); i++) {
             var a = addressRequests.get(i);
             var address = new ShopCustomerAddress(customer.getId());
+            address.initCreatedDateTime(createdBase.plus(i, java.time.temporal.ChronoUnit.MICROS));
             applyAddress(address, a);
             address.setDefaultShipping(anyShipping ? Boolean.TRUE.equals(a.defaultShipping()) : i == 0);
             address.setDefaultBilling(anyBilling ? Boolean.TRUE.equals(a.defaultBilling()) : i == 0);
@@ -536,9 +539,12 @@ public class CustomerService {
         }
         boolean anyShipping = requested.stream().anyMatch(a -> Boolean.TRUE.equals(a.defaultShipping()));
         boolean anyBilling = requested.stream().anyMatch(a -> Boolean.TRUE.equals(a.defaultBilling()));
+        // strictly after the soft-deleted rows and in request order (see create)
+        var createdBase = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         for (int i = 0; i < requested.size(); i++) {
             var a = requested.get(i);
             var address = new ShopCustomerAddress(customer.getId());
+            address.initCreatedDateTime(createdBase.plus(i, java.time.temporal.ChronoUnit.MICROS));
             applyAddress(address, a);
             address.setDefaultShipping(anyShipping ? Boolean.TRUE.equals(a.defaultShipping()) : i == 0);
             address.setDefaultBilling(anyBilling ? Boolean.TRUE.equals(a.defaultBilling()) : i == 0);
@@ -610,7 +616,7 @@ public class CustomerService {
             possible == null || possible.isEmpty() ? null : possible);
     }
 
-    static String maskName(String name) {
+    public static String maskName(String name) {
         if (name == null || name.isBlank()) return name;
         var cps = name.trim().codePoints().toArray();
         return new String(cps, 0, 1) + "***";

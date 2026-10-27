@@ -27,6 +27,7 @@ import MerchantBell from "../components/merchant/MerchantBell";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import MerchantShopMenu from "../components/MerchantShopMenu";
+import MerchantLogoutButton from "../components/merchant/MerchantLogoutButton";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
@@ -86,7 +87,7 @@ export default function ReportsPage() {
 
   return <main className="merchant-shell pm-shell report-shell">
     <header className="merchant-topbar"><Brand /><MerchantTopbarSearch /><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
-    <aside className="merchant-sidebar pm-sidebar report-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon, label, href, badge]) => <a className={label === "รายงาน" ? "active" : ""} href={href} key={label} onClick={(event) => { if ((href as string) === "#") { event.preventDefault(); notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`); } }}><Icon />{label}{badge && <i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown /><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br />ได้มากกว่าเดิม</p><button onClick={() => notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp />ศูนย์ช่วยเหลือ</a><button onClick={() => notify("กำลังติดต่อทีมงาน")}><Headphones />ติดต่อทีมงาน</button></div></aside>
+    <aside className="merchant-sidebar pm-sidebar report-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon, label, href, badge]) => <a className={label === "รายงาน" ? "active" : ""} href={href} key={label} onClick={(event) => { if ((href as string) === "#") { event.preventDefault(); notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`); } }}><Icon />{label}{badge && <i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown /><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br />ได้มากกว่าเดิม</p><button onClick={() => notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp />ศูนย์ช่วยเหลือ</a><button onClick={() => notify("กำลังติดต่อทีมงาน")}><Headphones />ติดต่อทีมงาน</button><MerchantLogoutButton /></div></aside>
 
     <section className="pm-content report-content">
       <header className="pm-heading report-heading"><div><h1><BarChart3 />รายงาน</h1><p>ดูภาพรวมธุรกิจของคุณ วิเคราะห์ยอดขาย และติดตามการเติบโต</p></div><div className="report-actions"><button onClick={() => { const next = range.startsWith("1 ") ? "1 ส.ค. 2026 - 31 ส.ค. 2026" : "1 ก.ย. 2026 - 12 ก.ย. 2026"; setRange(next); notify(`เปลี่ยนช่วงวันที่เป็น ${next}`); }}><CalendarDays /><span>{range}</span><ChevronDown /></button><button disabled={!canExport} title={deniedTitle(canExport)} className="primary" onClick={download}><Download />ดาวน์โหลดรายงาน</button></div></header>

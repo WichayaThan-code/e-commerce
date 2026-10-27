@@ -1,0 +1,64 @@
+/* Merchant theme editor (/merchant/store?tab=theme, all templates): form controls follow the
+   /merchant/products/new pattern (product-management.css .product-form-card). Editor only;
+   storefront CSS is untouched. */
+.store-theme-card .form-field,
+.store-theme-card .theme-block .form-field { font-size: 13px; font-weight: 700; color: #132b50; margin-bottom: 17px; }
+.store-theme-card .form-label { margin: 0 0 6px; }
+.store-theme-card .form-control { height: 51px; border: 1px solid #dce2eb; border-radius: 10px; background: #fff; }
+.store-theme-card .form-control input,
+.store-theme-card .form-control select { font-size: 14px; font-weight: 400; color: #132b50; }
+.store-theme-card .form-control input::placeholder,
+.store-theme-card .form-control textarea::placeholder { color: #8793a3; }
+.store-theme-card .form-control-area { height: auto; }
+.store-theme-card .form-control-area textarea { min-height: 116px; font-weight: 400; }
+.store-theme-card .form-control:focus-within { border-color: #1671de; box-shadow: var(--focus-ring); }
+
+/* Dropdowns: default SearchableSelect look (products/new หมวดหมู่) — no size/colour overrides. */
+.store-theme-card .theme-select .searchable-select-wrap,
+.store-theme-card .theme-token-select .searchable-select-wrap { margin-bottom: 17px; }
+.store-theme-card .searchable-dropdown { z-index: 30; }
+/* In list rows the select keeps its full look; only the row adapts. */
+.store-theme-card .theme-select-inline { min-width: 0; }
+.store-theme-card .theme-select-inline .searchable-select-wrap { margin-bottom: 0; }
+.store-theme-card .theme-select-inline .select-label {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.store-theme-card .theme-section-row { grid-template-columns: 24px minmax(0, 1fr) minmax(170px, 230px) auto auto; }
+.store-theme-card .theme-section-row.theme-blocks-row { grid-template-columns: 24px minmax(0, 1fr) minmax(170px, 230px) auto auto; }
+@media (max-width: 760px) {
+  .store-theme-card .theme-section-row,
+  .store-theme-card .theme-section-row.theme-blocks-row { grid-template-columns: 24px minmax(0, 1fr) auto; }
+  .store-theme-card .theme-section-row .theme-select-inline { grid-column: 2 / -1; }
+}
+/* AG4 content editors */
+.store-theme-card .theme-content .form-field input,
+.store-theme-card .theme-content .form-field select { min-height: 0; }
+.store-theme-card .theme-content .form-field textarea { min-height: 116px; }
+
+/* Media picker row matches a 51px products/new input */
+.store-theme-card .theme-media-field .theme-media-actions { min-height: 51px; padding: 6px 8px 6px 6px; border-radius: 10px; }
+.store-theme-card .theme-media-field .theme-media-actions > .theme-banner-add,
+.store-theme-card .theme-media-field .theme-media-actions > .theme-banner-remove { min-height: 36px; }
+.store-theme-card .theme-media-filename { font-size: 14px; font-weight: 400; }
+
+/* Toggles: products/new uses the same ToggleSwitch; keep its label text weight */
+.store-theme-card .toggle-switch { margin-bottom: 0; }
+.store-theme-card .form-field-error { font-weight: 600; }
+/* Single-box inputs (like products/new): the .form-control wrapper owns border + focus ring; the
+   inner field has no border/outline/ring/background/radius. Fixes the double box caused by the
+   global tokens.css ":focus-visible { box-shadow: focus-ring }" on the inner <input>. */
+.store-theme-card .form-control > input:not(.theme-color-swatch),
+.store-theme-card .form-control > select,
+.store-theme-card .form-control > textarea {
+  height: 100%; margin: 0; border: 0; border-radius: 0; outline: none; box-shadow: none; background: transparent;
+}
+.store-theme-card .form-control > input:not(.theme-color-swatch):focus,
+.store-theme-card .form-control > input:not(.theme-color-swatch):focus-visible,
+.store-theme-card .form-control > select:focus,
+.store-theme-card .form-control > select:focus-visible,
+.store-theme-card .form-control > textarea:focus,
+.store-theme-card .form-control > textarea:focus-visible { outline: none; box-shadow: none; border: 0; }
+.store-theme-card .form-control-area > textarea { height: auto; border-radius: 10px; }
+.store-theme-card .form-control input.theme-color-swatch:focus-visible { box-shadow: none; outline: 2px solid #1671de; outline-offset: 2px; }
+.store-theme-card .form-control:has([aria-invalid="true"]) { border-color: #e8a477; background: var(--color-warning-bg); }
+.store-theme-card .form-control:focus-within { border-color: #1671de; box-shadow: var(--focus-ring); }

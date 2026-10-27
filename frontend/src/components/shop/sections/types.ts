@@ -1,5 +1,5 @@
 import type { ProductSort, PublicProduct, PublicShop } from "../../../services/api";
-import type { SectionConfig, ThemeConfig } from "../../../theme/shopTheme";
+import type { LayoutBlock, SectionConfig, ThemeConfig } from "../../../theme/shopTheme";
 
 export type ProductLoadState = "loading" | "error" | "ok";
 
@@ -52,6 +52,14 @@ export type ShopSectionProps = {
   section: SectionConfig;
   products: PublicProduct[];
   catalog: ShopCatalogControls;
+  preview?: boolean;
+};
+
+/** AG4 content blocks (STEPS, FEATURE, GALLERY, SOCIAL, RICH_TEXT) receive their block (and its `content`) directly. */
+export type ShopNewBlockProps = {
+  shop: PublicShop;
+  config: ThemeConfig;
+  block: LayoutBlock;
   preview?: boolean;
 };
 

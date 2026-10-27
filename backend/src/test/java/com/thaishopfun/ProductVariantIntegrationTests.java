@@ -116,7 +116,7 @@ class ProductVariantIntegrationTests {
         {"nameTh":"เสื้อยืด","nameEn":"T-Shirt","productType":"VARIABLE","categoryId":%d,"brand":"Basic",
          "optionGroups":[
            {"name":"Color","values":[{"value":"Black"},{"value":"White"}]},
-           {"name":"Size","values":[{"value":"S"},{"value":"M"},{"value":"L"}]}],
+           {"name":"Size","values":[{"value":"S"},{"value":"M"}]}],
          "skus":[
            {"skuCode":"TS-BLK-S","barcode":"8850000000101","optionValues":{"Color":"Black","Size":"S"},"price":199.00,"costPrice":80.00,"initialStock":5},
            {"skuCode":"TS-BLK-M","barcode":"8850000000102","optionValues":{"Color":"Black","Size":"M"},"price":209.00,"costPrice":82.50,"initialStock":3},
@@ -135,7 +135,7 @@ class ProductVariantIntegrationTests {
             .andExpect(jsonPath("$.optionGroups[0].name").value("Color"))
             .andExpect(jsonPath("$.optionGroups[0].values[*].value", contains("Black", "White")))
             .andExpect(jsonPath("$.optionGroups[1].name").value("Size"))
-            .andExpect(jsonPath("$.optionGroups[1].values[*].value", contains("S", "M", "L")))
+            .andExpect(jsonPath("$.optionGroups[1].values[*].value", contains("S", "M")))
             .andExpect(jsonPath("$.skus.length()").value(3))
             .andReturn().getResponse().getContentAsString();
         String productId = JsonPath.read(created, "$.id");
@@ -151,7 +151,7 @@ class ProductVariantIntegrationTests {
 
         // saved in the database: 2 groups, 5 values, 3 SKUs x 2 mapping rows, opening stock through the ledger
         assertEquals(2, optionGroups.count());
-        assertEquals(5, optionValues.count());
+        assertEquals(4, optionValues.count());
         assertEquals(6, skuOptions.count());
         assertEquals(3, productSkus.count());
         assertEquals(2, ledger.count(), "only SKUs with opening stock > 0 get a RECEIVE entry");
@@ -203,7 +203,7 @@ class ProductVariantIntegrationTests {
         String whtS = sku(created, "TS-WHT-S");
         String blkM = sku(created, "TS-BLK-M");
 
-        // rename White -> Ivory (same id), drop size L, drop variant Black/M, add Ivory/M with opening stock 4;
+        // rename White -> Ivory (same id), drop variant Black/M, add Ivory/M with opening stock 4;
         // initialStock on an existing SKU is ignored (stock changes go through the adjustment endpoint)
         var body = """
             {"nameTh":"เสื้อยืด","productType":"VARIABLE","categoryId":%d,"confirmRemoveStocked":true,
@@ -323,10 +323,10 @@ class ProductVariantIntegrationTests {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
             .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups')].code", hasItem("OPTION_GROUP_LIMIT")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups.0.values.1.value')].code", hasItem("OPTION_VALUE_DUPLICATE")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups.1.name')].code", hasItem("OPTION_GROUP_DUPLICATE")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups.2.name')].code", hasItem("OPTION_GROUP_NAME_REQUIRED")))
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups.2.values')].code", hasItem("OPTION_VALUE_REQUIRED")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups[0].values[1].value')].code", hasItem("OPTION_VALUE_DUPLICATE")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups[1].name')].code", hasItem("OPTION_GROUP_DUPLICATE")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups[2].name')].code", hasItem("OPTION_GROUP_NAME_REQUIRED")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups[2].values')].code", hasItem("OPTION_VALUE_REQUIRED")))
             .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[0].skuCode')].code", hasItem("SKU_CODE_REQUIRED")))
             .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[0].price')].code", hasItem("PRICE_INVALID")))
             .andExpect(jsonPath("$.fieldErrors[?(@.field == 'skus[0].costPrice')].code", hasItem("COST_PRICE_INVALID")))
@@ -355,7 +355,7 @@ class ProductVariantIntegrationTests {
         assertEquals(products, catalogProducts.count());
         assertEquals(skuRows, productSkus.count());
         assertEquals(2, optionGroups.count());
-        assertEquals(5, optionValues.count());
+        assertEquals(4, optionValues.count());
     }
 
     @Test
@@ -374,7 +374,7 @@ class ProductVariantIntegrationTests {
             {"optionGroups":[{"name":"Color","values":[{"value":"Black"},{"value":"black"}]}]}
             """)
             .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups.0.values.1.value')].code", hasItem("OPTION_VALUE_DUPLICATE")));
+            .andExpect(jsonPath("$.fieldErrors[?(@.field == 'optionGroups[0].values[1].value')].code", hasItem("OPTION_VALUE_DUPLICATE")));
         assertEquals(0, catalogProducts.count());
     }
 

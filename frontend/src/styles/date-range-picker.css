@@ -1,0 +1,67 @@
+.date-range-picker .date-range-trigger-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.date-range-picker .date-range-trigger-row .date-picker-trigger {
+  margin-top: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.date-range-clear-btn {
+  flex: none;
+  width: 36px;
+  height: 51px;
+  border: 1px solid #dce2eb;
+  border-radius: 10px;
+  background: #fff;
+  color: #8593a5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.date-range-clear-btn:hover {
+  border-color: #8eb6eb;
+  color: #0878f5;
+}
+
+.date-range-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 8px;
+}
+
+.date-range-presets button {
+  height: 28px;
+  border: 1px solid #dce2eb;
+  border-radius: 999px;
+  background: #fff;
+  color: #132b50;
+  padding: 0 10px;
+  font: 600 11px var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  cursor: pointer;
+}
+
+.date-range-presets button:hover {
+  border-color: #0878f5;
+  color: #0878f5;
+}
+
+.date-picker-day.in-range {
+  background: color-mix(in srgb, var(--shop-primary, #087bf5) 12%, #fff);
+  border-radius: 0;
+}
+
+.date-picker-day.range-start,
+.date-picker-day.range-end,
+.date-picker-day.selected {
+  background: var(--shop-primary, #087bf5);
+  color: #fff;
+  border-radius: 8px;
+}

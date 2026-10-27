@@ -14,7 +14,11 @@ public final class CartDtos {
 
     // ---- buyer requests ----
     /** skuId = the chosen variant; quantity default 1; capToAvailable: add what fits instead of 409. */
-    public record AddItemRequest(UUID skuId, Integer quantity, Boolean capToAvailable) {}
+    public record AddItemRequest(UUID skuId, Integer quantity, Boolean capToAvailable,
+                                 /** V43 optional: product-configurator selections (null = normal line, unchanged behaviour). */
+                                 ConfigurationRequest configuration) {}
+    /** V43: selections as sent to the public quote API; version = configurator version the buyer saw (optional, 409 when stale). */
+    public record ConfigurationRequest(Map<String, Object> selections, Integer version) {}
     /** Any subset: quantity (absolute), selected, skuId (switch to another variant of the same product). */
     public record UpdateItemRequest(Integer quantity, Boolean selected, UUID skuId) {}
     public record ItemIdsRequest(List<UUID> itemIds) {}
@@ -72,7 +76,9 @@ public final class CartDtos {
         int availableQuantity,
         int maxQuantity,
         /** OK | PRICE_CHANGED | INSUFFICIENT_STOCK | OUT_OF_STOCK | PRODUCT_UNAVAILABLE */
-        String status
+        String status,
+        /** V43: configurator snapshot (labels + price breakdown); omitted for normal lines. */
+        @JsonInclude(JsonInclude.Include.NON_NULL) Map<String, Object> configuration
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

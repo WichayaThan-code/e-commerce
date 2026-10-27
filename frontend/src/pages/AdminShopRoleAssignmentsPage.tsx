@@ -13,6 +13,8 @@ import {
 } from '../services/api'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-role-assignments.css'
+import '../styles/admin-form-controls.css'
+import AdminSelect from '../components/admin/AdminSelect'
 
 const errorText = (error: unknown) => error instanceof ApiError ? error.message : 'โหลดข้อมูลไม่สำเร็จ'
 const fullName = (member: Pick<AdminShopRoleMember, 'firstName' | 'lastName'>) => `${member.firstName} ${member.lastName}`.trim()
@@ -137,27 +139,15 @@ export default function AdminShopRoleAssignmentsPage() {
       <section className="role-assignment-card">
         <h2>กำหนดบทบาทให้ผู้ใช้</h2>
         <form onSubmit={assign}>
-          <label>ร้านค้า
-            <select value={shopId} onChange={event => { setShopId(event.target.value); setUserId('') }} required>
-              <option value="">เลือกร้านค้า</option>
-              {shops.map(shop => <option key={shop.shopId} value={shop.shopId}>{shop.shopName} · #{shop.shopId} · {shop.status}</option>)}
-            </select>
-          </label>
+          <AdminSelect required label="ร้านค้า" placeholder="เลือกร้านค้า" value={shopId} onChange={value => { setShopId(value); setUserId('') }}
+            options={shops.map(shop => ({ value: String(shop.shopId), label: `${shop.shopName} · #${shop.shopId} · ${shop.status}` }))}/>
           <label>ค้นหาผู้ใช้
-            <span className="role-assignment-search"><Search/><input value={userQuery} onChange={event => setUserQuery(event.target.value)} placeholder="ชื่อ อีเมล หรือเบอร์โทร"/></span>
+            <span className="role-assignment-search adm-search"><Search/><input value={userQuery} onChange={event => setUserQuery(event.target.value)} placeholder="ชื่อ อีเมล หรือเบอร์โทร"/></span>
           </label>
-          <label>ผู้ใช้
-            <select value={userId} onChange={event => setUserId(event.target.value)} required>
-              <option value="">เลือกผู้ใช้</option>
-              {users?.items.map(candidate => <option key={candidate.id} value={candidate.id}>{`${candidate.firstName} ${candidate.lastName}`.trim()} · {candidate.email}</option>)}
-            </select>
-          </label>
-          <label>role ร้านค้า
-            <select value={roleCode} onChange={event => setRoleCode(event.target.value)} required>
-              <option value="">เลือก role</option>
-              {storeRoles.map(role => <option key={role.code} value={role.code}>{role.nameTh ?? role.code} · {role.code}</option>)}
-            </select>
-          </label>
+          <AdminSelect required label="ผู้ใช้" placeholder="เลือกผู้ใช้" value={userId} onChange={setUserId}
+            options={(users?.items ?? []).map(candidate => ({ value: String(candidate.id), label: `${`${candidate.firstName} ${candidate.lastName}`.trim()} · ${candidate.email}` }))}/>
+          <AdminSelect required label="role ร้านค้า" placeholder="เลือก role" value={roleCode} onChange={setRoleCode}
+            options={storeRoles.map(role => ({ value: role.code, label: `${role.nameTh ?? role.code} · ${role.code}` }))}/>
           <button type="submit" disabled={busy || !canAssign || !shops.length || !storeRoles.length || !users?.items.length}>
             <ShieldCheck/>{busy ? 'กำลังบันทึก...' : 'บันทึก role'}
           </button>

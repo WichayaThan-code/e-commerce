@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Check, ChevronDown, ChevronUp, CircleAlert, GripVertical, Monitor, Plus, RotateCcw, Shirt, Smartphone, Store, Tablet, Trash2, UtensilsCrossed,
+  Check, ChevronDown, ChevronUp, CircleAlert, GripVertical, Monitor, Palette, Plus, RotateCcw, Shirt, Smartphone, Store, Tablet, Trash2, UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
 import ConfirmDialog from "../form/ConfirmDialog";
 import FormField, { FieldError } from "../form/FormField";
-import FormSelect from "../form/FormSelect";
 import FormTextarea from "../form/FormTextarea";
 import ToggleSwitch from "../form/ToggleSwitch";
 import { LoadError, SkeletonForm } from "../feedback/Skeleton";
+import ThemeMediaPicker from "./ThemeMediaPicker";
+import { MediaField, ThemeSelect } from "./ThemeEditorParts";
+import ShopBlocksEditor from "./ShopBlocksEditor";
+import { chromePayload, FontPanel, FooterPanel, HeaderPanel, HeroMediaPanel } from "./ShopChromeEditor";
+import { HeroStickerDragContext, type StickerDragApi } from "../shop/sections/HeroMediaFull";
+import { ColorField, GradientEditor, HEX, ThemeTokenSelect } from "./ThemeEditorParts";
 import ShopStorefront from "../shop/ShopStorefront";
 import { isShopSectionAvailable } from "../shop/sections/availability";
 import { previewCatalogControls } from "../shop/sections/types";
@@ -18,16 +23,23 @@ import {
   type ApiFieldError, type MerchantSettings, type PublicProduct, type PublicShop,
 } from "../../services/api";
 import {
-  ensureThemeFontLink, normalizeTheme, PREVIEW_WIDTHS, presetForTemplate, registerThemePresets, sectionSupportsVariant,
-  SHOP_BUTTON_SHAPES, SHOP_CARD_STYLES, SHOP_DENSITIES, SHOP_THEME_FONTS, SHOP_THEME_TEMPLATES, shopThemeFontStack,
-  themeContrastIssues, variantsForSection,
-  SHOP_TRUST_ICONS,
-  type SectionVariant, type ShopButtonShape, type ShopCardStyle, type ShopDensity, type ShopSectionKey, type ShopTheme,
-  type ShopThemeFontKey, type ShopThemeTemplateKey, type ShopTrustIcon, type ThemeBanner, type ThemeColors, type ThemeConfig,
+  ensureThemeFontLink, normalizeTheme, PREVIEW_WIDTHS, presetForTemplate, registerThemePresets, sectionsFromBlocks,
+  sectionSupportsVariant, withSynthesizedLayout, type LayoutBlock,
+  SHOP_BUTTON_SHAPES, SHOP_CARD_STYLES, SHOP_CTA_STYLES, SHOP_DENSITIES, SHOP_IMAGE_RATIOS,
+  SHOP_SHADOWS, SHOP_THEME_FONTS, SHOP_THEME_TEMPLATES,
+  shopThemeFontStack, themeContrastIssues, variantsForSection,
+  SHOP_TITLE_ALIGNS, SHOP_TRUST_ICONS,
+  type SectionVariant, type ShopButtonShape, type ShopCardStyle, type ShopCtaStyle, type ShopDensity, type ShopImageRatio,
+  type ShopSectionKey, type ShopShadow, type ShopTheme,
+  type ShopThemeFontKey, type ShopThemeTemplateKey, type ShopTitleAlign, type ShopTrustIcon, type ThemeBanner, type ThemeColors,
+  type ThemeConfig, type ThemeGradient, type ThemeProductCard,
   type ThemeTrustItem,
 } from "../../theme/shopTheme";
 import "../../styles/form-fields.css";
 import "../../styles/sale-types.css";
+import "../../styles/theme-token-select.css";
+import "../../styles/theme-media-picker.css";
+import "../../styles/theme-editor-controls.css";
 
 export type ShopThemeShopInfo = {
   shopName: string;
@@ -67,14 +79,17 @@ const TEMPLATE_ICONS: Record<ShopThemeTemplateKey, LucideIcon> = {
   GENERAL: Store,
   FASHION: Shirt,
   FOOD_BEVERAGE: UtensilsCrossed,
+  CUSTOM: Palette,
 };
 const COLOR_KEYS = ["primary", "secondary", "background", "text"] as const satisfies ReadonlyArray<keyof ThemeColors>;
+const EXTRA_COLOR_KEYS = ["accent", "surface", "muted", "ctaBackground", "ctaText", "border"] as const satisfies ReadonlyArray<keyof ThemeColors>;
+const GRADIENT_KEYS = ["hero", "page", "section"] as const;
+type GradientKey = (typeof GRADIENT_KEYS)[number];
 const DEVICES: { key: DeviceKey; icon: LucideIcon }[] = [
   { key: "mobile", icon: Smartphone },
   { key: "tablet", icon: Tablet },
   { key: "desktop", icon: Monitor },
 ];
-const HEX = /^#[0-9a-fA-F]{6}$/;
 const PREVIEW_PRODUCT_LIMIT = 8;
 
 function moveItem<T>(items: T[], from: number, to: number) {
@@ -85,50 +100,23 @@ function moveItem<T>(items: T[], from: number, to: number) {
   return next;
 }
 
-function sameConfig(a: ThemeConfig, b: ThemeConfig) {
-  return JSON.stringify(a) === JSON.stringify(b);
+function stripLayout(config: ThemeConfig): ThemeConfig {
+  const { layout: _layout, ...rest } = config;
+  void _layout;
+  return rest;
 }
 
-function ColorField({
-  label, value, error, disabled, hexError, onChange,
-}: {
-  label: string;
-  value: string;
-  error?: string;
-  hexError: string;
-  disabled: boolean;
-  onChange: (value: string) => void;
-}) {
-  const [text, setText] = useState(value);
-  useEffect(() => setText(value), [value]);
-  const invalid = !HEX.test(text);
-  return (
-    <FormField label={label} error={error || (invalid ? hexError : undefined)}>
-      <input
-        type="color"
-        className="theme-color-swatch"
-        aria-label={label}
-        value={HEX.test(value) ? value : "#000000"}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      <input
-        type="text"
-        className="num"
-        value={text}
-        maxLength={7}
-        spellCheck={false}
-        disabled={disabled}
-        aria-label={`${label} (hex)`}
-        aria-invalid={invalid || Boolean(error)}
-        onChange={(event) => {
-          const next = event.target.value.trim();
-          setText(next);
-          if (HEX.test(next)) onChange(next.toLowerCase());
-        }}
-      />
-    </FormField>
-  );
+/** Block payload for the API: derived fields (backgroundUrl) are never sent back. */
+function blocksPayload(blocks: LayoutBlock[]): LayoutBlock[] {
+  return blocks.map((block) => {
+    const settings = { ...block.settings };
+    delete settings.backgroundUrl;
+    return { ...block, settings };
+  });
+}
+
+function sameConfig(a: ThemeConfig, b: ThemeConfig) {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 export default function ShopThemeEditor({
@@ -151,6 +139,22 @@ export default function ShopThemeEditor({
   const stageRef = useRef<HTMLDivElement>(null);
 
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(baseline), [draft, baseline]);
+
+  // AG5: dragging a sticker on the preview writes x / y (0-100 %) straight into the draft; disabled when read-only.
+  const stickerDrag = useMemo<StickerDragApi | null>(() => (canUpdate ? {
+    onMove: (index, x, y) => setDraft((current) => (current.config.hero.stickers?.[index]
+      ? {
+        ...current,
+        config: {
+          ...current.config,
+          hero: {
+            ...current.config.hero,
+            stickers: current.config.hero.stickers.map((row, rowIndex) => (rowIndex === index ? { ...row, x, y } : row)),
+          },
+        },
+      }
+      : current)),
+  } : null), [canUpdate]);
 
   useEffect(() => {
     onDirtyChange(dirty);
@@ -237,17 +241,23 @@ export default function ShopThemeEditor({
     const preset = presetFor(key);
     setFieldErrors([]);
     // Full preset swap — colors, font, style, sections/variants, banners, trust (no GENERAL leftovers).
+    const config = structuredClone(preset.config) as ThemeConfig;
     setDraft({
       templateKey: key,
-      config: structuredClone(preset.config) as ThemeConfig,
+      config: key === "CUSTOM" ? withSynthesizedLayout(config) : stripLayout(config),
     });
   };
 
-  const customized = !sameConfig(draft.config, presetFor(draft.templateKey).config);
-
   const chooseTemplate = (key: ShopThemeTemplateKey) => {
     if (key === draft.templateKey) return;
-    if (customized) setConfirm({ kind: "template", key });
+    if (key === "CUSTOM") {
+      setFieldErrors([]);
+      // AG3: CUSTOM always edits layout.blocks; build them from the current sections the first time.
+      setDraft((current) => ({ templateKey: "CUSTOM", config: withSynthesizedLayout(current.config) }));
+      return;
+    }
+    const differsFromTarget = !sameConfig(draft.config, presetFor(key).config);
+    if (differsFromTarget) setConfirm({ kind: "template", key });
     else applyPreset(key);
   };
 
@@ -261,12 +271,30 @@ export default function ShopThemeEditor({
     setConfirm(null);
   };
 
-  const setHeroLayout = (layout: "FULL" | "STRIP") =>
+  const setHeroLayout = (layout: "FULL" | "STRIP" | "MEDIA_FULL") =>
     patchConfig((config) => ({
       ...config,
       hero: { ...config.hero, layout },
       sections: config.sections.map((row) => (row.key === "HERO" ? { ...row, variant: layout } : row)),
+      ...(config.layout
+        ? { layout: { blocks: config.layout.blocks.map((block) => (block.type === "HERO" ? { ...block, variant: layout } : block)) } }
+        : {}),
     }), "config.hero.layout");
+
+  /** AG3: edit layout.blocks; the legacy sections list (and hero layout) is derived from them like the backend does. */
+  const setBlocks = (blocks: LayoutBlock[]) =>
+    patchConfig((config) => {
+      const sections = sectionsFromBlocks(blocks, config.sections);
+      const heroVariant = sections.find((row) => row.key === "HERO")?.variant;
+      return {
+        ...config,
+        layout: { blocks },
+        sections,
+        hero: heroVariant === "FULL" || heroVariant === "STRIP" || heroVariant === "MEDIA_FULL"
+          ? { ...config.hero, layout: heroVariant }
+          : config.hero,
+      };
+    }, "config.layout");
 
   const setHero = (field: "title" | "subtitle" | "ctaLabel" | "ctaLink", value: string) =>
     patchConfig((config) => ({ ...config, hero: { ...config.hero, [field]: value } }), `config.hero.${field}`);
@@ -274,7 +302,7 @@ export default function ShopThemeEditor({
   const setSection = (index: number, change: { enabled?: boolean; variant?: SectionVariant }) =>
     patchConfig((config) => {
       const target = config.sections[index];
-      const hero = target.key === "HERO" && (change.variant === "FULL" || change.variant === "STRIP")
+      const hero = target.key === "HERO" && (change.variant === "FULL" || change.variant === "STRIP" || change.variant === "MEDIA_FULL")
         ? { ...config.hero, layout: change.variant }
         : config.hero;
       return {
@@ -310,6 +338,9 @@ export default function ShopThemeEditor({
       ...config,
       trust: { ...config.trust, enabled },
       sections: config.sections.map((row) => (row.key === "TRUST" ? { ...row, enabled } : row)),
+      ...(config.layout
+        ? { layout: { blocks: config.layout.blocks.map((block) => (block.type === "TRUST" ? { ...block, enabled } : block)) } }
+        : {}),
     }), "config.trust.enabled");
 
   const setTrustItem = (index: number, change: Partial<ThemeTrustItem>) =>
@@ -321,20 +352,52 @@ export default function ShopThemeEditor({
       },
     }), `config.trust.items[${index}]`);
 
+  const setExtraColor = (key: (typeof EXTRA_COLOR_KEYS)[number], value: string | undefined) =>
+    patchConfig((config) => {
+      const colors = { ...config.colors };
+      if (value && HEX.test(value)) colors[key] = value.toLowerCase();
+      else delete colors[key];
+      return { ...config, colors };
+    }, `config.colors.${key}`);
+
+  const setGradient = (which: GradientKey, next: ThemeGradient) =>
+    patchConfig((config) => ({
+      ...config,
+      gradients: { ...config.gradients, [which]: next },
+    }), `config.gradients.${which}`);
+
+  const setProductCard = (change: Partial<ThemeProductCard>) =>
+    patchConfig((config) => ({
+      ...config,
+      productCard: { ...config.productCard, ...change },
+    }), "config.productCard");
+
   const save = async () => {
     if (saving || !canUpdate) return;
     if (COLOR_KEYS.some((key) => !HEX.test(draft.config.colors[key]))) {
       notify(t("storeTheme.errors.hex"));
       return;
     }
+    if (EXTRA_COLOR_KEYS.some((key) => {
+      const value = draft.config.colors[key];
+      return value != null && value !== "" && !HEX.test(value);
+    })) {
+      notify(t("storeTheme.errors.hex"));
+      return;
+    }
     setSaving(true);
     setFieldErrors([]);
     try {
+      const isCustom = draft.templateKey === "CUSTOM";
       const payload: ShopTheme = {
         ...draft,
         config: {
-          ...draft.config,
-          banners: draft.config.banners.filter((row) => row.imageUrl.trim()),
+          ...chromePayload(stripLayout(draft.config), isCustom),
+          ...(isCustom && draft.config.layout ? { layout: { blocks: blocksPayload(draft.config.layout.blocks) } } : {}),
+          // AG2: mediaId only travels with CUSTOM themes (the backend also strips it for the other templates).
+          banners: draft.config.banners
+            .filter((row) => row.imageUrl.trim() || (draft.templateKey === "CUSTOM" && row.mediaId))
+            .map(({ mediaId, ...row }) => (draft.templateKey === "CUSTOM" && mediaId ? { ...row, mediaId } : row)),
         },
       };
       const saved = normalizeTheme(await merchantApi.saveTheme(payload, shopId) as Partial<ShopTheme>);
@@ -396,6 +459,7 @@ export default function ShopThemeEditor({
   const previewWidth = PREVIEW_WIDTHS[device];
   const zoom = stageWidth > 0 ? Math.min(1, stageWidth / previewWidth) : 1;
   const disabled = !canUpdate;
+  const chromeProps = { config, disabled, shopId, shopSlug: shop.slug, errorFor, patch: patchConfig };
 
   const confirmCopy = confirm?.kind === "template"
     ? { title: t("storeTheme.confirm.template.title"), message: t("storeTheme.confirm.template.message"), label: t("storeTheme.confirm.template.confirm") }
@@ -471,6 +535,25 @@ export default function ShopThemeEditor({
           ) : null}
         </fieldset>
 
+        {draft.templateKey === "CUSTOM" ? (
+          <fieldset className="theme-block">
+            <legend>{t("storeTheme.colors.extraTitle")}</legend>
+            <div className="theme-grid">
+              {EXTRA_COLOR_KEYS.map((key) => (
+                <ColorField
+                  key={key}
+                  label={t(`storeTheme.colors.${key}`)}
+                  value={config.colors[key] ?? config.colors.background}
+                  error={errorFor(`colors.${key}`)}
+                  hexError={t("storeTheme.errors.hex")}
+                  disabled={disabled}
+                  onChange={(value) => setExtraColor(key, value)}
+                />
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
+
         <fieldset className="theme-block">
           <legend>{t("storeTheme.style.title")}</legend>
           <div className="theme-grid">
@@ -493,7 +576,7 @@ export default function ShopThemeEditor({
                 }}
               />
             </FormField>
-            <FormSelect
+            <ThemeSelect
               label={t("storeTheme.style.cardStyle")}
               value={config.style.cardStyle}
               disabled={disabled}
@@ -506,8 +589,8 @@ export default function ShopThemeEditor({
               {SHOP_CARD_STYLES.map((value) => (
                 <option key={value} value={value}>{t(`storeTheme.style.card.${value}`)}</option>
               ))}
-            </FormSelect>
-            <FormSelect
+            </ThemeSelect>
+            <ThemeSelect
               label={t("storeTheme.style.density")}
               value={config.style.density}
               disabled={disabled}
@@ -520,8 +603,8 @@ export default function ShopThemeEditor({
               {SHOP_DENSITIES.map((value) => (
                 <option key={value} value={value}>{t(`storeTheme.style.densityOpts.${value}`)}</option>
               ))}
-            </FormSelect>
-            <FormSelect
+            </ThemeSelect>
+            <ThemeSelect
               label={t("storeTheme.style.buttonShape")}
               value={config.style.buttonShape}
               disabled={disabled}
@@ -534,13 +617,114 @@ export default function ShopThemeEditor({
               {SHOP_BUTTON_SHAPES.map((value) => (
                 <option key={value} value={value}>{t(`storeTheme.style.button.${value}`)}</option>
               ))}
-            </FormSelect>
+            </ThemeSelect>
           </div>
         </fieldset>
 
+        {draft.templateKey === "CUSTOM" ? (
+          <>
+            <fieldset className="theme-block">
+              <legend>{t("storeTheme.style.extraTitle")}</legend>
+              <div className="theme-grid">
+                <ThemeTokenSelect
+                  label={t("storeTheme.style.shadow")}
+                  value={config.style.shadow ?? "NONE"}
+                  disabled={disabled}
+                  error={errorFor("style.shadow")}
+                  options={SHOP_SHADOWS.map((value) => ({ value, label: t(`storeTheme.style.shadows.${value}`) }))}
+                  onChange={(picked) => patchConfig((current) => ({
+                    ...current,
+                    style: { ...current.style, shadow: picked as ShopShadow },
+                  }), "config.style.shadow")}
+                />
+                <div className="theme-trust-toggle">
+                  <ToggleSwitch
+                    checked={Boolean(config.style.headingTextShadow)}
+                    disabled={disabled}
+                    label={t("storeTheme.style.headingTextShadow")}
+                    onText={t("storeTheme.sections.on")}
+                    offText={t("storeTheme.sections.off")}
+                    onChange={(headingTextShadow) => patchConfig((current) => ({
+                      ...current,
+                      style: { ...current.style, headingTextShadow },
+                    }), "config.style.headingTextShadow")}
+                  />
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset className="theme-block">
+              <legend>{t("storeTheme.gradients.title")}</legend>
+              {GRADIENT_KEYS.map((which) => (
+                <GradientEditor
+                  key={which}
+                  title={t(`storeTheme.gradients.${which}`)}
+                  angleLabel={t("storeTheme.gradients.angle")}
+                  stopLabel={(index) => t("storeTheme.gradients.stop", { index: index + 1 })}
+                  addStopLabel={t("storeTheme.gradients.addStop")}
+                  removeStopLabel={t("storeTheme.gradients.removeStop")}
+                  gradient={config.gradients?.[which]}
+                  fallbackColors={config.colors}
+                  disabled={disabled}
+                  hexError={t("storeTheme.errors.hex")}
+                  errorFor={errorFor}
+                  prefix={`gradients.${which}`}
+                  onChange={(next) => setGradient(which, next)}
+                />
+              ))}
+            </fieldset>
+
+            <fieldset className="theme-block">
+              <legend>{t("storeTheme.productCard.title")}</legend>
+              <div className="theme-grid">
+                <ThemeTokenSelect
+                  label={t("storeTheme.productCard.imageRatio")}
+                  value={config.productCard?.imageRatio ?? "SQUARE"}
+                  disabled={disabled}
+                  error={errorFor("productCard.imageRatio")}
+                  options={SHOP_IMAGE_RATIOS.map((value) => ({ value, label: t(`storeTheme.productCard.ratios.${value}`) }))}
+                  onChange={(picked) => setProductCard({ imageRatio: picked as ShopImageRatio })}
+                />
+                <ThemeTokenSelect
+                  label={t("storeTheme.productCard.ctaStyle")}
+                  value={config.productCard?.ctaStyle ?? "ROUNDED"}
+                  disabled={disabled}
+                  error={errorFor("productCard.ctaStyle")}
+                  options={SHOP_CTA_STYLES.map((value) => ({ value, label: t(`storeTheme.productCard.cta.${value}`) }))}
+                  onChange={(picked) => setProductCard({ ctaStyle: picked as ShopCtaStyle })}
+                />
+                <ThemeTokenSelect
+                  label={t("storeTheme.productCard.titleAlign")}
+                  value={config.productCard?.titleAlign ?? "LEFT"}
+                  disabled={disabled}
+                  error={errorFor("productCard.titleAlign")}
+                  options={SHOP_TITLE_ALIGNS.map((value) => ({ value, label: t(`storeTheme.productCard.align.${value}`) }))}
+                  onChange={(picked) => setProductCard({ titleAlign: picked as ShopTitleAlign })}
+                />
+                <ToggleSwitch
+                  checked={config.productCard?.showPrice !== false}
+                  disabled={disabled}
+                  label={t("storeTheme.productCard.showPrice")}
+                  onText={t("storeTheme.sections.on")}
+                  offText={t("storeTheme.sections.off")}
+                  onChange={(showPrice) => setProductCard({ showPrice })}
+                />
+                <ToggleSwitch
+                  checked={Boolean(config.productCard?.edgeToEdge)}
+                  disabled={disabled}
+                  label={t("storeTheme.productCard.edgeToEdge")}
+                  onText={t("storeTheme.sections.on")}
+                  offText={t("storeTheme.sections.off")}
+                  onChange={(edgeToEdge) => setProductCard({ edgeToEdge })}
+                />
+              </div>
+            </fieldset>
+          </>
+        ) : null}
+
         <fieldset className="theme-block">
           <legend>{t("storeTheme.font.title")}</legend>
-          <FormSelect
+          <ThemeSelect
             label={t("storeTheme.font.label")}
             value={config.font}
             disabled={disabled}
@@ -548,23 +732,26 @@ export default function ShopThemeEditor({
             onChange={(event) => patchConfig((current) => ({ ...current, font: event.target.value as ShopThemeFontKey }), "config.font")}
           >
             {SHOP_THEME_FONTS.map((font) => <option key={font} value={font}>{t(`storeTheme.font.${font}`)}</option>)}
-          </FormSelect>
+          </ThemeSelect>
           <p className="theme-font-sample" style={{ fontFamily: shopThemeFontStack(config.font) }}>{t("storeTheme.font.sample")}</p>
         </fieldset>
+
+        {draft.templateKey === "CUSTOM" ? <FontPanel {...chromeProps} /> : null}
 
         <fieldset className="theme-block">
           <legend>{t("storeTheme.hero.title")}</legend>
           <div className="theme-grid">
-            <FormSelect
+            <ThemeSelect
               label={t("storeTheme.hero.layout")}
               value={config.hero.layout}
               disabled={disabled}
               error={errorFor("hero.layout")}
-              onChange={(event) => setHeroLayout(event.target.value as "FULL" | "STRIP")}
+              onChange={(event) => setHeroLayout(event.target.value as "FULL" | "STRIP" | "MEDIA_FULL")}
             >
               <option value="FULL">{t("storeTheme.variants.FULL")}</option>
               <option value="STRIP">{t("storeTheme.variants.STRIP")}</option>
-            </FormSelect>
+              {draft.templateKey === "CUSTOM" ? <option value="MEDIA_FULL">{t("storeTheme.variants.MEDIA_FULL")}</option> : null}
+            </ThemeSelect>
             <FormField label={t("storeTheme.hero.heroTitle")} error={errorFor("hero.title")}>
               <input value={config.hero.title} maxLength={120} disabled={disabled} placeholder={shop.shopName} onChange={(event) => setHero("title", event.target.value)} />
             </FormField>
@@ -588,6 +775,10 @@ export default function ShopThemeEditor({
           <p className="theme-hint">{t("storeTheme.hero.ctaHint")}</p>
         </fieldset>
 
+        {draft.templateKey === "CUSTOM" && config.hero.layout === "MEDIA_FULL" ? (
+          <HeroMediaPanel {...chromeProps} />
+        ) : null}
+
         <fieldset className="theme-block">
           <legend>{t("storeTheme.sections.bannersTitle")}</legend>
           <p className="theme-hint">{t("storeTheme.sections.bannersHint")}</p>
@@ -595,12 +786,26 @@ export default function ShopThemeEditor({
           <ul className="theme-banner-list">
             {config.banners.map((banner, index) => (
               <li key={index} className="theme-banner-row">
+                {draft.templateKey === "CUSTOM" ? (
+                  <MediaField label={t("storeTheme.media.bannerImage")} error={errorFor(`banners[${index}].mediaId`)}>
+                    <ThemeMediaPicker
+                      kind="IMAGE"
+                      value={banner.mediaId}
+                      shopId={shopId}
+                      shopSlug={shop.slug}
+                      disabled={disabled}
+                      onChange={(mediaId, item) => setBanner(index, mediaId
+                        ? { mediaId, imageUrl: item?.url ?? banner.imageUrl }
+                        : { mediaId: undefined, imageUrl: "" })}
+                    />
+                  </MediaField>
+                ) : null}
                 <FormField label={t("storeTheme.sections.bannerImage")} error={errorFor(`banners[${index}].imageUrl`)}>
                   <input
-                    value={banner.imageUrl}
-                    disabled={disabled}
+                    value={banner.mediaId ? "" : banner.imageUrl}
+                    disabled={disabled || Boolean(banner.mediaId)}
                     placeholder="https://…  |  /media/…"
-                    onChange={(event) => setBanner(index, { imageUrl: event.target.value })}
+                    onChange={(event) => setBanner(index, { imageUrl: event.target.value, mediaId: undefined })}
                   />
                 </FormField>
                 <div className="theme-grid">
@@ -662,7 +867,7 @@ export default function ShopThemeEditor({
                   offText={t("storeTheme.sections.off")}
                   onChange={(enabled) => setTrustItem(index, { enabled })}
                 />
-                <FormSelect
+                <ThemeSelect
                   label={t("storeTheme.sections.trustIcon")}
                   value={item.icon}
                   disabled={disabled || !config.trust.enabled}
@@ -672,7 +877,7 @@ export default function ShopThemeEditor({
                   {SHOP_TRUST_ICONS.map((icon) => (
                     <option key={icon} value={icon}>{t(`storeTheme.sections.trustIcons.${icon}`)}</option>
                   ))}
-                </FormSelect>
+                </ThemeSelect>
                 <FormField label={t("storeTheme.sections.trustLabel")} error={errorFor(`trust.items[${index}].label`)}>
                   <input
                     value={item.label}
@@ -686,6 +891,24 @@ export default function ShopThemeEditor({
           </ul>
         </fieldset>
 
+        {draft.templateKey === "CUSTOM" ? (
+          <>
+            <HeaderPanel {...chromeProps} />
+            <FooterPanel {...chromeProps} />
+          </>
+        ) : null}
+
+        {draft.templateKey === "CUSTOM" && config.layout ? (
+          <ShopBlocksEditor
+            blocks={config.layout.blocks}
+            colors={config.colors}
+            disabled={disabled}
+            shopId={shopId}
+            shopSlug={shop.slug}
+            errorFor={errorFor}
+            onChange={setBlocks}
+          />
+        ) : (
         <fieldset className="theme-block">
           <legend>{t("storeTheme.sections.title")}</legend>
           <p className="theme-hint">{t("storeTheme.sections.hint")}</p>
@@ -716,15 +939,15 @@ export default function ShopThemeEditor({
                     {isShopSectionAvailable(section.key) ? null : ` · ${t("storeTheme.sections.comingSoon")}`}
                   </b>
                   {variants.length ? (
-                    <select
-                      aria-label={`${t(`storeTheme.sections.${section.key}`)} · ${t("storeTheme.sections.variant")}`}
+                    <ThemeSelect inline
+                      label={`${t(`storeTheme.sections.${section.key}`)} · ${t("storeTheme.sections.variant")}`}
                       value={section.variant ?? variants[0] ?? ""}
                       disabled={disabled}
                       aria-invalid={Boolean(rowError)}
                       onChange={(event) => setSection(index, { variant: event.target.value as SectionVariant })}
                     >
                       {variants.map((variant) => <option key={variant} value={variant ?? ""}>{t(`storeTheme.variants.${variant}`)}</option>)}
-                    </select>
+                    </ThemeSelect>
                   ) : <span />}
                   <ToggleSwitch
                     checked={section.enabled}
@@ -744,6 +967,7 @@ export default function ShopThemeEditor({
             })}
           </ul>
         </fieldset>
+        )}
 
         <div className="pm-actions theme-actions">
           <button type="button" disabled={disabled || saving} title={deniedTitle} onClick={() => setConfirm({ kind: "reset" })}>
@@ -777,7 +1001,9 @@ export default function ShopThemeEditor({
           </header>
           <div className="theme-preview-stage" ref={stageRef}>
             <div className="theme-preview-device" style={{ width: previewWidth, zoom }}>
-              <ShopStorefront shop={previewShop} products={previewProducts} catalog={previewCatalog} previewWidth={previewWidth} />
+              <HeroStickerDragContext.Provider value={stickerDrag}>
+                <ShopStorefront shop={previewShop} products={previewProducts} catalog={previewCatalog} previewWidth={previewWidth} />
+              </HeroStickerDragContext.Provider>
             </div>
           </div>
           <p className="theme-hint">{t("storeTheme.preview.hint", { width: previewWidth })}</p>

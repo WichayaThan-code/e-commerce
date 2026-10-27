@@ -9,6 +9,7 @@ import com.thaishopfun.catalog.ProductRepository;
 import com.thaishopfun.catalog.ProductSku;
 import com.thaishopfun.catalog.ProductSkuRepository;
 import com.thaishopfun.catalog.ProductStatus;
+import com.thaishopfun.catalog.configurator.ProductConfiguratorService;
 import com.thaishopfun.common.FieldViolation;
 import com.thaishopfun.coupon.CouponWalletService;
 import com.thaishopfun.common.ValidationException;
@@ -61,12 +62,15 @@ public class CartService {
     private final CartAccess access;
 
     private final CouponWalletService wallet;
+    /** V43: server re-quote for configured lines (flag-gated inside the service). */
+    private final ProductConfiguratorService configurator;
 
     public CartService(
         CartRepository carts, CartItemRepository items, ProductSkuRepository skus, ProductRepository products,
         ProductImageRepository images, ShopRepository shops, CartInventoryRepository inventory,
         CouponRepository coupons, PromotionRepository promotions, PromotionUsageRepository usages,
-        ShippingMethodRepository shippingMethods, CartAccess access, CouponWalletService wallet
+        ShippingMethodRepository shippingMethods, CartAccess access, CouponWalletService wallet,
+        ProductConfiguratorService configurator
     ) {
         this.carts = carts;
         this.items = items;
@@ -81,6 +85,7 @@ public class CartService {
         this.shippingMethods = shippingMethods;
         this.access = access;
         this.wallet = wallet;
+        this.configurator = configurator;
     }
 
     @Transactional(readOnly = true)
@@ -113,9 +118,16 @@ public class CartService {
         var shop = sku.getShop();
         requireSellable(shop, product, sku);
         int available = availableOf(sku.getId());
+        // V43: optional configurator selections -> server quote (rejects when the flag is off or the selection is invalid)
+        var config = request.configuration() == null ? null
+            : configurator.cartQuote(product, request.configuration().selections(), request.configuration().version());
         var cart = activeCart(owner, shop, true);
-        var existing = items.findByCartIdAndSkuId(cart.getId(), sku.getId()).orElse(null);
-        int already = existing == null ? 0 : existing.getQuantity();
+        var existing = (config == null
+            ? items.findByCartIdAndSkuIdAndConfigHashIsNull(cart.getId(), sku.getId())
+            : items.findByCartIdAndSkuIdAndConfigHash(cart.getId(), sku.getId(), config.configHash())).orElse(null);
+        // stock room counts every line of this SKU (equals the single line's quantity when there are no configured lines)
+        int already = items.findByCartId(cart.getId()).stream().filter(line -> line.getSkuId().equals(sku.getId()))
+            .mapToInt(CartItem::getQuantity).sum();
         int room = Math.max(0, Math.min(MAX_QTY_PER_LINE, available) - already);
         boolean cap = Boolean.TRUE.equals(request.capToAvailable());
         int applied;
@@ -129,10 +141,15 @@ public class CartService {
         }
         if (existing == null) {
             ensureLineCapacity(owner, 1);
-            existing = new CartItem(cart.getId(), sku.getId(), product.getId(), applied, CartMoney.of(sku.getPrice()));
+            existing = new CartItem(cart.getId(), sku.getId(), product.getId(), applied,
+                CartMoney.of(config == null ? sku.getPrice() : sku.getPrice().add(config.configDelta())));
+            if (config != null) {
+                existing.setConfiguration(config.snapshot());
+                existing.setConfigHash(config.configHash());
+            }
             existing.stamp(owner.buyerUserId());
         } else {
-            existing.setQuantity(already + applied);
+            existing.setQuantity(existing.getQuantity() + applied);
             existing.stamp(owner.buyerUserId());
         }
         items.save(existing);
@@ -342,8 +359,20 @@ public class CartService {
                     "คงเหลือเพียง " + available + " ชิ้น", Map.of("availableQuantity", available, "requestedQuantity", item.getQuantity())));
             }
             var live = CartMoney.of(sku.getPrice());
+            boolean configChanged = false;
+            if (item.getConfigHash() != null) {
+                // V43: configured line -> re-quote now (flag, configurator, options may have changed since add-to-cart)
+                var requote = requote(item, product);
+                if (requote == null) {
+                    issues.add(issue("CONFIGURATION_INVALID", "ERROR", shopNo, item.getId(), item.getSkuId(), "configuration",
+                        "ตัวเลือกที่ออกแบบไว้ใช้ไม่ได้แล้ว กรุณาลบรายการนี้แล้วออกแบบใหม่", null));
+                    continue;
+                }
+                live = CartMoney.of(sku.getPrice().add(requote.configDelta()));
+                configChanged = requote.configDelta().compareTo(configDelta(item)) != 0;
+            }
             var snap = CartMoney.of(item.getUnitPriceSnapshot());
-            if (snap.compareTo(live) != 0) {
+            if (snap.compareTo(live) != 0 || configChanged) {
                 issues.add(issue("PRICE_CHANGED", "ERROR", shopNo, item.getId(), item.getSkuId(), "unitPrice",
                     "ราคาสินค้าเปลี่ยนจาก ฿" + snap + " เป็น ฿" + live, Map.of("previousPrice", snap, "currentPrice", live)));
             }
@@ -365,6 +394,18 @@ public class CartService {
     public CartDtos.CartResponse acceptPrices(CartOwner owner) {
         for (var item : ownedItems(owner)) {
             skus.findById(item.getSkuId()).ifPresent(sku -> {
+                if (item.getConfigHash() != null) {
+                    // V43: configured line takes the re-quoted option prices; an invalid configuration is left for validate to report
+                    var requote = requote(item, sku.getProduct());
+                    if (requote == null) return;
+                    var snapshot = new LinkedHashMap<>(requote.snapshot());
+                    snapshot.put("configHash", item.getConfigHash()); // line identity stays the add-time hash
+                    item.setConfiguration(snapshot);
+                    item.setUnitPriceSnapshot(CartMoney.of(sku.getPrice().add(requote.configDelta())));
+                    item.stamp(owner.buyerUserId());
+                    items.save(item);
+                    return;
+                }
                 item.setUnitPriceSnapshot(CartMoney.of(sku.getPrice()));
                 item.stamp(owner.buyerUserId());
                 items.save(item);
@@ -409,7 +450,9 @@ public class CartService {
                     continue;
                 }
                 int available = availableOf(sku.getId());
-                var existing = items.findByCartIdAndSkuId(target.getId(), sku.getId()).orElse(null);
+                var existing = (guestItem.getConfigHash() == null
+                    ? items.findByCartIdAndSkuIdAndConfigHashIsNull(target.getId(), sku.getId())
+                    : items.findByCartIdAndSkuIdAndConfigHash(target.getId(), sku.getId(), guestItem.getConfigHash())).orElse(null);
                 int already = existing == null ? 0 : existing.getQuantity();
                 int room = Math.max(0, Math.min(MAX_QTY_PER_LINE, available) - already);
                 int applied = Math.min(guestItem.getQuantity(), room);
@@ -427,6 +470,8 @@ public class CartService {
                     existing = new CartItem(target.getId(), sku.getId(), sku.getProduct().getId(), applied,
                         CartMoney.of(guestItem.getUnitPriceSnapshot() != null ? guestItem.getUnitPriceSnapshot() : sku.getPrice()));
                     existing.setSelected(guestItem.isSelected());
+                    existing.setConfiguration(guestItem.getConfiguration());
+                    existing.setConfigHash(guestItem.getConfigHash());
                     existing.stamp(buyer.buyerUserId());
                 } else {
                     existing.setQuantity(already + applied);
@@ -543,7 +588,8 @@ public class CartService {
     private CartDtos.Line toLine(CartItem item, ProductSku sku, InventoryLevel level) {
         var product = sku == null ? null : sku.getProduct();
         int available = level == null ? 0 : level.getAvailable();
-        var live = sku == null ? CartMoney.zero() : CartMoney.of(sku.getPrice());
+        var live = sku == null ? CartMoney.zero()
+            : item.getConfigHash() == null ? CartMoney.of(sku.getPrice()) : CartMoney.of(sku.getPrice().add(configDelta(item)));
         var snap = CartMoney.of(item.getUnitPriceSnapshot() == null ? live : item.getUnitPriceSnapshot());
         boolean priceChanged = snap.compareTo(live) != 0;
         String status = "OK";
@@ -580,7 +626,8 @@ public class CartService {
             CartMoney.multiply(charge, item.getQuantity()),
             available,
             Math.min(MAX_QTY_PER_LINE, Math.max(available, item.getQuantity())),
-            status
+            status,
+            item.getConfiguration()
         );
     }
 
@@ -782,7 +829,9 @@ public class CartService {
         if (!next.getShop().getUuid().equals(cart.getShopId())) {
             throw new AuthException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "SKU ไม่ใช่ของร้านนี้");
         }
-        var other = items.findByCartIdAndSkuId(cart.getId(), next.getId()).orElse(null);
+        var other = (item.getConfigHash() == null
+            ? items.findByCartIdAndSkuIdAndConfigHashIsNull(cart.getId(), next.getId())
+            : items.findByCartIdAndSkuIdAndConfigHash(cart.getId(), next.getId(), item.getConfigHash())).orElse(null);
         if (other != null && !other.getId().equals(item.getId())) {
             int available = availableOf(next.getId());
             int merged = Math.min(MAX_QTY_PER_LINE, other.getQuantity() + item.getQuantity());
@@ -797,8 +846,28 @@ public class CartService {
         if (item.getQuantity() > available) throw insufficient(next.getId(), item.getQuantity(), available, 0);
         item.setSkuId(next.getId());
         item.setProductId(next.getProduct().getId());
-        item.setUnitPriceSnapshot(CartMoney.of(next.getPrice()));
+        item.setUnitPriceSnapshot(CartMoney.of(item.getConfigHash() == null ? next.getPrice() : next.getPrice().add(configDelta(item))));
         return item;
+    }
+
+    /** V43: stored configurator price delta of a line (0 for normal lines). */
+    static BigDecimal configDelta(CartItem item) {
+        var config = item.getConfiguration();
+        if (config == null || config.get("configDelta") == null) return BigDecimal.ZERO;
+        return new BigDecimal(String.valueOf(config.get("configDelta")));
+    }
+
+    /** V43: re-quote a configured line from its stored selections; null when the flag is off or the selection is no longer valid. */
+    @SuppressWarnings("unchecked")
+    private ProductConfiguratorService.CartQuote requote(CartItem item, Product product) {
+        var config = item.getConfiguration();
+        if (config == null || product == null) return null;
+        var selections = config.get("selections") instanceof Map<?, ?> map ? (Map<String, Object>) map : Map.<String, Object>of();
+        try {
+            return configurator.cartQuote(product, selections, null);
+        } catch (RuntimeException rejected) {
+            return null;
+        }
     }
 
     private ProductSku loadSku(UUID skuId) {

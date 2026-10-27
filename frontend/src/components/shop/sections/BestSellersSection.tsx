@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { shopApi, type PublicProduct } from "../../../services/api";
 import { shopProductsPath } from "../../../services/shopRoutes";
-import { resolveVariant } from "./sectionClasses";
+import { resolveVariant, sectionSettingClasses } from "./sectionClasses";
 import ProductRail from "./ProductRail";
 import type { ProductCardVariant } from "../ProductCard";
 import type { ShopSectionProps } from "./types";
@@ -13,7 +13,7 @@ function cardVariantFor(variant: string): ProductCardVariant {
   return "featured-row";
 }
 
-export default function BestSellersSection({ shop, section, products, catalog, preview }: ShopSectionProps) {
+export default function BestSellersSection({ shop, section, products, catalog, preview, config }: ShopSectionProps) {
   const { tp } = usePublicTranslation();
   const variant = resolveVariant("BESTSELLERS", section.variant) || "GRID";
   const [items, setItems] = useState<PublicProduct[]>([]);
@@ -35,7 +35,7 @@ export default function BestSellersSection({ shop, section, products, catalog, p
     let active = true;
     setLoading(true);
     // No sold-count API yet — newest list order only; ranks are presentation order.
-    shopApi.products(shop.slug, { size: 10, page: 0, sort: "newest" })
+    shopApi.products(shop.slug, { size: 10, page: 0, sort: "best_selling" })
       .then((result) => { if (active) setItems(result.items); })
       .catch(() => { if (active) setItems([]); })
       .finally(() => { if (active) setLoading(false); });
@@ -54,7 +54,7 @@ export default function BestSellersSection({ shop, section, products, catalog, p
       onToggleFavorite={catalog.onToggleFavorite}
       onNotify={catalog.onNotify}
       ranked
-      className={`shop-featured-${String(variant).toLowerCase()} shop-bestsellers`}
+      className={[`shop-featured-${String(variant).toLowerCase()}`, "shop-bestsellers", ...sectionSettingClasses("BESTSELLERS", config)].filter(Boolean).join(" ")}
     />
   );
 }

@@ -6,6 +6,7 @@ import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import ProductCard, { type ProductCardVariant } from "../ProductCard";
 import type { PublicProduct, PublicShop } from "../../../services/api";
 import { useRevealOnScroll } from "../../../hooks/useRevealOnScroll";
+import { productCardClasses, useCustomProductCard } from "./ProductGrid";
 
 const DRAG_THRESHOLD = 5;
 
@@ -51,6 +52,7 @@ export default function ProductRail({
   const [canNext, setCanNext] = useState(false);
   const [dragging, setDragging] = useState(false);
   const empty = !loading && products.length === 0;
+  const productCard = useCustomProductCard(shop);
 
   const updateArrows = () => {
     const node = scrollerRef.current;
@@ -76,6 +78,8 @@ export default function ProductRail({
   }, [empty, products.length, loading]);
 
   if (empty) return null;
+
+  const productExtras = productCardClasses(productCard).join(" ");
 
   const scrollByCard = (direction: -1 | 1) => {
     const node = scrollerRef.current;
@@ -132,7 +136,7 @@ export default function ProductRail({
   };
 
   return (
-    <section ref={revealRef} className={`shop-featured shop-rail recommend-width shop-reveal ${className}`.trim()}>
+    <section ref={revealRef} className={`shop-featured shop-rail recommend-width shop-reveal ${className} ${productExtras}`.trim()}>
       <header className="shop-featured-head">
         <h2>{title}</h2>
         <Link className="shop-featured-all" to={seeAllHref}>{tp("shop.seeAll")} ›</Link>

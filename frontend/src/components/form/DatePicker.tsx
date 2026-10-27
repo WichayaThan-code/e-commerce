@@ -2,6 +2,17 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { FieldError } from './FormField'
+import {
+  MONTHS_EN,
+  MONTHS_TH,
+  WEEKDAYS_EN,
+  WEEKDAYS_TH,
+  buildMonthCells,
+  parseIso,
+  startOfDay,
+  toIso,
+  type MenuMode,
+} from './dateUtils'
 import '../../styles/date-picker.css'
 
 type DatePickerProps = {
@@ -17,36 +28,6 @@ type DatePickerProps = {
   min?: string
   max?: string
   className?: string
-}
-
-type MenuMode = 'none' | 'month' | 'year'
-
-const WEEKDAYS_TH = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
-const WEEKDAYS_EN = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
-const MONTHS_TH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
-const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-
-function parseIso(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
-  const [y, m, d] = value.split('-').map(Number)
-  const date = new Date(y, m - 1, d)
-  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return null
-  return date
-}
-
-function toIso(date: Date) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
-}
-
-function daysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate()
 }
 
 export default function DatePicker({
@@ -130,26 +111,7 @@ export default function DatePicker({
     return years
   }, [minDate, maxDate])
 
-  const cells = useMemo(() => {
-    const year = view.getFullYear()
-    const month = view.getMonth()
-    const firstDow = new Date(year, month, 1).getDay()
-    const total = daysInMonth(year, month)
-    const prevTotal = daysInMonth(year, month - 1)
-    const items: { date: Date; inMonth: boolean }[] = []
-    for (let i = firstDow - 1; i >= 0; i -= 1) {
-      items.push({ date: new Date(year, month - 1, prevTotal - i), inMonth: false })
-    }
-    for (let day = 1; day <= total; day += 1) {
-      items.push({ date: new Date(year, month, day), inMonth: true })
-    }
-    let nextDay = 1
-    while (items.length < 42) {
-      items.push({ date: new Date(year, month + 1, nextDay), inMonth: false })
-      nextDay += 1
-    }
-    return items
-  }, [view])
+  const cells = useMemo(() => buildMonthCells(view), [view])
 
   const isDisabled = (date: Date) => {
     const day = startOfDay(date).getTime()
@@ -172,7 +134,7 @@ export default function DatePicker({
   }
 
   const today = startOfDay(new Date())
-  const defaultPlaceholder = isThai ? 'เลือกวันเดือนปีเกิด' : 'Select date of birth'
+  const defaultPlaceholder = isThai ? 'เลือกวันที่' : locale === 'zh' ? '选择日期' : 'Select date'
   const viewMonth = view.getMonth()
   const viewYear = view.getFullYear()
 

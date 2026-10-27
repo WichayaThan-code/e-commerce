@@ -51,8 +51,8 @@ public class ShopTheme {
 
     public ShopTheme(Shop shop, ShopThemeTemplate template, Map<String, Object> config, UUID actorId) {
         var now = Instant.now();
+        // @MapsId derives shopId from the association — do not set shopId manually (H2/Hibernate null-id assert).
         this.shop = shop;
-        this.shopId = shop.getUuid();
         this.templateKey = template.name();
         this.config = ThemePresets.deepCopy(config);
         this.createdAt = now;

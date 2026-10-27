@@ -12,6 +12,9 @@ import { formatDateTime } from '../services/adminFormat'
 import { adminPlatformApi, type AdminAuditLogView, type PlatformPage } from '../services/api'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-platform.css'
+import '../styles/admin-form-controls.css'
+import AdminSelect from '../components/admin/AdminSelect'
+import AdminDateRange from '../components/admin/AdminDateRange'
 
 type Filters = { q: string; action: string; resourceType: string; shopId: string; outcome: string; kind: string; from: string; to: string }
 const EMPTY: Filters = { q: '', action: '', resourceType: '', shopId: '', outcome: '', kind: '', from: '', to: '' }
@@ -109,24 +112,15 @@ export default function AdminAuditLogPage() {
 
         {!canRead ? <div className="ap-card"><p className="ap-empty" title={deniedTitle(false)}>{tp('errors.noPermission')}</p></div> : <>
           <form className="ap-filters" onSubmit={submit}>
-            <label className="ap-search wide"><Search /><input value={draft.q} onChange={event => set('q', event.target.value)} placeholder={tp('audit.filters.q')} aria-label={tp('audit.filters.q')} maxLength={100} /></label>
+            <label className="ap-search adm-search wide"><Search /><input value={draft.q} onChange={event => set('q', event.target.value)} placeholder={tp('audit.filters.q')} aria-label={tp('audit.filters.q')} maxLength={100} /></label>
             <label><span>{tp('audit.filters.action')}</span><input value={draft.action} onChange={event => set('action', event.target.value)} maxLength={100} /></label>
             <label><span>{tp('audit.filters.resourceType')}</span><input value={draft.resourceType} onChange={event => set('resourceType', event.target.value)} maxLength={50} /></label>
             <label><span>{tp('audit.filters.shopId')}</span><input value={draft.shopId} inputMode="numeric" pattern="[0-9]*" className="num" onChange={event => set('shopId', event.target.value.replace(/\D/g, ''))} /></label>
-            <label><span>{tp('audit.filters.outcome')}</span>
-              <select value={draft.outcome} onChange={event => set('outcome', event.target.value)}>
-                <option value="">{tp('common.all')}</option>
-                {OUTCOMES.map(value => <option key={value} value={value}>{tp(`outcome.${value}`)}</option>)}
-              </select>
-            </label>
-            <label><span>{tp('audit.filters.kind')}</span>
-              <select value={draft.kind} onChange={event => set('kind', event.target.value)}>
-                <option value="">{tp('common.all')}</option>
-                {KINDS.map(value => <option key={value} value={value}>{tp(`audit.kind.${value}`)}</option>)}
-              </select>
-            </label>
-            <label><span>{tp('common.from')}</span><input type="date" value={draft.from} max={draft.to || undefined} onChange={event => set('from', event.target.value)} /></label>
-            <label><span>{tp('common.to')}</span><input type="date" value={draft.to} min={draft.from || undefined} onChange={event => set('to', event.target.value)} /></label>
+            <AdminSelect label={tp('audit.filters.outcome')} value={draft.outcome} onChange={value => set('outcome', value)}
+              options={[{ value: '', label: tp('common.all') }, ...OUTCOMES.map(value => ({ value, label: tp(`outcome.${value}`) }))]} />
+            <AdminSelect label={tp('audit.filters.kind')} value={draft.kind} onChange={value => set('kind', value)}
+              options={[{ value: '', label: tp('common.all') }, ...KINDS.map(value => ({ value, label: tp(`audit.kind.${value}`) }))]} />
+            <AdminDateRange from={draft.from} to={draft.to} onChange={range => { set('from', range.from); set('to', range.to) }} />
             <div className="ap-filter-actions">
               <button type="submit" className="ap-primary">{tp('common.search')}</button>
               <button type="button" className="ap-ghost" onClick={reset}>{tp('common.reset')}</button>

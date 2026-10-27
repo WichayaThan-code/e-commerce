@@ -268,7 +268,7 @@ function FiltersBody({
   );
 }
 
-export default function CatalogSection({ shop, section, products, catalog, preview }: ShopSectionProps) {
+export default function CatalogSection({ shop, section, products, catalog, preview, config }: ShopSectionProps) {
   const { tp, localeTag } = usePublicTranslation();
   const variant = resolveVariant("CATALOG", section.variant) || "GRID";
   const priceRanges = tp("catalog.priceRanges", { returnObjects: true }) as unknown as string[];
@@ -354,7 +354,7 @@ export default function CatalogSection({ shop, section, products, catalog, previ
   };
 
   return (
-    <section id="shop-catalog" className={`${sectionRootClass("CATALOG", variant)} recommend-catalog`} data-variant={variant}>
+    <section id="shop-catalog" className={`${sectionRootClass("CATALOG", variant, config)} recommend-catalog`} data-variant={variant}>
       <aside className="shop-filters-desktop">
         <header className="shop-filters-head">
           <h2>{tp("catalog.filters")}</h2>

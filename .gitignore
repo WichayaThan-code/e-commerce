@@ -16,6 +16,7 @@ backend/uploads/
 # Local environment overrides and runtime logs
 .env.*
 !.env.example
+!frontend/.env.development
 *.log
 
 # local database dumps (contain real data)

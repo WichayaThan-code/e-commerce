@@ -61,16 +61,49 @@ public final class OrderDtos {
     /** toStatus null = action without a status change (ACCEPT; COLLECT_COD → POST …/cod/collect). */
     public record AllowedTransition(String toStatus, String action, boolean reasonRequired, boolean trackingRequired) {}
 
+    // ---- tags / notes / bulk (AB2 — merchant only; buyer DTOs keep these null / omitted) ----
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record TagView(UUID id, String name, String color, Integer usageCount) {
+        public TagView(UUID id, String name, String color) { this(id, name, color, null); }
+    }
+
+    public record OrderTagRequest(String name, String color) {}
+
+    public record InternalNoteRequest(String internalNote, Integer expectedVersion) {}
+
+    public record InternalNoteResponse(UUID orderId, String internalNote, int version) {}
+
+    public record OrderTagsRequest(List<UUID> tagIds, Integer expectedVersion) {}
+
+    public record OrderTagsResponse(UUID orderId, List<TagView> tags, int version) {}
+
+    public record BulkItem(UUID orderId, Integer expectedVersion) {}
+
+    public record BulkRequest(List<BulkItem> items, String reason, String status, String carrierCode,
+                              Map<String, String> trackingNumbers) {}
+
+    public record BulkTagsRequest(List<BulkItem> items, List<UUID> addTagIds, List<UUID> removeTagIds) {}
+
+    public record BulkResultItem(UUID orderId, boolean ok, String code, String message, Integer newVersion) {}
+
+    public record BulkResponse(String action, int total, int succeeded, int failed, List<BulkResultItem> results, boolean replayed) {}
+
     // ---- responses ----
     /**
      * awaitingAcceptance = true (merchant view, order not accepted yet): only id, orderNumber, shop, placedAt and version
      * are filled; status / money / counts / paidAt are null (MerchantVisibility).
+     * tags / carrierCode / trackingNumber: merchant list only; buyer paths leave tags null.
      */
     public record OrderSummary(UUID id, String orderNumber, Long shopId, String shopName, String status, String paymentStatus,
                                String fulfillmentStatus, BigDecimal grandTotal, String currency, Integer itemCount, Integer totalQuantity,
                                Instant placedAt, Instant paidAt, int version, boolean awaitingAcceptance,
                                /* BANK_TRANSFER | COD (null while awaitingAcceptance) */
-                               String paymentMethod) {}
+                               String paymentMethod,
+                               /* merchant list: tags / shipment snapshots; buyer list leaves tags null */
+                               List<TagView> tags, String carrierCode, String trackingNumber,
+                               /* merchant + accepted only; omitted when null so buyer JSON unchanged */
+                               @JsonInclude(JsonInclude.Include.NON_NULL) String customerName,
+                               @JsonInclude(JsonInclude.Include.NON_NULL) String customerKey) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record OrderDetail(
@@ -90,13 +123,17 @@ public final class OrderDtos {
         /* BANK_TRANSFER | COD; codFee = COD surcharge already included in grandTotal (withheld while awaitingAcceptance) */
         String paymentMethod, BigDecimal codFee,
         /* when the buyer accepted the checkout terms (null for orders placed before V32 / withheld while awaitingAcceptance) */
-        Instant termsAcceptedAt
+        Instant termsAcceptedAt,
+        /* merchant-only; buyer / admin buyer-facing paths must leave null */
+        String internalNote, List<TagView> tags
     ) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record Item(UUID id, UUID productId, UUID skuId, String productName, String optionLabel, String skuCode, String barcode,
                        String imageUrl, BigDecimal unitPrice, BigDecimal compareAtPrice, BigDecimal costPrice, int quantity,
-                       BigDecimal discountAmount, BigDecimal lineTotal) {}
+                       BigDecimal discountAmount, BigDecimal lineTotal,
+                       /* V43: configurator snapshot (labels + price breakdown); null (omitted) for normal items */
+                       Map<String, Object> configuration) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ShippingSnapshot(UUID methodId, String methodName, String carrierCode) {}

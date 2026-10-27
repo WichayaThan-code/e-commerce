@@ -2,6 +2,7 @@ package com.thaishopfun.translation;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -156,9 +157,14 @@ public class TranslationService {
         return ContentTranslationIndex.of(repository.findByEntityTypeAndEntityIdIn(entityType, entityIds));
     }
 
+    /** false in tests: queue is processed explicitly via processPendingForTests() instead of racing a background thread. */
+    @Value("${app.translation.process-after-commit:true}")
+    private boolean processAfterCommit = true;
+
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async
     public void afterCommit(TranslationRequestedEvent event) {
+        if (!processAfterCommit) return;
         try {
             processEntityQueue(event.entityType(), event.entityId());
         } catch (Exception exception) {

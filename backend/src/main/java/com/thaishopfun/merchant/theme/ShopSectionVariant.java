@@ -5,7 +5,9 @@ public enum ShopSectionVariant {
     STRIP,
     GRID,
     LARGE,
-    MENU;
+    MENU,
+    /** AG5: full-bleed image / video / gradient hero with stickers. Allowed for HERO on CUSTOM themes only. */
+    MEDIA_FULL;
 
     public static ShopSectionVariant from(String raw) {
         if (raw == null || raw.isBlank()) return null;
@@ -18,7 +20,7 @@ public enum ShopSectionVariant {
 
     public boolean allowedFor(ShopSectionKey key) {
         return switch (key) {
-            case HERO -> this == FULL || this == STRIP;
+            case HERO -> this == FULL || this == STRIP || this == MEDIA_FULL;
             case FEATURED, BESTSELLERS, NEW_ARRIVALS, CATALOG -> this == GRID || this == LARGE || this == MENU;
             case BANNERS, CATEGORIES, TRUST, INTRO, HOURS -> false;
         };

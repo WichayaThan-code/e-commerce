@@ -133,6 +133,8 @@ public class Order {
     public void setCouponCode(String couponCode) { this.couponCode = couponCode; }
     public String getBuyerNote() { return buyerNote; }
     public void setBuyerNote(String buyerNote) { this.buyerNote = buyerNote; }
+    public String getInternalNote() { return internalNote; }
+    public void setInternalNote(String internalNote) { this.internalNote = internalNote; }
     public String getIdempotencyKey() { return idempotencyKey; }
     public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
     public Instant getPlacedAt() { return placedAt; }

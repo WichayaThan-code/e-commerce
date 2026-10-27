@@ -56,7 +56,9 @@ export async function request<T>(path:string, init:RequestInit = {}, authenticat
   let response:Response
   try {
     response = await fetch(`${API_URL}${path}`, {...init, headers, credentials:'include'})
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error
+    if (error && typeof error === 'object' && 'name' in error && (error as { name?: string }).name === 'AbortError') throw error
     throw new ApiError('NETWORK_ERROR', 'เชื่อมต่อระบบไม่ได้ กรุณาตรวจสอบว่า Backend กำลังทำงาน', 0)
   }
   if (response.status === 401 && authenticate && retry) {
@@ -118,13 +120,18 @@ export type TranslationMeta = { origin: 'MACHINE' | 'HUMAN' | 'MANUAL'; status: 
 
 export type ThemeColors = { primary:string; secondary:string; background:string; text:string; accent?:string }
 export type ThemeStyle = { radius:number; cardStyle:'FLAT'|'BORDERED'|'SHADOW'; density:'COMPACT'|'COMFORTABLE'; buttonShape:'ROUNDED'|'PILL'|'SQUARE' }
-export type ThemeHero = { layout:'FULL'|'STRIP'; title:string; subtitle:string; ctaLabel:string; ctaLink:string }
-export type SectionConfig = { key:'HERO'|'BANNERS'|'CATEGORIES'|'TRUST'|'INTRO'|'FEATURED'|'BESTSELLERS'|'NEW_ARRIVALS'|'CATALOG'|'HOURS'; enabled:boolean; variant:'FULL'|'STRIP'|'GRID'|'LARGE'|'MENU'|null }
-export type ThemeBanner = { imageUrl:string; title?:string; link?:string }
+export type ThemeHero = { layout:'FULL'|'STRIP'|'MEDIA_FULL'; title:string; subtitle:string; ctaLabel:string; ctaLink:string }
+export type SectionConfig = { key:'HERO'|'BANNERS'|'CATEGORIES'|'TRUST'|'INTRO'|'FEATURED'|'BESTSELLERS'|'NEW_ARRIVALS'|'CATALOG'|'HOURS'; enabled:boolean; variant:'FULL'|'STRIP'|'MEDIA_FULL'|'GRID'|'LARGE'|'MENU'|null }
+export type ThemeBanner = { imageUrl:string; title?:string; link?:string; mediaId?:string }
+export type ThemeMediaKind = 'IMAGE'|'VIDEO'|'FONT'
+export type ThemeMediaItem = {
+  id:string; kind:ThemeMediaKind; originalFilename:string; mimeType:string; sizeBytes:number
+  width?:number|null; height?:number|null; url:string; createdAt:string
+}
 export type ThemeTrustItem = { icon:string; label:string; enabled:boolean }
 export type ThemeTrust = { enabled:boolean; items:ThemeTrustItem[] }
 export type ThemeConfig = { colors:ThemeColors; font:string; style?:ThemeStyle; hero:ThemeHero; banners?:ThemeBanner[]; trust?:ThemeTrust; sections:SectionConfig[] }
-export type ShopTheme = { templateKey:'GENERAL'|'FASHION'|'FOOD_BEVERAGE'; config:ThemeConfig }
+export type ShopTheme = { templateKey:'GENERAL'|'FASHION'|'FOOD_BEVERAGE'|'CUSTOM'; config:ThemeConfig }
 
 export type ShopPolicyType = 'shipping' | 'returns' | 'privacy' | 'terms'
 export type ShopPolicyDto = {
@@ -225,7 +232,7 @@ export const merchantApi = {
   submitReinstatement: (shopId:number, message:string) => request<ReinstatementRequest>(`/api/merchant/reinstatement?shopId=${shopId}`, { method: 'POST', body: JSON.stringify({ message }) }, true),
 }
 
-async function downloadFile(path:string, filename:string) {
+export async function downloadFile(path:string, filename:string) {
   if (!accessToken) await refreshSession()
   const load = async () => {
     const headers = new Headers()
@@ -251,6 +258,19 @@ async function downloadFile(path:string, filename:string) {
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
+}
+
+/** Merchant customers Excel export (drops page/size/selected). */
+export function exportCustomerInsights(
+  shopId: number,
+  query: Record<string, string | number | undefined | null> = {},
+) {
+  const params: Record<string, string | number | undefined | null> = { ...query }
+  delete params.page
+  delete params.size
+  delete params.selected
+  const qs = queryOf(params)
+  return downloadFile(`/api/merchant/shops/${shopId}/customer-insights/export${qs}`, `customers-${shopId}.xlsx`)
 }
 
 export const adminApplicationApi = {
@@ -373,7 +393,7 @@ export const searchApi = {
 export type ProductStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type ProductType = 'SIMPLE' | 'VARIABLE'
 export type StockFilter = 'in' | 'low' | 'out'
-export type ProductSort = 'newest' | 'name' | 'price_asc' | 'price_desc' | 'stock'
+export type ProductSort = 'newest' | 'name' | 'price_asc' | 'price_desc' | 'stock' | 'best_selling'
 export type ProductListQuery = {
   q?: string
   status?: ProductStatus
@@ -468,6 +488,51 @@ export type PublicProduct = {
   skus: PublicSku[]
   images: ProductImage[]
   optionSchema?: { name: string; values: string[] }[]
+  /** All-time sold quantity; filled by the shop product list (null elsewhere). */
+  soldCount?: number | null
+}
+/** GET /api/products/best-sellers row: public product fields + rank / sold quantity / shop. rating & reviewCount are null until reviews exist. */
+export type BestSellerProduct = {
+  rank: number
+  soldCount: number
+  id: string
+  slug: string
+  nameTh: string
+  nameEn?: string | null
+  nameZh?: string | null
+  categoryId?: number | null
+  brand?: string | null
+  basePrice?: number | string | null
+  compareAtPrice?: number | string | null
+  currency?: string | null
+  skus: PublicSku[]
+  images: ProductImage[]
+  shopSlug: string
+  shopName: string
+  shopNameEn?: string | null
+  rating?: number | null
+  reviewCount?: number | null
+}
+export type BestSellerQuery = { categoryId?: number; categorySlug?: string; sort?: 'best_selling' | 'top_rated'; shopSlug?: string; period?: '7d' | '30d' | 'all'; minPrice?: number; maxPrice?: number; page?: number; size?: number }
+export const bestSellerApi = {
+  list: (query: BestSellerQuery = {}) => {
+    const params = new URLSearchParams()
+    Object.entries(query).forEach(([key, value]) => { if (value !== undefined && value !== null && value !== '') params.set(key, String(value)) })
+    const qs = params.toString()
+    return request<ProductPage<BestSellerProduct>>(`/api/products/best-sellers${qs ? `?${qs}` : ''}`)
+  },
+}
+export type ProductReview = { id: string; rating: number; comment?: string | null; reviewerName: string; createdAt: string }
+export type ProductReviewPage = { items: ProductReview[]; page: number; size: number; total: number; ratingAvg?: number | null; reviewCount: number }
+export const reviewApi = {
+  list: (productIdOrSlug: string, query: { shopSlug?: string; page?: number; size?: number } = {}) => {
+    const params = new URLSearchParams()
+    Object.entries(query).forEach(([key, value]) => { if (value !== undefined && value !== null && value !== '') params.set(key, String(value)) })
+    const qs = params.toString()
+    return request<ProductReviewPage>(`/api/products/${encodeURIComponent(productIdOrSlug)}/reviews${qs ? `?${qs}` : ''}`)
+  },
+  create: (body: { orderItemId: string; rating: number; comment?: string }) =>
+    request<ProductReview>('/api/me/reviews', { method: 'POST', body: JSON.stringify(body) }, true),
 }
 export type ProductPage<T> = { items: T[]; page: number; size: number; total: number }
 export type ProductImportError = { row: number; message: string; productKey?: string | null; skuCode?: string | null }
@@ -617,6 +682,22 @@ function uploadForm<T>(path: string, body: FormData, onProgress?: (ratio: number
       throw error
     }
   })()
+}
+
+/** AG2: CUSTOM theme media library (images / MP4 / WOFF2). Errors keep the backend code (e.g. THEME_MEDIA_QUOTA_EXCEEDED). */
+export const themeMediaApi = {
+  upload: (kind: ThemeMediaKind, file: File, shopId?: number | null, onProgress?: (ratio: number) => void) => {
+    const body = new FormData()
+    body.append('kind', kind)
+    body.append('file', file)
+    return uploadForm<ThemeMediaItem>(withShop('/api/merchant/settings/theme/media', shopId), body, onProgress)
+  },
+  list: (kind?: ThemeMediaKind, shopId?: number | null) => {
+    const path = withShop('/api/merchant/settings/theme/media', shopId)
+    return request<ThemeMediaItem[]>(kind ? `${path}${path.includes('?') ? '&' : '?'}kind=${kind}` : path, {}, true)
+  },
+  remove: (id: string, shopId?: number | null) =>
+    request<void>(withShop(`/api/merchant/settings/theme/media/${id}`, shopId), { method: 'DELETE' }, true),
 }
 
 export const productApi = {
@@ -825,6 +906,13 @@ export type CartLine = {
   optionLabel?: string | null; options?: Record<string, string> | null; imageUrl?: string | null
   quantity: number; selected: boolean; unitPrice: Money; priceSnapshot: Money; compareAtPrice?: Money | null
   priceChanged: boolean; lineTotal: Money; availableQuantity: number; maxQuantity: number; status: CartLineStatus
+  /** V43: product-configurator snapshot; absent for normal lines. */
+  configuration?: ConfigurationSnapshot | null
+}
+/** V43: server-quoted configurator snapshot stored on a cart line / order item (labels are plain text). */
+export type ConfigurationSnapshot = {
+  version?: number; selections?: Record<string, unknown>; configDelta?: Money; currency?: string; configHash?: string
+  lines?: { stepId: string; stepLabel?: Record<string, string> | null; optionId?: string | null; label?: Record<string, string> | null; text?: string | null; priceDelta?: Money }[]
 }
 export type CartCoupon = {
   code: string; type: 'PERCENT' | 'FIXED' | 'FREE_SHIPPING'; value: Money; maxDiscount?: Money | null; minSubtotal?: Money | null
@@ -858,6 +946,9 @@ const json = (method: string, body?: unknown): RequestInit => ({ method, body: b
 export const cartApi = {
   get: () => cartCall<Cart>(''),
   add: (skuId: string, quantity: number, capToAvailable = true) => cartCall<Cart>('/items', json('POST', { skuId, quantity, capToAvailable })),
+  /** V43: configured line; the server re-quotes the selections (flag-gated) and keys the line by its config hash. */
+  addConfigured: (skuId: string, quantity: number, configuration: { selections: Record<string, unknown>; version?: number }, capToAvailable = true) =>
+    cartCall<Cart>('/items', json('POST', { skuId, quantity, capToAvailable, configuration })),
   update: (itemId: string, patch: CartLinePatch) => cartCall<Cart>(`/items/${itemId}`, json('PATCH', patch)),
   remove: (itemId: string) => cartCall<Cart>(`/items/${itemId}`, { method: 'DELETE' }),
   removeMany: (itemIds: string[]) => cartCall<Cart>('/items/remove', json('POST', { itemIds })),
@@ -904,7 +995,7 @@ export type CheckoutAddress = {
   recipientName: string; phone: string; addressLine1: string; addressLine2?: string
   subdistrict?: string; district: string; province: string; postalCode: string
 }
-export type OrderItem = { id: string; productId: string; skuId: string; productName: string; optionLabel?: string | null; skuCode?: string | null; imageUrl?: string | null; unitPrice: Money; quantity: number; discountAmount?: Money | null; lineTotal: Money }
+export type OrderItem = { id: string; productId: string; skuId: string; productName: string; optionLabel?: string | null; skuCode?: string | null; imageUrl?: string | null; unitPrice: Money; quantity: number; discountAmount?: Money | null; lineTotal: Money; configuration?: ConfigurationSnapshot | null }
 export type OrderDetail = {
   id: string; orderNumber: string; shopId: number; shopName: string; status: string; paymentStatus: string; fulfillmentStatus?: string | null
   currency: string; subtotal: Money; discountTotal: Money; shippingFee: Money; grandTotal: Money; couponCode?: string | null
@@ -918,8 +1009,21 @@ export type OrderDetail = {
   channel?: string | null; merchantConfirmStatus?: string | null; taxTotal?: Money | null; buyerUserId?: string | null; shopCustomerId?: string | null
   statusBeforeRefund?: string | null; merchantConfirmedAt?: string | null; version?: number; itemsHidden?: boolean; refundableAmount?: Money | null
   awaitingAcceptance?: boolean | null; paymentMethod?: string | null; codFee?: Money | null; termsAcceptedAt?: string | null
+  /** Merchant-only (AB1); never render on buyer pages. */
+  internalNote?: string | null
+  tags?: { id: string; name: string; color: string | null; usageCount?: number }[] | null
 }
-export type OrderSummary = { id: string; orderNumber: string; shopId: number; shopName: string; status: string; paymentStatus: string; fulfillmentStatus?: string | null; grandTotal: Money; currency: string; itemCount?: number | null; totalQuantity?: number | null; placedAt?: string | null; paidAt?: string | null; version: number; awaitingAcceptance: boolean; paymentMethod?: string | null }
+export type OrderSummary = {
+  id: string; orderNumber: string; shopId: number; shopName: string; status: string; paymentStatus: string
+  fulfillmentStatus?: string | null; grandTotal: Money; currency: string; itemCount?: number | null
+  totalQuantity?: number | null; placedAt?: string | null; paidAt?: string | null; version: number
+  awaitingAcceptance: boolean; paymentMethod?: string | null
+  /** Merchant-only optional fields (AB1). */
+  tags?: { id: string; name: string; color: string | null; usageCount?: number }[] | null
+  trackingNumber?: string | null; carrierCode?: string | null
+  /** Merchant + accepted only (AD3). */
+  customerName?: string | null; customerKey?: string | null
+}
 export type OrderPage = { items: OrderSummary[]; page: number; size: number; totalItems: number; totalPages: number }
 export type OrderTimelineEntry = { id: number; event: string; fromStatus?: string | null; toStatus?: string | null; actorType?: string | null; reason?: string | null; at: string }
 export type PaymentProofView = { id: string; status: string; referenceNo?: string | null; amountDeclared?: Money | null; amountMismatch?: boolean; transferredAt?: string | null; fileUrl?: string | null; contentType?: string | null; uploadedAt?: string | null; rejectReason?: string | null; bankName?: string | null; reviewedAt?: string | null; proofType?: string | null }
@@ -963,13 +1067,23 @@ export const checkoutApi = {
 export const buyerOrderApi = {
   get: (orderId: string) => request<OrderDetail>(`/api/orders/${orderId}`, {}, true),
   paymentInfo: (orderId: string) => request<OrderPaymentInfo>(`/api/orders/${orderId}/payment-info`, {}, true),
-  list: (params: { status?: string; page?: number; size?: number; q?: string }) => {
+  list: (params: {
+    status?: string; page?: number; size?: number; q?: string
+    paymentStatus?: string; fulfillmentStatus?: string; from?: string; to?: string
+    sort?: string; direction?: string
+    signal?: AbortSignal
+  }) => {
     const query = new URLSearchParams()
     if (params.status) query.set('status', params.status)
     if (params.q?.trim()) query.set('q', params.q.trim())
+    if (params.paymentStatus) query.set('paymentStatus', params.paymentStatus)
+    if (params.fulfillmentStatus) query.set('fulfillmentStatus', params.fulfillmentStatus)
+    if (params.from) query.set('from', params.from)
+    if (params.to) query.set('to', params.to)
     query.set('page', String(params.page ?? 0)); query.set('size', String(params.size ?? 10))
-    query.set('sort', 'placedAt'); query.set('direction', 'desc')
-    return request<OrderPage>(`/api/orders?${query}`, {}, true)
+    query.set('sort', params.sort || 'placedAt')
+    query.set('direction', params.direction || 'desc')
+    return request<OrderPage>(`/api/orders?${query}`, { signal: params.signal }, true)
   },
   timeline: (orderId: string) => request<OrderTimelineEntry[]>(`/api/orders/${orderId}/timeline`, {}, true),
   submitSlip: (orderId: string, form: FormData) => request<PaymentView>(`/api/orders/${orderId}/payments`, { method: 'POST', body: form }, true),
@@ -1045,7 +1159,7 @@ function queryOf(params: Record<string, string | number | boolean | null | undef
 const merchantOrders = (shopId: number, path = '') => shopPath(shopId, `/orders${path}`)
 
 export const merchantOrderApi = {
-  /** query: status, paymentStatus, fulfillmentStatus, from, to, q, page, size, sort, direction, acceptance */
+  /** query: status, paymentStatus, fulfillmentStatus, from, to, q, page, size, sort, direction, acceptance, customer (opaque insight key) */
   list: (shopId: number, params: Record<string, string | number | boolean | null | undefined> = {}) =>
     request<OrderPage>(`${merchantOrders(shopId)}${queryOf(params)}`, { cache: 'no-store' }, true),
   get: (shopId: number, orderId: string) => request<OrderDetail>(merchantOrders(shopId, `/${orderId}`), { cache: 'no-store' }, true),
@@ -1307,4 +1421,39 @@ export const adminOrderApi = {
     request<ShipmentActionResponse>(adminPath(`/orders/${orderId}/shipment/tracking`), json('PUT', body), true),
   proofFilePath: (orderId: string, proofId: string) => adminPath(`/orders/${orderId}/payments/proofs/${proofId}/file`),
   refundProofPath: (orderId: string, refundId: string) => adminPath(`/orders/${orderId}/refunds/${refundId}/proof-file`),
+}
+
+/* ---------------------------------------------------------------- merchant notifications (AE1) */
+export type MerchantNotificationType =
+  | 'ORDER_NEW' | 'ORDER_PAID' | 'ORDER_CANCELLED' | 'REFUND_REQUESTED' | 'CUSTOMER_NEW' | 'LOW_STOCK'
+
+export type MerchantNotificationItem = {
+  key: string
+  type: MerchantNotificationType
+  titleParams: Record<string, string | number>
+  orderNo?: string | null
+  customerKey?: string | null
+  amount?: number | string | null
+  createdAt: string
+  read: boolean
+}
+
+export type MerchantNotificationPage = {
+  items: MerchantNotificationItem[]
+  nextCursor: string | null
+}
+
+export const merchantNotificationsApi = {
+  list: (shopId: number, params: { cursor?: string | null; size?: number } = {}) =>
+    request<MerchantNotificationPage>(
+      `${shopPath(shopId, '/notifications')}${queryOf({ cursor: params.cursor || undefined, size: params.size })}`,
+      { cache: 'no-store' },
+      true,
+    ),
+  unreadCount: (shopId: number) =>
+    request<{ count: number }>(shopPath(shopId, '/notifications/unread-count'), { cache: 'no-store' }, true),
+  markRead: (shopId: number, key: string) =>
+    request<void>(shopPath(shopId, `/notifications/${encodeURIComponent(key)}/read`), { method: 'POST' }, true),
+  markAllRead: (shopId: number) =>
+    request<void>(shopPath(shopId, '/notifications/read-all'), { method: 'POST' }, true),
 }

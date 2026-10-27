@@ -3,6 +3,7 @@ package com.thaishopfun.merchant;
 import com.thaishopfun.auth.RequestUser;
 import com.thaishopfun.auth.authz.PublicEndpoint;
 import com.thaishopfun.merchant.policy.ShopPolicyService;
+import com.thaishopfun.merchant.theme.ShopThemeMediaService;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.UUID;
 
 /** Public storefront (CATALOG_READ is granted to GUEST in the matrix, so these endpoints need no sign-in). */
 @PublicEndpoint("public storefront: CATALOG_READ (GUEST)")
@@ -26,9 +28,12 @@ public class ShopController {
     private final ShopCatalogService shops;
     private final ShopPolicyService policies;
 
-    public ShopController(ShopCatalogService shops, ShopPolicyService policies) {
+    private final ShopThemeMediaService themeMedia;
+
+    public ShopController(ShopCatalogService shops, ShopPolicyService policies, ShopThemeMediaService themeMedia) {
         this.shops = shops;
         this.policies = policies;
+        this.themeMedia = themeMedia;
     }
 
     @GetMapping
@@ -66,6 +71,22 @@ public class ShopController {
     @GetMapping("/{slug}/cover")
     public ResponseEntity<Resource> cover(@PathVariable String slug) {
         return image(shops.coverFile(slug));
+    }
+
+    /** AG2 CUSTOM theme media (banner image / video / font). Same visibility rules as the storefront itself. */
+    @GetMapping("/{slug}/theme-media/{id}")
+    public ResponseEntity<Resource> themeMedia(
+        @PathVariable String slug,
+        @PathVariable UUID id,
+        @AuthenticationPrincipal Jwt jwt
+    ) {
+        var shop = shops.requireVisibleShop(slug, RequestUser.id(jwt));
+        var file = themeMedia.resolvePublicFile(shop, id);
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(file.mimeType()))
+            .header("X-Content-Type-Options", "nosniff")
+            .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
+            .body(new FileSystemResource(file.path()));
     }
 
     private ResponseEntity<Resource> image(java.nio.file.Path file) {

@@ -1,0 +1,29 @@
+/* Theme editor dropdowns now render the default SearchableSelect look (same as /merchant/products/new). */
+/* AG3 — CUSTOM block list editor (merchant UI, not storefront) */
+.theme-blocks-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:end;margin:6px 0}
+.theme-blocks-row{grid-template-columns:24px minmax(0,1fr) minmax(110px,150px) auto auto}
+.theme-blocks-row .theme-section-move{flex-wrap:wrap;justify-content:flex-end}
+.theme-blocks-row .theme-section-move button.is-active{background:#e6f1ff;border-color:#087bf5}
+.theme-blocks-id{color:#8aa0bb;font-weight:400;font-size:11px}
+.theme-blocks-panel{grid-column:1 / -1;display:grid;gap:10px;padding:10px;border:1px dashed #cbddef;border-radius:8px;background:#fff}
+@media (max-width:760px){
+  .theme-blocks-toolbar{grid-template-columns:1fr}
+  .theme-blocks-row{grid-template-columns:24px minmax(0,1fr) auto}
+  .theme-blocks-row .theme-section-move{grid-column:1 / -1;justify-content:flex-start}
+}
+/* AG4 — content editors inside a CUSTOM block's settings panel */
+.theme-content-fieldset{display:grid;gap:10px;margin:0;padding:10px;border:1px solid #dce9f5;border-radius:8px;min-width:0}
+.theme-content-fieldset > legend{padding:0 6px;font-size:13px;font-weight:700;color:#1d3a5c}
+.theme-content{display:grid;gap:10px;min-width:0}
+.theme-content-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}
+.theme-content-group{display:grid;gap:8px;padding:10px;border:1px dashed #dce9f5;border-radius:8px}
+.theme-content-subtitle{font-size:13px;color:#1d3a5c}
+.theme-content-list{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.theme-content-row{display:grid;gap:8px;padding:10px;border:1px solid #dce9f5;border-radius:8px;background:#f8fbff;min-width:0}
+.theme-content-row-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.theme-content-tools{display:inline-flex;gap:4px}
+.theme-content .form-field input,.theme-content .form-field select{min-height:40px;box-sizing:border-box}
+.theme-content .form-field textarea{box-sizing:border-box;width:100%;min-height:80px;resize:vertical}
+@media (max-width:720px){
+  .theme-content-pair{grid-template-columns:minmax(0,1fr)}
+}

@@ -59,6 +59,7 @@ import ShopProductPage from "../pages/ShopProductPage";
 import ShopProductsPage from "../pages/shop/ShopProductsPage";
 import ShopCategoryPage from "../pages/shop/ShopCategoryPage";
 import ShopSearchPage from "../pages/shop/ShopSearchPage";
+import ShopCollectionPage from "../pages/shop/ShopCollectionPage";
 import ShopContactPage from "../pages/shop/ShopContactPage";
 import ShopPoliciesPage from "../pages/shop/ShopPoliciesPage";
 import NotFoundPage from "../pages/NotFoundPage";
@@ -108,6 +109,7 @@ export const routes: RouteObject[] = [
           { path: "category", element: <ShopCategoryPage /> },
           { path: "category/:categoryKey", element: <ShopCategoryPage /> },
           { path: "search", element: <ShopSearchPage /> },
+          { path: "collections/:collectionSlug", element: <ShopCollectionPage /> },
           { path: "contact", element: <ShopContactPage /> },
           { path: "policies", element: <ShopPoliciesPage /> },
           { path: "policies/:policyType", element: <ShopPoliciesPage /> },

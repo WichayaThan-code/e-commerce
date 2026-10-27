@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { shopApi, type PublicProduct } from "../../../services/api";
 import { shopProductsPath } from "../../../services/shopRoutes";
-import { resolveVariant } from "./sectionClasses";
+import { resolveVariant, sectionSettingClasses } from "./sectionClasses";
 import ProductRail from "./ProductRail";
 import type { ProductCardVariant } from "../ProductCard";
 import type { ShopSectionProps } from "./types";
@@ -13,7 +13,7 @@ function cardVariantFor(variant: string): ProductCardVariant {
   return "featured-row";
 }
 
-export default function NewArrivalsSection({ shop, section, products, catalog, preview }: ShopSectionProps) {
+export default function NewArrivalsSection({ shop, section, products, catalog, preview, config }: ShopSectionProps) {
   const { tp } = usePublicTranslation();
   const variant = resolveVariant("NEW_ARRIVALS", section.variant) || "GRID";
   const [items, setItems] = useState<PublicProduct[]>([]);
@@ -53,7 +53,7 @@ export default function NewArrivalsSection({ shop, section, products, catalog, p
       favorites={catalog.favorites}
       onToggleFavorite={catalog.onToggleFavorite}
       onNotify={catalog.onNotify}
-      className={`shop-featured-${String(variant).toLowerCase()} shop-new-arrivals`}
+      className={[`shop-featured-${String(variant).toLowerCase()}`, "shop-new-arrivals", ...sectionSettingClasses("NEW_ARRIVALS", config)].filter(Boolean).join(" ")}
     />
   );
 }

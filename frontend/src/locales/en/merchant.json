@@ -152,6 +152,7 @@
     "citizenId": "National ID",
     "citizenPh": "1 2345 67890 12 3",
     "birthDate": "Date of birth",
+    "birthDatePh": "Select date of birth",
     "nationality": "Nationality",
     "phone": "Phone",
     "email": "Email",
@@ -326,7 +327,9 @@
     "empty": "—"
   },
   "shopMenu": {
-    "openFailed": "Could not open a form for another shop"
+    "openFailed": "Could not open a form for another shop",
+    "logout": "Log out",
+    "loggingOut": "Logging out..."
   },
   "catalog": {
     "toggle": {
@@ -690,6 +693,62 @@
     "checking": "Checking..."
   },
   "storeTheme": {
+    "content": {
+      "legend": "Content: {{type}}",
+      "langTh": "Thai",
+      "langEn": "English",
+      "title": "Title",
+      "subtitle": "Subtitle",
+      "body": "Body",
+      "cta": "Call-to-action button",
+      "ctaLabel": "Button text",
+      "ctaLink": "Link",
+      "linkHint": "Internal path (e.g. /shop/my-shop) or https:// only.",
+      "remove": "Remove",
+      "stepN": "Step {{n}}",
+      "icon": "Icon",
+      "image": "Image",
+      "addStep": "Add step ({{count}}/{{max}})",
+      "icons": {
+        "AUTHENTIC": "Authentic",
+        "FAST_SHIP": "Fast shipping",
+        "RETURNS": "Returns",
+        "SECURE_PAY": "Secure payment",
+        "CUSTOM": "My image",
+        "NUMBER": "Number"
+      },
+      "bullets": "Bullets (max 5)",
+      "bulletN": "Bullet {{n}}",
+      "bullet": "Text",
+      "addBullet": "Add bullet ({{count}}/{{max}})",
+      "layout": "Layout",
+      "featureLayouts": {
+        "IMAGE_LEFT": "Image left",
+        "IMAGE_RIGHT": "Image right"
+      },
+      "galleryLayouts": {
+        "GRID": "Grid",
+        "MASONRY": "Masonry",
+        "CAROUSEL": "Carousel"
+      },
+      "product": "Linked product (optional)",
+      "productHint": "Only published products of this shop can be linked.",
+      "productEmpty": "No published products to choose from yet.",
+      "productClear": "Remove linked product",
+      "imageN": "Image {{n}}",
+      "caption": "Caption",
+      "itemLink": "Link shown in the enlarged view (optional)",
+      "galleryHint": "Up to 24 images. Shoppers can open each image enlarged. Rows without an image are not saved.",
+      "addImage": "Add image ({{count}}/{{max}})",
+      "socialHint": "Enter only the numeric TikTok video id (10–25 digits). Do not paste links or embed code.",
+      "videoN": "Video {{n}}",
+      "videoId": "TikTok video id",
+      "videoIdInvalid": "Must be 10–25 digits only",
+      "addVideo": "Add video ({{count}}/{{max}})",
+      "richTextHint": "Supports headings (## / ###), bold, italic, lists, links (https or in-shop) and quotes (>). HTML is not allowed.",
+      "markdown": "Text",
+      "richTextCount": "{{count}} / {{max}} characters"
+    },
     "tab": "Shop theme",
     "title": "Storefront theme",
     "lead": "Pick a template, then tune colors, font and the order of sections customers see.",
@@ -711,6 +770,10 @@
       "FOOD_BEVERAGE": {
         "name": "Food & beverage",
         "desc": "Opening hours and menu-style product rows"
+      },
+      "CUSTOM": {
+        "name": "Custom",
+        "desc": "Full control over colors, gradients, and section styling"
       }
     },
     "media": {
@@ -723,6 +786,13 @@
       "secondary": "Secondary",
       "background": "Background",
       "text": "Text",
+      "extraTitle": "Extra colors",
+      "accent": "Accent",
+      "surface": "Surface",
+      "muted": "Muted text",
+      "ctaBackground": "CTA background",
+      "ctaText": "CTA text",
+      "border": "Border",
       "contrastWarn": "Some color pairs do not meet WCAG AA contrast (4.5:1). Text on background, buttons, or the strip header may be hard to read."
     },
     "style": {
@@ -744,6 +814,172 @@
         "ROUNDED": "Rounded",
         "PILL": "Pill",
         "SQUARE": "Square"
+      },
+      "extraTitle": "Advanced style",
+      "shadow": "Elevation shadow",
+      "shadows": {
+        "NONE": "None",
+        "SOFT": "Soft",
+        "MEDIUM": "Medium",
+        "STRONG": "Strong"
+      },
+      "headingTextShadow": "Heading text shadow"
+    },
+    "gradients": {
+      "title": "Gradients",
+      "hero": "Hero gradient",
+      "page": "Page background",
+      "section": "Section panels",
+      "angle": "Angle (degrees)",
+      "stop": "Stop {{index}}",
+      "addStop": "Add color stop",
+      "removeStop": "Remove stop"
+    },
+    "productCard": {
+      "title": "Product cards",
+      "imageRatio": "Image ratio",
+      "ctaStyle": "Add-to-cart button",
+      "titleAlign": "Title alignment",
+      "showPrice": "Show price",
+      "edgeToEdge": "Edge-to-edge cards",
+      "ratios": {
+        "SQUARE": "Square (1:1)",
+        "PORTRAIT": "Portrait (3:4)",
+        "LANDSCAPE": "Landscape (4:3)"
+      },
+      "cta": {
+        "PILL": "Pill",
+        "ROUNDED": "Rounded",
+        "SQUARE": "Square",
+        "NONE": "Hidden"
+      },
+      "align": {
+        "LEFT": "Left",
+        "CENTER": "Center"
+      }
+    },
+    "sectionSettings": {
+      "title": "Per-section layout",
+      "hint": "Background, alignment, spacing, and column count apply on the live storefront when set.",
+      "background": "Background",
+      "align": "Heading align",
+      "paddingY": "Vertical padding",
+      "columns": "Columns (grid)",
+      "backgrounds": {
+        "NONE": "Default",
+        "SURFACE": "Surface",
+        "PRIMARY": "Primary tint",
+        "GRADIENT": "Section gradient"
+      },
+      "aligns": {
+        "LEFT": "Left",
+        "CENTER": "Center"
+      },
+      "paddings": {
+        "COMPACT": "Compact",
+        "NORMAL": "Normal",
+        "LARGE": "Large"
+      }
+    },
+    "blocks": {
+      "title": "Storefront blocks",
+      "hint": "Add repeatable blocks (up to {{max}}). Drag or use the arrows to reorder, then open settings to change background, alignment, and columns. The shop header and opening hours can appear only once.",
+      "addType": "Block type to add",
+      "add": "Add block",
+      "alternate": "Alternate pink/cream",
+      "alternateHint": "Alternate block backgrounds in one click",
+      "count": "{{count}}/{{max}} blocks",
+      "limit": "Block limit reached ({{max}})",
+      "duplicate": "Duplicate block",
+      "delete": "Delete block",
+      "settings": "Block settings",
+      "singleton": "The shop header and opening hours can appear only once",
+      "fullWidth": "Full width",
+      "gradient": "Block gradient",
+      "backgroundImage": "Background image from media library",
+      "overlay": "Overlay strength (0–80%)",
+      "backgrounds": {
+        "NONE": "Default",
+        "SURFACE": "Surface",
+        "PRIMARY": "Primary tint",
+        "GRADIENT": "Gradient",
+        "IMAGE": "Image"
+      }
+    },
+    "chrome": {
+      "hero": {
+        "title": "Full-media hero",
+        "hint": "A full-width image, video or gradient background with stickers. Drag a sticker on the preview to place it, or type the numbers below.",
+        "bgType": "Background type",
+        "bgTypes": { "IMAGE": "Image", "VIDEO": "Video", "GRADIENT": "Gradient" },
+        "textAlign": "Text alignment",
+        "aligns": { "LEFT": "Left", "CENTER": "Center" },
+        "headlineSize": "Headline size",
+        "sizes": { "L": "Large (L)", "XL": "Extra large (XL)" },
+        "overlay": "Dark overlay (0–80)",
+        "heightVh": "Height (50–100 % of the screen)",
+        "bgImage": "Background image",
+        "bgVideo": "Background video (MP4)",
+        "poster": "Video poster image",
+        "posterHint": "The video is muted and loops. Visitors who prefer reduced motion see the poster instead.",
+        "gradientHint": "Uses the hero gradient from the \"Gradients\" settings (falls back to the shop's primary color).",
+        "secondaryCta": "Secondary button",
+        "secondaryLabel": "Secondary button label",
+        "secondaryLink": "Secondary button link",
+        "stickers": "Stickers ({{count}}/{{max}})",
+        "stickersHint": "Images from this shop's media library only. Position is a percentage of the hero area.",
+        "stickerImage": "Sticker image",
+        "stickerX": "Horizontal X (%)",
+        "stickerY": "Vertical Y (%)",
+        "stickerSize": "Size (px)",
+        "stickerRotate": "Rotation (degrees)",
+        "stickerHideMobile": "Hide on mobile",
+        "stickerAdd": "Add sticker",
+        "stickerRemove": "Remove sticker"
+      },
+      "header": {
+        "title": "Custom header",
+        "hint": "Menu, search and an announcement bar above the storefront. Leave it off to keep the standard shop header.",
+        "enable": "Use a custom header",
+        "layout": "Logo position",
+        "layouts": { "LOGO_LEFT": "Logo left", "LOGO_CENTER": "Logo centered" },
+        "sticky": "Stick to the top while scrolling",
+        "showSearch": "Show search box",
+        "showSocial": "Show social icons",
+        "menu": "Menu ({{count}}/{{max}})",
+        "menuAdd": "Add menu item",
+        "menuRemove": "Remove",
+        "menuLabel": "Label",
+        "menuLink": "Link",
+        "announce": "Announcement bar",
+        "announceText": "Announcement text",
+        "announceLink": "Announcement link (optional)",
+        "announceBg": "Announcement background",
+        "announceFg": "Announcement text color"
+      },
+      "footer": {
+        "title": "Custom footer",
+        "hint": "Shown after the storefront content. Leave it off if you don't want one.",
+        "enable": "Use a custom footer",
+        "about": "About the shop",
+        "showContacts": "Show shop contact details",
+        "showSocial": "Show the shop's social channels",
+        "copyright": "Copyright text",
+        "contactsHint": "Contact details come only from the shop's public phone / email and address in shop settings, never from the owner's private details.",
+        "columns": "Link columns ({{count}}/{{max}})",
+        "columnTitle": "Column title",
+        "columnAdd": "Add column",
+        "columnRemove": "Remove column",
+        "linkAdd": "Add link",
+        "linkRemove": "Remove link"
+      },
+      "fonts": {
+        "title": "Custom fonts",
+        "hint": "Upload your own WOFF2 files (up to 1 MB) for headings and body text. If they fail to load, the fallback font below is used.",
+        "heading": "Heading font",
+        "body": "Body font",
+        "fallback": "Fallback font",
+        "fallbackHint": "Used while the font loads or if it fails to load."
       }
     },
     "font": {
@@ -768,6 +1004,7 @@
     "variants": {
       "FULL": "Full",
       "STRIP": "Strip",
+      "MEDIA_FULL": "Full media",
       "GRID": "Grid",
       "LARGE": "Large cards",
       "MENU": "Menu rows"
@@ -785,6 +1022,12 @@
       "NEW_ARRIVALS": "New arrivals",
       "CATALOG": "All products",
       "HOURS": "Opening hours",
+      "STEPS": "Steps",
+      "FEATURE": "Feature",
+      "GALLERY": "Gallery",
+      "SOCIAL": "TikTok videos",
+      "RICH_TEXT": "Rich text",
+      "COLLECTIONS": "Collections",
       "comingSoon": "Coming soon",
       "comingSoonHint": "Not shown on the storefront until real sales data is available",
       "bannersTitle": "Banner images",
@@ -842,6 +1085,40 @@
         "message": "You have unsaved theme changes. If you leave now they will be lost.",
         "confirm": "Leave without saving",
         "stay": "Stay"
+      }
+    },
+    "media": {
+      "bannerImage": "Banner image from media library",
+      "library": "Shop media library",
+      "loading": "Loading media library...",
+      "empty": "No files in the media library yet",
+      "none": "No file selected",
+      "selected": "Selected file",
+      "uploading": "Uploading...",
+      "clear": "Clear selection",
+      "delete": "Delete",
+      "deleteConfirm": "Click again to confirm",
+      "upload": {
+        "IMAGE": "Upload image",
+        "VIDEO": "Upload video",
+        "FONT": "Upload font"
+      },
+      "hint": {
+        "IMAGE": "JPG, PNG or WEBP up to 5 MB, max 4000 px per side (GIF and SVG are not supported)",
+        "VIDEO": "MP4 up to 20 MB",
+        "FONT": "WOFF2 up to 1 MB"
+      },
+      "errors": {
+        "load": "Could not load the media library",
+        "upload": "Upload failed. Please try again.",
+        "delete": "Could not delete the file. Please try again.",
+        "FILE_TOO_LARGE": "File is too large (max {{size}})",
+        "THEME_MEDIA_CUSTOM_ONLY": "Media uploads are only available on the CUSTOM template. Save the theme as CUSTOM first.",
+        "THEME_MEDIA_QUOTA_EXCEEDED": "The media library is full. Delete unused files before uploading more.",
+        "THEME_MEDIA_IN_USE": "This file is used by the theme. Remove it from the theme and save before deleting.",
+        "THEME_MEDIA_INVALID": "Invalid file. Only JPG/PNG/WEBP, MP4 and WOFF2 are supported.",
+        "THEME_MEDIA_KIND_INVALID": "Invalid file type.",
+        "THEME_MEDIA_NOT_FOUND": "This file was not found in the media library."
       }
     },
     "errors": {
@@ -1011,15 +1288,98 @@
       "payment": "Payment",
       "fulfillment": "Fulfillment",
       "period": "Period",
+      "from": "From date",
+      "to": "To date",
+      "dateRange": "Date range",
+      "clear": "Clear",
+      "apply": "Apply",
+      "presets": {
+        "d7": "7 days",
+        "d30": "30 days",
+        "month": "This month"
+      },
       "all": "All",
+      "paymentMethod": "Payment method",
+      "carrier": "Carrier",
+      "hasTracking": "Tracking",
+      "trackingYes": "Has tracking",
+      "trackingNo": "No tracking",
+      "noTags": "No tags yet",
+      "tag": "Tag",
+      "localOnly": "Filters this page only",
       "periods": {
         "all": "All time",
         "7d": "Last 7 days",
         "30d": "Last 30 days",
         "month": "This month"
       },
+      "moreFilters": "More filters",
+      "moreFiltersCount": "More filters ({{count}})",
+      "clearAll": "Clear all",
+      "clearChip": "Clear {{label}} filter",
+      "chipDate": "{{from}} – {{to}}",
       "reset": "Reset",
-      "search": "Search"
+      "search": "Search",
+      "customerChip": "Customer: {{name}}",
+      "customerUnknown": "Unnamed",
+      "clearCustomer": "Clear customer filter"
+    },
+    "customer": {
+      "awaiting": "Awaiting acceptance",
+      "filterBy": "Filter by {{name}}",
+      "openProfile": "View customer profile"
+    },
+    "note": {
+      "internalLabel": "Internal shop note — buyers never see this",
+      "save": "Save note",
+      "revert": "Discard edits",
+      "saved": "Note saved"
+    },
+    "tags": {
+      "manage": "Manage tags",
+      "managerTitle": "Order tags",
+      "managerHint": "Create, edit, or delete shop tags",
+      "pickerTitle": "Tags on this order",
+      "pickerHint": "Up to 10 tags per order",
+      "search": "Search tags",
+      "newName": "New tag name",
+      "color": "Tag color",
+      "create": "Create tag",
+      "update": "Update tag",
+      "save": "Save tags",
+      "saved": "Tags saved",
+      "edit": "Edit",
+      "editOrder": "Edit tags",
+      "delete": "Delete",
+      "deleted": "Tag deleted",
+      "deleteTitle": "Delete this tag?",
+      "deleteBody": "The tag will be removed from every order that uses it",
+      "nameInvalid": "Tag name must be 1–40 characters"
+    },
+    "bulk": {
+      "barLabel": "Bulk actions",
+      "selected": "Selected",
+      "accept": "Accept",
+      "process": "Prepare",
+      "ship": "Ship",
+      "cancel": "Cancel",
+      "tags": "Tags",
+      "clear": "Clear selection",
+      "run": "Confirm",
+      "stop": "Stop remaining",
+      "processStatus": "Prepare status",
+      "trackingFor": "Tracking for {{number}}",
+      "confirmAccept": "Accept {{count}} selected orders?",
+      "confirmProcess": "Update prepare status for {{count}} orders?",
+      "confirmShip": "Ship {{count}} orders?",
+      "confirmCancel": "Cancel {{count}} selected orders?",
+      "confirmTags": "Add tags to {{count}} orders?",
+      "resultsTitle": "Bulk results",
+      "resultsSummary": "{{ok}} succeeded · {{fail}} failed of {{total}}",
+      "result": "Result",
+      "message": "Message",
+      "ok": "OK",
+      "selectFailed": "Select failed only"
     },
     "columns": {
       "selectAll": "Select all orders",
@@ -1110,7 +1470,16 @@
       "INVALID_STATUS_TRANSITION": "This status change is not allowed. The latest data has been loaded.",
       "SHIPMENT_VERSION_CONFLICT": "The shipment was changed by someone else. The latest data has been loaded.",
       "ORDER_NOT_ACCEPTED": "Accept the order before doing this",
+      "ORDER_TRANSITION_NOT_ALLOWED": "This order status change is not allowed",
       "ORDER_NOT_FOUND": "Order not found",
+      "TAG_NAME_DUPLICATE": "A tag with this name already exists",
+      "TAG_NOT_FOUND": "Tag not found",
+      "TAG_LIMIT_EXCEEDED": "Orders can have at most 10 tags",
+      "NOTE_TOO_LONG": "Note cannot exceed 2000 characters",
+      "BULK_TOO_MANY": "You can select at most 50 orders",
+      "BULK_EMPTY": "No orders selected",
+      "IDEMPOTENCY_KEY_REUSED": "This request was already processed",
+      "FEATURE_DISABLED": "This feature is not enabled yet",
       "PAYMENT_NOT_PENDING": "This payment is not waiting for review",
       "PAYMENT_NOT_FOUND": "Payment not found",
       "COD_NO_SLIP": "Cash on delivery orders do not use transfer slips",
@@ -1119,7 +1488,8 @@
       "FORBIDDEN": "You do not have permission to do this",
       "NETWORK_ERROR": "Cannot reach the server. Please try again.",
       "INTERNAL_ERROR": "Something went wrong. Please try again later.",
-      "REQUEST_FAILED": "Something went wrong. Please try again."
+      "REQUEST_FAILED": "Something went wrong. Please try again.",
+      "CUSTOMER_KEY_INVALID": "Invalid customer key. The filter was cleared."
     },
     "timelineEvents": {},
     "payment": {
@@ -1368,6 +1738,220 @@
         "noteAdded": "Note added",
         "trackingSaved": "Tracking saved"
       }
+    }
+  },
+  "customers": {
+    "title": "Customers",
+    "subtitle": "Care for your customers, build relationships, and grow sales",
+    "add": "Add customer",
+    "export": "Export (Excel)",
+    "exporting": "Exporting...",
+    "exportMasked": "Export is allowed, but name/phone/email will be masked without PII permission",
+    "exportTooLarge": "Too many rows to export — narrow the filters and try again",
+    "comingSoon": "Coming soon",
+    "searchLabel": "Search customers",
+    "searchPlaceholder": "Search name, phone, email...",
+    "reset": "Reset",
+    "retry": "Retry",
+    "error": "Could not load customers",
+    "empty": "No customers yet",
+    "searchEmpty": "No customers match your filters",
+    "piiMasked": "Personal data permission required",
+    "edit": "Edit",
+    "sendMessage": "Send message",
+    "viewOrders": "View order history",
+    "note": "Notes",
+    "channelsTitle": "Purchase channels",
+    "since": "Customer since {{date}}",
+    "kpi": {
+      "total": "All customers",
+      "newThisMonth": "New customers",
+      "repeat": "Repeat customers",
+      "avgOrder": "Avg. order value",
+      "repeatHint": "2+ orders",
+      "thisMonth": "This month"
+    },
+    "tabs": {
+      "all": "All",
+      "vip": "VIP",
+      "repeat": "Repeat",
+      "general": "General"
+    },
+    "filters": {
+      "channel": "Channel",
+      "status": "Status",
+      "segment": "Segment",
+      "joinedRange": "Joined date range",
+      "all": "All",
+      "clear": "Clear",
+      "apply": "Apply",
+      "presets": {
+        "d7": "7 days",
+        "d30": "30 days",
+        "month": "This month"
+      }
+    },
+    "status": {
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive"
+    },
+    "segment": {
+      "VIP": "VIP",
+      "REPEAT": "Repeat",
+      "GENERAL": "General"
+    },
+    "sort": {
+      "label": "Sort by",
+      "lastOrderAt": "Latest order",
+      "totalSpent": "Total spent",
+      "orderCount": "Order count",
+      "name": "Name"
+    },
+    "table": {
+      "name": "Name",
+      "channel": "Channel",
+      "orders": "Orders",
+      "spent": "Total spent",
+      "group": "Segment",
+      "status": "Status",
+      "joined": "Joined",
+      "showing": "Showing {{from}} - {{to}} of {{total}}",
+      "perPage": "Show",
+      "perPageSuffix": "per page"
+    },
+    "detail": {
+      "orders": "Orders",
+      "spent": "Total spent",
+      "avg": "Avg. per order",
+      "orderHistory": "Order history",
+      "noOrders": "No accepted orders yet",
+      "ordersDenied": "You do not have permission to view order history",
+      "ordersError": "Could not load order history",
+      "viewAll": "View all ({{count}})",
+      "openOrder": "Open order details",
+      "noData": "No data",
+      "copyPhone": "Copy phone number",
+      "copied": "Copied",
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "readAll": "Mark all read",
+    "empty": "No notifications yet",
+    "loadMore": "Load more",
+    "importing": "Import in progress",
+    "types": {
+      "ORDER_NEW": "New order {{orderNo}} · ฿{{amount}}",
+      "ORDER_PAID": "Paid {{orderNo}} · ฿{{amount}}",
+      "ORDER_CANCELLED": "Cancelled {{orderNo}}",
+      "REFUND_REQUESTED": "Refund requested {{orderNo}} · ฿{{amount}}",
+      "CUSTOMER_NEW": "New customer {{customerName}}",
+      "LOW_STOCK": "Low stock {{productName}} ({{skuCode}}) · {{available}} left"
+    }
+  }
+,
+  "collections": {
+    "tab": "Collections",
+    "title": "Product collections",
+    "subtitle": "Group products into collections (shown on CUSTOM-theme storefronts)",
+    "add": "Add collection",
+    "loading": "Loading…",
+    "empty": "No collections yet",
+    "draft": "Draft",
+    "published": "Published",
+    "productCount": "{{count}} products",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "newTitle": "New collection",
+    "editTitle": "Edit collection",
+    "save": "Save",
+    "saving": "Saving...",
+    "saved": "Collection saved",
+    "delete": "Delete",
+    "deleted": "Collection deleted",
+    "cancel": "Cancel",
+    "fields": {
+      "nameTh": "Name (Thai)",
+      "nameEn": "Name (English)",
+      "slug": "Link (slug)",
+      "slugHint": "Leave empty to generate",
+      "description": "Description",
+      "cover": "Cover image",
+      "visibility": "Visibility"
+    },
+    "products": {
+      "title": "Products in collection ({{count}})",
+      "search": "Search products",
+      "add": "Add product",
+      "noneToAdd": "No products to add",
+      "empty": "No products yet",
+      "remove": "Remove"
+    },
+    "confirmDelete": {
+      "title": "Delete collection",
+      "message": "Delete collection \"{{name}}\"? Products are not deleted."
+    },
+    "errors": {
+      "generic": "Something went wrong. Please try again.",
+      "nameRequired": "Please enter a collection name"
+    },
+    "block": {
+      "limit": "Maximum cards",
+      "hint": "Choose collections to show (none = all published, in order)",
+      "add": "Add collection",
+      "none": "No collections yet. Create them in the \"Collections\" tab."
+    }
+  },
+  "configurator": {
+    "title": "Product configurator",
+    "hint": "Let buyers pick options and enter text. Prices are calculated on the server (CUSTOM theme only).",
+    "saveProductFirst": "Save the product first to set up the configurator",
+    "loading": "Loading…",
+    "saved": "Configurator saved",
+    "enabled": "Status",
+    "on": "On",
+    "off": "Off",
+    "required": "Required",
+    "yes": "Yes",
+    "no": "No",
+    "labelTh": "Label (Thai)",
+    "labelEn": "Label (English)",
+    "maxLength": "Max characters",
+    "charset": "Allowed characters",
+    "priceDelta": "Extra price (THB)",
+    "min": "Min picks",
+    "max": "Max picks",
+    "option": "Option",
+    "stock": "Stock",
+    "stockUnlimited": "Unlimited",
+    "available": "Available",
+    "image": "Option image",
+    "addOption": "Add option",
+    "addStep": "Add step",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "remove": "Remove",
+    "types": {
+      "SINGLE": "Single choice",
+      "MULTI": "Multiple choice",
+      "TEXT": "Engraving text"
+    },
+    "charsets": {
+      "ANY": "Any",
+      "LATIN": "Latin/symbols",
+      "ALNUM": "Letters and digits",
+      "THAI_LATIN": "Thai and Latin"
+    },
+    "errors": {
+      "load": "Could not load the configurator",
+      "save": "Could not save",
+      "conflict": "Changed elsewhere. Please reload.",
+      "invalid": "Invalid value",
+      "CONFIGURATOR_SCHEMA_INVALID": "Invalid value",
+      "CONFIGURATOR_MEDIA_INVALID": "Invalid image or not from this shop"
     }
   }
 }

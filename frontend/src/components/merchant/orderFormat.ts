@@ -96,12 +96,12 @@ export function paymentTone(status?: string | null): PillTone {
   }
 }
 
-/** Translated message for an order / payment / shipment API error; falls back to the (localized) server message. */
+/** Translated message for an order / payment / shipment API error; unknown codes get the generic translated message (never raw server text). */
 export function orderErrorMessage(t: TFunction, error: unknown) {
   if (error instanceof ApiError) {
     const key = `orderManagement.errors.${error.code}`;
     const translated = t(key, { defaultValue: "" });
-    return translated || error.message || t("orderManagement.errors.REQUEST_FAILED");
+    return translated || t("orderManagement.errors.REQUEST_FAILED");
   }
   return t("orderManagement.errors.REQUEST_FAILED");
 }

@@ -357,7 +357,7 @@
     "list": {
       "subtitle": "Track payment, packing, and delivery in one place",
       "found": "Total",
-      "searchPlaceholder": "Search by order number or shop name",
+      "searchPlaceholder": "Search order number or shop name",
       "search": "Search",
       "searchEmpty": "No orders match your search",
       "searchEmptyHint": "Try another keyword, or clear search to see all orders",
@@ -398,6 +398,28 @@
     "placedAt": "Placed at",
     "viewDetail": "View details",
     "back": "My orders",
+    "filters": {
+      "label": "More filters",
+      "paymentStatus": "Payment status",
+      "fulfillmentStatus": "Fulfillment status",
+      "from": "From date",
+      "to": "To date",
+      "sort": "Sort by",
+      "clear": "Clear filters",
+      "fulfillment": {
+        "UNFULFILLED": "Unfulfilled",
+        "PARTIAL": "Partially fulfilled",
+        "FULFILLED": "Fulfilled",
+        "RETURNED": "Returned"
+      },
+      "sortOptions": {
+        "placedAt-desc": "Newest first",
+        "placedAt-asc": "Oldest first",
+        "grandTotal-desc": "Highest total",
+        "grandTotal-asc": "Lowest total",
+        "paidAt-desc": "Recently paid"
+      }
+    },
     "detail": {
       "orderNo": "Order number",
       "hintPay": "Please pay and upload your slip so the shop can process the order",
@@ -551,6 +573,55 @@
     "bannerProductsCta": "See recommendations →"
   },
   "shop": {
+    "chrome": {
+      "menuAria": "Shop menu",
+      "searchPlaceholder": "Search this shop",
+      "searchAria": "Search products in this shop",
+      "searchSubmit": "Search",
+      "socialAria": "Shop social channels",
+      "contactsAria": "Shop contact details",
+      "footerAria": "Footer links",
+      "social": {
+        "facebook": "Shop on Facebook",
+        "instagram": "Shop on Instagram",
+        "tiktok": "Shop on TikTok",
+        "line": "Shop on LINE",
+        "website": "Shop website"
+      }
+    },
+    "blocks": {
+      "steps": {
+        "label": "How it works",
+        "stepOrder": "Step {{n}}"
+      },
+      "feature": {
+        "label": "Shop highlight",
+        "viewProduct": "View product"
+      },
+      "gallery": {
+        "label": "Gallery",
+        "open": "Open image",
+        "scrollPrev": "Scroll to previous",
+        "scrollNext": "Scroll to next",
+        "close": "Close",
+        "prev": "Previous image",
+        "next": "Next image",
+        "visit": "Open link"
+      },
+      "social": {
+        "label": "Videos",
+        "videoTitle": "TikTok video {{n}}"
+      },
+      "collections": {
+        "label": "Collections",
+        "loading": "Loading collections…",
+        "count": "{{count}} products",
+        "empty": "No collections yet",
+        "emptyProducts": "No products in this collection yet",
+        "prev": "Previous",
+        "next": "Next"
+      }
+    },
     "breadcrumb": "Featured shops",
     "defaultDescription": "Thai shop details on ThaiShopFun",
     "noDescription": "This shop has not added a description yet",
@@ -768,6 +839,22 @@
       "fri": "Fri",
       "sat": "Sat",
       "sun": "Sun"
+    },
+    "configurator": {
+      "title": "Design your product",
+      "previewAlt": "Option preview",
+      "chars": "{{count}}/{{max}} characters",
+      "pickUpTo": "(pick up to {{count}})",
+      "unavailable": "Sold out",
+      "quoteError": "Could not calculate the price. Please try again.",
+      "base": "Base price",
+      "total": "Total",
+      "incomplete": "Please complete the required options",
+      "quoting": "Calculating price…",
+      "soon": "Coming soon",
+      "addSoon": "Add to cart (coming soon)",
+      "add": "Add to cart",
+      "adding": "Adding…"
     }
   },
   "home": {

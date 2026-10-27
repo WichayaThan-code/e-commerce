@@ -357,7 +357,7 @@
     "list": {
       "subtitle": "ติดตามสถานะ ชำระเงิน และจัดส่งได้จากที่นี่",
       "found": "พบทั้งหมด",
-      "searchPlaceholder": "ค้นหาเลขออเดอร์ หรือชื่อร้าน",
+      "searchPlaceholder": "ค้นหาเลขคำสั่งซื้อหรือชื่อร้าน",
       "search": "ค้นหา",
       "searchEmpty": "ไม่พบคำสั่งซื้อที่ตรงกับคำค้น",
       "searchEmptyHint": "ลองเปลี่ยนคำค้น หรือล้างการค้นหาเพื่อดูทั้งหมด",
@@ -397,6 +397,28 @@
     "placedAt": "วันที่สั่ง",
     "viewDetail": "ดูรายละเอียด",
     "back": "คำสั่งซื้อของฉัน",
+    "filters": {
+      "label": "ตัวกรองเพิ่มเติม",
+      "paymentStatus": "สถานะชำระเงิน",
+      "fulfillmentStatus": "สถานะจัดส่ง",
+      "from": "จากวันที่",
+      "to": "ถึงวันที่",
+      "sort": "เรียงตาม",
+      "clear": "ล้างตัวกรอง",
+      "fulfillment": {
+        "UNFULFILLED": "ยังไม่จัดส่ง",
+        "PARTIAL": "จัดส่งบางส่วน",
+        "FULFILLED": "จัดส่งครบ",
+        "RETURNED": "ตีกลับ"
+      },
+      "sortOptions": {
+        "placedAt-desc": "วันสั่งซื้อล่าสุด",
+        "placedAt-asc": "วันสั่งซื้อเก่าสุด",
+        "grandTotal-desc": "ยอดสูง → ต่ำ",
+        "grandTotal-asc": "ยอดต่ำ → สูง",
+        "paidAt-desc": "วันชำระเงินล่าสุด"
+      }
+    },
     "detail": {
       "orderNo": "เลขคำสั่งซื้อ",
       "hintPay": "กรุณาชำระเงินและส่งสลิป เพื่อให้ร้านดำเนินการต่อ",
@@ -550,6 +572,55 @@
     "bannerProductsCta": "ดูสินค้าแนะนำ →"
   },
   "shop": {
+    "chrome": {
+      "menuAria": "เมนูร้าน",
+      "searchPlaceholder": "ค้นหาสินค้าในร้าน",
+      "searchAria": "ค้นหาสินค้าในร้านนี้",
+      "searchSubmit": "ค้นหา",
+      "socialAria": "ช่องทางโซเชียลของร้าน",
+      "contactsAria": "ข้อมูลติดต่อร้าน",
+      "footerAria": "ลิงก์ท้ายหน้า",
+      "social": {
+        "facebook": "Facebook ของร้าน",
+        "instagram": "Instagram ของร้าน",
+        "tiktok": "TikTok ของร้าน",
+        "line": "LINE ของร้าน",
+        "website": "เว็บไซต์ของร้าน"
+      }
+    },
+    "blocks": {
+      "steps": {
+        "label": "ขั้นตอนการสั่งซื้อ",
+        "stepOrder": "ขั้นที่ {{n}}"
+      },
+      "feature": {
+        "label": "จุดเด่นของร้าน",
+        "viewProduct": "ดูสินค้า"
+      },
+      "gallery": {
+        "label": "แกลเลอรี",
+        "open": "ดูรูปขยาย",
+        "scrollPrev": "เลื่อนไปก่อนหน้า",
+        "scrollNext": "เลื่อนไปถัดไป",
+        "close": "ปิด",
+        "prev": "รูปก่อนหน้า",
+        "next": "รูปถัดไป",
+        "visit": "เปิดลิงก์"
+      },
+      "social": {
+        "label": "วิดีโอ",
+        "videoTitle": "วิดีโอ TikTok ที่ {{n}}"
+      },
+      "collections": {
+        "label": "คอลเลกชัน",
+        "loading": "กำลังโหลดคอลเลกชัน…",
+        "count": "{{count}} สินค้า",
+        "empty": "ยังไม่มีคอลเลกชัน",
+        "emptyProducts": "ยังไม่มีสินค้าในคอลเลกชันนี้",
+        "prev": "ก่อนหน้า",
+        "next": "ถัดไป"
+      }
+    },
     "breadcrumb": "ร้านค้าแนะนำ",
     "defaultDescription": "รายละเอียดร้านค้าไทยบน ThaiShopFun",
     "noDescription": "ร้านค้านี้ยังไม่ได้ใส่คำอธิบาย",
@@ -767,6 +838,22 @@
       "fri": "ศุกร์",
       "sat": "เสาร์",
       "sun": "อาทิตย์"
+    },
+    "configurator": {
+      "title": "ออกแบบสินค้าของคุณ",
+      "previewAlt": "ภาพตัวอย่างตัวเลือก",
+      "chars": "{{count}}/{{max}} ตัวอักษร",
+      "pickUpTo": "(เลือกได้สูงสุด {{count}})",
+      "unavailable": "หมด",
+      "quoteError": "คำนวณราคาไม่สำเร็จ ลองใหม่อีกครั้ง",
+      "base": "ราคาตั้งต้น",
+      "total": "ราคารวม",
+      "incomplete": "กรุณาเลือกตัวเลือกที่จำเป็นให้ครบ",
+      "quoting": "กำลังคำนวณราคา…",
+      "soon": "เร็วๆ นี้",
+      "addSoon": "ใส่ตะกร้า (เร็วๆ นี้)",
+      "add": "ใส่ตะกร้า",
+      "adding": "กำลังใส่ตะกร้า…"
     }
   },
   "home": {

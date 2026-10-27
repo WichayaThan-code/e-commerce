@@ -18,6 +18,8 @@ import { hasPlatformAccess } from '../services/permissions'
 import { usePermissions } from '../hooks/usePermissions'
 import { adminApplicationApi, adminPlatformApi, ApiError, mediaUrl, type AdminStoreApplication } from '../services/api'
 import '../styles/admin-dashboard.css'
+import '../styles/admin-form-controls.css'
+import AdminSelect from '../components/admin/AdminSelect'
 import '../styles/admin-stores.css'
 
 type StoreStatus = 'ใช้งาน' | 'รออนุมัติ' | 'ถูกระงับ' | 'ปฏิเสธ'
@@ -207,10 +209,10 @@ export default function AdminStoresPage(){
       </section>
 
       <section className="store-filters">
-        <label className="store-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="ค้นหาร้านค้า (ชื่อร้าน, เจ้าของ, อีเมล, เบอร์โทร...)" aria-label="ค้นหาร้านค้า"/></label>
-        <label><span>สถานะร้านค้า</span><select value={status} onChange={event=>setStatus(event.target.value)}><option>ทั้งหมด</option><option>ใช้งาน</option><option>รออนุมัติ</option><option>ถูกระงับ</option><option>ปฏิเสธ</option></select></label>
-        <label><span>หมวดหมู่</span><select value={category} onChange={event=>setCategory(event.target.value)}><option>ทั้งหมด</option>{[...new Set(rows.map(row=>row.category))].map(value=><option key={value}>{value}</option>)}</select></label>
-        <label><span>จังหวัด</span><select value={province} onChange={event=>setProvince(event.target.value)}><option>ทั้งหมด</option>{[...new Set(rows.map(row=>row.province))].map(value=><option key={value}>{value}</option>)}</select></label>
+        <label className="store-search adm-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="ค้นหาร้านค้า (ชื่อร้าน, เจ้าของ, อีเมล, เบอร์โทร...)" aria-label="ค้นหาร้านค้า"/></label>
+        <AdminSelect label="สถานะร้านค้า" value={status} onChange={setStatus} options={['ทั้งหมด', 'ใช้งาน', 'รออนุมัติ', 'ถูกระงับ', 'ปฏิเสธ'].map(value=>({ value, label: value }))}/>
+        <AdminSelect label="หมวดหมู่" value={category} onChange={setCategory} options={['ทั้งหมด', ...new Set(rows.map(row=>row.category))].map(value=>({ value, label: value }))}/>
+        <AdminSelect label="จังหวัด" value={province} onChange={setProvince} options={['ทั้งหมด', ...new Set(rows.map(row=>row.province))].map(value=>({ value, label: value }))}/>
         <button className="reset-filter" onClick={reset}>รีเซ็ต</button>
         <button className="search-filter" onClick={()=>notify(`พบ ${filtered.length} ร้านค้า`)}>ค้นหา</button>
       </section>
@@ -234,7 +236,7 @@ export default function AdminStoresPage(){
           </div>)}
           {filtered.length===0&&<div className="stores-empty">ไม่พบร้านค้าที่ตรงกับตัวกรอง กรุณาลองเปลี่ยนคำค้นหา</div>}
         </div></div>
-        <footer><div>แสดง <select aria-label="จำนวนรายการต่อหน้า" value={pageSize} onChange={event=>setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select> รายการต่อหน้า</div><span>{from} - {to} จาก {rows.length.toLocaleString('th-TH')} รายการ</span><nav aria-label="แบ่งหน้า"><button disabled={safePage<=1} onClick={()=>setPage(value=>Math.max(1, value-1))}><ChevronLeft/></button>{pages.map(number=><button className={safePage===number?'current':''} key={number} onClick={()=>setPage(number)}>{number}</button>)}<button disabled={safePage>=pageCount} onClick={()=>setPage(value=>Math.min(pageCount, value+1))}><ChevronRight/></button></nav></footer>
+        <footer><div>แสดง <AdminSelect compact className="adm-page-size" label="จำนวนรายการต่อหน้า" value={String(pageSize)} onChange={value=>setPageSize(Number(value))} options={['10', '25', '50'].map(value=>({ value, label: value }))}/> รายการต่อหน้า</div><span>{from} - {to} จาก {rows.length.toLocaleString('th-TH')} รายการ</span><nav aria-label="แบ่งหน้า"><button disabled={safePage<=1} onClick={()=>setPage(value=>Math.max(1, value-1))}><ChevronLeft/></button>{pages.map(number=><button className={safePage===number?'current':''} key={number} onClick={()=>setPage(number)}>{number}</button>)}<button disabled={safePage>=pageCount} onClick={()=>setPage(value=>Math.min(pageCount, value+1))}><ChevronRight/></button></nav></footer>
       </section>
     </div>
     {notice&&<div className="admin-toast" role="status">{notice}</div>}

@@ -300,7 +300,7 @@ class ProductCatalogIntegrationTests {
         var created = mvc.perform(post("/api/merchant/shops/" + shop.shopId + "/products").header("Authorization", "Bearer " + shop.token)
             .contentType(MediaType.APPLICATION_JSON).content("""
                 {"nameTh":"สลับ","productType":"VARIABLE",
-                 "optionSchema":[{"name":"สี","values":["แดง","น้ำเงิน","เขียว"]}],
+                 "optionSchema":[{"name":"สี","values":["แดง","น้ำเงิน"]}],
                  "skus":[
                    {"skuCode":"AAA","price":10,"optionValues":{"สี":"แดง"}},
                    {"skuCode":"BBB","price":10,"optionValues":{"สี":"น้ำเงิน"}}
@@ -313,7 +313,7 @@ class ProductCatalogIntegrationTests {
         var swapped = mvc.perform(put("/api/merchant/shops/" + shop.shopId + "/products/" + productId).header("Authorization", "Bearer " + shop.token)
             .contentType(MediaType.APPLICATION_JSON).content("""
                 {"nameTh":"สลับ","productType":"VARIABLE",
-                 "optionSchema":[{"name":"สี","values":["แดง","น้ำเงิน","เขียว"]}],
+                 "optionSchema":[{"name":"สี","values":["แดง","น้ำเงิน"]}],
                  "skus":[
                    {"id":"%s","skuCode":"BBB","price":10,"optionValues":{"สี":"แดง"}},
                    {"id":"%s","skuCode":"AAA","price":10,"optionValues":{"สี":"น้ำเงิน"}}
@@ -358,7 +358,7 @@ class ProductCatalogIntegrationTests {
         mvc.perform(put("/api/merchant/shops/" + shop.shopId + "/products/" + productId).header("Authorization", "Bearer " + shop.token)
             .contentType(MediaType.APPLICATION_JSON).content("""
                 {"nameTh":"ลบสต็อก","productType":"VARIABLE","confirmRemoveStocked":true,
-                 "optionSchema":[{"name":"สี","values":["แดง","น้ำเงิน"]}],
+                 "optionSchema":[{"name":"สี","values":["แดง"]}],
                  "skus":[{"id":"%s","skuCode":"KEEP","price":10,"optionValues":{"สี":"แดง"}}]}
                 """.formatted(skuId(created, "KEEP"))))
             .andExpect(status().isOk())
@@ -377,11 +377,19 @@ class ProductCatalogIntegrationTests {
     }
 
     private static String variantProduct(String name, String skus, boolean confirm) {
+        // declare only the option values the SKUs use: every declared value must be used (OPTION_VALUE_UNUSED)
         return """
             {"nameTh":"%s","productType":"VARIABLE","confirmRemoveStocked":%s,
-             "optionSchema":[{"name":"สี","values":["แดง","น้ำเงิน"]},{"name":"ไซซ์","values":["S","M","L","XL"]}],
+             "optionSchema":[{"name":"สี","values":[%s]},{"name":"ไซซ์","values":[%s]}],
              "skus":[%s]}
-            """.formatted(name, confirm, skus);
+            """.formatted(name, confirm, usedValues(skus, "สี", "แดง", "น้ำเงิน"), usedValues(skus, "ไซซ์", "S", "M", "L", "XL"), skus);
+    }
+
+    private static String usedValues(String skus, String group, String... values) {
+        return java.util.Arrays.stream(values)
+            .filter(value -> skus.contains("\"" + group + "\":\"" + value + "\""))
+            .map(value -> "\"" + value + "\"")
+            .collect(java.util.stream.Collectors.joining(","));
     }
 
     private static String matrix(String existing) {

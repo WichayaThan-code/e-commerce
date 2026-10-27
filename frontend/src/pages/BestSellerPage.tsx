@@ -1,19 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Baby,
   BarChart3,
-  ChevronDown,
   CircleEllipsis,
-  CircleUserRound,
   Dumbbell,
   Gift,
   Grid2X2,
   Heart,
   Leaf,
   List,
-  LogOut,
-  Menu,
-  Search,
   Shirt,
   ShoppingBag,
   ShoppingCart,
@@ -23,285 +18,208 @@ import {
   Utensils,
   Wine,
 } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
-import { accountKind } from "../services/permissions";
+import { loginPathForCart, useOptionalCart } from "../contexts/CartContext";
+import {
+  ApiError,
+  bestSellerApi,
+  catalogApi,
+  mediaUrl,
+  type BestSellerProduct,
+  type ProductCategory,
+} from "../services/api";
 import bestSellerReference from "../assets/images/references/storefront/best-seller.png";
 import "../styles/recommended-products.css";
 import "../styles/best-seller.css";
 
-const categories = [
-  [Sparkles, "ทั้งหมด"],
-  [Shirt, "แฟชั่น"],
-  [Wine, "ความงาม"],
-  [Sofa, "บ้านและไลฟ์สไตล์"],
-  [ShoppingBag, "มือถือและอุปกรณ์"],
-  [Utensils, "อาหารและเครื่องดื่ม"],
-  [Dumbbell, "กีฬาและกิจกรรม"],
-  [Baby, "แม่และเด็ก"],
-  [Gift, "ของขวัญ"],
-  [Leaf, "สินค้าเพื่อสิ่งแวดล้อม"],
-  [CircleEllipsis, "อื่นๆ"],
+/** Chip icons (design order); labels come from /api/categories. Chip 0 = "ทั้งหมด". */
+const categoryIcons = [
+  Sparkles,
+  Shirt,
+  Wine,
+  Sofa,
+  ShoppingBag,
+  Utensils,
+  Dumbbell,
+  Baby,
+  Gift,
+  Leaf,
+  CircleEllipsis,
 ] as const;
-const productData = [
-  [
-    "ขนมเม็ดมะม่วงหิมพานต์ อบกรอบ\nรสต้นตำรับ 500 กรัม",
-    "สวนไทยฟู้ดส์",
-    199,
-    320,
-    38,
-    "4.8",
-    "1,256",
-    "12.5K",
-    297,
-    545,
-  ],
-  [
-    "เสื้อยืดคอตตอน 100%\nใส่สบาย ไม่หด ไม่ย้วย",
-    "GoodWear Thailand",
-    259,
-    390,
-    34,
-    "4.7",
-    "892",
-    "9.8K",
-    542,
-    545,
-  ],
-  [
-    "เซ็ตสกินแคร์บำรุงผิว\nเพื่อผิวกระจ่างใส",
-    "Natura Official",
-    890,
-    1490,
-    40,
-    "4.9",
-    "742",
-    "9.1K",
-    783,
-    545,
-  ],
-  [
-    "ต้นมอนสเตอร่า พร้อมกระถาง\nแต่งบ้านสวย ๆ",
-    "Green Home",
-    350,
-    450,
-    22,
-    "4.8",
-    "620",
-    "8.6K",
-    1027,
-    545,
-  ],
-  [
-    "กระเป๋าผ้าแคนวาส\nลายไทยสุดชิค",
-    "ThaiCraft",
-    290,
-    350,
-    17,
-    "4.7",
-    "518",
-    "7.9K",
-    1270,
-    545,
-  ],
-  [
-    "หูฟังบลูทูธไร้สาย เสียงคมชัด",
-    "Soundmate",
-    790,
-    1090,
-    28,
-    "4.8",
-    "480",
-    "7.5K",
-    297,
-    890,
-  ],
-  [
-    "กาแฟคั่วสดอาราบิก้า ดอยเชียงใหม่",
-    "Doi Coffee",
-    229,
-    350,
-    35,
-    "4.9",
-    "416",
-    "7.1K",
-    542,
-    890,
-  ],
-  [
-    "โซฟาผ้านุ่ม สไตล์มินิมอล",
-    "Home Living",
-    4590,
-    5990,
-    23,
-    "4.7",
-    "308",
-    "6.8K",
-    783,
-    890,
-  ],
-  [
-    "สมาร์ทวอทช์ จอคมชัด กันน้ำ",
-    "Tech Thai",
-    1290,
-    1690,
-    24,
-    "4.8",
-    "395",
-    "6.4K",
-    1027,
-    890,
-  ],
-  [
-    "ชุดขนมไทยของฝากพรีเมียม",
-    "บ้านขนมไทย",
-    490,
-    650,
-    25,
-    "4.9",
-    "522",
-    "6.1K",
-    1270,
-    890,
-  ],
-] as const;
+/** Sidebar price radios -> [min, max] (inclusive, baht). */
+const priceBands: [string, number | undefined, number | undefined][] = [
+  ["ทั้งหมด", undefined, undefined],
+  ["ต่ำกว่า 100 บาท", undefined, 99.99],
+  ["100 - 300 บาท", 100, 300],
+  ["301 - 500 บาท", 301, 500],
+  ["501 - 1,000 บาท", 501, 1000],
+  ["มากกว่า 1,000 บาท", 1000.01, undefined],
+];
+const rankTabs = [
+  "ยอดขายสูงสุด",
+  "คะแนนรีวิวสูงสุด",
+  "สินค้ายอดนิยมประจำสัปดาห์",
+  "สินค้า OTOP ขายดี",
+];
+/** Rank tab -> sales period + ranking mode (tab 1 = top_rated by reviews; tab 3 = OTOP category by slug). */
+const rankPeriods = ["all", "all", "7d", "all"] as const;
+const rankSorts = ["best_selling", "top_rated", "best_selling", "best_selling"] as const;
+const OTOP_CATEGORY_SLUG = "otop-products";
+const PAGE_SIZE = 24;
+const num = (value: number | string | null | undefined) =>
+  value === null || value === undefined || value === "" ? null : Number(value);
+const priceOf = (p: BestSellerProduct) => {
+  const sku = p.skus?.[0];
+  return num(p.basePrice) ?? num(sku?.price) ?? 0;
+};
+const compareOf = (p: BestSellerProduct) =>
+  num(p.compareAtPrice) ?? num(p.skus?.[0]?.compareAtPrice);
+const primaryImage = (p: BestSellerProduct) =>
+  [...(p.images ?? [])].sort(
+    (a, b) =>
+      Number(b.primary) - Number(a.primary) || a.sortOrder - b.sortOrder,
+  )[0];
 
-function Brand() {
-  return (
-    <a className="recommend-brand" href="/" aria-label="ThaiShopFun หน้าแรก">
-      <span className="recommend-mark">
-        <ShoppingBag />
-        <i>✓</i>
-      </span>
-      <span>
-        <b>
-          ThaiShop<span>Fun</span>
-        </b>
-        <small>Shop Local · Support Thai · Smile Together</small>
-      </span>
-    </a>
-  );
-}
 
 export default function BestSellerPage() {
-  const { user, loading, logout } = useAuth();
   const [activeCategory, setActiveCategory] = useState(0);
   const [activeRank, setActiveRank] = useState(0);
-  const [cart, setCart] = useState(0);
+  const cartApi = useOptionalCart();
+  const [categoryList, setCategoryList] = useState<ProductCategory[]>([]);
+  const [priceBand, setPriceBand] = useState(0);
+  const [appliedPrice, setAppliedPrice] = useState<{
+    min?: number;
+    max?: number;
+  }>({});
+  const [items, setItems] = useState<BestSellerProduct[]>([]);
+  const [total, setTotal] = useState(0);
+  const [fetching, setFetching] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [notice, setNotice] = useState("");
-  const [accountOpen, setAccountOpen] = useState(false);
   const [sort, setSort] = useState("ยอดขายสูงสุด");
   const [grid, setGrid] = useState(true);
-  const [favorites, setFavorites] = useState<number[]>([]);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const notify = (message: string) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 1900);
   };
-  const accountName = user
-    ? `${user.firstName} ${user.lastName}`.trim() || user.email
-    : "";
-  const dashboard =
-    accountKind(user) === "ADMIN"
-      ? "/admin"
-      : accountKind(user) === "MERCHANT"
-        ? "/merchant/dashboard"
-        : "/";
-  const signOut = async () => {
-    await logout();
-    setAccountOpen(false);
-    notify("ออกจากระบบแล้ว");
-  };
+  useEffect(() => {
+    catalogApi
+      .categories()
+      .then(setCategoryList)
+      .catch(() => setCategoryList([]));
+  }, []);
+  const chips = useMemo(
+    () => [
+      { id: undefined as number | undefined, label: "ทั้งหมด" },
+      ...categoryList
+        .slice(0, categoryIcons.length - 1)
+        .map((c) => ({ id: c.id as number | undefined, label: c.nameTh })),
+    ],
+    [categoryList],
+  );
+  const otopTab = activeRank === 3;
+  const selectedCategory = otopTab
+    ? undefined
+    : activeCategory > 0
+      ? categoryList[activeCategory - 1]?.id
+      : undefined;
+  const [bandMin, bandMax] = [priceBands[priceBand][1], priceBands[priceBand][2]];
+  const queryMin = appliedPrice.min ?? bandMin;
+  const queryMax = appliedPrice.max ?? bandMax;
+  useEffect(() => {
+    let alive = true;
+    setFetching(true);
+    setLoadError("");
+    bestSellerApi
+      .list({
+        categoryId: selectedCategory,
+        categorySlug: otopTab ? OTOP_CATEGORY_SLUG : undefined,
+        sort: rankSorts[activeRank],
+        period: rankPeriods[activeRank],
+        minPrice: queryMin,
+        maxPrice: queryMax,
+        page: 0,
+        size: PAGE_SIZE,
+      })
+      .then((page) => {
+        if (!alive) return;
+        setItems(page.items);
+        setTotal(page.total);
+      })
+      .catch((error) => {
+        if (!alive) return;
+        setItems([]);
+        setTotal(0);
+        // public endpoint: never surface auth/server messages (e.g. "please log in") here
+        void error;
+        setLoadError("ยังไม่มีข้อมูลยอดขาย กรุณาลองใหม่อีกครั้งภายหลัง");
+      })
+      .finally(() => alive && setFetching(false));
+    return () => {
+      alive = false;
+    };
+  }, [selectedCategory, activeRank, queryMin, queryMax]);
   const products = useMemo(
     () =>
       sort === "ราคาต่ำสุด"
-        ? [...productData].sort((a, b) => Number(a[2]) - Number(b[2]))
-        : productData,
-    [sort],
+        ? [...items].sort((a, b) => priceOf(a) - priceOf(b))
+        : items,
+    [sort, items],
   );
+  const applyPrice = () => {
+    const min = minPrice.trim() === "" ? undefined : Number(minPrice);
+    const max = maxPrice.trim() === "" ? undefined : Number(maxPrice);
+    if ((min !== undefined && Number.isNaN(min)) || (max !== undefined && Number.isNaN(max))) {
+      notify("กรุณากรอกราคาเป็นตัวเลข");
+      return;
+    }
+    setAppliedPrice({ min, max });
+    notify("ใช้ตัวกรองราคาแล้ว");
+  };
+  const addToCart = async (p: BestSellerProduct) => {
+    const href = `/shop/${p.shopSlug}/product/${p.slug}`;
+    if (!cartApi) {
+      window.location.assign(href);
+      return;
+    }
+    if (cartApi.access === "guest") {
+      notify("กรุณาเข้าสู่ระบบก่อนเพิ่มสินค้าลงตะกร้า");
+      window.location.assign(loginPathForCart());
+      return;
+    }
+    if (cartApi.access === "blocked") {
+      notify("บัญชีนี้ไม่สามารถใช้ตะกร้าสินค้าได้");
+      return;
+    }
+    if (cartApi.access === "loading") return;
+    const skus = p.skus ?? [];
+    if (skus.length > 1) {
+      notify("กรุณาเลือกตัวเลือกสินค้า");
+      window.location.assign(href);
+      return;
+    }
+    const sku = skus[0];
+    if (!sku || sku.available <= 0) {
+      notify("สินค้าหมด");
+      return;
+    }
+    try {
+      const result = await cartApi.add(sku.id, 1);
+      notify(
+        result?.adjusted && result.appliedQuantity < 1
+          ? "สินค้าในสต็อกไม่เพียงพอ"
+          : "เพิ่มสินค้าลงตะกร้าแล้ว",
+      );
+    } catch (error) {
+      notify(
+        error instanceof ApiError ? error.message : "เพิ่มสินค้าไม่สำเร็จ",
+      );
+    }
+  };
   return (
     <main className="best-seller-page recommend-page">
-      <header className="recommend-header">
-        <div className="recommend-top recommend-width">
-          <Brand />
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              notify("กำลังค้นหาสินค้า");
-            }}
-          >
-            <input
-              aria-label="ค้นหาสินค้า"
-              placeholder="ค้นหาสินค้า แบรนด์ หรือร้านค้า..."
-            />
-            <button aria-label="ค้นหา">
-              <Search />
-            </button>
-          </form>
-          <div className="recommend-account">
-            {loading ? (
-              <span className="recommend-loading" />
-            ) : user ? (
-              <div className="recommend-user">
-                <button onClick={() => setAccountOpen((v) => !v)}>
-                  <CircleUserRound />
-                  <span>
-                    <b>{accountName}</b>
-                    <small>
-                      {accountKind(user) === "CUSTOMER"
-                        ? "ลูกค้า"
-                        : accountKind(user) === "MERCHANT"
-                          ? "เจ้าของร้าน"
-                          : "ผู้ดูแลระบบ"}
-                    </small>
-                  </span>
-                  <ChevronDown />
-                </button>
-                {accountOpen && (
-                  <div>
-                    <a href={dashboard}>บัญชีของฉัน</a>
-                    <button onClick={() => void signOut()}>
-                      <LogOut />
-                      ออกจากระบบ
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <a href="/login">
-                  <CircleUserRound />
-                  เข้าสู่ระบบ
-                </a>
-                <a className="recommend-signup" href="/signup">
-                  สมัครสมาชิก
-                </a>
-              </>
-            )}
-            <button
-              className="recommend-cart"
-              onClick={() => notify(`มีสินค้า ${cart} ชิ้นในตะกร้า`)}
-            >
-              <ShoppingCart />
-              <i>{cart}</i>
-            </button>
-          </div>
-        </div>
-        <nav className="recommend-nav recommend-width">
-          <a href="/">
-            <Menu />
-            หมวดหมู่สินค้า
-          </a>
-          <a href="/deals">ดีลพิเศษ</a>
-          <a href="/recommendations">สินค้าแนะนำ</a>
-          <a className="active" href="/best-sellers">
-            สินค้าขายดี
-          </a>
-          <a href="/thai-brands">แบรนด์ไทย</a>
-          <a href="/articles">บทความ</a>
-          <a href="/help">ช่วยเหลือ</a>
-        </nav>
-      </header>
       <section className="best-hero">
         <img
           src={bestSellerReference}
@@ -309,10 +227,12 @@ export default function BestSellerPage() {
         />
       </section>
       <section className="recommend-categories best-categories recommend-width">
-        {categories.map(([Icon, label], i) => (
+        {chips.map(({ label }, i) => {
+          const Icon = categoryIcons[i];
+          return (
           <button
             className={activeCategory === i ? "active" : ""}
-            key={label}
+            key={`${i}-${label}`}
             onClick={() => {
               setActiveCategory(i);
               notify(`เลือกหมวด ${label}`);
@@ -321,42 +241,38 @@ export default function BestSellerPage() {
             <Icon />
             <span>{label}</span>
           </button>
-        ))}
+          );
+        })}
       </section>
       <section className="best-catalog recommend-width">
         <aside className="best-filters">
           <h2>ตัวกรองสินค้า</h2>
           <h3>หมวดหมู่</h3>
-          {[
-            "ทั้งหมด",
-            "แฟชั่น & เครื่องแต่งกาย",
-            "ความงาม & สุขภาพ",
-            "บ้าน & ไลฟ์สไตล์",
-            "มือถือ & อิเล็กทรอนิกส์",
-            "อาหาร & เครื่องดื่ม",
-            "แม่และเด็ก",
-            "กีฬา & กิจกรรมกลางแจ้ง",
-            "ของขวัญ & ของชำร่วย",
-            "สินค้า OTOP",
-            "สินค้าใหม่",
-          ].map((x, i) => (
-            <label key={x}>
-              <input type="checkbox" defaultChecked={i === 0} />
-              {x}
+          {[{ id: undefined as number | undefined, nameTh: "ทั้งหมด" }, ...categoryList].map((c, i) => (
+            <label key={`${i}-${c.nameTh}`}>
+              <input
+                type="checkbox"
+                checked={i === 0 ? activeCategory === 0 : categoryList[activeCategory - 1]?.id === c.id}
+                onChange={() => setActiveCategory(i)}
+              />
+              {c.nameTh}
             </label>
           ))}
           <hr />
           <h3>ช่วงราคา</h3>
-          {[
-            "ทั้งหมด",
-            "ต่ำกว่า 100 บาท",
-            "100 - 300 บาท",
-            "301 - 500 บาท",
-            "501 - 1,000 บาท",
-            "มากกว่า 1,000 บาท",
-          ].map((x, i) => (
+          {priceBands.map(([x], i) => (
             <label key={x}>
-              <input type="radio" name="price" defaultChecked={i === 0} />
+              <input
+                type="radio"
+                name="price"
+                checked={priceBand === i}
+                onChange={() => {
+                  setPriceBand(i);
+                  setAppliedPrice({});
+                  setMinPrice("");
+                  setMaxPrice("");
+                }}
+              />
               {x}
             </label>
           ))}
@@ -374,7 +290,7 @@ export default function BestSellerPage() {
               onChange={(e) => setMaxPrice(e.target.value)}
               placeholder="฿ สูงสุด"
             />
-            <button onClick={() => notify("ใช้ตัวกรองราคาแล้ว")}>ตกลง</button>
+            <button onClick={applyPrice}>ตกลง</button>
           </div>
         </aside>
         <div className="best-results">
@@ -387,7 +303,11 @@ export default function BestSellerPage() {
               </span>
             </div>
             <div>
-              <small>แสดง 1 - 24 จาก 1,268 รายการ</small>
+              <small>
+                {total === 0
+                  ? "แสดง 0 รายการ"
+                  : `แสดง 1 - ${Math.min(products.length, total).toLocaleString()} จาก ${total.toLocaleString()} รายการ`}
+              </small>
               <b>เรียงตาม</b>
               <select
                 aria-label="เรียงสินค้า"
@@ -415,12 +335,7 @@ export default function BestSellerPage() {
             </div>
           </div>
           <div className="best-rank-tabs">
-            {[
-              "ยอดขายสูงสุด",
-              "คะแนนรีวิวสูงสุด",
-              "สินค้ายอดนิยมประจำสัปดาห์",
-              "สินค้า OTOP ขายดี",
-            ].map((x, i) => (
+            {rankTabs.map((x, i) => (
               <button
                 className={activeRank === i ? "active" : ""}
                 key={x}
@@ -433,25 +348,38 @@ export default function BestSellerPage() {
               </button>
             ))}
           </div>
+          {fetching ? (
+            <p className="best-meta" role="status">กำลังโหลดสินค้าขายดี...</p>
+          ) : products.length === 0 ? (
+            <p className="best-meta" role="status">{loadError || "ยังไม่มีข้อมูลยอดขาย"}</p>
+          ) : null}
           <div className={`best-product-grid ${grid ? "" : "list-view"}`}>
-            {products.map((p, index) => (
-              <article className="best-product" key={String(p[0])}>
+            {!fetching && products.map((p, index) => {
+              const price = priceOf(p);
+              const compare = compareOf(p);
+              const discount =
+                compare && compare > price
+                  ? Math.round(((compare - price) / compare) * 100)
+                  : 0;
+              const image = primaryImage(p);
+              const href = `/shop/${p.shopSlug}/product/${p.slug}`;
+              const rank = sort === "ราคาต่ำสุด" ? index + 1 : p.rank;
+              return (
+              <article className="best-product" key={p.id}>
                 <div className="best-photo">
-                  <div
-                    className="best-sprite"
-                    style={
-                      {
-                        "--crop-x": `${p[8]}`,
-                        "--crop-y": `${p[9]}`,
-                      } as React.CSSProperties
-                    }
-                  >
-                    <img src={bestSellerReference} alt="" />
-                  </div>
-                  <strong className={`rank rank-${index + 1}`}>
-                    {index + 1}
+                  <a className="best-sprite" href={href} aria-label={p.nameTh}>
+                    {image ? (
+                      <img
+                        src={mediaUrl(image.url)}
+                        alt=""
+                        style={{ left: 0, top: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : null}
+                  </a>
+                  <strong className={`rank rank-${rank}`}>
+                    {rank}
                   </strong>
-                  {index === 0 && (
+                  {rank === 1 && (
                     <span className="best-badge">
                       BEST
                       <br />
@@ -459,12 +387,12 @@ export default function BestSellerPage() {
                     </span>
                   )}
                   <button
-                    className={favorites.includes(index) ? "liked" : ""}
+                    className={favorites.includes(p.id) ? "liked" : ""}
                     onClick={() =>
                       setFavorites((v) =>
-                        v.includes(index)
-                          ? v.filter((x) => x !== index)
-                          : [...v, index],
+                        v.includes(p.id)
+                          ? v.filter((x) => x !== p.id)
+                          : [...v, p.id],
                       )
                     }
                     aria-label="รายการโปรด"
@@ -474,35 +402,38 @@ export default function BestSellerPage() {
                 </div>
                 <div className="best-info">
                   <h2>
-                    {String(p[0])
-                      .split("\n")
-                      .map((line, i) => (
-                        <span key={i}>{line}</span>
-                      ))}
+                    <a href={href} style={{ color: "inherit", textDecoration: "none" }}>
+                      <span>{p.nameTh}</span>
+                    </a>
                   </h2>
                   <p className="best-shop">
-                    <Store /> {p[1]}
+                    <Store /> <a href={`/shop/${p.shopSlug}`} style={{ color: "inherit", textDecoration: "none" }}>{p.shopName}</a>
                   </p>
                   <p className="best-price">
-                    <b>฿{Number(p[2]).toLocaleString()}</b>
-                    <del>฿{Number(p[3]).toLocaleString()}</del>
-                    <em>-{p[4]}%</em>
+                    <b>฿{price.toLocaleString()}</b>
+                    {discount > 0 && compare ? (
+                      <>
+                        <del>฿{compare.toLocaleString()}</del>
+                        <em>-{discount}%</em>
+                      </>
+                    ) : null}
                   </p>
                   <p className="best-meta">
-                    <b>★ {p[5]}</b> ({p[6]}) <span>ขายแล้ว {p[7]} ชิ้น</span>
+                    {p.rating != null ? (
+                      <>
+                        <b>★ {p.rating}</b> ({(p.reviewCount ?? 0).toLocaleString()}){" "}
+                      </>
+                    ) : null}
+                    <span>ขายแล้ว {p.soldCount.toLocaleString()} ชิ้น</span>
                   </p>
-                  <button
-                    onClick={() => {
-                      setCart((c) => c + 1);
-                      notify("เพิ่มสินค้าลงตะกร้าแล้ว");
-                    }}
-                  >
+                  <button onClick={() => void addToCart(p)}>
                     <ShoppingCart />
                     เพิ่มลงตะกร้า
                   </button>
                 </div>
               </article>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

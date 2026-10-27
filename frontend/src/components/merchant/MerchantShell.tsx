@@ -4,6 +4,7 @@ import {
   BarChart3, Box, CircleHelp, CircleUserRound, Crown, Headphones, Home,
   Settings, ShoppingBag, Store, TicketPercent, Truck, WalletCards,
 } from "lucide-react";
+import MerchantLogoutButton from "./MerchantLogoutButton";
 import { useTranslation } from "react-i18next";
 import { usePermissions } from "../../hooks/usePermissions";
 import LanguageSwitcher from "../LanguageSwitcher";
@@ -59,6 +60,7 @@ export default function MerchantShell({ children, notice, tone = "ok" }: { child
         <div className="merchant-support">
           <a href="/help"><CircleHelp />{t("catalog.menu.help")}</a>
           <a href="/help"><Headphones />{t("catalog.menu.contact")}</a>
+          <MerchantLogoutButton />
         </div>
       </aside>
       <section className="pm-content">{children}</section>

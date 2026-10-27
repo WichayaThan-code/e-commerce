@@ -15,6 +15,7 @@ import ToggleSwitch from "../components/form/ToggleSwitch";
 import { LoadError, SkeletonTable } from "../components/feedback/Skeleton";
 import { formatBangkokDateTime, orderErrorMessage, periodRange, type PeriodKey } from "../components/merchant/orderFormat";
 import { useActiveShop } from "../contexts/ActiveShopContext";
+import MerchantLogoutButton from "../components/merchant/MerchantLogoutButton";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
@@ -168,7 +169,7 @@ export default function ShippingPage(){
 
   return <main className="merchant-shell pm-shell shipping-shell">
     <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
-    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href])=><a className={label==="การจัดส่ง"?"active":""} href={href} key={label}><Icon/>{label}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button></div></aside>
+    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href])=><a className={label==="การจัดส่ง"?"active":""} href={href} key={label}><Icon/>{label}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button><MerchantLogoutButton /></div></aside>
     <section className="pm-content shipping-content">
       <header className="pm-heading shipping-heading"><div><h1><Truck/>{t("shippingPage.title")}</h1><p>{t("shippingPage.subtitle")}</p></div><div className="pm-actions"><button disabled title={unsupported}><Printer/>{t("shippingPage.printLabels")}</button><button disabled={!canConfigure} title={deniedTitle(canConfigure)} className="primary" onClick={()=>carriersRef.current?.scrollIntoView({behavior:"smooth",block:"start"})}><Plus/>{t("shippingPage.connectMore")}</button></div></header>
       <section className="shipping-kpis">{TABS.map(([key],i)=>{const Icon=KPI_ICONS[key as keyof typeof KPI_ICONS];return <article className={key} key={key}><span><Icon/></span><div><small>{t(`shippingPage.kpi.${key}`)}</small><b>{kpiValue(i)}</b><em>{t(`shippingPage.kpi.${key}Hint`)}</em></div></article>})}</section>

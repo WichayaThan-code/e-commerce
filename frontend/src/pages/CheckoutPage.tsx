@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import ConfigurationSummary from "../components/cart/ConfigurationSummary";
 import { Link, useNavigate } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, CreditCard, MapPin, ShieldCheck, Store, Tag, Truck } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -412,7 +413,7 @@ export default function CheckoutPage() {
             <ul className="checkout-lines">
               {group.items.map((line) => <li key={line.id}>
                 <span className="cart-photo cart-photo-real">{line.imageUrl ? <img src={mediaUrl(line.imageUrl)} alt={line.productName}/> : null}</span>
-                <div><b>{line.productName}</b>{line.optionLabel ? <em>{line.optionLabel}</em> : null}</div>
+                <div><b>{line.productName}</b>{line.optionLabel ? <em>{line.optionLabel}</em> : null}<ConfigurationSummary configuration={line.configuration} localeTag={localeTag}/></div>
                 <span className="num">× {line.quantity}</span>
                 <b className="num">{money(line.lineTotal)}</b>
               </li>)}

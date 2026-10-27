@@ -14,6 +14,7 @@ import ShopPoliciesEditor from "../components/merchant/ShopPoliciesEditor";
 import ShippingMethodsSettings from "../components/merchant/ShippingMethodsSettings";
 import PaymentSettings from "../components/merchant/PaymentSettings";
 import ConfirmDialog from "../components/form/ConfirmDialog";
+import MerchantLogoutButton from "../components/merchant/MerchantLogoutButton";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { useActiveShop } from "../contexts/ActiveShopContext";
@@ -118,7 +119,7 @@ export default function SettingsPage(){
 
   return <main className="merchant-shell pm-shell settings-shell">
     <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
-    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href,badge])=><a className={label==="ตั้งค่า"?"active":""} href={href} key={label} onClick={e=>guardHref(e,href)}><Icon/>{label}{badge&&<i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help" onClick={e=>guardHref(e,"/help")}><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button></div></aside>
+    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href,badge])=><a className={label==="ตั้งค่า"?"active":""} href={href} key={label} onClick={e=>guardHref(e,href)}><Icon/>{label}{badge&&<i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help" onClick={e=>guardHref(e,"/help")}><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button><MerchantLogoutButton /></div></aside>
     <section className="pm-content settings-content">
       <header className="pm-heading settings-heading"><div><h1><Settings/>ตั้งค่า</h1><p>นโยบายร้าน การชำระเงิน การจัดส่ง และบัญชีผู้ใช้ · ข้อมูลร้าน ธีม และเวลาทำการ อยู่ที่ <a href="/merchant/store" onClick={e=>guardHref(e,"/merchant/store")}>ร้านของฉัน</a></p></div></header>
       <nav className="settings-tabs" aria-label="หมวดการตั้งค่า">{SETTINGS_TABS.map((tab,index)=>{const Icon=tab.icon;const sep=index>0&&SETTINGS_TABS[index-1].group!==tab.group;return [sep?<span key={`${tab.key}-sep`} className="settings-tab-sep" aria-hidden="true"/>:null,<button key={tab.key} type="button" className={activeTab===tab.key?"active":""} aria-current={activeTab===tab.key?"page":undefined} onClick={()=>requestTab(tab.key)}><Icon/>{tab.label}</button>]})}</nav>

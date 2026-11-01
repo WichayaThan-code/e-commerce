@@ -215,6 +215,7 @@ export default function CheckoutSuccessPage() {
               ) : (
                 <Link className="checkout-secondary" to={`/account/orders/${order.id}`}>{tp("orders.viewDetail")}</Link>
               )}
+              <Link className="checkout-secondary" to={`/track-order?no=${encodeURIComponent(order.orderNumber)}`}>{tp("tracking.cta")}</Link>
             </div>
           </article>;
         })}

@@ -1,20 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3,
-  Bell,
-  Box,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
-  CircleUserRound,
   Copy,
-  Crown,
   Ellipsis,
   Gift,
-  Headphones,
-  Home,
   Lightbulb,
   Megaphone,
   Pause,
@@ -23,19 +16,12 @@ import {
   Trash2,
   Plus,
   Search,
-  Settings,
   ShoppingBag,
-  Store,
   Tag,
   TicketPercent,
   Truck,
   UsersRound,
-  WalletCards,
 } from "lucide-react";
-import MerchantBell from "../components/merchant/MerchantBell";
-import LanguageSwitcher from "../components/LanguageSwitcher";
-import MerchantShopMenu from "../components/MerchantShopMenu";
-import MerchantLogoutButton from "../components/merchant/MerchantLogoutButton";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
@@ -43,6 +29,7 @@ import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/promotion-management.css";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
+import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
 
 import ConfirmDialog from "../components/form/ConfirmDialog";
 import { LoadError, SkeletonBusy, SkeletonTable } from "../components/feedback/Skeleton";
@@ -50,20 +37,9 @@ import PromotionFormDialog, { draftFrom, emptyDraft, type PromotionDraft } from 
 import { benefitText, formatBaht, formatThaiDate, statusBadge, TYPE_CLASS, TYPE_LABEL } from "../components/merchant/promotionFormat";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
-import { ApiError, promotionApi, type Promotion, type PromotionList, type PromotionStatus, type PromotionType, type PromotionWrite } from "../services/api";
+import { ApiError, promotionApi, type Promotion, type PromotionList, type PromotionStatus, type PromotionType, type PromotionWrite } from "../services/api";
+import MerchantSidebar from "../components/merchant/MerchantSidebar";
 
-const menu = [
-  [Home, "หน้าหลัก", "/merchant/dashboard"],
-  [Box, "จัดการสินค้า", "/merchant/products"],
-  [ShoppingBag, "คำสั่งซื้อ", "/merchant/orders", "12"],
-  [CircleUserRound, "ลูกค้า", "/merchant/customers"],
-  [TicketPercent, "โปรโมชั่น/คูปอง", "/merchant/promotions"],
-  [BarChart3, "รายงาน", "/merchant/reports"],
-  [WalletCards, "การเงิน", "/merchant/finance"],
-  [Truck, "การจัดส่ง", "/merchant/shipping"],
-  [Store, "ร้านของฉัน", "/merchant/store"],
-  [Settings, "ตั้งค่า", "/merchant/settings"],
-] as const;
 
 function Brand() {
   return (
@@ -122,7 +98,7 @@ function errorMessage(error: unknown) {
 export default function PromotionManagementPage() {
   const { user, loading } = useAuth();
   const { shopId } = useActiveShop();
-  const { canInShop, canSeeMenuItem, deniedTitle } = usePermissions();
+  const { canInShop, deniedTitle } = usePermissions();
   const canManage = canInShop("PROMOTION_MANAGE");
   const [data, setData] = useState<PromotionList>(EMPTY);
   const [listLoading, setListLoading] = useState(true);
@@ -282,19 +258,10 @@ export default function PromotionManagementPage() {
       <header className="merchant-topbar">
         <Brand />
         <MerchantTopbarSearch />
-        <LanguageSwitcher /> <MerchantBell />
-        <MerchantShopMenu />
+        <MerchantTopbarActions />
       </header>
 
-      <aside className="merchant-sidebar pm-sidebar promo-sidebar">
-        <nav>{menu.filter(canSeeMenuItem).map(([Icon, label, href, badge]) => (
-          <a className={label === "โปรโมชั่น/คูปอง" ? "active" : ""} href={href} key={label} onClick={(event) => { if ((href as string) === "#") { event.preventDefault(); notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`); } }}>
-            <Icon />{label}{badge && <i>{badge}</i>}
-          </a>
-        ))}</nav>
-        <section className="upgrade-card"><Crown /><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br />ได้มากกว่าเดิม</p><button onClick={() => notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section>
-        <div className="merchant-support"><a href="/help"><CircleHelp />ศูนย์ช่วยเหลือ</a><button onClick={() => notify("กำลังติดต่อทีมงาน")}><Headphones />ติดต่อทีมงาน</button><MerchantLogoutButton /></div>
-      </aside>
+      <MerchantSidebar active="promotions"/>
 
       <section className="pm-content promo-content">
         <header className="pm-heading promo-heading">

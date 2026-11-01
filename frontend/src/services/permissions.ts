@@ -17,6 +17,7 @@ export type RoutePermission = { permission: string; scope: PermissionScope }
  */
 export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   '/admin': { permission: 'PLATFORM_SHOP_READ', scope: 'platform' },
+  '/admin/dashboard': { permission: 'PLATFORM_SHOP_READ', scope: 'platform' },
   '/admin/stores': { permission: 'PLATFORM_APPLICATION_READ', scope: 'platform' },
   '/admin/store-applications': { permission: 'PLATFORM_APPLICATION_READ', scope: 'platform' },
   '/admin/categories': { permission: 'PLATFORM_SETTING_UPDATE', scope: 'platform' }, // interim
@@ -36,6 +37,7 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   '/merchant/finance': { permission: 'REPORT_READ', scope: 'shop' }, // interim: no FINANCE_* code yet
   '/merchant/shipping': { permission: 'SHIPMENT_READ', scope: 'shop' },
   '/merchant/store': { permission: 'SHOP_READ', scope: 'shop' },
+  '/merchant/store/theme': { permission: 'SHOP_READ', scope: 'shop' },
   '/merchant/settings': { permission: 'SHOP_READ', scope: 'shop' },
   '/merchant/reinstatement': { permission: 'SHOP_READ', scope: 'shop' },
 }
@@ -106,7 +108,7 @@ export function accountKind(user: AuthUser | null | undefined): UserRole {
 /** Landing page after login / for "my dashboard" links. */
 export function homePath(user: AuthUser | null | undefined): string {
   const kind = accountKind(user)
-  return kind === 'ADMIN' ? '/admin' : kind === 'MERCHANT' ? '/merchant/dashboard' : '/'
+  return kind === 'ADMIN' ? '/admin/dashboard' : kind === 'MERCHANT' ? '/merchant/dashboard' : '/'
 }
 
 export function routePermission(path: string): RoutePermission | undefined {

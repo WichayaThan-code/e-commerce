@@ -8,6 +8,7 @@ import { safeBlockLink } from "../../../theme/blockContent";
 import { HERO_RANGES, clampInt, type ThemeHero } from "../../../theme/shopTheme";
 import { themeMediaSrc } from "../chromeShop";
 import { sectionSettingClasses } from "./sectionClasses";
+import HeroSlider, { heroSlideUrls } from "./HeroSlider";
 import type { ShopSectionProps } from "./types";
 
 /** Provided by the theme editor so stickers can be dragged on the preview (not provided on the live storefront). */
@@ -43,6 +44,7 @@ export default function HeroMediaFull({ shop, config, catalog, preview }: ShopSe
   const title = hero.title.trim() || shop.name;
   const subtitle = hero.subtitle.trim() || shop.description || "";
   const background = hero.background;
+  const slides = heroSlideUrls(hero.slides);
   const bgType = background?.type ?? "GRADIENT";
   const mainSrc = themeMediaSrc(background?.url);
   const posterSrc = themeMediaSrc(background?.posterUrl);
@@ -85,13 +87,16 @@ export default function HeroMediaFull({ shop, config, catalog, preview }: ShopSe
     <>
       <section
         id="shop-home"
-        className={["shop-hero-media", "recommend-width", ...sectionSettingClasses("HERO", config)].filter(Boolean).join(" ")}
+        className={["shop-hero-media", "recommend-width", slides.length ? "has-slider" : "", ...sectionSettingClasses("HERO", config)].filter(Boolean).join(" ")}
         data-variant="MEDIA_FULL"
         data-align={align}
         data-size={size}
         data-bg={bgType.toLowerCase()}
         style={{ "--shop-hero-height": `${heightVh}vh`, "--shop-hero-overlay": String(overlay / 100) } as CSSProperties}
       >
+        {slides.length ? (
+          <div className="shop-hero-media-bg"><HeroSlider urls={slides} /></div>
+        ) : (
         <div className="shop-hero-media-bg" aria-hidden="true">
           {showVideo && mainSrc ? (
             <video
@@ -110,6 +115,7 @@ export default function HeroMediaFull({ shop, config, catalog, preview }: ShopSe
             <img className="shop-hero-media-img" src={stillSrc} alt="" />
           ) : null}
         </div>
+        )}
         <div className="shop-hero-media-shade" aria-hidden="true" />
         <div className="shop-hero-media-stage" ref={stageRef}>
           {stickers.map(({ sticker, index, src }) =>

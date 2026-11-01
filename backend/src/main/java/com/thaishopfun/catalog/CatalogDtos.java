@@ -255,20 +255,35 @@ public final class CatalogDtos {
         List<ImageResponse> images,
         List<OptionGroupResponse> optionGroups,
         List<OptionGroup> optionSchema,
-        Long soldCount
+        Long soldCount,
+        Instant createdAt
     ) {
+        /** Arity before createdAt existed; createdAt stays null. */
+        public PublicProductResponse(UUID id, String slug, String nameTh, String nameEn, String nameZh, String descriptionTh,
+                                     String descriptionEn, String descriptionZh, Long categoryId, String brand, BigDecimal basePrice,
+                                     BigDecimal compareAtPrice, String currency, List<PublicSkuResponse> skus, List<ImageResponse> images,
+                                     List<OptionGroupResponse> optionGroups, List<OptionGroup> optionSchema, Long soldCount) {
+            this(id, slug, nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId, brand, basePrice,
+                compareAtPrice, currency, skus, images, optionGroups, optionSchema, soldCount, null);
+        }
+
         /** Arity used before soldCount existed; soldCount stays null (not computed for this view). */
         public PublicProductResponse(UUID id, String slug, String nameTh, String nameEn, String nameZh, String descriptionTh,
                                      String descriptionEn, String descriptionZh, Long categoryId, String brand, BigDecimal basePrice,
                                      BigDecimal compareAtPrice, String currency, List<PublicSkuResponse> skus, List<ImageResponse> images,
                                      List<OptionGroupResponse> optionGroups, List<OptionGroup> optionSchema) {
             this(id, slug, nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId, brand, basePrice,
-                compareAtPrice, currency, skus, images, optionGroups, optionSchema, null);
+                compareAtPrice, currency, skus, images, optionGroups, optionSchema, null, null);
+        }
+
+        public PublicProductResponse withCreatedAt(Instant at) {
+            return new PublicProductResponse(id, slug, nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId,
+                brand, basePrice, compareAtPrice, currency, skus, images, optionGroups, optionSchema, soldCount, at);
         }
 
         public PublicProductResponse withSoldCount(long sold) {
             return new PublicProductResponse(id, slug, nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId,
-                brand, basePrice, compareAtPrice, currency, skus, images, optionGroups, optionSchema, sold);
+                brand, basePrice, compareAtPrice, currency, skus, images, optionGroups, optionSchema, sold, createdAt);
         }
     }
 

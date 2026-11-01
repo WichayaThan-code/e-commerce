@@ -33,8 +33,8 @@
 .store-preview .preview-stats b{font-size:12px;line-height:1.35;word-break:break-word}
 .store-preview header button:disabled,.enter-store:disabled,.my-store-heading>button:disabled{opacity:.45;cursor:default}
 .store-enabled a{display:inline-block;margin-top:6px;font-size:12px;font-weight:700;color:#087bf5}
-.my-store-shell .merchant-topbar{grid-template-columns:minmax(168px,230px) minmax(0,1fr) auto auto auto;height:70px}
-.my-store-shell .merchant-topbar form,.my-store-shell .merchant-topbar .merchant-shop-menu{min-width:0}
+.my-store-shell .merchant-topbar{grid-template-columns:minmax(168px,230px) minmax(0,1fr) auto;height:70px}
+.my-store-shell .merchant-topbar form,.my-store-shell .merchant-topbar .merchant-topbar-actions{min-width:0}
 .my-store-shell .pm-content.my-store-content{min-width:0;padding:86px 28px 40px 262px}
 .store-page-head{margin:0 0 16px}
 .my-store-shell .my-store-heading{align-items:center;gap:16px;margin:0}
@@ -159,3 +159,40 @@
 .store-policy-link{margin:6px 0 0;font-size:11px;line-height:1.6;color:#6480a7}
 .store-hours{max-width:880px}
 @media(max-width:720px){.store-head-actions{margin-left:0;width:100%}.store-head-actions .merchant-save-btn{flex:1}}
+/* ThemeCustomizer page (/merchant/store/theme) — layout per artifact tsf-cz */
+.tc-page .tc-content{min-width:0;max-width:none}
+.tc-shell{display:grid;grid-template-rows:auto 1fr;height:calc(100vh - 110px);min-height:600px;background:#eef4fb;border:1px solid #d7e4f2;border-radius:14px;overflow:hidden}
+.tc-topbar{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fff;border-bottom:1px solid #d7e4f2;flex-wrap:wrap}
+.tc-back{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border:1px solid #cbddef;border-radius:8px;background:#fff;color:#08245d;font:inherit;font-weight:600;cursor:pointer}
+.tc-back svg{width:16px;height:16px}
+.tc-title{margin-right:auto;min-width:0}
+.tc-title h1{margin:0;font-size:16px;color:#08245d}
+.tc-title p{margin:2px 0 0;font-size:12px;color:#6480a7}
+.tc-devices{display:inline-flex;gap:4px}
+.tc-devices button{height:36px;padding:0 10px;border:1px solid #cbddef;border-radius:8px;background:#fff;color:#087bf5;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:12px;cursor:pointer}
+.tc-devices button.active{background:#087bf5;border-color:#087bf5;color:#fff}
+.tc-devices svg{width:16px;height:16px}
+.tc-actions{display:flex;align-items:center;gap:8px}
+.tc-actions button{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:1px solid #cbddef;border-radius:8px;background:#fff;color:#08245d;font:inherit;font-weight:600;cursor:pointer}
+.tc-actions button.primary{background:#087bf5;border-color:#087bf5;color:#fff}
+.tc-actions button:disabled{opacity:.55;cursor:default}
+.tc-actions svg{width:16px;height:16px}
+.tc-body{display:grid;grid-template-columns:380px 1fr;min-height:0}
+.tc-panel.store-theme-card{margin:0;border:0;border-right:1px solid #d7e4f2;border-radius:0;box-shadow:none;background:#fff;display:grid;grid-template-rows:auto 1fr;min-height:0;padding:0}
+.tc-tabs{display:flex;border-bottom:1px solid #d7e4f2;overflow-x:auto}
+.tc-tabs button{flex:1;border:0;background:none;padding:12px 6px 10px;font:inherit;font-size:13px;font-weight:600;color:#6480a7;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+.tc-tabs button.active{color:#087bf5;border-bottom-color:#087bf5}
+.tc-panel-body{overflow-y:auto;padding:4px 16px 20px;min-height:0}
+.tc-contrast-warn{display:flex;gap:6px;align-items:flex-start;margin:10px 0 0;padding:8px 10px;border-radius:8px;background:#fff7e6;color:#8a5300;font-size:12px;line-height:1.45}
+.tc-contrast-warn svg{width:16px;height:16px;flex:none}
+.tc-preview.store-theme-preview{margin:0;padding:20px;border:0;border-radius:0;box-shadow:none;background:transparent;overflow:auto;min-width:0;display:flex;flex-direction:column}
+.tc-preview .theme-preview-stage{flex:1;max-height:none;margin:0;background:transparent;padding:0}
+.tc-preview .tc-device{margin:0 auto;background:#fff;box-shadow:0 6px 24px rgba(8,36,93,.12);border-radius:10px;overflow:hidden}
+@media (max-width:860px){
+  .tc-shell{height:auto}
+  .tc-body{grid-template-columns:1fr}
+  .tc-panel.store-theme-card{border-right:0;border-bottom:1px solid #d7e4f2;max-height:480px}
+}
+
+/* theme customizer: narrower settings panel on laptop widths so the 768/1280 previews get more room */
+@media(min-width:861px) and (max-width:1500px){.tc-body{grid-template-columns:clamp(280px,24vw,380px) minmax(0,1fr)}.tc-preview.store-theme-preview{padding:12px}.tc-panel .theme-grid{grid-template-columns:1fr}}

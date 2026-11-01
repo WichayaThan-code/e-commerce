@@ -540,7 +540,8 @@
   },
   "footer": {
     "tagline": "泰国人的空间，服务每一家泰国店铺",
-    "rights": "© 2026 ThaiShopFun. 保留所有权利。"
+    "rights": "© 2026 ThaiShopFun. 保留所有权利。",
+    "trackOrder": "查询订单"
   },
   "shops": {
     "breadcrumb": "推荐店铺",
@@ -572,6 +573,50 @@
     "bannerProductsCta": "查看推荐商品 →"
   },
   "shop": {
+    "general": {
+      "newBadge": "新品",
+      "soldCount": "已售 {{n}} 件",
+      "allProducts": "全部商品",
+      "footerShop": "购物",
+      "footerHelp": "帮助",
+      "footerStore": "店铺",
+      "footerOrders": "我的订单",
+      "footerTrack": "物流追踪",
+      "announceAria": "店铺公告",
+      "ctaShop": "立即选购",
+      "ctaCategories": "浏览分类",
+      "menuOpen": "打开店铺菜单",
+      "menuClose": "关闭店铺菜单",
+      "searchOpen": "搜索本店",
+      "cart": "购物车",
+      "tabBarAria": "店铺快捷菜单",
+      "footerAbout": "关于店铺",
+      "footerLinks": "店铺链接",
+      "footerRights": "版权所有",
+      "footerPowered": "由 ThaiShopFun 提供支持",
+      "wishlist": "收藏",
+      "wishlistSoon": "收藏页即将上线，现在可先点商品上的爱心保存。",
+      "account": "我的账户",
+      "trustSub": {
+        "AUTHENTIC": "直接来自生产者",
+        "FAST_SHIP": "Kerry / Flash / 泰国邮政",
+        "RETURNS": "7 天内可换货",
+        "SECURE_PAY": "PromptPay / 银行卡 / 货到付款"
+      },
+      "addToCart": "加入购物车",
+      "hoursSectionTitle": "营业时间与地址",
+      "hoursCardTitle": "营业时间",
+      "mapOpen": "查看地图",
+      "call": "致电 {{phone}}",
+      "favoritesTitle": "收藏",
+      "favoritesEmpty": "还没有收藏该店铺的商品",
+      "favoritesLogin": "登录后即可收藏商品",
+      "favoritesLoginCta": "登录",
+      "favoritesLoading": "加载中...",
+      "favoriteAdded": "已加入收藏",
+      "favoriteRemoved": "已取消收藏",
+      "favoriteFailed": "保存失败，请重试"
+    },
     "chrome": {
       "menuAria": "店铺菜单",
       "searchPlaceholder": "搜索本店商品",
@@ -681,7 +726,16 @@
       "details": "商品详情",
       "more": "本店其他商品",
       "close": "关闭",
-      "options": "规格"
+      "options": "规格",
+      "qr": "二维码",
+      "qrTitle": "商品二维码",
+      "qrClose": "关闭",
+      "qrProduct": "商品页",
+      "qrCheckout": "立即购买",
+      "qrProductHint": "扫码打开此商品",
+      "qrCheckoutHint": "扫码立即购买（需登录，然后结算）",
+      "qrLocal": "当前运行于 localhost：此二维码仅在本机可用",
+      "qrDownload": "下载 PNG"
     },
     "productsPageAria": "商品分页",
     "productError": "无法打开该商品",
@@ -854,6 +908,12 @@
       "addSoon": "加入购物车（即将推出）",
       "add": "加入购物车",
       "adding": "正在加入…"
+    },
+    "heroSlider": {
+      "aria": "店铺轮播图",
+      "prev": "上一张",
+      "next": "下一张",
+      "goTo": "转到第 {{n}} 张"
     }
   },
   "home": {
@@ -888,6 +948,9 @@
     "logoutOk": "已退出登录",
     "logoutFail": "退出失败，请重试",
     "pickCategory": "已选择分类 {{name}}",
+    "loadError": "推荐商品加载失败",
+    "retry": "重试",
+    "emptyRecommended": "暂无推荐商品",
     "promoThaiTitle": "泰国好货\n送到家",
     "promoThaiText": "支持泰国创业者\n轻松买到好货",
     "promoThaiBtn": "购买泰国商品",
@@ -1162,5 +1225,54 @@
         "shop": "ThaiCraft"
       }
     ]
+  },
+  "tracking": {
+    "title": "查询订单状态",
+    "lead": "请输入订单号以及收件人电话或下单账户邮箱。",
+    "orderNumber": "订单号",
+    "contact": "收件人电话或邮箱",
+    "contactPlaceholder": "例如 0812345678 或 you@example.com",
+    "search": "查询",
+    "searching": "查询中…",
+    "required": "请输入订单号和电话/邮箱",
+    "notFound": "未找到订单或信息不匹配",
+    "tooMany": "尝试次数过多，请15分钟后再试",
+    "failed": "查询失败，请重试",
+    "payment": "付款",
+    "total": "合计",
+    "recipient": "收件人",
+    "shipment": "配送",
+    "noShipment": "尚未发货",
+    "openCarrier": "在物流网站查询",
+    "loginHint": "需要查看完整详情？",
+    "cta": "查询订单",
+    "steps": {
+      "payment": "付款",
+      "preparing": "备货",
+      "shipping": "配送中",
+      "delivered": "已收货"
+    },
+    "status": {
+      "PENDING_PAYMENT": "待付款",
+      "PAID_AWAITING_MERCHANT_CONFIRM": "已付款，待商家确认",
+      "MERCHANT_CONFIRMED": "商家已确认",
+      "READY_TO_PACK": "待打包",
+      "PACKING": "打包中",
+      "PACKED": "已打包",
+      "DISPATCHED": "配送中",
+      "DELIVERED": "已送达",
+      "COMPLETED": "已完成",
+      "CANCELLED": "已取消",
+      "REFUNDED": "已退款",
+      "REFUND_REQUESTED": "退款申请中"
+    },
+    "paymentStatus": {
+      "UNPAID": "未付款",
+      "PENDING": "审核中",
+      "PAID": "已付款",
+      "FAILED": "失败",
+      "REFUNDED": "已退款",
+      "PARTIALLY_REFUNDED": "部分退款"
+    }
   }
 }

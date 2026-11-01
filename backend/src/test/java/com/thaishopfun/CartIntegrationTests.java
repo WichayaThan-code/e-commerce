@@ -687,7 +687,8 @@ class CartIntegrationTests {
         String slug = jdbc.queryForObject("SELECT slug FROM shops WHERE shop_no = ?", String.class, shop.shopId);
 
         // FREE_SHIPPING with a shipping cap, hidden from the storefront; dates with a +07:00 offset (merchant local time)
-        var startLocal = java.time.OffsetDateTime.now(java.time.ZoneId.of("Asia/Bangkok")).minusHours(1).withNano(0);
+        var startLocal = java.time.OffsetDateTime.now(java.time.ZoneId.of("Asia/Bangkok")).minusHours(1).withNano(0)
+            .format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME); // always HH:mm:ss (toString drops :00 seconds, which the API rejects)
         var free = createCoupon(shop, """
             {"code":"freeship399","name":"ส่งฟรี","type":"FREE_SHIPPING","minSubtotal":399,"maxDiscount":30,"startsAt":"%s","showOnStorefront":false}"""
             .formatted(startLocal));
@@ -759,6 +760,36 @@ class CartIntegrationTests {
         // V31 coupon wallet: public codes must be collected first (result ignored: unknown / expired codes are rejected by apply below)
         cart(post("/api/me/coupons"), buyer, "{\"shopId\":%d,\"code\":\"%s\"}".formatted(shop.shopId, code));
         return cart(post("/api/cart/shops/" + shop.shopId + "/coupon"), buyer, "{\"code\":\"%s\"}".formatted(code));
+    }
+
+    // ---------------- buyer favourites (V45) ----------------
+
+    @Test
+    void favoritesAddListRemoveOnlyLiveProductsAndNoUserIds() throws Exception {
+        var shop = openShop("c-fav@example.com", "0814000021", "\u0e23\u0e49\u0e32\u0e19\u0e42\u0e1b\u0e23\u0e14", "Fav", "1234567890321");
+        var product = publishedVariantProduct(shop, "FV");
+        String productId = JsonPath.read(product, "$.id");
+        String draftId = JsonPath.read(createProduct(shop, COLOR_SIZE.formatted(activeCategory(0), "FD", "FD", "FD")), "$.id");
+        var buyer = token("c-fav-buyer@example.com", "0814000121");
+        var other = token("c-fav-other@example.com", "0814000122");
+        String slug = jdbc.queryForObject("SELECT slug FROM shops WHERE shop_no = ?", String.class, shop.shopId);
+
+        mvc.perform(get("/api/me/favorites")).andExpect(status().isUnauthorized());
+        cart(post("/api/me/favorites"), buyer, "{\"productId\":\"" + productId + "\"}").andExpect(status().isCreated())
+            .andExpect(jsonPath("$.favorite").value(true));
+        cart(post("/api/me/favorites"), buyer, "{\"productId\":\"" + productId + "\"}").andExpect(status().isOk())
+            .andExpect(jsonPath("$.alreadyFavorite").value(true));
+        cart(post("/api/me/favorites"), buyer, "{\"productId\":\"" + draftId + "\"}").andExpect(status().isNotFound());
+        cart(post("/api/me/favorites"), buyer, "{\"productId\":\"nope\"}").andExpect(status().isNotFound());
+        cart(get("/api/me/favorites?shopSlug=" + slug), buyer).andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].productId").value(productId))
+            .andExpect(jsonPath("$[0].shopSlug").value(slug))
+            .andExpect(jsonPath("$[0].userId").doesNotExist());
+        cart(get("/api/me/favorites?shopSlug=other-shop"), buyer).andExpect(jsonPath("$.length()").value(0));
+        cart(get("/api/me/favorites"), other).andExpect(jsonPath("$.length()").value(0));
+        cart(delete("/api/me/favorites/" + productId), buyer).andExpect(status().isNoContent());
+        cart(get("/api/me/favorites"), buyer).andExpect(jsonPath("$.length()").value(0));
     }
 
     private String createCoupon(OpenShop shop, String json) throws Exception {

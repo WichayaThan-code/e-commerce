@@ -1,0 +1,369 @@
+/* Shared admin side panel: drawer (detail) + aside (supplementary) */
+
+.admin-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 1440px) {
+  .admin-split--with-aside {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+}
+
+.admin-side-panel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(5, 24, 58, 0.42);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admin-side-panel {
+  background: #fff;
+  color: #092d76;
+  font-family: var(--font-sans), sans-serif;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.admin-side-panel--drawer {
+  width: min(420px, 100%);
+  height: 100%;
+  box-shadow: -12px 0 40px rgba(8, 36, 93, 0.18);
+  border-left: 1px solid #dbe8f5;
+  animation: admin-side-panel-in 0.18s ease-out;
+}
+
+@keyframes admin-side-panel-in {
+  from { transform: translateX(16px); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.admin-side-panel--aside {
+  width: 100%;
+  border: 1px solid #dbe8f5;
+  border-radius: 8px;
+  max-height: none;
+}
+
+.admin-side-panel--bare {
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  gap: 14px;
+  overflow: visible;
+}
+
+.admin-side-panel--bare > * {
+  background: #fff;
+  border: 1px solid #dbe8f5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.admin-side-panel__header {
+  flex: none;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 14px;
+  border-bottom: 1px solid #e5edf6;
+}
+
+.admin-side-panel__header h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.admin-side-panel__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.admin-side-panel__close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #123f86;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.admin-side-panel__close:hover {
+  background: #eef5ff;
+}
+
+.admin-side-panel__close:focus-visible {
+  outline: 2px solid #0878f5;
+  outline-offset: 2px;
+}
+
+.admin-side-panel__close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.admin-side-panel__tabs {
+  flex: none;
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #e5edf6;
+  padding: 0 8px;
+  overflow-x: auto;
+}
+
+.admin-side-panel__tabs button {
+  flex: none;
+  height: 42px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #5a769e;
+  font: 600 13px inherit;
+  padding: 0 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.admin-side-panel__tabs button.active {
+  color: #0a3d8b;
+  border-bottom-color: #087bf5;
+}
+
+.admin-side-panel__tabs button:focus-visible {
+  outline: 2px solid #0878f5;
+  outline-offset: -2px;
+}
+
+.admin-side-panel__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.admin-side-panel__footer {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: stretch;
+  padding: 12px 14px;
+  border-top: 1px solid #e5edf6;
+  background: #fff;
+}
+
+.admin-side-panel__footer > * {
+  min-width: 0;
+}
+
+.admin-side-panel__footer .asp-primary,
+.admin-side-panel__footer .asp-secondary,
+.admin-side-panel__footer .asp-danger {
+  height: 40px;
+  border-radius: 8px;
+  font: 700 13px inherit;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.admin-side-panel__footer .asp-primary {
+  border: 0;
+  background: linear-gradient(100deg, #087df6, #0872ec);
+  color: #fff;
+}
+
+.admin-side-panel__footer .asp-secondary {
+  border: 1px solid #cddff2;
+  background: #fff;
+  color: #0a4394;
+}
+
+.admin-side-panel__footer .asp-danger {
+  border: 1px solid #ffd0da;
+  background: #fff0f3;
+  color: #d01f4a;
+}
+
+.admin-side-panel__footer .asp-primary:disabled,
+.admin-side-panel__footer .asp-secondary:disabled,
+.admin-side-panel__footer .asp-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-inline-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #ffe0a8;
+  border-radius: 8px;
+  background: #fff9eb;
+  color: #6a5510;
+  font: 600 12.5px/1.45 var(--font-sans), sans-serif;
+}
+
+.admin-inline-tip > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-inline-tip button {
+  border: 0;
+  background: transparent;
+  color: #8a7018;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+/* Selected row: soft fill + 3px left bar (readable) */
+.admin-shell .applications-tr.selected,
+.admin-shell .users-tr.selected,
+.admin-shell .roles-tr.selected {
+  background: #f3f8ff !important;
+  box-shadow: inset 3px 0 0 #087bf5;
+}
+
+/* Drop reserved right gutters used by old fixed panels */
+.admin-shell .applications-content,
+.admin-shell .users-content,
+.admin-shell .category-content,
+.admin-shell .promotions-content,
+.admin-shell .roles-content {
+  padding-right: 24px !important;
+  min-width: 0 !important;
+  max-width: none;
+}
+
+@media (min-width: 1281px) {
+  .admin-shell .applications-heading,
+  .admin-shell .users-heading,
+  .admin-shell .category-heading,
+  .admin-shell .promotions-heading,
+  .admin-shell .roles-heading {
+    margin-right: 0 !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-side-panel--drawer {
+    width: 100%;
+  }
+}
+
+/* Neutralize old fixed/floating side panels — layout now uses AdminSidePanel */
+.admin-shell .application-detail,
+.admin-shell .user-detail,
+.admin-shell .role-detail {
+  position: static !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: auto !important;
+  height: auto !important;
+  max-height: none !important;
+  z-index: auto !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  display: contents;
+}
+
+.admin-shell .admin-side-panel.application-detail,
+.admin-shell .admin-side-panel.user-detail,
+.admin-shell .admin-side-panel.role-detail,
+.admin-side-panel.application-detail,
+.admin-side-panel.user-detail,
+.admin-side-panel.role-detail {
+  display: flex !important;
+  position: relative !important;
+  width: min(420px, 100%) !important;
+  height: 100% !important;
+  background: #fff !important;
+  border-left: 1px solid #dbe8f5 !important;
+}
+
+.admin-shell .category-tools,
+.admin-shell .promotion-rail,
+.admin-shell .role-history {
+  position: static !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  z-index: auto !important;
+  overflow: visible !important;
+  display: flex !important;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-shell .category-tools.admin-side-panel--bare,
+.admin-shell .promotion-rail.admin-side-panel--bare,
+.admin-shell .role-history.admin-side-panel--bare {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+/* Role history card visuals live in admin-roles.css (.role-history-card). */
+
+.admin-shell .user-filters {
+  position: relative;
+  z-index: 1;
+}
+
+.admin-shell .user-tip {
+  display: none !important;
+}
+
+@media (max-width: 1439px) {
+  .admin-shell .admin-split--with-aside .category-tools,
+  .admin-shell .admin-split--with-aside .promotion-rail,
+  .admin-shell .admin-split--with-aside .role-history {
+    order: 2;
+  }
+}
+
+/* Keep new panels visible — old CSS hid fixed rails under 1280px */
+@media (max-width: 1280px) {
+  .admin-shell .category-tools,
+  .admin-shell .promotion-rail,
+  .admin-shell .role-history {
+    display: flex !important;
+  }
+
+  .admin-side-panel.application-detail,
+  .admin-side-panel.user-detail,
+  .admin-side-panel.role-detail {
+    display: flex !important;
+  }
+}

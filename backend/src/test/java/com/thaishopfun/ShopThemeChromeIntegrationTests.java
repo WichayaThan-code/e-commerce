@@ -413,6 +413,8 @@ class ShopThemeChromeIntegrationTests {
             """.formatted(font);
 
         for (var template : List.of("GENERAL", "FASHION", "FOOD_BEVERAGE")) {
+            // Themes port: GENERAL keeps the MEDIA_FULL (poster) layout itself; its CUSTOM extras are still stripped.
+            var expectedLayout = "GENERAL".equals(template) ? "MEDIA_FULL" : "FULL";
             mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
                     .header("Authorization", bearer(owner.token)).contentType(MediaType.APPLICATION_JSON)
                     .content("{\"templateKey\":\"" + template + "\",\"config\":" + baseConfig(chromeHero, "MEDIA_FULL", chromeExtra) + "}"))
@@ -422,13 +424,13 @@ class ShopThemeChromeIntegrationTests {
                 .andExpect(jsonPath("$.config.footer").doesNotExist())
                 .andExpect(jsonPath("$.config.fontCustom").doesNotExist())
                 .andExpect(jsonPath("$.config.layout").doesNotExist())
-                .andExpect(jsonPath("$.config.hero.layout").value("FULL"))
+                .andExpect(jsonPath("$.config.hero.layout").value(expectedLayout))
                 .andExpect(jsonPath("$.config.hero.background").doesNotExist())
                 .andExpect(jsonPath("$.config.hero.stickers").doesNotExist())
                 .andExpect(jsonPath("$.config.hero.ctaSecondary").doesNotExist())
                 .andExpect(jsonPath("$.config.hero.overlay").doesNotExist())
                 .andExpect(jsonPath("$.config.hero.heightVh").doesNotExist())
-                .andExpect(jsonPath("$.config.sections[0].variant").value("FULL"));
+                .andExpect(jsonPath("$.config.sections[0].variant").value(expectedLayout));
 
             mvc.perform(get("/api/shops/" + slug))
                 .andExpect(status().isOk())
@@ -436,7 +438,7 @@ class ShopThemeChromeIntegrationTests {
                 .andExpect(jsonPath("$.theme.config.header").doesNotExist())
                 .andExpect(jsonPath("$.theme.config.footer").doesNotExist())
                 .andExpect(jsonPath("$.theme.config.fontCustom").doesNotExist())
-                .andExpect(jsonPath("$.theme.config.hero.layout").value("FULL"))
+                .andExpect(jsonPath("$.theme.config.hero.layout").value(expectedLayout))
                 .andExpect(jsonPath("$.theme.config.hero.stickers").doesNotExist());
         }
 

@@ -32,7 +32,8 @@
     "deals": "Special deals",
     "help": "Help center",
     "logout": "Log out",
-    "loggingOut": "Logging out..."
+    "loggingOut": "Logging out...",
+    "trackOrder": "Track your order"
   },
   "nav": {
     "categories": "Categories",

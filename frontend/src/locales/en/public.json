@@ -541,7 +541,8 @@
   },
   "footer": {
     "tagline": "A space for Thai people, for every Thai shop",
-    "rights": "© 2026 ThaiShopFun. All rights reserved."
+    "rights": "© 2026 ThaiShopFun. All rights reserved.",
+    "trackOrder": "Track your order"
   },
   "shops": {
     "breadcrumb": "Featured shops",
@@ -573,6 +574,50 @@
     "bannerProductsCta": "See recommendations →"
   },
   "shop": {
+    "general": {
+      "newBadge": "New",
+      "soldCount": "{{n}} sold",
+      "allProducts": "All products",
+      "footerShop": "Shop",
+      "footerHelp": "Help",
+      "footerStore": "Store",
+      "footerOrders": "My orders",
+      "footerTrack": "Track order",
+      "announceAria": "Shop announcement",
+      "ctaShop": "Shop now",
+      "ctaCategories": "Browse categories",
+      "menuOpen": "Open shop menu",
+      "menuClose": "Close shop menu",
+      "searchOpen": "Search this shop",
+      "cart": "Cart",
+      "tabBarAria": "Shop shortcuts",
+      "footerAbout": "About the shop",
+      "footerLinks": "Shop links",
+      "footerRights": "All rights reserved",
+      "footerPowered": "Powered by ThaiShopFun",
+      "wishlist": "Wishlist",
+      "wishlistSoon": "The wishlist page is coming soon. Tap the heart on a product to keep it for now.",
+      "account": "My account",
+      "trustSub": {
+        "AUTHENTIC": "Sourced directly from makers",
+        "FAST_SHIP": "Kerry / Flash / Thailand Post",
+        "RETURNS": "Exchange within 7 days",
+        "SECURE_PAY": "PromptPay / card / COD"
+      },
+      "addToCart": "Add to cart",
+      "hoursSectionTitle": "Opening hours & location",
+      "hoursCardTitle": "Opening hours",
+      "mapOpen": "Open map",
+      "call": "Call {{phone}}",
+      "favoritesTitle": "Favourites",
+      "favoritesEmpty": "No favourites in this shop yet.",
+      "favoritesLogin": "Sign in to save favourites.",
+      "favoritesLoginCta": "Sign in",
+      "favoritesLoading": "Loading...",
+      "favoriteAdded": "Added to favourites",
+      "favoriteRemoved": "Removed from favourites",
+      "favoriteFailed": "Could not save. Please try again."
+    },
     "chrome": {
       "menuAria": "Shop menu",
       "searchPlaceholder": "Search this shop",
@@ -682,7 +727,16 @@
       "details": "Product details",
       "more": "More from this shop",
       "close": "Close",
-      "options": "Options"
+      "options": "Options",
+      "qr": "QR code",
+      "qrTitle": "Product QR code",
+      "qrClose": "Close",
+      "qrProduct": "Product page",
+      "qrCheckout": "Buy now",
+      "qrProductHint": "Scan to open this product",
+      "qrCheckoutHint": "Scan to buy now (sign-in required, then checkout)",
+      "qrLocal": "Running on localhost: this QR only works on this computer",
+      "qrDownload": "Download PNG"
     },
     "productsPageAria": "Product pages",
     "productError": "Could not open this product",
@@ -855,6 +909,12 @@
       "addSoon": "Add to cart (coming soon)",
       "add": "Add to cart",
       "adding": "Adding…"
+    },
+    "heroSlider": {
+      "aria": "Store hero slides",
+      "prev": "Previous slide",
+      "next": "Next slide",
+      "goTo": "Go to slide {{n}}"
     }
   },
   "home": {
@@ -889,6 +949,9 @@
     "logoutOk": "Signed out",
     "logoutFail": "Sign out failed. Please try again",
     "pickCategory": "Selected category {{name}}",
+    "loadError": "Could not load recommended products",
+    "retry": "Retry",
+    "emptyRecommended": "No recommended products yet",
     "promoThaiTitle": "Great goods from across Thailand\ndelivered home",
     "promoThaiText": "Support Thai entrepreneurs\nshop easily, shop well",
     "promoThaiBtn": "Shop Thai products",
@@ -1163,5 +1226,54 @@
         "shop": "ThaiCraft"
       }
     ]
+  },
+  "tracking": {
+    "title": "Track your order",
+    "lead": "Enter your order number and the recipient phone or the account e-mail used to order.",
+    "orderNumber": "Order number",
+    "contact": "Recipient phone or e-mail",
+    "contactPlaceholder": "e.g. 0812345678 or you@example.com",
+    "search": "Track",
+    "searching": "Checking…",
+    "required": "Please enter the order number and phone / e-mail",
+    "notFound": "Order not found or the details do not match",
+    "tooMany": "Too many attempts. Please wait 15 minutes and try again.",
+    "failed": "Could not check the order. Please try again.",
+    "payment": "Payment",
+    "total": "Total",
+    "recipient": "Recipient",
+    "shipment": "Shipping",
+    "noShipment": "Not shipped yet",
+    "openCarrier": "Track with carrier",
+    "loginHint": "Need full details?",
+    "cta": "Track order",
+    "steps": {
+      "payment": "Payment",
+      "preparing": "Preparing",
+      "shipping": "Shipping",
+      "delivered": "Delivered"
+    },
+    "status": {
+      "PENDING_PAYMENT": "Awaiting payment",
+      "PAID_AWAITING_MERCHANT_CONFIRM": "Paid, awaiting shop",
+      "MERCHANT_CONFIRMED": "Confirmed by shop",
+      "READY_TO_PACK": "Ready to pack",
+      "PACKING": "Packing",
+      "PACKED": "Packed",
+      "DISPATCHED": "Shipping",
+      "DELIVERED": "Delivered",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled",
+      "REFUNDED": "Refunded",
+      "REFUND_REQUESTED": "Refund requested"
+    },
+    "paymentStatus": {
+      "UNPAID": "Unpaid",
+      "PENDING": "Under review",
+      "PAID": "Paid",
+      "FAILED": "Failed",
+      "REFUNDED": "Refunded",
+      "PARTIALLY_REFUNDED": "Partially refunded"
+    }
   }
 }

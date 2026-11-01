@@ -1,21 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  BarChart3, Box, CheckCircle2, ChevronLeft,
-  ChevronRight, CircleHelp, CircleUserRound, Clock3, Crown, Headphones, Home,
-  MapPin, Package, Plus, Printer, Search, Settings, ShoppingBag,
-  Store, TicketPercent, Truck, WalletCards, XCircle,
+  Box,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Headphones,
+  MapPin,
+  Package,
+  Plus,
+  Printer,
+  Search,
+  ShoppingBag,
+  Truck,
+  XCircle,
 } from "lucide-react";
-import MerchantBell from "../components/merchant/MerchantBell";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
+import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
 import ShipmentDrawer, { statusClass } from "../components/merchant/ShipmentDrawer";
-import LanguageSwitcher from "../components/LanguageSwitcher";
-import MerchantShopMenu from "../components/MerchantShopMenu";
 import ToggleSwitch from "../components/form/ToggleSwitch";
 import { LoadError, SkeletonTable } from "../components/feedback/Skeleton";
 import { formatBangkokDateTime, orderErrorMessage, periodRange, type PeriodKey } from "../components/merchant/orderFormat";
 import { useActiveShop } from "../contexts/ActiveShopContext";
-import MerchantLogoutButton from "../components/merchant/MerchantLogoutButton";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
@@ -23,15 +30,9 @@ import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import { merchantShipmentApi, type ShipmentSummary, type ShopCarriersResponse } from "../services/api";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
-import "../styles/shipping.css";
+import "../styles/shipping.css";
+import MerchantSidebar from "../components/merchant/MerchantSidebar";
 
-const menu = [
-  [Home,"หน้าหลัก","/merchant/dashboard"],[Box,"จัดการสินค้า","/merchant/products"],
-  [ShoppingBag,"คำสั่งซื้อ","/merchant/orders"],[CircleUserRound,"ลูกค้า","/merchant/customers"],
-  [TicketPercent,"โปรโมชั่น/คูปอง","/merchant/promotions"],[BarChart3,"รายงาน","/merchant/reports"],
-  [WalletCards,"การเงิน","/merchant/finance"],[Truck,"การจัดส่ง","/merchant/shipping"],
-  [Store,"ร้านของฉัน","/merchant/store"],[Settings,"ตั้งค่า","/merchant/settings"],
-] as const;
 
 /** [tab/KPI key, status filter] — a tab is a shortcut for one shipment status (the status select offers all of them) */
 const TABS: readonly (readonly [string, string])[] = [
@@ -60,7 +61,7 @@ export default function ShippingPage(){
   const { localeTag } = usePublicTranslation();
   const {user,loading}=useAuth();
   const { shopId } = useActiveShop();
-  const {canInShop,canSeeMenuItem,deniedTitle}=usePermissions();
+  const {canInShop,deniedTitle}=usePermissions();
   const canConfigure=canInShop("SHOP_UPDATE");
   const [notice,setNotice]=useState("");
   const [tone,setTone]=useState<"ok"|"fail">("ok");
@@ -168,8 +169,8 @@ export default function ShippingPage(){
   };
 
   return <main className="merchant-shell pm-shell shipping-shell">
-    <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
-    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href])=><a className={label==="การจัดส่ง"?"active":""} href={href} key={label}><Icon/>{label}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button><MerchantLogoutButton /></div></aside>
+    <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><MerchantTopbarActions /></header>
+    <MerchantSidebar active="shipping"/>
     <section className="pm-content shipping-content">
       <header className="pm-heading shipping-heading"><div><h1><Truck/>{t("shippingPage.title")}</h1><p>{t("shippingPage.subtitle")}</p></div><div className="pm-actions"><button disabled title={unsupported}><Printer/>{t("shippingPage.printLabels")}</button><button disabled={!canConfigure} title={deniedTitle(canConfigure)} className="primary" onClick={()=>carriersRef.current?.scrollIntoView({behavior:"smooth",block:"start"})}><Plus/>{t("shippingPage.connectMore")}</button></div></header>
       <section className="shipping-kpis">{TABS.map(([key],i)=>{const Icon=KPI_ICONS[key as keyof typeof KPI_ICONS];return <article className={key} key={key}><span><Icon/></span><div><small>{t(`shippingPage.kpi.${key}`)}</small><b>{kpiValue(i)}</b><em>{t(`shippingPage.kpi.${key}Hint`)}</em></div></article>})}</section>

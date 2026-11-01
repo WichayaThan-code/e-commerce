@@ -19,9 +19,14 @@ import {
 import { formatChange, formatDateTime, formatNumber, initialOf, NOT_ENABLED, percentOf } from '../services/adminFormat'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-users.css'
+import '../styles/admin-platform.css'
 import '../styles/admin-form-controls.css'
 import AdminSelect from '../components/admin/AdminSelect'
 import AdminDateRange from '../components/admin/AdminDateRange'
+import AdminSidePanel from '../components/admin/AdminSidePanel'
+import '../styles/admin-side-panel.css'
+
+const USERS_TIP_KEY = 'tsf_admin_users_tip_dismissed'
 
 type Tab = 'ข้อมูลผู้ใช้' | 'สิทธิ์การใช้งาน' | 'ประวัติ'
 type Filters = { q: string; role: string; status: string; from: string; to: string }
@@ -75,7 +80,13 @@ export default function AdminUsersPage() {
   const [historyError, setHistoryError] = useState('')
   const [selectedRows, setSelectedRows] = useState<string[]>([])
   const [tab, setTab] = useState<Tab>('ข้อมูลผู้ใช้')
-  const [showTip, setShowTip] = useState(true)
+  const [showTip, setShowTip] = useState(() => {
+    try { return localStorage.getItem(USERS_TIP_KEY) !== '1' } catch { return true }
+  })
+  const dismissTip = () => {
+    setShowTip(false)
+    try { localStorage.setItem(USERS_TIP_KEY, '1') } catch { /* ignore */ }
+  }
   const [exporting, setExporting] = useState(false)
   const [notice, setNotice] = useState('')
   const [accountDialog, setAccountDialog] = useState<'create' | 'edit' | null>(null)
@@ -295,12 +306,24 @@ export default function AdminUsersPage() {
         <article className="owners"><span><Store/></span><div><b>เจ้าของร้าน</b><strong>{kpi(stats?.storeOwners)}</strong><small>คิดเป็น {percentOf(stats?.storeOwners.value, stats?.total.value)}</small></div></article>
         <article className="general"><span><UsersRound/></span><div><b>ผู้ใช้งานทั่วไป</b><strong>{kpi(stats?.generalUsers)}</strong><small>คิดเป็น {percentOf(stats?.generalUsers.value, stats?.total.value)}</small></div></article>
       </section>
-      <form className="user-filters" onSubmit={event => { event.preventDefault(); search() }}>
-        <label className="user-search adm-search"><Search/><input value={draft.q} onChange={event => setDraft({ ...draft, q: event.target.value })} placeholder="ค้นหาผู้ใช้ (ชื่อ-นามสกุล, อีเมล, เบอร์โทร...)" aria-label="ค้นหาผู้ใช้งาน" maxLength={100}/></label>
+      {showTip ? (
+        <p className="admin-inline-tip" role="note">
+          <span>ⓘ คุณสามารถกำหนดบทบาทและสิทธิ์การใช้งานให้กับผู้ใช้งาน เพื่อควบคุมการเข้าถึงข้อมูลในระบบได้อย่างปลอดภัย</span>
+          <button type="button" aria-label="ปิดคำแนะนำ" onClick={dismissTip}>×</button>
+        </p>
+      ) : null}
+      <form className="ap-filters user-filters" onSubmit={event => { event.preventDefault(); search() }}>
+        <div className="ap-filter-search wide">
+          <span className="ap-filter-label">ค้นหา</span>
+          <label className="user-search adm-search ap-search"><Search/><input value={draft.q} onChange={event => setDraft({ ...draft, q: event.target.value })} placeholder="ค้นหาผู้ใช้ (ชื่อ-นามสกุล, อีเมล, เบอร์โทร...)" aria-label="ค้นหาผู้ใช้งาน" maxLength={100}/></label>
+        </div>
         <AdminSelect label="บทบาท" value={draft.role} onChange={value => apply({ role: value })} options={[{ value: '', label: 'ทั้งหมด' }, ...(options?.roles ?? []).map(option => ({ value: option.value, label: `${option.label} (${formatNumber(option.count)})` })), ...(draft.role && !options?.roles.some(option => option.value === draft.role) ? [{ value: draft.role, label: draft.role }] : [])]}/>
         <AdminSelect label="สถานะ" value={draft.status} onChange={value => apply({ status: value })} options={[{ value: '', label: 'ทั้งหมด' }, ...(options?.statuses ?? []).map(option => ({ value: option.value, label: `${option.label} (${formatNumber(option.count)})` }))]}/>
         <AdminDateRange className="user-date-range" label="วันที่สมัคร" from={draft.from} to={draft.to} onChange={range => apply({ from: range.from, to: range.to })}/>
-        <button type="submit" className="user-find">ค้นหา</button><button type="button" className="user-reset" onClick={reset}>รีเซ็ต</button>
+        <div className="ap-filter-actions">
+          <button type="button" className="ap-ghost user-reset" onClick={reset}>รีเซ็ต</button>
+          <button type="submit" className="ap-primary user-find">ค้นหา</button>
+        </div>
       </form>
       <section className="users-table-card"><header><h2>รายการผู้ใช้งาน ({formatNumber(totalItems)} รายการ)</h2><div><button onClick={exportCsv} disabled={exporting || listLoading || totalItems === 0} title={totalItems > 10000 ? 'นำออกได้สูงสุด 10,000 รายการ' : 'นำออกรายการตามตัวกรองปัจจุบันเป็นไฟล์ CSV'}><Download/>{exporting ? 'กำลังนำออก...' : 'นำออก (Export)'}</button><button disabled title={NOT_ENABLED}><Settings/>จัดการคอลัมน์</button></div></header>
         <div className="users-table-scroll"><div className="users-table">
@@ -328,10 +351,38 @@ export default function AdminUsersPage() {
         </footer>
       </section>
     </div>
-    <aside className="user-detail"><header><h2>รายละเอียดผู้ใช้งาน</h2><button aria-label="ปิดรายละเอียด" onClick={() => setSelectedId(null)}><X/></button></header>
+    <AdminSidePanel
+      variant="drawer"
+      className="user-detail"
+      open={selectedId != null}
+      onClose={() => setSelectedId(null)}
+      title="รายละเอียดผู้ใช้งาน"
+      tabs={[
+        { id: 'ข้อมูลผู้ใช้', label: 'ข้อมูลผู้ใช้' },
+        { id: 'สิทธิ์การใช้งาน', label: 'สิทธิ์การใช้งาน' },
+        { id: 'ประวัติ', label: 'ประวัติ' },
+      ]}
+      activeTab={tab}
+      onTabChange={(id) => setTab(id as Tab)}
+      footer={detail ? (
+        <>
+          {canUpdate && <button type="button" className="asp-secondary" onClick={openEdit} disabled={saving || detail.superAdmin}><Settings/>แก้ไขข้อมูล</button>}
+          {canAssignRole && !detail.superAdmin && (
+            <div className="user-role-assignment">
+              <span>บทบาทแพลตฟอร์ม</span>
+              <AdminSelect compact className="user-role-select" label="บทบาทแพลตฟอร์ม" value={roleChoice} onChange={setRoleChoice} disabled={saving || detail.status !== 'ACTIVE'}
+                options={[{ value: '', label: 'ไม่มีบทบาท' }, ...platformRoles.map(role => ({ value: role.code, label: role.nameTh ?? role.code }))]}/>
+              <button type="button" className="asp-primary" onClick={saveRole} disabled={saving || detail.status !== 'ACTIVE' || roleChoice === selectedPlatformRole}>บันทึกบทบาท</button>
+            </div>
+          )}
+          {headStatus === 'ACTIVE' && canSuspend && <button type="button" className="asp-danger suspend" onClick={() => setUserConfirm('suspend')} disabled={saving || detail.superAdmin || detail.id === user.id}><AlertTriangle/>ระงับการใช้งาน</button>}
+          {headStatus === 'SUSPENDED' && canRestore && <button type="button" className="asp-secondary" onClick={() => setUserConfirm('restore')} disabled={saving || detail.superAdmin || detail.id === user.id}><Check/>คืนสถานะ</button>}
+          {canDelete && <button type="button" className="asp-danger delete" onClick={() => setUserConfirm('delete')} disabled={saving || detail.superAdmin || detail.id === user.id}><Trash2/>ลบผู้ใช้งาน</button>}
+        </>
+      ) : null}
+    >
       {!selectedId ? <div className="user-detail-body user-detail-empty">เลือกผู้ใช้งานจากตารางเพื่อดูรายละเอียด</div> : <>
         <section className="user-summary"><i className={selectedRow ? avatarTone(selectedRow) : 'gray'}>{initialOf(head?.firstName ?? selectedRow?.firstName)}</i><div><b>{headName || '…'}</b>{headStatus && <span className={`user-status ${headStatus === 'ACTIVE' ? 'active' : 'suspended'}`}><small/>{STATUS_LABEL[headStatus] ?? headStatus}</span>}{headRole && <em className={`user-role ${roleTone(headRole.context, headRole.code)}`}>{headRole.nameTh ?? headRole.code}</em>}<p>{headShops}</p></div></section>
-        <nav className="user-tabs">{(['ข้อมูลผู้ใช้', 'สิทธิ์การใช้งาน', 'ประวัติ'] as const).map(value => <button className={tab === value ? 'active' : ''} key={value} onClick={() => setTab(value)}>{value}</button>)}</nav>
         {detailState === 'loading' && !detail ? <div className="user-detail-body"><SkeletonForm fields={5} /></div>
           : detailState === 'error' ? <div className="user-detail-body" role="alert">โหลดรายละเอียดไม่สำเร็จ: {detailError}</div>
           : !detail ? <div className="user-detail-body"/>
@@ -358,19 +409,8 @@ export default function AdminUsersPage() {
                 : history.map((event, index) => <p key={`${event.type}-${event.at}-${index}`}><span>{event.title}{event.shopName && !event.title.includes(event.shopName) ? ` · ${event.shopName}` : ''}</span><small>{formatDateTime(event.at)}{event.actorName && event.actorName !== event.subjectName ? ` · โดย ${event.actorName}` : ''}</small></p>)}
             </div>}
         {actionError && <p className="admin-action-error" role="alert">{actionError}</p>}
-        {detail && <footer className="user-actions">
-          {canUpdate && <button onClick={openEdit} disabled={saving || detail.superAdmin}><Settings/>แก้ไขข้อมูล</button>}
-          {canAssignRole && !detail.superAdmin && <div className="user-role-assignment"><span>บทบาทแพลตฟอร์ม</span>
-            <AdminSelect compact className="user-role-select" label="บทบาทแพลตฟอร์ม" value={roleChoice} onChange={setRoleChoice} disabled={saving || detail.status !== 'ACTIVE'}
-              options={[{ value: '', label: 'ไม่มีบทบาท' }, ...platformRoles.map(role => ({ value: role.code, label: role.nameTh ?? role.code }))]}/>
-            <button onClick={saveRole} disabled={saving || detail.status !== 'ACTIVE' || roleChoice === selectedPlatformRole}>บันทึกบทบาท</button>
-          </div>}
-          {headStatus === 'ACTIVE' && canSuspend && <button className="suspend" onClick={() => setUserConfirm('suspend')} disabled={saving || detail.superAdmin || detail.id === user.id}><AlertTriangle/>ระงับการใช้งาน</button>}
-          {headStatus === 'SUSPENDED' && canRestore && <button onClick={() => setUserConfirm('restore')} disabled={saving || detail.superAdmin || detail.id === user.id}><Check/>คืนสถานะ</button>}
-          {canDelete && <button className="delete" onClick={() => setUserConfirm('delete')} disabled={saving || detail.superAdmin || detail.id === user.id}><Trash2/>ลบผู้ใช้งาน</button>}
-        </footer>}
       </>}
-    </aside>
+    </AdminSidePanel>
     {accountDialog && <div className="admin-modal-backdrop" role="presentation">
       <form className="admin-management-dialog" onSubmit={saveAccount} role="dialog" aria-modal="true" aria-labelledby="account-dialog-title">
         <header><h2 id="account-dialog-title">{accountDialog === 'create' ? 'เพิ่มผู้ใช้งาน' : 'แก้ไขข้อมูลผู้ใช้'}</h2><button type="button" onClick={() => setAccountDialog(null)} aria-label="ปิด"><X/></button></header>
@@ -383,7 +423,6 @@ export default function AdminUsersPage() {
         <footer><button type="button" onClick={() => setAccountDialog(null)} disabled={saving}>ยกเลิก</button><button type="submit" disabled={saving}>{saving ? 'กำลังบันทึก...' : 'บันทึก'}</button></footer>
       </form>
     </div>}
-    {showTip && <aside className="user-tip"><button aria-label="ปิดคำแนะนำ" onClick={() => setShowTip(false)}>×</button><h2>💡 คำแนะนำ</h2><p>คุณสามารถกำหนดบทบาทและสิทธิ์การใช้งานให้กับผู้ใช้งาน เพื่อควบคุมการเข้าถึงข้อมูลในระบบได้อย่างปลอดภัย</p></aside>}
     {notice && <div className="admin-toast" role="status">{notice}</div>}
     {userConfirm && detail && (
       <ConfirmDialog

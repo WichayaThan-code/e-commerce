@@ -1,3 +1,5 @@
+import { TsfCatalogPage } from "../../components/shop/general/GeneralStorefront";
+import { usesTsfTree } from "../../theme/shopTheme";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
@@ -25,6 +27,24 @@ export default function ShopSearchPage() {
 
   const { products, catalog } = useShopCatalog({ slug, q, enabled: q.length > 0 });
   const catalogSection = theme.config.sections.find((item) => item.key === "CATALOG");
+
+  if (usesTsfTree(theme.templateKey)) {
+    const form = (
+      <div className="tsf-wrap" style={{ paddingTop: 24 }}>
+        <form className="tsf-search-form" role="search" onSubmit={(event) => { event.preventDefault(); navigate(shopSearchPath(slug, draft)); }}>
+          <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={tp("shop.search.placeholder")} aria-label={tp("shop.search.title")} />
+          <button type="submit" className="tsf-btn tsf-btn-primary" aria-label={tp("shop.search.title")}><Search size={18} /></button>
+        </form>
+      </div>
+    );
+    if (q.length === 0) {
+      return <main>{form}<div className="tsf-wrap"><div className="tsf-catalog-empty"><p>{tp("shop.search.prompt")}</p></div></div></main>;
+    }
+    if (catalog.productState === "ok" && products.length === 0) {
+      return <main>{form}<div className="tsf-wrap"><div className="tsf-catalog-empty"><p>{tp("shop.search.empty", { q })}</p></div></div></main>;
+    }
+    return <TsfCatalogPage shop={shop} title={`${label}: “${q}”`} products={products} catalog={catalog} showRail={false} before={form} />;
+  }
 
   return (
     <>

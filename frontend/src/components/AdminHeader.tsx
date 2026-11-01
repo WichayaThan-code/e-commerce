@@ -5,6 +5,7 @@ import { STORE_APPLICATIONS_CHANGED } from './AdminSidebar'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useLanguage } from '../contexts/LanguageContext'
 import { adminApplicationApi, type AdminStoreApplication, type AuthUser } from '../services/api'
+import { primaryRoleLabelTh } from '../utils/roleLabels'
 
 type AdminHeaderProps = {
   user: AuthUser
@@ -25,6 +26,9 @@ export default function AdminHeader({ user, query = '', onSearch }: AdminHeaderP
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState<AdminStoreApplication[]>([])
   const notifyRef = useRef<HTMLDivElement>(null)
+  const displayName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
+  const initial = (user.firstName || user.email || 'A').charAt(0).toUpperCase()
+  const roleLabel = primaryRoleLabelTh(user)
 
   useEffect(() => { setText(query) }, [query])
 
@@ -74,7 +78,7 @@ export default function AdminHeader({ user, query = '', onSearch }: AdminHeaderP
 
   return (
     <header className="admin-topbar">
-      <a className="admin-brand" href="/admin">
+      <a className="admin-brand" href="/">
         <span><ShoppingBag /><i>✓</i></span>
         <div><b>ThaiShop<span>Fun</span></b><small>Shop Local · Support Thai · Smile Together</small></div>
       </a>
@@ -82,43 +86,45 @@ export default function AdminHeader({ user, query = '', onSearch }: AdminHeaderP
         <button aria-label={t('admin.searchAction')} type="submit"><Search /></button>
         <input aria-label={t('admin.searchLabel')} value={text} onChange={event => setText(event.target.value)} placeholder={t('admin.search')} />
       </form>
-      <span className="topbar-spacer" />
-      <div className="admin-tools">
-      <LanguageSwitcher />
-      <div className="admin-notify" ref={notifyRef}>
-        <button className="admin-bell" type="button" aria-label={t('admin.notify')} aria-expanded={open} onClick={() => setOpen(value => !value)}>
-          <Bell />
-          {pending.length > 0 && <i>{pending.length}</i>}
-        </button>
-        {open && (
-          <section className="admin-notify-panel" role="dialog" aria-label={t('admin.notifyList')}>
-            <header>
-              <b>{t('admin.pendingTitle')}</b>
-              <small>{pending.length} {t('admin.shopCount')}</small>
-            </header>
-            {pending.length === 0 ? <p className="admin-notify-empty">{t('admin.empty')}</p> : (
-              <ul>
-                {pending.map(shop => (
-                  <li key={shop.shopId}>
-                    <button type="button" onClick={() => openShop(shop.shopId)}>
-                      <Store />
-                      <span>
-                        <b>{shop.shopName}</b>
-                        <small>{t('admin.waiting')} · {shop.ownerName || t('admin.unknownOwner')}{shop.appliedAt ? ` · ${appliedLabel(shop.appliedAt)}` : ''}</small>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        )}
-      </div>
-      </div>
-      <div className="admin-profile">
-        <span>{user.firstName.charAt(0).toUpperCase()}</span>
-        <p><b>{user.email}</b><small>Administrator</small></p>
-        <ChevronDown />
+      <div className="admin-topbar-actions">
+        <LanguageSwitcher />
+        <div className="admin-notify" ref={notifyRef}>
+          <button className="admin-bell" type="button" aria-label={t('admin.notify')} aria-expanded={open} onClick={() => setOpen(value => !value)}>
+            <Bell />
+            {pending.length > 0 && <i>{pending.length}</i>}
+          </button>
+          {open && (
+            <section className="admin-notify-panel" role="dialog" aria-label={t('admin.notifyList')}>
+              <header>
+                <b>{t('admin.pendingTitle')}</b>
+                <small>{pending.length} {t('admin.shopCount')}</small>
+              </header>
+              {pending.length === 0 ? <p className="admin-notify-empty">{t('admin.empty')}</p> : (
+                <ul>
+                  {pending.map(shop => (
+                    <li key={shop.shopId}>
+                      <button type="button" onClick={() => openShop(shop.shopId)}>
+                        <Store />
+                        <span>
+                          <b>{shop.shopName}</b>
+                          <small>{t('admin.waiting')} · {shop.ownerName || t('admin.unknownOwner')}{shop.appliedAt ? ` · ${appliedLabel(shop.appliedAt)}` : ''}</small>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+        </div>
+        <div className="admin-user-chip" title={user.email}>
+          <span className="admin-user-avatar" aria-hidden="true">{initial}</span>
+          <span className="admin-user-copy">
+            <strong>{displayName}</strong>
+            <em>{roleLabel}</em>
+          </span>
+          <ChevronDown className="admin-user-caret" size={16} aria-hidden="true" />
+        </div>
       </div>
     </header>
   )

@@ -90,3 +90,78 @@
 .checkout-coupon-applied{align-items:flex-start}
 .checkout-page .cart-offers{margin-top:4px}
 @media(max-width:780px){.checkout-grid,.checkout-page .address-grid{grid-template-columns:minmax(0,1fr)}.checkout-lines li{grid-template-columns:48px minmax(0,1fr) auto}.checkout-lines li>b{grid-column:2/-1;justify-self:end}.checkout-success-head{flex-wrap:wrap}.checkout-success-cta-banner{align-items:stretch}.checkout-success-cta{width:100%}}
+/* Cart-look restyle (UI only) - scoped to CheckoutPage via .checkout-cartlook; success page untouched */
+.checkout-cartlook{--co-primary:var(--shop-primary,#0879f6);--co-text:#08265e;--co-muted:#667e9f;--co-border:#dce8f4;--co-input:#c5d6e8;--co-soft:#f1f7ff;--co-price:#f51f43}
+.checkout-cartlook .checkout-card{border-color:var(--co-border);border-radius:10px;padding:20px;gap:14px;color:var(--co-text)}
+.checkout-cartlook .checkout-card h2{font-size:20px;color:var(--co-text)}
+.checkout-cartlook .checkout-card h2 svg{color:var(--co-primary)}
+.checkout-cartlook .checkout-field{color:var(--co-text)}
+.checkout-cartlook .checkout-field input,.checkout-cartlook .checkout-field textarea{min-height:42px;border-color:var(--co-input);border-radius:6px}
+.checkout-cartlook .checkout-field input:focus,.checkout-cartlook .checkout-field textarea:focus,.checkout-cartlook .checkout-coupon-input input:focus,.checkout-cartlook .checkout-address-save input:focus{outline:none;border-color:var(--co-primary);box-shadow:0 0 0 3px rgba(8,121,246,.12)}
+.checkout-cartlook .checkout-field.has-error input{border-color:#c0262d}
+.checkout-cartlook .checkout-lines{gap:0}
+.checkout-cartlook .checkout-lines li{grid-template-columns:86px minmax(0,1fr) auto auto;gap:14px;padding:14px 0;border-top:1px solid var(--co-border)}
+.checkout-cartlook .checkout-lines li:first-child{border-top:0;padding-top:4px}
+.checkout-cartlook .checkout-lines .cart-photo{width:86px;height:86px;border-radius:8px}
+.checkout-cartlook .checkout-lines li>div b{color:var(--co-text)}
+.checkout-cartlook .checkout-lines em,.checkout-cartlook .checkout-shipping-hint,.checkout-cartlook .checkout-payment-option small,.checkout-cartlook .checkout-terms-hint,.checkout-cartlook .checkout-coupon-lead,.checkout-cartlook .checkout-address-book-head small,.checkout-cartlook .checkout-address-pick small,.checkout-cartlook .checkout-address-empty{color:var(--co-muted)}
+.checkout-cartlook .checkout-lines li>b{color:var(--co-price);white-space:nowrap}
+.checkout-cartlook .checkout-payment-option{border-color:var(--co-border);border-radius:8px}
+.checkout-cartlook .checkout-payment-option:hover{border-color:var(--co-input)}
+.checkout-cartlook .checkout-payment-option.is-selected{border-color:var(--co-primary);background:var(--co-soft)}
+.checkout-cartlook .checkout-payment-option input{accent-color:var(--co-primary);width:18px;height:18px}
+.checkout-cartlook .checkout-terms-shops a{color:var(--co-primary)}
+.checkout-cartlook .checkout-address-book{border-color:var(--co-border);border-radius:10px;background:#f6faff}
+.checkout-cartlook .checkout-address-book-head,.checkout-cartlook .checkout-address-label{color:var(--co-text)}
+.checkout-cartlook .checkout-address-pick{border-color:var(--co-border);border-radius:6px;color:var(--co-text)}
+.checkout-cartlook .checkout-address-list li.is-active .checkout-address-pick{border-color:var(--co-primary);background:var(--co-soft)}
+.checkout-cartlook .checkout-address-remove{border-color:var(--co-border);border-radius:6px}
+.checkout-cartlook .checkout-address-save input{height:42px;border-color:var(--co-input);border-radius:6px}
+.checkout-cartlook .checkout-address-save button{min-height:42px;border-color:var(--co-primary);border-radius:6px;color:var(--co-primary)}
+.checkout-cartlook .checkout-coupon-input input{height:42px;border-color:var(--co-input);border-radius:6px}
+.checkout-cartlook .checkout-coupon-input button{height:42px;min-width:100px;border:1px solid var(--co-primary);border-radius:6px;background:#fff;color:var(--co-primary)}
+.checkout-cartlook .checkout-coupon-input button:not(:disabled):hover{background:var(--co-soft)}
+.checkout-cartlook .checkout-secondary{border-color:var(--co-primary);border-radius:7px;color:var(--co-primary)}
+@media(max-width:780px){.checkout-cartlook .checkout-lines li{grid-template-columns:72px minmax(0,1fr) auto}.checkout-cartlook .checkout-lines .cart-photo{width:72px;height:72px}}
+@media(max-width:480px){.checkout-cartlook .checkout-card{padding:14px}.checkout-cartlook .checkout-lines li{grid-template-columns:58px minmax(0,1fr) auto;gap:10px}.checkout-cartlook .checkout-lines .cart-photo{width:58px;height:58px}}
+/* Cart-look v2 */
+.checkout-cartlook .checkout-card{font-size:14px;line-height:1.5}
+.checkout-cartlook .checkout-card h2{font-size:20px;gap:10px;line-height:1.3}
+.checkout-cartlook .checkout-card h2 svg{width:22px;height:22px;flex:none;background:none}
+.checkout-cartlook .checkout-field{font-size:14px;font-weight:600}
+.checkout-cartlook .checkout-field input,.checkout-cartlook .checkout-field textarea{font-size:14px;font-weight:400}
+.checkout-cartlook .checkout-coupon-lead,.checkout-cartlook .checkout-shipping-hint,.checkout-cartlook .checkout-terms-hint,.checkout-cartlook .checkout-payment-option small,.checkout-cartlook .checkout-lines em{font-size:13px}
+.checkout-cartlook .checkout-coupon-input input,.checkout-cartlook .checkout-coupon-input button{font-size:14px}
+.checkout-cartlook .checkout-coupon-card .cart-offers{display:grid;gap:8px;margin-top:4px}
+.checkout-cartlook .checkout-coupon-card .cart-offers ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.checkout-cartlook .checkout-coupon-card .cart-offer{width:100%;height:auto;min-height:58px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"code state" "copy copy";align-items:center;gap:4px 8px;padding:9px 12px;text-align:left;border:1px dashed #b7d0ee;border-radius:9px;background:#fff;color:#294b73;font:inherit;font-size:13px;cursor:pointer}
+.checkout-cartlook .checkout-coupon-card .cart-offer:hover:not(:disabled){border-color:#1268d7;background:#f0f6ff}
+.checkout-cartlook .checkout-coupon-card .cart-offer.is-applied{border-style:solid;border-color:#1f9d62;background:#effaf4;cursor:default}
+.checkout-cartlook .checkout-coupon-card .cart-offer.is-locked{opacity:.62;cursor:not-allowed;background:#fafbfd}
+.checkout-cartlook .checkout-coupon-card .cart-offer-code{font-size:13px}
+.checkout-cartlook .checkout-coupon-card .cart-offer-copy b{font-size:13px}
+.checkout-cartlook .checkout-coupon-card .cart-offer-copy small,.checkout-cartlook .checkout-coupon-card .cart-offer-state{font-size:12px}
+.checkout-cartlook .checkout-coupon-card .cart-offers-more{justify-self:center;height:30px;padding:0 10px;border:0;background:transparent;color:#1268d7;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.checkout-cartlook .checkout-coupon-card .cart-offers-hint{display:block;font-size:13px;font-weight:600;color:#5f7ca8}
+.checkout-cartlook .checkout-coupon-card .cart-offers-hint a{color:#1268d7}
+.checkout-cartlook .cart-shop-head{display:flex;align-items:center;gap:8px;padding:0 0 4px;font-size:16px;font-weight:700;color:var(--co-text)}
+.checkout-cartlook .cart-shop-head svg{width:20px;height:20px;color:var(--co-primary);flex:none}
+.checkout-cartlook .checkout-lines li>div b{font-size:15px;font-weight:600}
+.checkout-cartlook .checkout-lines li>span,.checkout-cartlook .checkout-lines li>b{font-size:15px}
+.checkout-cartlook .checkout-meta{font-size:14px}
+.checkout-cartlook .cart-shop-total{display:flex;justify-content:flex-end;align-items:baseline;gap:10px;margin:4px 0 0;padding-top:12px;border-top:1px solid var(--co-border);font-size:15px;color:var(--co-text)}
+.checkout-cartlook .cart-shop-total b{font-size:18px;color:var(--co-primary)}
+.checkout-cartlook .checkout-shipping{gap:10px;margin-top:6px}
+.checkout-cartlook .checkout-shipping-title{font-size:15px;gap:8px}
+.checkout-cartlook .checkout-shipping-title svg{width:18px;height:18px;color:var(--co-primary)}
+.checkout-cartlook .checkout-shipping-list{gap:10px}
+.checkout-cartlook .checkout-payment-option{padding:14px 16px;gap:12px;font-size:14px;align-items:center}
+.checkout-cartlook .checkout-payment-option b,.checkout-cartlook .checkout-payment-option strong{font-size:15px}
+.checkout-cartlook .checkout-shipping-fee{font-size:15px;font-weight:700}
+.checkout-cartlook .checkout-card>.checkout-payment-option+.checkout-payment-option{margin-top:0}
+.checkout-cartlook .checkout-card label:has(>input[type=checkbox]){display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid var(--co-border);border-radius:8px;font-size:14px}
+/* Cart-look v3: single card level */
+.checkout-cartlook .cart-main-column{display:grid;align-content:start;gap:16px;background:none;border:0;border-radius:0;overflow:visible;padding:0}
+.checkout-cartlook .cart-main-column>.checkout-card{margin:0;box-shadow:none}
+.checkout-cartlook .checkout-card .checkout-card{border:0;border-radius:0;padding:0;margin:0;background:none}
+.checkout-cartlook .checkout-card label.checkout-payment-option:has(>input[type=checkbox]){border:1px solid var(--co-border);border-radius:8px}

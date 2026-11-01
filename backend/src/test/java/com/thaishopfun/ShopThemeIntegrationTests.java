@@ -102,6 +102,76 @@ class ShopThemeIntegrationTests {
     }
 
     @Test
+    void brandFontBodyAndAccentForEveryTemplate() throws Exception {
+        var owner = register("theme-brand@example.com", "0815100099");
+        long shopId = openShop(owner, "Brand Shop TH", "Brand Shop", "1100000000199");
+        approve(shopId);
+
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("GENERAL", """
+                    {
+                      "colors": {"primary":"#112233","secondary":"#445566","background":"#ffffff","text":"#111111","accent":"#c8a24b"},
+                      "font": "PROMPT",
+                      "fontBody": "noto_serif_thai", "brand": {"logoPosition":"center","textAlign":"CENTER","evil":"x"},
+                      "style": {"radius":12,"cardStyle":"BORDERED","density":"COMFORTABLE","buttonShape":"ROUNDED"},
+                      "hero": {"layout":"FULL","title":"","subtitle":"","ctaLabel":"","ctaLink":""},
+                      "banners": [],
+                      "trust": {"enabled":true,"items":[{"icon":"AUTHENTIC","label":"Genuine","enabled":true}]},
+                      "sections": %s
+                    }
+                    """.formatted(SECTIONS))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.config.font").value("PROMPT"))
+            .andExpect(jsonPath("$.config.fontBody").value("NOTO_SERIF_THAI"))
+            .andExpect(jsonPath("$.config.brand.logoPosition").value("CENTER"))
+            .andExpect(jsonPath("$.config.brand.textAlign").value("CENTER"))
+            .andExpect(jsonPath("$.config.brand.evil").doesNotExist())
+            .andExpect(jsonPath("$.config.colors.accent").value("#c8a24b"));
+
+        // Old single-font config stays valid (no fontBody / brand).
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("GENERAL", """
+                    {
+                      "colors": {"primary":"#112233","secondary":"#445566","background":"#ffffff","text":"#111111"},
+                      "font": "PROMPT",
+                      
+                      "style": {"radius":12,"cardStyle":"BORDERED","density":"COMFORTABLE","buttonShape":"ROUNDED"},
+                      "hero": {"layout":"FULL","title":"","subtitle":"","ctaLabel":"","ctaLink":""},
+                      "banners": [],
+                      "trust": {"enabled":true,"items":[{"icon":"AUTHENTIC","label":"Genuine","enabled":true}]},
+                      "sections": %s
+                    }
+                    """.formatted(SECTIONS))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.config.fontBody").doesNotExist())
+            .andExpect(jsonPath("$.config.brand").doesNotExist());
+
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("GENERAL", """
+                    {
+                      "colors": {"primary":"#112233","secondary":"#445566","background":"#ffffff","text":"#111111","accent":"red"},
+                      "font": "PROMPT",
+                      "fontBody": "COMIC", "brand": {"logoPosition":"RIGHT"},
+                      "style": {"radius":12,"cardStyle":"BORDERED","density":"COMFORTABLE","buttonShape":"ROUNDED"},
+                      "hero": {"layout":"FULL","title":"","subtitle":"","ctaLabel":"","ctaLink":""},
+                      "banners": [],
+                      "trust": {"enabled":true,"items":[{"icon":"AUTHENTIC","label":"Genuine","enabled":true}]},
+                      "sections": %s
+                    }
+                    """.formatted(SECTIONS))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.fieldErrors[?(@.field=='config.fontBody')].code", hasItem("THEME_FONT_INVALID")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field=='config.brand.logoPosition')].code", hasItem("THEME_TOKEN_INVALID")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field=='config.colors.accent')].code", hasItem("THEME_COLOR_INVALID")));
+    }
+
+    @Test
     void saveCustomWithTokensAndStripUnknown() throws Exception {
         var owner = register("theme-custom@example.com", "0815100002");
         long shopId = openShop(owner, "ร้านคัสตอม", "Custom Shop", "1100000000102");
@@ -309,6 +379,107 @@ class ShopThemeIntegrationTests {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.theme.templateKey").value("GENERAL"))
             .andExpect(jsonPath("$.theme.config.hero.title").value("สวัสดี"));
+    }
+
+    @Test
+    void generalPresetFollowsThemesSpecAndKeepsSpecColorRoles() throws Exception {
+        var owner = register("theme-general-spec@example.com", "0815100014");
+        long shopId = openShop(owner, "ร้านสเปก", "General Spec Shop", "1100000000114");
+        approve(shopId);
+
+        mvc.perform(get("/api/merchant/settings/theme/presets?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.colors.primary", hasItem("#0a5fd6")))
+            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.colors.sale", hasItem("#c4271b")))
+            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.font", hasItem("IBM_PLEX_SANS_THAI")))
+            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.hero.title", hasItem("ของดีทั่วไทย ส่งตรงถึงบ้านคุณ")))
+            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.hero.ctaSecondaryLabel", hasItem("ดูหมวดหมู่")))
+            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.sections[*].key", contains("HERO", "TRUST", "CATEGORIES", "FEATURED", "BANNERS", "BESTSELLERS", "INTRO", "CATALOG", "NEW_ARRIVALS", "HOURS")))
+            .andExpect(jsonPath("$[?(@.templateKey=='CUSTOM')].config.font", hasItem("NOTO_SANS_THAI")))
+            .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.colors.secondary", hasItem("#f1efea")))
+            .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.colors.accent", hasItem("#e3ff3d")))
+            .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.colors.sale", hasItem("#c8102e")))
+            .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.font", hasItem("PROMPT")))
+            .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.style.buttonShape", hasItem("PILL")))
+            .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.style.radius", hasItem(0)))
+            .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.sections[*].key", contains("HERO", "NEW_ARRIVALS", "BANNERS", "CATEGORIES", "BESTSELLERS", "INTRO", "TRUST", "FEATURED", "CATALOG", "HOURS")));
+
+        var config = """
+            {
+              "colors": {"primary":"#0a5fd6","secondary":"#08245d","background":"#ffffff","text":"#132b50",
+                         "borderStrong":"#7d8ba0","sale":"%s","focus":"#0a5fd6"},
+              "font": "IBM_PLEX_SANS_THAI",
+              "style": {"radius":12,"cardStyle":"BORDERED","density":"COMFORTABLE","buttonShape":"ROUNDED"},
+              "hero": %s,
+              "banners": [],
+              "trust": {"enabled":true,"items":[{"icon":"AUTHENTIC","label":"ของแท้","enabled":true}]},
+              "sections": %s
+            }
+            """;
+        var heroCopy = """
+            {"layout":"FULL","eyebrow":"ส่งตรงจากสวน","title":"ทุเรียนหมอนทอง","subtitle":"สดทุกวัน",
+             "ctaLabel":"สั่งเลย","ctaLink":"","ctaSecondaryLabel":"ดูโปร","ctaSecondaryLink":"/shops"}""";
+        var heroMarkup = heroCopy.replace("ส่งตรงจากสวน", "<b>x</b>");
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("GENERAL", config.formatted("#c4271b", heroCopy, SECTIONS))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.config.colors.sale").value("#c4271b"))
+            .andExpect(jsonPath("$.config.colors.borderStrong").value("#7d8ba0"))
+            .andExpect(jsonPath("$.config.hero.eyebrow").value("ส่งตรงจากสวน"))
+            .andExpect(jsonPath("$.config.hero.ctaSecondaryLabel").value("ดูโปร"))
+            .andExpect(jsonPath("$.config.hero.ctaSecondaryLink").value("/shops"));
+
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("GENERAL", config.formatted("#c4271b", heroMarkup, SECTIONS))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.fieldErrors[?(@.field=='config.hero.eyebrow')].code", hasItem("THEME_HERO_TEXT_INVALID")));
+
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("GENERAL", config.formatted("red", heroCopy, SECTIONS))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.fieldErrors[?(@.field=='config.colors.sale')].code", hasItem("THEME_COLOR_INVALID")));
+
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("FASHION", config.formatted("red", heroCopy, SECTIONS))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.fieldErrors[?(@.field=='config.colors.sale')].code", hasItem("THEME_COLOR_INVALID")));
+
+        // FASHION shares the themes-spec palette roles; GENERAL-only hero copy is still dropped.
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("FASHION", config.formatted("#c8102e", heroCopy, SECTIONS))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.config.colors.sale").value("#c8102e"))
+            .andExpect(jsonPath("$.config.colors.borderStrong").value("#7d8ba0"))
+            .andExpect(jsonPath("$.config.hero.eyebrow").doesNotExist());
+
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("FOOD_BEVERAGE", config.formatted("red", heroCopy, SECTIONS))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.fieldErrors[?(@.field=='config.colors.sale')].code", hasItem("THEME_COLOR_INVALID")));
+
+        // FOOD_BEVERAGE joined the themes-spec tree: palette roles are kept, GENERAL-only hero copy is dropped.
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("FOOD_BEVERAGE", config.formatted("#a63a17", heroCopy, SECTIONS))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.config.colors.sale").value("#a63a17"))
+            .andExpect(jsonPath("$.config.colors.borderStrong").value("#7d8ba0"))
+            .andExpect(jsonPath("$.config.hero.eyebrow").doesNotExist())
+            .andExpect(jsonPath("$.config.hero.ctaSecondaryLabel").doesNotExist());
     }
 
     @Test

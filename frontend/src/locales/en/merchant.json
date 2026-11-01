@@ -352,6 +352,7 @@
       "finance": "Finance",
       "shipping": "Shipping",
       "store": "My store",
+      "theme": "Store theme",
       "settings": "Settings"
     },
     "images": {
@@ -368,7 +369,8 @@
       "unarchived": "Product restored",
       "archived": "Product archived",
       "stock": "Stock updated",
-      "bulk": "{{ok}} succeeded, {{fail}} failed"
+      "bulk": "{{ok}} succeeded, {{fail}} failed",
+      "linkCopied": "Link copied"
     },
     "errors": {
       "INVALID_ADJUSTMENT": "Invalid stock adjustment quantity",
@@ -446,6 +448,12 @@
       "back": "Back",
       "retry": "Retry",
       "viewShop": "View on storefront",
+      "viewStorefront": "View storefront",
+      "copyLink": "Copy link",
+      "qrCode": "QR Code",
+      "shareMenu": "Share storefront",
+      "more": "More actions",
+      "notPublished": "Product is not published",
       "edit": "Edit",
       "unarchive": "Restore",
       "publish": "Publish",
@@ -693,6 +701,19 @@
     "checking": "Checking..."
   },
   "storeTheme": {
+    "customizer": {
+      "back": "My store",
+      "publish": "Save & publish",
+      "tabs": "Theme settings sections",
+      "tab": {
+        "templates": "Template",
+        "brand": "Brand",
+        "hero": "Hero & Banner",
+        "sections": "Sections"
+      },
+      "contrastText": "Text vs background contrast is below 4.5:1 (hard to read)",
+      "contrastPrimary": "Primary vs background contrast is below 3:1"
+    },
     "content": {
       "legend": "Content: {{type}}",
       "langTh": "Thai",
@@ -777,8 +798,40 @@
       }
     },
     "media": {
-      "title": "Logo and cover image",
-      "hint": "Uploads are saved immediately; no need to save the theme."
+      "title": "Logo",
+      "sectionHint": "Upload the logo shown on your storefront",
+      "bannerImage": "Banner image from media library",
+      "library": "Shop media library",
+      "loading": "Loading media library...",
+      "empty": "No files in the media library yet",
+      "none": "No file selected",
+      "selected": "Selected file",
+      "uploading": "Uploading...",
+      "clear": "Clear selection",
+      "delete": "Delete",
+      "deleteConfirm": "Click again to confirm",
+      "upload": {
+        "IMAGE": "Upload image",
+        "VIDEO": "Upload video",
+        "FONT": "Upload font"
+      },
+      "hint": {
+        "IMAGE": "JPG, PNG or WEBP up to 5 MB, max 4000 px per side (GIF and SVG are not supported)",
+        "VIDEO": "MP4 up to 20 MB",
+        "FONT": "WOFF2 up to 1 MB"
+      },
+      "errors": {
+        "load": "Could not load the media library",
+        "upload": "Upload failed. Please try again.",
+        "delete": "Could not delete the file. Please try again.",
+        "FILE_TOO_LARGE": "File is too large (max {{size}})",
+        "THEME_MEDIA_CUSTOM_ONLY": "Media uploads are only available on the CUSTOM template. Save the theme as CUSTOM first.",
+        "THEME_MEDIA_QUOTA_EXCEEDED": "The media library is full. Delete unused files before uploading more.",
+        "THEME_MEDIA_IN_USE": "This file is used by the theme. Remove it from the theme and save before deleting.",
+        "THEME_MEDIA_INVALID": "Invalid file. Only JPG/PNG/WEBP, MP4 and WOFF2 are supported.",
+        "THEME_MEDIA_KIND_INVALID": "Invalid file type.",
+        "THEME_MEDIA_NOT_FOUND": "This file was not found in the media library."
+      }
     },
     "colors": {
       "title": "Shop colors",
@@ -911,11 +964,21 @@
         "title": "Full-media hero",
         "hint": "A full-width image, video or gradient background with stickers. Drag a sticker on the preview to place it, or type the numbers below.",
         "bgType": "Background type",
-        "bgTypes": { "IMAGE": "Image", "VIDEO": "Video", "GRADIENT": "Gradient" },
+        "bgTypes": {
+          "IMAGE": "Image",
+          "VIDEO": "Video",
+          "GRADIENT": "Gradient"
+        },
         "textAlign": "Text alignment",
-        "aligns": { "LEFT": "Left", "CENTER": "Center" },
+        "aligns": {
+          "LEFT": "Left",
+          "CENTER": "Center"
+        },
         "headlineSize": "Headline size",
-        "sizes": { "L": "Large (L)", "XL": "Extra large (XL)" },
+        "sizes": {
+          "L": "Large (L)",
+          "XL": "Extra large (XL)"
+        },
         "overlay": "Dark overlay (0–80)",
         "heightVh": "Height (50–100 % of the screen)",
         "bgImage": "Background image",
@@ -942,7 +1005,10 @@
         "hint": "Menu, search and an announcement bar above the storefront. Leave it off to keep the standard shop header.",
         "enable": "Use a custom header",
         "layout": "Logo position",
-        "layouts": { "LOGO_LEFT": "Logo left", "LOGO_CENTER": "Logo centered" },
+        "layouts": {
+          "LOGO_LEFT": "Logo left",
+          "LOGO_CENTER": "Logo centered"
+        },
         "sticky": "Stick to the top while scrolling",
         "showSearch": "Show search box",
         "showSocial": "Show social icons",
@@ -999,7 +1065,15 @@
       "subtitle": "Subtitle",
       "ctaLabel": "Button label",
       "ctaLink": "Button link",
-      "ctaHint": "The link must be a path on this site (e.g. /shops) or an https:// URL. Leave empty for no button."
+      "ctaHint": "The link must be a path on this site (e.g. /shops) or an https:// URL. Leave empty for no button.",
+      "eyebrow": "Eyebrow text",
+      "eyebrowPlaceholder": "e.g. Straight from local makers",
+      "ctaSecondaryLabel": "Secondary button text",
+      "ctaSecondaryPlaceholder": "Browse categories",
+      "ctaSecondaryLink": "Secondary button link",
+      "generalHint": "All text is plain text (no HTML). Links must be a site path (e.g. /shops) or https://. Leave a link blank and the main button opens all products, the secondary button opens the shop's categories.",
+      "badges": "Text sticker",
+      "badgesHint": "Shown on the full-screen media layout only, max 24 characters"
     },
     "variants": {
       "FULL": "Full",
@@ -1007,7 +1081,9 @@
       "MEDIA_FULL": "Full media",
       "GRID": "Grid",
       "LARGE": "Large cards",
-      "MENU": "Menu rows"
+      "MENU": "Menu rows",
+      "SPLIT": "Split",
+      "POSTER": "Poster"
     },
     "sections": {
       "title": "Storefront sections",
@@ -1052,7 +1128,9 @@
       "on": "Shown",
       "off": "Hidden",
       "moveUp": "Move up",
-      "moveDown": "Move down"
+      "moveDown": "Move down",
+      "trustSub": "Sub-line",
+      "trustSubPlaceholder": "Empty = default text"
     },
     "preview": {
       "title": "Storefront preview",
@@ -1087,44 +1165,113 @@
         "stay": "Stay"
       }
     },
-    "media": {
-      "bannerImage": "Banner image from media library",
-      "library": "Shop media library",
-      "loading": "Loading media library...",
-      "empty": "No files in the media library yet",
-      "none": "No file selected",
-      "selected": "Selected file",
-      "uploading": "Uploading...",
-      "clear": "Clear selection",
-      "delete": "Delete",
-      "deleteConfirm": "Click again to confirm",
-      "upload": {
-        "IMAGE": "Upload image",
-        "VIDEO": "Upload video",
-        "FONT": "Upload font"
-      },
-      "hint": {
-        "IMAGE": "JPG, PNG or WEBP up to 5 MB, max 4000 px per side (GIF and SVG are not supported)",
-        "VIDEO": "MP4 up to 20 MB",
-        "FONT": "WOFF2 up to 1 MB"
-      },
-      "errors": {
-        "load": "Could not load the media library",
-        "upload": "Upload failed. Please try again.",
-        "delete": "Could not delete the file. Please try again.",
-        "FILE_TOO_LARGE": "File is too large (max {{size}})",
-        "THEME_MEDIA_CUSTOM_ONLY": "Media uploads are only available on the CUSTOM template. Save the theme as CUSTOM first.",
-        "THEME_MEDIA_QUOTA_EXCEEDED": "The media library is full. Delete unused files before uploading more.",
-        "THEME_MEDIA_IN_USE": "This file is used by the theme. Remove it from the theme and save before deleting.",
-        "THEME_MEDIA_INVALID": "Invalid file. Only JPG/PNG/WEBP, MP4 and WOFF2 are supported.",
-        "THEME_MEDIA_KIND_INVALID": "Invalid file type.",
-        "THEME_MEDIA_NOT_FOUND": "This file was not found in the media library."
-      }
-    },
     "errors": {
       "hex": "Enter a 6-digit color such as #087bf5",
       "validation": "Please check the highlighted fields",
       "save": "Could not save the theme. Please try again."
+    },
+    "catalogLayout": {
+      "title": "“All products” layout",
+      "hint": "Choose how all products appear on your shop home (more load automatically on scroll)",
+      "GRID": {
+        "name": "Grid",
+        "desc": "4 / 3 / 2 columns by screen size"
+      },
+      "LARGE": {
+        "name": "Large cards",
+        "desc": "Horizontal rail of big 4:5 cards"
+      },
+      "MENU": {
+        "name": "Menu list",
+        "desc": "Rows with thumbnail, name, price and +"
+      }
+    },
+    "heroSlides": {
+      "title": "Hero slides",
+      "hint": "Up to {{max}} images, auto-sliding right to left.",
+      "empty": "No hero images yet — add up to {{max}}.",
+      "add": "Add slide image",
+      "full": "{{max}} slides reached",
+      "remove": "Remove",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "slideAlt": "Slide {{n}}"
+    },
+    "intro": {
+      "title": "Shop story",
+      "hint": "Shown when the Intro section is on. Leave the body empty to use the shop description. Plain text only (no HTML).",
+      "eyebrow": "Eyebrow",
+      "heading": "Title",
+      "body": "Body",
+      "ctaLabel": "Button label",
+      "ctaLink": "Button link",
+      "linkHint": "A site path (e.g. /products) or http(s)://. Leave empty for no button.",
+      "image": "Image",
+      "imageHint": "Without an image the shop cover is used.",
+      "imageRemove": "Remove image",
+      "reverse": "Swap image and text"
+    },
+    "announcement": {
+      "label": "Announcement bar",
+      "hint": "Empty = first two trust labels"
+    },
+    "tc": {
+      "templateHead": "Pick a template for your shop type",
+      "templateNote": "Switching template = load that template's defaults (colours, font, section order). Uploaded logos stay, and nothing is published until you save.",
+      "tpl": {
+        "GENERAL": {
+          "name": "General",
+          "desc": "General stores, OTOP gifts, household — clear and trustworthy"
+        },
+        "FASHION": {
+          "name": "Fashion",
+          "desc": "Fashion, streetwear, shoes — full-bleed images, big type, global-brand feel"
+        },
+        "FOOD_BEVERAGE": {
+          "name": "Food & Beverage",
+          "desc": "Restaurants, cafés, bakeries — clear menu, quick ordering, opening hours"
+        },
+        "CUSTOM": {
+          "name": "Custom",
+          "desc": "Fully adjust colours, gradients and the style of every section"
+        }
+      },
+      "logo": "Logo",
+      "logoUpload": "Upload logo",
+      "shopName": "Shop name (shown when there is no logo)",
+      "shopNameHint": "Edit the shop name in My store › Shop info",
+      "logoPos": "Logo position",
+      "left": "Left",
+      "center": "Center",
+      "colors": "Colours",
+      "color": {
+        "primary": "Primary (buttons, links)",
+        "secondary": "Secondary (announcement bar, footer)",
+        "accent": "Accent (NEW badge, stickers)",
+        "background": "Background",
+        "text": "Text"
+      },
+      "fonts": "Fonts",
+      "fontHeading": "Heading font",
+      "fontBody": "Body font",
+      "heroLayout": "Hero layout",
+      "textAlign": "Text alignment",
+      "media": "Banner images / video",
+      "mediaHint": "Recommended 2400×1200 (desktop) + 1080×1350 (mobile); keep the focal point centred · up to {{max}} images shown as a slider",
+      "mediaUpload": "Upload hero image",
+      "text": "Text",
+      "eyebrow": "Eyebrow",
+      "title": "Headline",
+      "subtitle": "Description",
+      "cta": "Primary button",
+      "ctaLink": "Primary button link",
+      "cta2": "Secondary button",
+      "cta2Link": "Secondary button link",
+      "more": "More settings",
+      "sectionsHead": "Order & show/hide sections ({{n}}/{{total}})",
+      "shown": "Shown",
+      "hidden": "Hidden",
+      "sectionsNote": "Drag to reorder or use ↑ ↓ (works on mobile and keyboard) · pick Grid / Large / Menu on the product section name"
     }
   },
   "storePolicies": {
@@ -1851,8 +1998,7 @@
       "CUSTOMER_NEW": "New customer {{customerName}}",
       "LOW_STOCK": "Low stock {{productName}} ({{skuCode}}) · {{available}} left"
     }
-  }
-,
+  },
   "collections": {
     "tab": "Collections",
     "title": "Product collections",

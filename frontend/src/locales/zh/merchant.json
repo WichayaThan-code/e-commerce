@@ -352,6 +352,7 @@
       "finance": "财务",
       "shipping": "配送",
       "store": "我的店铺",
+      "theme": "店铺主题",
       "settings": "设置"
     },
     "images": {
@@ -368,7 +369,8 @@
       "unarchived": "商品已恢复",
       "archived": "商品已归档",
       "stock": "库存已更新",
-      "bulk": "成功 {{ok}} 项，失败 {{fail}} 项"
+      "bulk": "成功 {{ok}} 项，失败 {{fail}} 项",
+      "linkCopied": "已复制链接"
     },
     "errors": {
       "INVALID_ADJUSTMENT": "库存调整数量无效",
@@ -446,6 +448,12 @@
       "back": "返回",
       "retry": "重试",
       "viewShop": "在店铺查看",
+      "viewStorefront": "查看店铺页",
+      "copyLink": "复制链接",
+      "qrCode": "QR Code",
+      "shareMenu": "分享店铺页",
+      "more": "更多操作",
+      "notPublished": "商品尚未发布",
       "edit": "编辑",
       "unarchive": "恢复",
       "publish": "发布",
@@ -693,6 +701,19 @@
     "checking": "正在检查..."
   },
   "storeTheme": {
+    "customizer": {
+      "back": "我的店铺",
+      "publish": "保存并发布",
+      "tabs": "主题设置分区",
+      "tab": {
+        "templates": "模板",
+        "brand": "品牌",
+        "hero": "主图与横幅",
+        "sections": "版块"
+      },
+      "contrastText": "文字与背景对比度低于 4.5:1，不易阅读",
+      "contrastPrimary": "主色与背景对比度低于 3:1"
+    },
     "content": {
       "legend": "内容：{{type}}",
       "langTh": "泰语",
@@ -777,8 +798,40 @@
       }
     },
     "media": {
-      "title": "店铺标志和封面图",
-      "hint": "上传后立即保存，无需再保存主题。"
+      "title": "徽标",
+      "sectionHint": "上传店铺页面显示的徽标",
+      "bannerImage": "媒体库横幅图片",
+      "library": "店铺媒体库",
+      "loading": "正在加载媒体库...",
+      "empty": "媒体库中还没有文件",
+      "none": "尚未选择文件",
+      "selected": "已选文件",
+      "uploading": "正在上传...",
+      "clear": "清除选择",
+      "delete": "删除",
+      "deleteConfirm": "再次点击确认",
+      "upload": {
+        "IMAGE": "上传图片",
+        "VIDEO": "上传视频",
+        "FONT": "上传字体"
+      },
+      "hint": {
+        "IMAGE": "JPG、PNG 或 WEBP，不超过 5 MB，单边不超过 4000 px（不支持 GIF 和 SVG）",
+        "VIDEO": "MP4，不超过 20 MB",
+        "FONT": "WOFF2，不超过 1 MB"
+      },
+      "errors": {
+        "load": "无法加载媒体库",
+        "upload": "上传失败，请重试",
+        "delete": "无法删除文件，请重试",
+        "FILE_TOO_LARGE": "文件过大（最大 {{size}}）",
+        "THEME_MEDIA_CUSTOM_ONLY": "仅自定义（CUSTOM）模板可上传媒体，请先将主题保存为 CUSTOM",
+        "THEME_MEDIA_QUOTA_EXCEEDED": "媒体库已满，请先删除不用的文件再上传",
+        "THEME_MEDIA_IN_USE": "该文件正被主题使用，请先从主题中移除并保存后再删除",
+        "THEME_MEDIA_INVALID": "文件无效，仅支持 JPG/PNG/WEBP、MP4 和 WOFF2",
+        "THEME_MEDIA_KIND_INVALID": "文件类型无效",
+        "THEME_MEDIA_NOT_FOUND": "媒体库中找不到该文件"
+      }
     },
     "colors": {
       "title": "店铺颜色",
@@ -911,11 +964,21 @@
         "title": "全屏媒体首屏",
         "hint": "整幅图片、视频或渐变背景，可叠加贴纸。可在右侧预览中拖动贴纸定位，或在下方输入数值。",
         "bgType": "背景类型",
-        "bgTypes": { "IMAGE": "图片", "VIDEO": "视频", "GRADIENT": "渐变" },
+        "bgTypes": {
+          "IMAGE": "图片",
+          "VIDEO": "视频",
+          "GRADIENT": "渐变"
+        },
         "textAlign": "文字对齐",
-        "aligns": { "LEFT": "左对齐", "CENTER": "居中" },
+        "aligns": {
+          "LEFT": "左对齐",
+          "CENTER": "居中"
+        },
         "headlineSize": "标题大小",
-        "sizes": { "L": "大 (L)", "XL": "特大 (XL)" },
+        "sizes": {
+          "L": "大 (L)",
+          "XL": "特大 (XL)"
+        },
         "overlay": "暗色遮罩 (0–80)",
         "heightVh": "高度（屏幕的 50–100 %）",
         "bgImage": "背景图片",
@@ -942,7 +1005,10 @@
         "hint": "店铺页面上方的菜单、搜索和公告栏。关闭则保留标准店铺页头。",
         "enable": "使用自定义页头",
         "layout": "Logo 位置",
-        "layouts": { "LOGO_LEFT": "Logo 靠左", "LOGO_CENTER": "Logo 居中" },
+        "layouts": {
+          "LOGO_LEFT": "Logo 靠左",
+          "LOGO_CENTER": "Logo 居中"
+        },
         "sticky": "滚动时固定在顶部",
         "showSearch": "显示搜索框",
         "showSocial": "显示社交图标",
@@ -999,7 +1065,15 @@
       "subtitle": "副标题",
       "ctaLabel": "按钮文字",
       "ctaLink": "按钮链接",
-      "ctaHint": "链接必须是本站路径（如 /shops）或 https:// 地址。留空则不显示按钮。"
+      "ctaHint": "链接必须是本站路径（如 /shops）或 https:// 地址。留空则不显示按钮。",
+      "eyebrow": "标题上方文字",
+      "eyebrowPlaceholder": "例如：来自泰国各地社区",
+      "ctaSecondaryLabel": "次按钮文字",
+      "ctaSecondaryPlaceholder": "浏览分类",
+      "ctaSecondaryLink": "次按钮链接",
+      "generalHint": "所有文字均为纯文本（不可使用 HTML）。链接须为站内路径（如 /shops）或 https://。链接留空时，主按钮打开全部商品，次按钮打开店铺分类。",
+      "badges": "文字贴纸",
+      "badgesHint": "仅全屏媒体布局显示，最多 24 字"
     },
     "variants": {
       "FULL": "全屏",
@@ -1007,7 +1081,9 @@
       "MEDIA_FULL": "全屏媒体",
       "GRID": "网格",
       "LARGE": "大卡片",
-      "MENU": "菜单列表"
+      "MENU": "菜单列表",
+      "SPLIT": "左右分栏",
+      "POSTER": "海报"
     },
     "sections": {
       "title": "页面板块",
@@ -1052,7 +1128,9 @@
       "on": "显示",
       "off": "隐藏",
       "moveUp": "上移",
-      "moveDown": "下移"
+      "moveDown": "下移",
+      "trustSub": "副标题",
+      "trustSubPlaceholder": "留空 = 默认文字"
     },
     "preview": {
       "title": "店铺预览",
@@ -1087,44 +1165,113 @@
         "stay": "留下"
       }
     },
-    "media": {
-      "bannerImage": "媒体库横幅图片",
-      "library": "店铺媒体库",
-      "loading": "正在加载媒体库...",
-      "empty": "媒体库中还没有文件",
-      "none": "尚未选择文件",
-      "selected": "已选文件",
-      "uploading": "正在上传...",
-      "clear": "清除选择",
-      "delete": "删除",
-      "deleteConfirm": "再次点击确认",
-      "upload": {
-        "IMAGE": "上传图片",
-        "VIDEO": "上传视频",
-        "FONT": "上传字体"
-      },
-      "hint": {
-        "IMAGE": "JPG、PNG 或 WEBP，不超过 5 MB，单边不超过 4000 px（不支持 GIF 和 SVG）",
-        "VIDEO": "MP4，不超过 20 MB",
-        "FONT": "WOFF2，不超过 1 MB"
-      },
-      "errors": {
-        "load": "无法加载媒体库",
-        "upload": "上传失败，请重试",
-        "delete": "无法删除文件，请重试",
-        "FILE_TOO_LARGE": "文件过大（最大 {{size}}）",
-        "THEME_MEDIA_CUSTOM_ONLY": "仅自定义（CUSTOM）模板可上传媒体，请先将主题保存为 CUSTOM",
-        "THEME_MEDIA_QUOTA_EXCEEDED": "媒体库已满，请先删除不用的文件再上传",
-        "THEME_MEDIA_IN_USE": "该文件正被主题使用，请先从主题中移除并保存后再删除",
-        "THEME_MEDIA_INVALID": "文件无效，仅支持 JPG/PNG/WEBP、MP4 和 WOFF2",
-        "THEME_MEDIA_KIND_INVALID": "文件类型无效",
-        "THEME_MEDIA_NOT_FOUND": "媒体库中找不到该文件"
-      }
-    },
     "errors": {
       "hex": "请输入 6 位颜色值，如 #087bf5",
       "validation": "请检查高亮的字段",
       "save": "主题保存失败，请重试。"
+    },
+    "catalogLayout": {
+      "title": "“全部商品”显示方式",
+      "hint": "选择店铺首页全部商品的显示方式（向下滚动自动加载更多）",
+      "GRID": {
+        "name": "网格",
+        "desc": "按屏幕 4 / 3 / 2 列"
+      },
+      "LARGE": {
+        "name": "大卡片",
+        "desc": "横向滑动的 4:5 大卡片"
+      },
+      "MENU": {
+        "name": "菜单列表",
+        "desc": "缩略图、名称、价格和 + 按钮"
+      }
+    },
+    "heroSlides": {
+      "title": "首图轮播",
+      "hint": "最多 {{max}} 张图片，从右向左自动轮播。",
+      "empty": "尚无 Hero 图片 — 最多可添加 {{max}} 张",
+      "add": "添加轮播图",
+      "full": "已达 {{max}} 张",
+      "remove": "删除",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "slideAlt": "第 {{n}} 张"
+    },
+    "intro": {
+      "title": "店铺故事",
+      "hint": "开启“店铺介绍”区块时显示。正文留空则使用店铺简介。仅限纯文本（不支持 HTML）。",
+      "eyebrow": "标题上方文字",
+      "heading": "标题",
+      "body": "正文",
+      "ctaLabel": "按钮文字",
+      "ctaLink": "按钮链接",
+      "linkHint": "站内路径（如 /products）或 http(s)://，留空则不显示按钮。",
+      "image": "配图",
+      "imageHint": "未设置时使用店铺封面。",
+      "imageRemove": "移除图片",
+      "reverse": "对调图片与文字"
+    },
+    "announcement": {
+      "label": "公告栏",
+      "hint": "留空 = 前两个信任标签"
+    },
+    "tc": {
+      "templateHead": "按店铺类型选择模板",
+      "templateNote": "切换模板 = 载入该模板的默认值（颜色、字体、版块顺序）。已上传的徽标会保留，保存后才会正式发布。",
+      "tpl": {
+        "GENERAL": {
+          "name": "General",
+          "desc": "综合商店、OTOP 特产、日用品 — 清晰可信"
+        },
+        "FASHION": {
+          "name": "Fashion",
+          "desc": "时装、街头服饰、鞋履 — 全屏大图、大字体、国际品牌感"
+        },
+        "FOOD_BEVERAGE": {
+          "name": "Food & Beverage",
+          "desc": "餐厅、咖啡馆、烘焙 — 菜单清晰、快速下单、显示营业时间"
+        },
+        "CUSTOM": {
+          "name": "Custom",
+          "desc": "自由调整颜色、渐变和每个版块的样式"
+        }
+      },
+      "logo": "徽标",
+      "logoUpload": "上传徽标",
+      "shopName": "店铺名称（无徽标时显示）",
+      "shopNameHint": "在 我的店铺 › 店铺信息 中修改店铺名称",
+      "logoPos": "徽标位置",
+      "left": "左",
+      "center": "居中",
+      "colors": "颜色",
+      "color": {
+        "primary": "主色（按钮、链接）",
+        "secondary": "辅色（公告栏、页脚）",
+        "accent": "强调色（NEW 标签、贴纸）",
+        "background": "背景",
+        "text": "文字"
+      },
+      "fonts": "字体",
+      "fontHeading": "标题字体",
+      "fontBody": "正文字体",
+      "heroLayout": "Hero 样式",
+      "textAlign": "文字对齐",
+      "media": "Banner 图片 / 视频",
+      "mediaHint": "建议 2400×1200（桌面）+ 1080×1350（手机），重点放在画面中央 · 最多 {{max}} 张，以轮播显示",
+      "mediaUpload": "上传 Hero 图片",
+      "text": "文字",
+      "eyebrow": "引导语 (Eyebrow)",
+      "title": "主标题",
+      "subtitle": "描述",
+      "cta": "主按钮",
+      "ctaLink": "主按钮链接",
+      "cta2": "次按钮",
+      "cta2Link": "次按钮链接",
+      "more": "更多设置",
+      "sectionsHead": "版块顺序与显示 ({{n}}/{{total}})",
+      "shown": "显示",
+      "hidden": "已隐藏",
+      "sectionsNote": "拖动排序或使用 ↑ ↓（支持手机和键盘）· 在商品版块名称处选择 Grid / Large / Menu"
     }
   },
   "storePolicies": {
@@ -1851,8 +1998,7 @@
       "CUSTOMER_NEW": "新客户 {{customerName}}",
       "LOW_STOCK": "库存不足 {{productName}} ({{skuCode}}) · 剩余 {{available}}"
     }
-  }
-,
+  },
   "collections": {
     "tab": "商品系列",
     "title": "商品系列",

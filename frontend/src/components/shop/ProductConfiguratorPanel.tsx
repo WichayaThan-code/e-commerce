@@ -21,10 +21,12 @@ export type ConfiguredAddToCartInput = { productId: string; selections: Configur
 const toNumber = (value: number | string | null | undefined) => (value == null ? 0 : Number(value));
 
 /** Storefront configurator (CUSTOM template + FEATURES.productConfigurator only). Public API only; price is always server-quoted. */
-export default function ProductConfiguratorPanel({ shop, productId, money, onAddToCart }: {
+export default function ProductConfiguratorPanel({ shop, productId, money, onAddToCart, onBuyNow }: {
   shop: PublicShop; productId: string; money: (value: number) => string
   /** V43: returns true when the line was added; when absent the button stays disabled. */
   onAddToCart?: (input: ConfiguredAddToCartInput) => Promise<boolean>
+  /** AB3: optional Buy Now (add + select only this line + go to checkout). */
+  onBuyNow?: (input: ConfiguredAddToCartInput) => Promise<boolean>
 }) {
   const { tp, localeTag } = usePublicTranslation();
   const custom = useMemo(() => {
@@ -139,19 +141,24 @@ export default function ProductConfiguratorPanel({ shop, productId, money, onAdd
       </div>
       {(() => {
         const canAdd = Boolean(onAddToCart && config && quote?.complete && !quoting && !quoteError && !adding);
-        const add = async () => {
-          if (!onAddToCart || !config || !quote?.complete) return;
+        const add = async (handler = onAddToCart) => {
+          if (!handler || !config || !quote?.complete) return;
           setAdding(true);
           try {
-            await onAddToCart({ productId, selections: quote.selections as ConfiguratorSelections, version: config.version, configHash: quote.configHash });
+            await handler({ productId, selections: quote.selections as ConfiguratorSelections, version: config.version, configHash: quote.configHash });
           } finally {
             setAdding(false);
           }
         };
         return (
+          <>
           <button type="button" className="shop-configurator-add" disabled={!canAdd} aria-disabled={!canAdd} onClick={() => { void add(); }}>
             {adding ? tp("shop.configurator.adding") : tp("shop.configurator.add")}
           </button>
+          {onBuyNow ? <button type="button" className="shop-configurator-add shop-configurator-buy" disabled={!canAdd} aria-disabled={!canAdd} onClick={() => { void add(onBuyNow); }}>
+            {tp("shop.view.buyNow")}
+          </button> : null}
+          </>
         );
       })()}
     </section>

@@ -8,7 +8,12 @@ import { mediaUrl } from "../../../services/api";
 import { useRevealOnScroll } from "../../../hooks/useRevealOnScroll";
 import { sectionSettingClasses } from "./sectionClasses";
 import HeroMediaFull, { isMediaFullHero } from "./HeroMediaFull";
+import HeroSlider, { heroSlideUrls } from "./HeroSlider";
+import { TsfHero } from "../general/GeneralStorefront";
+import "../../../styles/general-hero.css";
 import type { ShopSectionProps } from "./types";
+import { resolveStorefrontTheme } from "../ShopThemeShell";
+import { shopCategoriesPath, shopProductsPath } from "../../../services/shopRoutes";
 
 function ctaTarget(link: string): { href: string; external: boolean } | null {
   const value = link.trim();
@@ -28,10 +33,80 @@ function formatJoined(iso: string | null | undefined, locale: string) {
 
 /** AG5: CUSTOM-only MEDIA_FULL goes to its own component; every other hero is the unchanged mall hero below. */
 export default function HeroSection(props: ShopSectionProps) {
+  // Item 2: the editor preview renders tsf templates through ShopSections; use the same TsfHero as the public
+  // storefront (ShopPage) so FULL / SPLIT / POSTER / STRIP / MEDIA_FULL preview exactly what will be published.
+  const templateKey = resolveStorefrontTheme(props.shop).templateKey;
+  if (templateKey === "GENERAL" || templateKey === "FASHION" || templateKey === "FOOD_BEVERAGE") return <TsfHero shop={props.shop} config={props.config} />;
   if (isMediaFullHero(props.config.hero, props.section.variant, Boolean(props.config.layout))) {
     return <HeroMediaFull {...props} />;
   }
+  if (templateKey === "CUSTOM") return <CustomTsfHero {...props} />;
+  if (templateKey === "GENERAL") return <GeneralHero {...props} />;
   return <MallHero {...props} />;
+}
+
+/**
+ * Open item 3: CUSTOM honours hero.layout (FULL / SPLIT / POSTER / STRIP; MEDIA_FULL handled above) and hero.textAlign by
+ * reusing the tsf hero inside a scoped .tsf-store wrapper (tsf-custom-hero maps Custom fonts / colours via --shop-* vars).
+ * Old configs resolve to FULL. The shop tabs the legacy mall hero rendered are kept below it.
+ */
+function CustomTsfHero({ shop, config, catalog, preview }: ShopSectionProps) {
+  const align = config.hero.textAlign === "CENTER" ? "CENTER" : "LEFT";
+  return (
+    <>
+      <div className={["tsf-store", "tsf-custom-hero", ...sectionSettingClasses("HERO", config)].filter(Boolean).join(" ")}>
+        <TsfHero shop={shop} config={config} align={align} />
+      </div>
+      <ShopTabs shop={shop} preview={preview} onNotify={catalog.onNotify} />
+    </>
+  );
+}
+
+function CtaLink({ target, fallback, className, label }: { target: { href: string; external: boolean } | null; fallback: string; className: string; label: string }) {
+  if (target?.external) {
+    return <a className={className} href={target.href} target="_blank" rel="noopener noreferrer">{label}</a>;
+  }
+  return <Link className={className} to={target?.href ?? fallback}>{label}</Link>;
+}
+
+/**
+ * GENERAL (themes spec) hero: full-width navy band, decorative circle, eyebrow, large headline, subtitle and 2 CTAs.
+ * Every text is merchant-editable plain text (theme settings → ส่วนหัวร้าน); React escapes it, never HTML.
+ */
+function GeneralHero({ shop, config }: ShopSectionProps) {
+  const { tp } = usePublicTranslation();
+  const revealRef = useRevealOnScroll<HTMLElement>();
+  const { hero } = config;
+  const eyebrow = (hero.eyebrow ?? "").trim() || shop.category || "";
+  const title = hero.title.trim() || shop.name;
+  const subtitle = hero.subtitle.trim() || shop.description || "";
+  const primaryLabel = hero.ctaLabel.trim() || tp("shop.general.ctaShop");
+  const secondaryLabel = (hero.ctaSecondaryLabel ?? "").trim() || tp("shop.general.ctaCategories");
+  const slides = heroSlideUrls(hero.slides);
+  const cover = slides[0] ?? (shop.coverUrl ? mediaUrl(shop.coverUrl) : null);
+  const hasMedia = slides.length > 0 || Boolean(cover);
+
+  return (
+    <section
+      id="shop-home"
+      ref={revealRef}
+      className={["shop-general-hero", "shop-reveal", hasMedia ? "has-cover" : "", ...sectionSettingClasses("HERO", config)].filter(Boolean).join(" ")}
+      data-general-hero="true"
+    >
+      {slides.length ? <div className="shop-general-hero-cover"><HeroSlider urls={slides} /></div>
+        : cover ? <div className="shop-general-hero-cover" style={{ backgroundImage: `url(${cover})` }} aria-hidden="true" /> : null}
+      <span className="shop-general-hero-circle" aria-hidden="true" />
+      <div className="shop-general-hero-inner recommend-width">
+        {eyebrow ? <p className="shop-general-hero-eyebrow">{eyebrow}</p> : null}
+        <h1>{title}</h1>
+        {subtitle ? <p className="shop-general-hero-sub">{subtitle}</p> : null}
+        <div className="shop-general-ctas">
+          <CtaLink target={ctaTarget(hero.ctaLink)} fallback={shopProductsPath(shop.slug)} className="shop-general-cta is-primary" label={primaryLabel} />
+          <CtaLink target={ctaTarget(hero.ctaSecondaryLink ?? "")} fallback={shopCategoriesPath(shop.slug)} className="shop-general-cta is-secondary" label={secondaryLabel} />
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function MallHero({ shop, config, catalog, preview }: ShopSectionProps) {
@@ -41,7 +116,8 @@ function MallHero({ shop, config, catalog, preview }: ShopSectionProps) {
   const title = hero.title.trim() || shop.name;
   const subtitle = hero.subtitle.trim() || shop.description || "";
   const cta = hero.ctaLabel.trim() ? ctaTarget(hero.ctaLink) : null;
-  const cover = shop.coverUrl ? mediaUrl(shop.coverUrl) : recommendReference;
+  const slides = heroSlideUrls(hero.slides);
+  const cover = slides[0] ?? (shop.coverUrl ? mediaUrl(shop.coverUrl) : recommendReference);
   const productCount = shop.productCount ?? (catalog.total > 0 ? catalog.total : null);
   const joined = formatJoined(shop.createdAt, localeTag);
 
@@ -60,7 +136,8 @@ function MallHero({ shop, config, catalog, preview }: ShopSectionProps) {
         className={["shop-mall-hero", "recommend-width", "shop-reveal", ...sectionSettingClasses("HERO", config), config?.gradients?.hero ? "shop-hero-gradient" : ""].filter(Boolean).join(" ")}
         data-variant="MALL"
       >
-        <div className="shop-mall-hero-cover" style={{ backgroundImage: `url(${cover})` }} aria-hidden="true" />
+        {slides.length ? <div className="shop-mall-hero-cover"><HeroSlider urls={slides} /></div>
+          : <div className="shop-mall-hero-cover" style={{ backgroundImage: `url(${cover})` }} aria-hidden="true" />}
         <div className="shop-mall-hero-shade" aria-hidden="true" />
         <div className="shop-mall-hero-body">
           <div className="shop-mall-hero-brand">

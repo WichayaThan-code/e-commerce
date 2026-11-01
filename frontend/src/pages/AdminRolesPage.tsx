@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ComponentType, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Crown, Eye, FileCheck2, Headphones, LockKeyhole, MoreVertical, Package, Pencil, Plus, Search, Shield, ShieldCheck, ShoppingBag, Store, UserRound, UsersRound } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Crown, Eye, FileCheck2, Headphones, LockKeyhole, MoreVertical, Package, Pencil, Plus, Search, Shield, ShieldCheck, ShoppingBag, Store, UserRound, UsersRound } from 'lucide-react'
 import { SkeletonForm, SkeletonTable, SkeletonText } from '../components/feedback/Skeleton'
 import ConfirmDialog from '../components/form/ConfirmDialog'
 import { useDelayedLoading } from '../hooks/useDelayedLoading'
@@ -16,9 +16,13 @@ import '../styles/admin-roles.css'
 import '../styles/admin-role-links.css'
 import '../styles/admin-form-controls.css'
 import AdminSelect from '../components/admin/AdminSelect'
+import AdminSidePanel from '../components/admin/AdminSidePanel'
+import '../styles/admin-side-panel.css'
 
 type Icon = ComponentType<{ size?: number }>
 const PAGE_SIZE = 10
+const ACTIVITY_PAGE_SIZE = 10
+const ACTIVITY_FETCH_LIMIT = 50
 /** Presentation only (icon + colour per role code / context); every value shown comes from the API. */
 const ROLE_LOOK: Record<string, [string, Icon]> = {
   PLATFORM_ADMIN: ['crown', Crown], STORE_OWNER: ['owner', Store], STORE_ADMIN: ['manager', ShieldCheck], STORE_MANAGER: ['manager', UserRound],
@@ -58,7 +62,7 @@ export default function AdminRolesPage() {
   const [membersError, setMembersError] = useState('')
   const [activity, setActivity] = useState<AdminActivityEvent[] | null>(null)
   const [activityError, setActivityError] = useState('')
-  const [showAllActivity, setShowAllActivity] = useState(false)
+  const [activityPage, setActivityPage] = useState(0)
   const [permissionCatalog, setPermissionCatalog] = useState<AdminPermissionInfo[]>([])
   const [roleDialog, setRoleDialog] = useState<'create' | 'edit' | null>(null)
   const [roleConfirm, setRoleConfirm] = useState(false)
@@ -83,7 +87,8 @@ export default function AdminRolesPage() {
   useEffect(() => {
     if (!allowed || !canAudit) return
     let cancelled = false
-    adminDirectoryApi.roleActivity(20).then(value => { if (!cancelled) setActivity(value) }).catch(error => { if (!cancelled) setActivityError(errorText(error)) })
+    setActivityPage(0)
+    adminDirectoryApi.roleActivity(ACTIVITY_FETCH_LIMIT).then(value => { if (!cancelled) setActivity(value) }).catch(error => { if (!cancelled) setActivityError(errorText(error)) })
     return () => { cancelled = true }
   }, [allowed, canAudit, reloadKey])
 
@@ -130,7 +135,14 @@ export default function AdminRolesPage() {
   const totalChange = formatChange(stats?.total)
   const statValue = (value: number | undefined) => stats ? formatNumber(value) : statsError ? '-' : '…'
   const [tone, SelectedIcon] = selected ? lookOf(selected) : ['moderator', Shield] as [string, Icon]
-  const shownActivity = activity ? activity.slice(0, showAllActivity ? 20 : 3) : []
+  const activityCount = activity?.length ?? 0
+  const activityPageCount = Math.max(1, Math.ceil(activityCount / ACTIVITY_PAGE_SIZE))
+  const safeActivityPage = Math.min(activityPage, activityPageCount - 1)
+  const shownActivity = activity
+    ? activity.slice(safeActivityPage * ACTIVITY_PAGE_SIZE, safeActivityPage * ACTIVITY_PAGE_SIZE + ACTIVITY_PAGE_SIZE)
+    : []
+  const activityFrom = activityCount === 0 ? 0 : safeActivityPage * ACTIVITY_PAGE_SIZE + 1
+  const activityTo = Math.min((safeActivityPage + 1) * ACTIVITY_PAGE_SIZE, activityCount)
   const permissionTotal = detail ? detail.groups.reduce((sum, group) => sum + group.permissions.length, 0) : 0
   const openRoleDialog = (mode: 'create' | 'edit') => {
     if (mode === 'edit' && (!detail || !selected?.assignable || selected.superAdmin || selected.policyVersion !== 'CUSTOM')) return
@@ -188,38 +200,96 @@ export default function AdminRolesPage() {
         <article className="active"><span><Check/></span><div><b>ผู้ใช้งานที่เปิดใช้งาน</b><strong>{statValue(stats?.active)} <em className="flat">-</em></strong><small>ใช้งานได้ปกติ</small></div></article>
         <article className="suspended"><span><LockKeyhole/></span><div><b>ผู้ใช้งานที่ถูกระงับ</b><strong>{statValue(stats?.suspended)} <em className="flat">-</em></strong><small>ไม่สามารถเข้าสู่ระบบได้</small></div></article>
       </section>
-      <section className="roles-card"><header><nav><button className={activeTab === 'บทบาท' ? 'active' : ''} onClick={() => setActiveTab('บทบาท')}>บทบาท (Roles)</button><button className={activeTab === 'ผู้ใช้งาน' ? 'active' : ''} onClick={() => setActiveTab('ผู้ใช้งาน')}>ผู้ใช้งาน (Users)</button></nav><label className="adm-search"><Search/><input value={query} onChange={event => { setQuery(event.target.value); setPage(0) }} placeholder="ค้นหาบทบาท (เช่น แอดมิน, เจ้าของร้าน...)" aria-label="ค้นหาบทบาท"/></label></header>
-        {activeTab === 'บทบาท' ? <>
-          <h2>รายการบทบาท ({formatNumber(filtered.length)} รายการ)</h2>
-          <div className="roles-table"><div className="roles-tr roles-th"><b>#</b><b>ชื่อบทบาท</b><b>คำอธิบาย</b><b>จำนวนผู้ใช้งาน</b><b>สถานะ</b><b>การดำเนินการ</b><span/></div>
-            {roles && visible.map((role, index) => { const [roleTone, RoleIcon] = lookOf(role); return <div className={`roles-tr ${selectedCode === role.code ? 'selected' : ''}`} key={role.code} onClick={() => setSelectedCode(role.code)}>
-              <span className="num">{currentPage * PAGE_SIZE + index + 1}</span>
-              <div className="role-name"><i className={roleTone}><RoleIcon/></i><span><b>{role.nameTh ?? role.code}</b><small>{role.code}</small></span></div>
-              <p><span>{role.descriptionTh ?? '-'}</span></p>
-              <strong className="num" title={COUNT_HINT[role.assignment]}>{formatNumber(role.userCount)}</strong>
-              <span><i className={`role-status ${role.active ? 'on' : 'off'}`} title={role.superAdmin ? 'super admin: ได้รับทุกสิทธิ์' : `สิทธิ์ที่ผูกไว้ ${role.permissionCount} รายการ`}><small/>{role.active ? 'ใช้งาน' : 'ไม่ใช้งาน'}</i></span>
-              <button className="role-manage" onClick={event => { event.stopPropagation(); setSelectedCode(role.code) }}>จัดการ</button>
-              <button className="role-more" aria-label={`เมนู ${role.nameTh ?? role.code}`} disabled title={NOT_ENABLED} onClick={event => event.stopPropagation()}><MoreVertical/></button>
-            </div> })}
-            {showRolesSkeleton && rolesLoading ? <SkeletonTable rows={6} cols={6} /> : null}
-            {rolesError && <div className="roles-empty">{rolesError} <button type="button" onClick={() => setReloadKey(key => key + 1)}>ลองใหม่</button></div>}
-            {roles && filtered.length === 0 && <div className="roles-empty">{roles.length === 0 ? 'ยังไม่มีบทบาทในตาราง auth_roles' : 'ไม่พบบทบาทที่ตรงกับคำค้นหา'}</div>}
-          </div>
-          <footer><div>แสดง <AdminSelect compact disabled className="adm-page-size" label="จำนวนรายการต่อหน้า" value={String(PAGE_SIZE)} onChange={() => undefined} options={[{ value: String(PAGE_SIZE), label: String(PAGE_SIZE) }]}/> รายการต่อหน้า</div><span>{filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1} - {currentPage * PAGE_SIZE + visible.length} จาก {formatNumber(filtered.length)} รายการ</span><nav><button disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} aria-label="หน้าก่อนหน้า"><ChevronLeft/></button><button className="current">{currentPage + 1}</button><button disabled={currentPage >= totalPages - 1} onClick={() => setPage(currentPage + 1)} aria-label="หน้าถัดไป"><ChevronRight/></button></nav></footer>
-        </> : <div className="role-users-empty"><UsersRound/>
-          <h2>{selected ? `ผู้ใช้งานในบทบาท “${selected.nameTh ?? selected.code}” (${formatNumber(selected.userCount)})` : 'จัดการผู้ใช้งานตามบทบาท'}</h2>
-          {!selected ? <p>เลือกบทบาทเพื่อดูรายชื่อผู้ใช้งาน</p>
-            : !listable ? <p>{COUNT_HINT[selected.assignment]}</p>
-            : membersError ? <p>{membersError}</p>
-            : !members ? <SkeletonText lines={3} />
-            : members.items.length === 0 ? <p>ยังไม่มีผู้ใช้งานในบทบาทนี้</p>
-            : <ul className="role-user-list">{members.items.map(item => <li key={item.id}><b>{`${item.firstName} ${item.lastName}`.trim()}</b><small>{item.email}{item.shops.length ? ` · ${[...new Set(item.shops.map(shop => shop.shopName))].join(', ')}` : ''}</small></li>)}{members.totalItems > members.items.length && <li><small>และอีก {formatNumber(members.totalItems - members.items.length)} คน</small></li>}</ul>}
-          <button onClick={() => window.location.assign(listable && selected ? `/admin/users?role=${encodeURIComponent(selected.code)}` : '/admin/users')}>เปิดหน้าผู้ใช้งาน</button>
-        </div>}
-      </section>
-      <section className="security-tip"><i><ShieldCheck/></i><div><b>เคล็ดลับความปลอดภัย</b><span>ควรกำหนดสิทธิ์ตามหน้าที่ที่จำเป็น และตรวจสอบบัญชีผู้ใช้งานเป็นประจำ</span></div><button disabled title={NOT_ENABLED}>ดูแนวทางความปลอดภัย →</button></section>
+      <div className="admin-split admin-split--with-aside">
+        <div className="admin-split-main">
+          <section className="roles-card"><header><nav><button className={activeTab === 'บทบาท' ? 'active' : ''} onClick={() => setActiveTab('บทบาท')}>บทบาท (Roles)</button><button className={activeTab === 'ผู้ใช้งาน' ? 'active' : ''} onClick={() => setActiveTab('ผู้ใช้งาน')}>ผู้ใช้งาน (Users)</button></nav><label className="adm-search"><Search/><input value={query} onChange={event => { setQuery(event.target.value); setPage(0) }} placeholder="ค้นหาบทบาท (เช่น แอดมิน, เจ้าของร้าน...)" aria-label="ค้นหาบทบาท"/></label></header>
+            {activeTab === 'บทบาท' ? <>
+              <h2>รายการบทบาท ({formatNumber(filtered.length)} รายการ)</h2>
+              <div className="roles-table"><div className="roles-tr roles-th"><b>#</b><b>ชื่อบทบาท</b><b>คำอธิบาย</b><b>จำนวนผู้ใช้งาน</b><b>สถานะ</b><b>การดำเนินการ</b><span/></div>
+                {roles && visible.map((role, index) => { const [roleTone, RoleIcon] = lookOf(role); return <div className={`roles-tr ${selectedCode === role.code ? 'selected' : ''}`} key={role.code} onClick={() => setSelectedCode(role.code)}>
+                  <span className="num">{currentPage * PAGE_SIZE + index + 1}</span>
+                  <div className="role-name"><i className={roleTone}><RoleIcon/></i><span><b>{role.nameTh ?? role.code}</b><small>{role.code}</small></span></div>
+                  <p><span>{role.descriptionTh ?? '-'}</span></p>
+                  <strong className="num" title={COUNT_HINT[role.assignment]}>{formatNumber(role.userCount)}</strong>
+                  <span><i className={`role-status ${role.active ? 'on' : 'off'}`} title={role.superAdmin ? 'super admin: ได้รับทุกสิทธิ์' : `สิทธิ์ที่ผูกไว้ ${role.permissionCount} รายการ`}><small/>{role.active ? 'ใช้งาน' : 'ไม่ใช้งาน'}</i></span>
+                  <button className="role-manage" onClick={event => { event.stopPropagation(); setSelectedCode(role.code) }}>จัดการ</button>
+                  <button className="role-more" aria-label={`เมนู ${role.nameTh ?? role.code}`} disabled title={NOT_ENABLED} onClick={event => event.stopPropagation()}><MoreVertical/></button>
+                </div> })}
+                {showRolesSkeleton && rolesLoading ? <SkeletonTable rows={6} cols={6} /> : null}
+                {rolesError && <div className="roles-empty">{rolesError} <button type="button" onClick={() => setReloadKey(key => key + 1)}>ลองใหม่</button></div>}
+                {roles && filtered.length === 0 && <div className="roles-empty">{roles.length === 0 ? 'ยังไม่มีบทบาทในตาราง auth_roles' : 'ไม่พบบทบาทที่ตรงกับคำค้นหา'}</div>}
+              </div>
+              <footer><div>แสดง <AdminSelect compact disabled className="adm-page-size" label="จำนวนรายการต่อหน้า" value={String(PAGE_SIZE)} onChange={() => undefined} options={[{ value: String(PAGE_SIZE), label: String(PAGE_SIZE) }]}/> รายการต่อหน้า</div><span>{filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1} - {currentPage * PAGE_SIZE + visible.length} จาก {formatNumber(filtered.length)} รายการ</span><nav><button disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} aria-label="หน้าก่อนหน้า"><ChevronLeft/></button><button className="current">{currentPage + 1}</button><button disabled={currentPage >= totalPages - 1} onClick={() => setPage(currentPage + 1)} aria-label="หน้าถัดไป"><ChevronRight/></button></nav></footer>
+            </> : <div className="role-users-empty"><UsersRound/>
+              <h2>{selected ? `ผู้ใช้งานในบทบาท “${selected.nameTh ?? selected.code}” (${formatNumber(selected.userCount)})` : 'จัดการผู้ใช้งานตามบทบาท'}</h2>
+              {!selected ? <p>เลือกบทบาทเพื่อดูรายชื่อผู้ใช้งาน</p>
+                : !listable ? <p>{COUNT_HINT[selected.assignment]}</p>
+                : membersError ? <p>{membersError}</p>
+                : !members ? <SkeletonText lines={3} />
+                : members.items.length === 0 ? <p>ยังไม่มีผู้ใช้งานในบทบาทนี้</p>
+                : <ul className="role-user-list">{members.items.map(item => <li key={item.id}><b>{`${item.firstName} ${item.lastName}`.trim()}</b><small>{item.email}{item.shops.length ? ` · ${[...new Set(item.shops.map(shop => shop.shopName))].join(', ')}` : ''}</small></li>)}{members.totalItems > members.items.length && <li><small>และอีก {formatNumber(members.totalItems - members.items.length)} คน</small></li>}</ul>}
+              <button onClick={() => window.location.assign(listable && selected ? `/admin/users?role=${encodeURIComponent(selected.code)}` : '/admin/users')}>เปิดหน้าผู้ใช้งาน</button>
+            </div>}
+          </section>
+          <section className="security-tip"><i><ShieldCheck/></i><div><b>เคล็ดลับความปลอดภัย</b><span>ควรกำหนดสิทธิ์ตามหน้าที่ที่จำเป็น และตรวจสอบบัญชีผู้ใช้งานเป็นประจำ</span></div><button disabled title={NOT_ENABLED}>ดูแนวทางความปลอดภัย →</button></section>
+        </div>
+        <AdminSidePanel variant="aside" bare className="role-history">
+          <section className="role-history-card">
+            <header>
+              <h2>ประวัติการดำเนินการล่าสุด</h2>
+              {activityCount > 0 && <small className="role-history-count">{formatNumber(activityCount)} รายการ</small>}
+            </header>
+            {!canAudit ? <p className="role-history-empty">ไม่มีสิทธิ์ดูประวัติ (ต้องมี PLATFORM_AUDIT_READ)</p>
+              : activityError ? <p className="role-history-empty">{activityError}</p>
+              : !activity ? <p className="role-history-empty"><SkeletonText lines={4} /></p>
+              : activity.length === 0 ? <p className="role-history-empty">ยังไม่มีประวัติการดำเนินการ</p>
+              : (
+                <>
+                  <ul className="role-history-list">
+                    {shownActivity.map((event, index) => (
+                      <li className={`role-history-item tone-${(safeActivityPage * ACTIVITY_PAGE_SIZE + index) % 4}`} key={`${event.type}-${event.at}-${safeActivityPage}-${index}`}>
+                        <i className="role-history-avatar" aria-hidden="true">{initialOf(event.subjectName)}</i>
+                        <div className="role-history-body">
+                          <b>{event.subjectName ?? '-'}</b>
+                          <span>
+                            {event.title}
+                            {event.roleNameTh || event.roleCode ? ` · ${event.roleNameTh ?? event.roleCode}` : ''}
+                            {event.actorName && event.actorName !== event.subjectName ? ` · โดย ${event.actorName}` : ''}
+                          </span>
+                          <time dateTime={event.at}>{formatDateTime(event.at)}</time>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  {activityCount > ACTIVITY_PAGE_SIZE && (
+                    <footer className="role-history-pager" aria-label="แบ่งหน้าประวัติ">
+                      <span>{formatNumber(activityFrom)}–{formatNumber(activityTo)} / {formatNumber(activityCount)}</span>
+                      <nav>
+                        <button type="button" aria-label="หน้าก่อนหน้า" disabled={safeActivityPage <= 0} onClick={() => setActivityPage(value => Math.max(0, value - 1))}><ChevronLeft /></button>
+                        <b>{safeActivityPage + 1}/{activityPageCount}</b>
+                        <button type="button" aria-label="หน้าถัดไป" disabled={safeActivityPage >= activityPageCount - 1} onClick={() => setActivityPage(value => Math.min(activityPageCount - 1, value + 1))}><ChevronRight /></button>
+                      </nav>
+                    </footer>
+                  )}
+                </>
+              )}
+          </section>
+        </AdminSidePanel>
+      </div>
     </div>
-    <aside className="role-detail"><header><h2>รายละเอียดบทบาท</h2><div>{canUpdateRole && selected?.assignable && !selected.superAdmin && selected.policyVersion === 'CUSTOM' && <button onClick={() => openRoleDialog('edit')}><Pencil/>แก้ไข</button>}{canDeleteRole && selected?.assignable && !selected.superAdmin && selected.policyVersion === 'CUSTOM' && selected.active && <button className="role-deactivate" onClick={() => setRoleConfirm(true)} disabled={roleSaving}><LockKeyhole/>ปิดใช้งาน</button>}<ChevronDown/></div></header>
+    <AdminSidePanel
+      variant="drawer"
+      className="role-detail"
+      open={selectedCode != null}
+      onClose={() => setSelectedCode(null)}
+      title="รายละเอียดบทบาท"
+      headerExtra={(
+        <>
+          {canUpdateRole && selected?.assignable && !selected.superAdmin && selected.policyVersion === 'CUSTOM' && <button type="button" onClick={() => openRoleDialog('edit')}><Pencil/>แก้ไข</button>}
+          {canDeleteRole && selected?.assignable && !selected.superAdmin && selected.policyVersion === 'CUSTOM' && selected.active && <button type="button" className="role-deactivate" onClick={() => setRoleConfirm(true)} disabled={roleSaving}><LockKeyhole/>ปิดใช้งาน</button>}
+        </>
+      )}
+    >
       {roleActionError && <p className="role-action-error" role="alert">{roleActionError}</p>}
       {!selected ? <section className="role-detail-summary"><div><small>{rolesError || 'เลือกบทบาทเพื่อดูรายละเอียด'}</small></div></section> : <>
         <section className="role-detail-summary"><i className={tone}><SelectedIcon/></i><div><b>{selected.nameTh ?? selected.code}</b><small>{selected.code} · {selected.context}{selected.assignable ? '' : ' · กำหนดโดยระบบ'}</small></div><span className={`role-status ${selected.active ? 'on' : 'off'}`}><small/>{selected.active ? 'ใช้งาน' : 'ไม่ใช้งาน'}</span></section>
@@ -232,14 +302,7 @@ export default function AdminRolesPage() {
           {detail?.groups.map(group => [<li className="role-perm-group" key={`g-${group.module}`}>{group.module}{selected.superAdmin ? ' (ผูกไว้ใน seed)' : ''}</li>, ...group.permissions.map(permission => <li key={permission.code} title={permission.code}><Check/>{permission.descriptionTh ?? permission.code}{permission.active ? '' : ' (เลิกใช้)'}</li>)])}
         </ul>
       </>}
-    </aside>
-    <aside className={`role-history ${showAllActivity ? 'expanded' : ''}`}><header><h2>ประวัติการดำเนินการล่าสุด</h2><button onClick={() => setShowAllActivity(value => !value)} disabled={!activity || activity.length <= 3}>{showAllActivity ? 'ย่อ ↑' : 'ดูทั้งหมด →'}</button></header>
-      {!canAudit ? <p className="role-history-empty">ไม่มีสิทธิ์ดูประวัติ (ต้องมี PLATFORM_AUDIT_READ)</p>
-        : activityError ? <p className="role-history-empty">{activityError}</p>
-        : !activity ? <p className="role-history-empty"><SkeletonText lines={3} /></p>
-        : activity.length === 0 ? <p className="role-history-empty">ยังไม่มีประวัติการดำเนินการ</p>
-        : shownActivity.map((event, index) => <div key={`${event.type}-${event.at}-${index}`}><i>{initialOf(event.subjectName)}</i><p><b>{event.subjectName ?? '-'}</b><span>{event.title}{event.actorName && event.actorName !== event.subjectName ? ` · โดย ${event.actorName}` : ''}</span></p><small>{formatDateTime(event.at)}</small></div>)}
-    </aside>
+    </AdminSidePanel>
     {roleDialog && <div className="admin-modal-backdrop" role="presentation">
       <form className="admin-management-dialog role-management-dialog" onSubmit={saveRole} role="dialog" aria-modal="true" aria-labelledby="role-dialog-title">
         <header><h2 id="role-dialog-title">{roleDialog === 'create' ? 'สร้างบทบาท' : `แก้ไขบทบาท ${selected?.nameTh ?? ''}`}</h2><button type="button" onClick={() => setRoleDialog(null)} aria-label="ปิด">×</button></header>

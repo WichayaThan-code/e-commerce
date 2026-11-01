@@ -30,6 +30,11 @@ export function useShopPublic(): ShopPublicContextValue {
   return value;
 }
 
+/** Null outside ShopLayout (e.g. the merchant theme preview). */
+export function useOptionalShopPublic(): ShopPublicContextValue | null {
+  return useContext(ShopPublicContext);
+}
+
 /** Sets the PDP crumb on mount/change and clears it on unmount. */
 export function useShopCrumb(label: string | null): void {
   const { setCrumb } = useShopPublic();

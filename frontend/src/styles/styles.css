@@ -68,7 +68,17 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #ffb3
 .merchant-auth-gate a.primary{background:#0879f6;color:#fff}
 .merchant-auth-gate a.quiet{border:1px solid #0879f6;color:#0879f6}
 .merchant-shop-menu{position:relative;justify-self:end}
-.merchant-topbar .merchant-shop-menu>button.merchant-profile{border:0;background:transparent;cursor:pointer;font:inherit;color:inherit;width:auto}
+.shop-switch{box-sizing:border-box;height:40px;margin:0;padding:0 8px 0 6px;border:1px solid #d7e6f5;border-radius:10px;background:#fff;display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:#08245d;font:inherit;max-width:220px}
+.shop-switch:hover,.shop-switch[aria-expanded="true"]{background:#f5f9ff;border-color:#9fc4ef}
+.shop-switch-icon{width:28px;height:28px;border-radius:8px;background:#eaf3ff;color:#0878f5;display:grid;place-items:center;flex:none}
+.shop-switch-icon svg{display:block}
+.shop-switch-copy{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:1px;text-align:left}
+.shop-switch-copy strong{display:block;font:700 13px/1.15 var(--font-sans),sans-serif;color:#08245d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shop-switch-copy em{display:block;font:600 11px/1.15 var(--font-sans),sans-serif;font-style:normal;color:#6d84a3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shop-switch-copy em.is-active{color:#0a8f5c}
+.shop-switch-copy em.is-pending{color:#a66a00}
+.shop-switch-copy em.is-bad{color:#c01845}
+.shop-switch-caret{flex:none;color:#8593a5}
 .merchant-shop-menu-panel{position:absolute;top:calc(100% + 10px);right:0;z-index:40;width:min(320px,78vw);background:#fff;border:1px solid #d7e4f3;border-radius:14px;box-shadow:0 16px 40px #08245d24;padding:6px;display:grid}
 .merchant-shop-menu-panel button{display:flex;align-items:center;justify-content:space-between;gap:12px;border:0;background:transparent;border-radius:10px;padding:10px 12px;color:#061d52;font:700 14px var(--font-sans),sans-serif;cursor:pointer;text-align:left}
 .merchant-shop-menu-panel button.active{background:#e8f3ff}

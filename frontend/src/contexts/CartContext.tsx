@@ -49,6 +49,8 @@ export type CartValue = {
   add: (skuId: string, quantity: number) => Promise<CartActionResult | null>;
   /** V43: adds a product-configurator line (server re-quotes; rejected while the backend flag is off). */
   addConfigured: (skuId: string, quantity: number, configuration: { selections: Record<string, unknown>; version?: number }) => Promise<CartActionResult | null>;
+  /** AB3 Buy Now: adds the line, then leaves ONLY that line selected so /checkout buys just it. */
+  buyNow: (skuId: string, quantity: number, configuration?: { selections: Record<string, unknown>; version?: number }) => Promise<CartActionResult | null>;
   update: (itemId: string, patch: CartLinePatch) => Promise<CartActionResult | null>;
   setSelected: (itemIds: string[], selected: boolean) => Promise<void>;
   remove: (itemIds: string[]) => Promise<void>;
@@ -112,6 +114,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     refresh,
     add: (skuId, quantity) => mutate(() => cartApi.add(skuId, quantity)),
     addConfigured: (skuId, quantity, configuration) => mutate(() => cartApi.addConfigured(skuId, quantity, configuration)),
+    buyNow: async (skuId, quantity, configuration) => {
+      const ticket = ++seq.current;
+      let next = configuration ? await cartApi.addConfigured(skuId, quantity, configuration) : await cartApi.add(skuId, quantity);
+      const action = next.lastAction ?? null;
+      const lines = (cart: Cart) => cart.groups.flatMap((group) => group.items);
+      const targetId = action?.itemId ?? lines(next).find((line) => line.skuId === skuId && !line.configuration)?.id;
+      if (targetId && !(action && action.appliedQuantity < 1)) {
+        const others = lines(next).filter((line) => line.selected && line.id !== targetId).map((line) => line.id);
+        if (others.length) next = await cartApi.select(others, false);
+        if (lines(next).some((line) => line.id === targetId && !line.selected)) next = await cartApi.select([targetId], true);
+      }
+      apply(ticket, next);
+      return action;
+    },
     update: (itemId, patch) => mutate(() => cartApi.update(itemId, patch)),
     setSelected: async (itemIds, selected) => { await mutate(() => cartApi.select(itemIds, selected)); },
     remove: async (itemIds) => {

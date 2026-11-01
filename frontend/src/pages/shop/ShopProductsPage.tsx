@@ -1,3 +1,5 @@
+import { TsfCatalogPage } from "../../components/shop/general/GeneralStorefront";
+import { usesTsfTree } from "../../theme/shopTheme";
 import CatalogSection from "../../components/shop/sections/CatalogSection";
 import { useShopPublic, useShopCrumb } from "../../contexts/ShopPublicContext";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
@@ -13,6 +15,10 @@ export default function ShopProductsPage() {
 
   const { products, catalog } = useShopCatalog({ slug });
   const section = theme.config.sections.find((item) => item.key === "CATALOG");
+
+  if (usesTsfTree(theme.templateKey)) {
+    return <TsfCatalogPage shop={shop} title={tp("shop.general.allProducts")} products={products} catalog={catalog} />;
+  }
 
   return (
     <>

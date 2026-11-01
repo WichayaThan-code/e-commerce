@@ -132,7 +132,7 @@ class ProductCatalogIntegrationTests {
         mvc.perform(post("/api/merchant/shops/" + shop.shopId + "/products/" + productId + "/publish").header("Authorization", "Bearer " + shop.token))
             .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PUBLISHED"));
         mvc.perform(get("/api/shops/" + shop.slug + "/products").param("q", "green"))
-            .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1)).andExpect(jsonPath("$.items[0].slug").value("green-tea"));
+            .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1)).andExpect(jsonPath("$.items[0].slug").value("green-tea")).andExpect(jsonPath("$.items[0].createdAt").isNotEmpty());
         mvc.perform(get("/api/shops/" + shop.slug + "/products").param("priceBands", "under100"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1));
         mvc.perform(get("/api/shops/" + shop.slug + "/products").param("priceBands", "b100_300"))

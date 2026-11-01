@@ -1,52 +1,26 @@
 import { useState } from "react";
 import {
   BarChart3,
-  Bell,
-  Box,
   CalendarDays,
   ChevronDown,
-  CircleHelp,
-  CircleUserRound,
-  Crown,
   Download,
   FileText,
-  Headphones,
-  Home,
   Lightbulb,
-  Package,
-  Settings,
   ShoppingBag,
   ShoppingCart,
-  Store,
-  TicketPercent,
-  Truck,
   UsersRound,
   WalletCards,
 } from "lucide-react";
-import MerchantBell from "../components/merchant/MerchantBell";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
-import LanguageSwitcher from "../components/LanguageSwitcher";
-import MerchantShopMenu from "../components/MerchantShopMenu";
-import MerchantLogoutButton from "../components/merchant/MerchantLogoutButton";
+import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
-import "../styles/reports.css";
+import "../styles/reports.css";
+import MerchantSidebar from "../components/merchant/MerchantSidebar";
 
-const menu = [
-  [Home, "หน้าหลัก", "/merchant/dashboard"],
-  [Box, "จัดการสินค้า", "/merchant/products"],
-  [ShoppingBag, "คำสั่งซื้อ", "/merchant/orders", "12"],
-  [CircleUserRound, "ลูกค้า", "/merchant/customers"],
-  [TicketPercent, "โปรโมชั่น/คูปอง", "/merchant/promotions"],
-  [BarChart3, "รายงาน", "/merchant/reports"],
-  [WalletCards, "การเงิน", "/merchant/finance"],
-  [Truck, "การจัดส่ง", "/merchant/shipping"],
-  [Store, "ร้านของฉัน", "/merchant/store"],
-  [Settings, "ตั้งค่า", "/merchant/settings"],
-] as const;
 
 const sales = [9800, 9000, 10800, 13000, 14000, 12500, 14500, 15800, 13800, 16000, 19000, 21430];
 const income = [7600, 6800, 8100, 9800, 11200, 9200, 11500, 12600, 11000, 13000, 15800, 20359];
@@ -66,7 +40,7 @@ function Brand() {
 
 export default function ReportsPage() {
   const { user, loading } = useAuth();
-  const { canInShop, canSeeMenuItem, deniedTitle } = usePermissions();
+  const { canInShop, deniedTitle } = usePermissions();
   const canExport = canInShop("REPORT_EXPORT");
   const [activeTab, setActiveTab] = useState("ภาพรวม");
   const [range, setRange] = useState("1 ก.ย. 2026 - 12 ก.ย. 2026");
@@ -86,8 +60,8 @@ export default function ReportsPage() {
   };
 
   return <main className="merchant-shell pm-shell report-shell">
-    <header className="merchant-topbar"><Brand /><MerchantTopbarSearch /><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
-    <aside className="merchant-sidebar pm-sidebar report-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon, label, href, badge]) => <a className={label === "รายงาน" ? "active" : ""} href={href} key={label} onClick={(event) => { if ((href as string) === "#") { event.preventDefault(); notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`); } }}><Icon />{label}{badge && <i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown /><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br />ได้มากกว่าเดิม</p><button onClick={() => notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp />ศูนย์ช่วยเหลือ</a><button onClick={() => notify("กำลังติดต่อทีมงาน")}><Headphones />ติดต่อทีมงาน</button><MerchantLogoutButton /></div></aside>
+    <header className="merchant-topbar"><Brand /><MerchantTopbarSearch /><MerchantTopbarActions /></header>
+    <MerchantSidebar active="reports"/>
 
     <section className="pm-content report-content">
       <header className="pm-heading report-heading"><div><h1><BarChart3 />รายงาน</h1><p>ดูภาพรวมธุรกิจของคุณ วิเคราะห์ยอดขาย และติดตามการเติบโต</p></div><div className="report-actions"><button onClick={() => { const next = range.startsWith("1 ") ? "1 ส.ค. 2026 - 31 ส.ค. 2026" : "1 ก.ย. 2026 - 12 ก.ย. 2026"; setRange(next); notify(`เปลี่ยนช่วงวันที่เป็น ${next}`); }}><CalendarDays /><span>{range}</span><ChevronDown /></button><button disabled={!canExport} title={deniedTitle(canExport)} className="primary" onClick={download}><Download />ดาวน์โหลดรายงาน</button></div></header>

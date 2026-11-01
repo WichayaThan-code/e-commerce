@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { shopCategoriesPath } from "../../../services/shopRoutes";
 import { Skeleton } from "../../feedback/Skeleton";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { localizedText } from "../../../services/catalogText";
@@ -37,6 +39,7 @@ export default function CategoriesSection({ shop, catalog, preview }: ShopSectio
     <section id="shop-categories" ref={revealRef} className="shop-categories recommend-width shop-reveal">
       <header className="shop-section-head">
         <h2>{tp("shop.categoriesTitle")}</h2>
+        {templateKey === "GENERAL" ? <Link className="shop-featured-all" to={shopCategoriesPath(shop.slug)}>{tp("shop.seeAll")} ›</Link> : null}
       </header>
       {loading ? (
         <div className="shop-category-grid" aria-hidden="true">

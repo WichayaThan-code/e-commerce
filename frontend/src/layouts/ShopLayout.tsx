@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { usesTsfTree } from "../theme/shopTheme";
 import { Link, Outlet, useLocation, useMatch, useNavigate, useParams } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { LoadError, Skeleton } from "../components/feedback/Skeleton";
 import ShopTabs from "../components/shop/ShopTabs";
 import ShopThemeShell, { resolveStorefrontTheme } from "../components/shop/ShopThemeShell";
+import { TsfMobileTabBar } from "../components/shop/general/GeneralStorefront";
 import { ShopPublicProvider } from "../contexts/ShopPublicContext";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
@@ -92,6 +94,10 @@ export default function ShopLayout() {
   const shopTitle = shop?.name || tp("common.shopPlaceholder");
   const mobileTitle = crumb ?? shopTitle;
 
+  // GENERAL (themes spec): store home gets the burger / logo / search / cart header + bottom tab bar on mobile.
+  // Themes port: GENERAL renders the dedicated .tsf-store tree (announce / header / footer / tab bar live in ShopThemeShell).
+  const general = Boolean(shop && usesTsfTree(resolveStorefrontTheme(shop).templateKey));
+
   const header = (
     <section className="recommend-intro recommend-width shop-page-intro">
       <div className="shop-mobile-bar">
@@ -152,10 +158,21 @@ export default function ShopLayout() {
   if (shop && contextValue) {
     return (
       <ShopPublicProvider value={contextValue}>
-        <ShopThemeShell shop={shop} header={header} refetching={shopRefetching} after={toast}>
-          {!isHome && <ShopTabs shop={shop} onNotify={notify} />}
-          <Outlet />
-        </ShopThemeShell>
+        {general ? (
+          <ShopThemeShell
+            shop={shop}
+            header={isHome ? null : <div className="tsf-wrap">{header}</div>}
+            refetching={shopRefetching}
+            after={<>{toast}<TsfMobileTabBar shop={shop} onNotify={notify} /></>}
+          >
+            {isHome ? <Outlet /> : <div className="tsf-wrap tsf-subpage"><Outlet /></div>}
+          </ShopThemeShell>
+        ) : (
+          <ShopThemeShell shop={shop} header={header} refetching={shopRefetching} after={toast}>
+            {!isHome && <ShopTabs shop={shop} onNotify={notify} />}
+            <Outlet />
+          </ShopThemeShell>
+        )}
       </ShopPublicProvider>
     );
   }

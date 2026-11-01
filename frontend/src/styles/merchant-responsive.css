@@ -1,0 +1,78 @@
+/* Responsive guards for every /merchant page (loaded by the shared MerchantSidebar).
+   Goal: no page-level horizontal scroll at 375 / 768 / 1280; wide tables scroll inside their own wrapper. */
+.merchant-shell .pm-content,.merchant-shell .merchant-content{min-width:0;max-width:100%}
+.merchant-shell .pm-content>*,.merchant-shell .merchant-content>*{min-width:0;max-width:100%}
+.merchant-shell .pm-heading{flex-wrap:wrap}
+.merchant-shell .pm-heading>*{min-width:0;max-width:100%}
+.merchant-shell .pm-actions,.merchant-shell .report-actions,.merchant-shell .finance-actions{flex-wrap:wrap;min-width:0;max-width:100%}
+/* two-column layouts with a fixed side panel stack once the content area is too narrow for them */
+@media(max-width:1400px){
+  .merchant-shell .cm-grid,.merchant-shell .promo-layout,.merchant-shell .shipping-layout{grid-template-columns:minmax(0,1fr)}
+}
+.merchant-shell .cm-grid>*,.merchant-shell .promo-layout>*,.merchant-shell .shipping-layout>*{min-width:0}
+.merchant-shell .merchant-welcome{flex-wrap:wrap;gap:12px}
+.merchant-shell .merchant-welcome>*{min-width:0;max-width:100%}
+/* KPI rows wrap instead of forcing fixed columns */
+.merchant-shell .pm-kpis,.merchant-shell .shipping-kpis{grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr))}
+.merchant-shell .pm-kpis>*,.merchant-shell .shipping-kpis>*{min-width:0}
+@media(max-width:1100px) and (min-width:721px){.merchant-shell .merchant-kpis{grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr))}}
+.merchant-shell .merchant-kpis>*{min-width:0}
+/* pagination, tabs, filter and toolbar rows wrap */
+.merchant-shell .pm-pagination,.merchant-shell .cm-pagination,.merchant-shell .pm-pagination nav,.merchant-shell .cm-pagination nav,
+.merchant-shell .pm-content [class*="tabs"],.merchant-shell .pm-content [class*="filter"],.merchant-shell .pm-content [class*="toolbar"]{flex-wrap:wrap;max-width:100%;min-width:0}
+.merchant-shell .pm-content button{max-width:100%}
+/* dashboard top grid (570px + 330px) stacks once the content area is narrow */
+@media(max-width:1100px){.merchant-shell .merchant-grid.top{grid-template-columns:minmax(0,1fr)}}
+.merchant-shell .merchant-grid>*{min-width:0}
+/* fixed-min-width header buttons may shrink on phones */
+@media(max-width:720px){.merchant-shell .pm-heading button{min-width:0;white-space:normal}}
+/* sub-pixel overflow guard */
+.merchant-shell{overflow-x:clip}
+@media(max-width:720px){.merchant-shell .finance-heading .finance-actions>button{min-width:0;flex:1 1 100%}}
+
+/* ---- collapsed rail (<=900px): keep upgrade, help, contact, logout reachable as icon-only buttons ---- */
+.pm-sidebar .upgrade-card .rail-only{display:none}
+/* (icon rail removed: <=900px uses the R1 drawer below) */
+/* ---- top bar on phones: columns must fit the profile button (store pages already do this in my-store.css) ---- */
+@media(max-width:720px){
+  .merchant-shell .merchant-topbar{grid-template-columns:minmax(0,1fr) auto;gap:6px}
+  .merchant-shell .merchant-topbar .merchant-brand{min-width:0;overflow:hidden}
+  .merchant-shell .merchant-topbar .merchant-brand b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .merchant-shell .merchant-topbar .merchant-topbar-actions{min-width:0}
+}
+@media(max-width:400px){.merchant-shell .merchant-topbar .merchant-brand div{display:none}}
+
+
+/* =====================================================================
+   R1-R5 responsive (phones / iPad). Every rule below sits inside a
+   max-width <=1024px media query so desktop (>1024) is untouched.
+   ===================================================================== */
+/* R1 shared shell: drawer sidebar at <=900px (replaces the 66px icon rail) */
+@media(max-width:900px){
+  .merchant-shell .pm-drawer-toggle{position:fixed;z-index:62;top:13px;left:10px;width:44px;height:44px;display:grid;place-items:center;padding:0;border:1px solid #dce8f3;border-radius:10px;background:#fff;color:#0b2a5b;cursor:pointer}
+  .merchant-shell .pm-drawer-toggle svg{width:22px;height:22px}
+  .merchant-shell .pm-drawer-toggle:focus-visible{outline:2px solid #087bf5;outline-offset:2px}
+  .merchant-shell .pm-drawer-overlay{position:fixed;inset:0;z-index:60;background:rgba(5,24,58,.45)}
+  .merchant-shell .merchant-topbar{padding-left:64px}
+  .merchant-shell .merchant-sidebar.pm-sidebar{top:0;bottom:0;z-index:61;width:min(288px,86vw);padding:70px 12px 18px;overflow-y:auto;overflow-x:hidden;transform:translateX(-105%);visibility:hidden;transition:transform .22s ease,visibility .22s;box-shadow:none}
+  .merchant-shell .merchant-sidebar.pm-sidebar.is-open{transform:none;visibility:visible;box-shadow:0 0 44px rgba(5,24,58,.28)}
+  .merchant-shell .pm-sidebar nav a{font-size:15px;padding:0 16px;justify-content:flex-start;height:46px;gap:16px}
+  .merchant-shell .pm-sidebar nav a svg{width:22px;flex:none}
+  .merchant-shell .pm-sidebar nav a i{position:static;margin:0 0 0 auto;width:24px;height:24px;line-height:24px;font-size:11px}
+  .merchant-shell .pm-sidebar .upgrade-card{display:block;margin:18px 4px 14px}
+  .merchant-shell .pm-sidebar .merchant-support{display:block;margin:0 4px}
+  .merchant-shell .merchant-content,.merchant-shell .pm-content{padding-left:16px!important;padding-right:16px!important}
+}
+@media(max-width:900px) and (prefers-reduced-motion:reduce){.merchant-shell .merchant-sidebar.pm-sidebar{transition:none}}
+@media(max-width:720px){
+  .merchant-shell .pm-drawer-toggle{top:9px;width:42px;height:42px}
+  .merchant-shell .merchant-topbar{padding-left:60px}
+  .merchant-shell .merchant-content,.merchant-shell .pm-content{padding-left:12px!important;padding-right:12px!important}
+}
+/* R2 Dashboard only (.merchant-content): no fixed min-width, tables scroll inside their card */
+@media(max-width:1024px){
+  .merchant-shell .merchant-content{min-width:0!important;max-width:100%}
+  .merchant-shell .merchant-content :is(div,section,article):has(> table){overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+  .merchant-shell .merchant-content :is(div,section,article):has(> table)>table{min-width:720px}
+  .merchant-shell .merchant-content img{max-width:100%}
+}

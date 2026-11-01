@@ -1,6 +1,6 @@
 // src/routes/appRoutes.ts
 import type { ReactElement } from "react";
-import { RouteObject } from "react-router-dom";
+import { Navigate, RouteObject } from "react-router-dom";
 import PublicLayout from "../layouts/PublicLayout";
 import RouteProgress from "../components/RouteProgress";
 import MerchantSignupGuard from "../components/MerchantSignupGuard";
@@ -48,6 +48,7 @@ import ThaiBrandsPage from "../pages/ThaiBrandsPage";
 import BlogPage from "../pages/BlogPage";
 import HelpPage from "../pages/HelpPage";
 import CartPage from "../pages/CartPage";
+import OrderTrackingPage from "../pages/OrderTrackingPage";
 
 import MerchantSignupPage from "../pages/MerchantSignupPage";
 import OwnerInfoPage from "../pages/OwnerInfoPage";
@@ -61,6 +62,7 @@ import ShopCategoryPage from "../pages/shop/ShopCategoryPage";
 import ShopSearchPage from "../pages/shop/ShopSearchPage";
 import ShopCollectionPage from "../pages/shop/ShopCollectionPage";
 import ShopContactPage from "../pages/shop/ShopContactPage";
+import ShopFavoritesPage from "../pages/shop/ShopFavoritesPage";
 import ShopPoliciesPage from "../pages/shop/ShopPoliciesPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import ShopsPage from "../pages/ShopsPage";
@@ -93,6 +95,7 @@ export const routes: RouteObject[] = [
       { path: "/articles", element: <BlogPage /> },
       { path: "/help", element: <HelpPage /> },
       { path: "/cart", element: <CartPage /> },
+      { path: "/track-order", element: <OrderTrackingPage /> },
       { path: "/checkout", element: <CheckoutPage /> },
       { path: "/checkout/success", element: <CheckoutSuccessPage /> },
       { path: "/account/orders", element: <MyOrdersPage /> },
@@ -111,6 +114,7 @@ export const routes: RouteObject[] = [
           { path: "search", element: <ShopSearchPage /> },
           { path: "collections/:collectionSlug", element: <ShopCollectionPage /> },
           { path: "contact", element: <ShopContactPage /> },
+          { path: "favorites", element: <ShopFavoritesPage /> },
           { path: "policies", element: <ShopPoliciesPage /> },
           { path: "policies/:policyType", element: <ShopPoliciesPage /> },
           { path: "*", element: <NotFoundPage kind="page" bare /> },
@@ -128,7 +132,8 @@ export const routes: RouteObject[] = [
   { path: "/dashboard", element: <DashboardPage /> },
 
   // 3. กลุ่มหน้า Admin
-  { path: "/admin", element: guarded("/admin", <AdminDashboardPage />) },
+  { path: "/admin", element: <Navigate to="/admin/dashboard" replace /> },
+  { path: "/admin/dashboard", element: guarded("/admin/dashboard", <AdminDashboardPage />) },
   { path: "/admin/stores", element: guarded("/admin/stores", <AdminStoresPage />) },
   { path: "/admin/store-applications", element: guarded("/admin/store-applications", <AdminApplicationsPage />) },
   { path: "/admin/categories", element: guarded("/admin/categories", <AdminCategoriesPage />) },
@@ -159,6 +164,7 @@ export const routes: RouteObject[] = [
       { path: "/merchant/finance", element: guarded("/merchant/finance", <FinancePage />) },
       { path: "/merchant/shipping", element: guarded("/merchant/shipping", <ShippingPage />) },
       { path: "/merchant/store", element: guarded("/merchant/store", <MyStorePage />) },
+      { path: "/merchant/store/theme", element: guarded("/merchant/store", <MyStorePage themePage />) },
       { path: "/merchant/settings", element: guarded("/merchant/settings", <SettingsPage />) },
       { path: "/merchant/reinstatement", element: guarded("/merchant/reinstatement", <ReinstatementPage />) },
     ],

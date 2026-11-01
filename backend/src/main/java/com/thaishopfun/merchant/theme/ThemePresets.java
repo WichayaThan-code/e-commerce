@@ -4,11 +4,65 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class ThemePresets {
     private ThemePresets() {}
 
+    /** GENERAL extra palette roles (themes spec): saved/validated for GENERAL only, stripped for FASHION/FOOD_BEVERAGE. */
+    public static final String GENERAL_HERO_EYEBROW = "ส่งตรงจากชุมชนทั่วไทย";
+    /** GENERAL-only plain-text hero copy keys (other non-CUSTOM templates drop them on save). */
+    public static final List<String> GENERAL_HERO_KEYS = List.of("eyebrow", "ctaSecondaryLabel", "ctaSecondaryLink", "badges");
+    public static final List<String> GENERAL_EXTRA_COLOR_KEYS = List.of("borderStrong", "sale", "focus");
+    /** Templates rendered by the themes-spec storefront tree; they keep (and validate) the extra palette roles. */
+    public static final Set<ShopThemeTemplate> EXTRA_COLOR_TEMPLATES = Set.of(ShopThemeTemplate.GENERAL, ShopThemeTemplate.FASHION, ShopThemeTemplate.FOOD_BEVERAGE);
+
+    public static boolean allowsExtraColors(ShopThemeTemplate template) {
+        return template != null && EXTRA_COLOR_TEMPLATES.contains(template);
+    }
+
+    /** GENERAL follows the ThaiShopFun Themes spec: IBM Plex Sans Thai, spec palette, Hero→Trust→Categories→Featured→Banners→Best sellers→Intro→Catalog. */
     public static Map<String, Object> generalConfig() {
+        var config = config(
+            "#0a5fd6", "#08245d", "#ffffff", "#132b50",
+            "#f28c28",
+            ShopThemeFont.IBM_PLEX_SANS_THAI,
+            "FULL", "", "", "", "",
+            style(12, "BORDERED", "COMFORTABLE", "ROUNDED"),
+            defaultBanners(),
+            defaultTrust(),
+            List.of(
+                section("HERO", true, "FULL"),
+                section("TRUST", true, null),
+                section("CATEGORIES", true, null),
+                section("FEATURED", true, "GRID"),
+                section("BANNERS", true, null),
+                section("BESTSELLERS", true, "GRID"),
+                section("INTRO", true, null),
+                section("CATALOG", true, "GRID"),
+                section("NEW_ARRIVALS", false, "GRID"),
+                section("HOURS", false, null)
+            )
+        );
+        @SuppressWarnings("unchecked")
+        var colors = (Map<String, Object>) config.get("colors");
+        colors.put("borderStrong", "#7d8ba0");
+        colors.put("sale", "#c4271b");
+        colors.put("focus", "#0a5fd6");
+        // Themes spec hero copy (Thai-first). Links stay blank -> storefront falls back to this shop's products / categories.
+        @SuppressWarnings("unchecked")
+        var hero = (Map<String, Object>) config.get("hero");
+        hero.put("eyebrow", GENERAL_HERO_EYEBROW);
+        hero.put("title", "ของดีทั่วไทย ส่งตรงถึงบ้านคุณ");
+        hero.put("subtitle", "สินค้าคุณภาพจากผู้ผลิตท้องถิ่น แพ็กอย่างดี ส่งไวภายใน 24 ชั่วโมง");
+        hero.put("ctaLabel", "ช้อปเลย");
+        hero.put("ctaSecondaryLabel", "ดูหมวดหมู่");
+        hero.put("ctaSecondaryLink", "");
+        return config;
+    }
+
+    /** Pre-spec GENERAL baseline; CUSTOM keeps cloning this so CUSTOM defaults stay exactly as before. */
+    private static Map<String, Object> legacyGeneralConfig() {
         return config(
             "#087bf5", "#08245d", "#ffffff", "#132b50",
             null,
@@ -33,58 +87,70 @@ public final class ThemePresets {
     }
 
     public static Map<String, Object> fashionConfig() {
-        // Luxury fashion (Zara / COS): near-black + warm paper + muted gold accent.
-        return config(
-            "#111111", "#1a1a1a", "#f7f5f2", "#111111",
-            "#b08d57",
-            ShopThemeFont.NOTO_SERIF_THAI,
+        // Themes spec "fashion" (tokens.json): monochrome editorial, lime accent, Prompt headings, square shapes + PILL buttons.
+        var config = config(
+            "#111111", "#f1efea", "#ffffff", "#111111",
+            "#e3ff3d",
+            ShopThemeFont.PROMPT,
             "FULL", "", "", "", "",
-            style(4, "FLAT", "COMFORTABLE", "SQUARE"),
+            style(0, "FLAT", "COMFORTABLE", "PILL"),
             defaultBanners(),
             defaultTrust(),
             List.of(
                 section("HERO", true, "FULL"),
+                section("NEW_ARRIVALS", true, "LARGE"),
                 section("BANNERS", true, null),
                 section("CATEGORIES", true, null),
-                section("TRUST", true, null),
-                section("FEATURED", true, "LARGE"),
                 section("BESTSELLERS", true, "LARGE"),
-                section("NEW_ARRIVALS", true, "LARGE"),
-                section("CATALOG", true, "LARGE"),
-                section("INTRO", false, null),
+                section("INTRO", true, null),
+                section("TRUST", true, null),
+                section("FEATURED", false, "LARGE"),
+                section("CATALOG", false, "LARGE"),
                 section("HOURS", false, null)
             )
         );
+        @SuppressWarnings("unchecked")
+        var colors = (Map<String, Object>) config.get("colors");
+        colors.put("borderStrong", "#767676");
+        colors.put("sale", "#c8102e");
+        colors.put("focus", "#111111");
+        return config;
     }
 
     public static Map<String, Object> foodBeverageConfig() {
-        // Warm café / restaurant Mall: orange primary, cocoa secondary, cream page.
-        return config(
-            "#d9480f", "#5c2e0e", "#fff8f1", "#3d2314",
-            null,
+        // Themes spec "food" (tokens.json): warm terracotta + herb green on cream, Mitr headings, round shapes, STRIP hero.
+        var config = config(
+            "#a63a17", "#2e4a2b", "#fff8ef", "#2b1a10",
+            "#f2b544",
             ShopThemeFont.MITR,
             "STRIP", "", "", "", "",
-            style(16, "SHADOW", "COMFORTABLE", "PILL"),
+            style(20, "SHADOW", "COMFORTABLE", "PILL"),
             defaultBanners(),
             defaultTrust(),
             List.of(
                 section("HERO", true, "STRIP"),
-                section("BANNERS", true, null),
                 section("CATEGORIES", true, null),
-                section("TRUST", true, null),
-                section("HOURS", true, null),
                 section("FEATURED", true, "MENU"),
                 section("BESTSELLERS", true, "MENU"),
+                section("BANNERS", true, null),
+                section("HOURS", true, null),
+                section("INTRO", true, null),
+                section("TRUST", false, null),
                 section("NEW_ARRIVALS", false, "MENU"),
-                section("CATALOG", true, "MENU"),
-                section("INTRO", false, null)
+                section("CATALOG", false, "MENU")
             )
         );
+        @SuppressWarnings("unchecked")
+        var colors = (Map<String, Object>) config.get("colors");
+        colors.put("borderStrong", "#8f735f");
+        colors.put("sale", "#a63a17");
+        colors.put("focus", "#2e4a2b");
+        return config;
     }
 
-    /** CUSTOM baseline is a deep clone of GENERAL (never share the same map instance). */
+    /** CUSTOM baseline is a deep clone of the pre-spec GENERAL preset (never share the same map instance). */
     public static Map<String, Object> customConfig() {
-        return deepCopy(generalConfig());
+        return deepCopy(legacyGeneralConfig());
     }
 
     public static Map<String, Object> forTemplate(ShopThemeTemplate template) {

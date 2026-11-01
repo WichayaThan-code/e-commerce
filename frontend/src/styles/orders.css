@@ -1208,3 +1208,8 @@
   .orders-extra-filters > .orders-filter-date{min-width:0;max-width:none;flex:1 1 100%}
   .orders-extra-filters .orders-empty-clear{width:100%}
 }
+
+.orders-badge.is-unpaid {
+  color: #b45309;
+  background: #fef3c7;
+}

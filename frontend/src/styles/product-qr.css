@@ -1,0 +1,12 @@
+.product-qr-backdrop{position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.product-qr-modal{background:#fff;color:#1f2937;border-radius:14px;width:min(360px,100%);padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.product-qr-modal header{display:flex;align-items:center;justify-content:space-between}
+.product-qr-modal header button{border:0;background:none;cursor:pointer;color:inherit}
+.product-qr-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.product-qr-tabs button{border:1px solid #d1d5db;background:#fff;border-radius:8px;padding:8px;font:inherit;cursor:pointer}
+.product-qr-tabs button.active{border-color:#e11d48;color:#e11d48;font-weight:700}
+.product-qr-code{display:flex;justify-content:center}
+.product-qr-hint{margin:0;font-size:13px;color:#4b5563;text-align:center}
+.product-qr-hint.warn{color:#b45309}
+.product-qr-url{display:block;font-size:11px;word-break:break-all;background:#f3f4f6;border-radius:6px;padding:6px}
+.product-qr-download{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:8px;padding:10px;background:#e11d48;color:#fff;font:inherit;font-weight:700;cursor:pointer}

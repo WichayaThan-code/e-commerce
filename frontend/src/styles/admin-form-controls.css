@@ -3,10 +3,125 @@
 .admin-shell {
   --adm-control-h: 40px;
   --adm-label-gap: 6px;
+  --adm-label-h: 18px;
+  --adm-field-h: calc(var(--adm-label-h) + var(--adm-label-gap) + var(--adm-control-h));
   --adm-border: var(--shop-border, #dce2eb);
 }
 
-/* Labelled select / date range: 18px label row + 40px control (om-filters grid) */
+/* ---------- Unified filter bar (.ap-filters) ---------- */
+.admin-shell .ap-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.7fr) repeat(auto-fit, minmax(148px, 1fr));
+  gap: 12px 14px;
+  align-items: end;
+  height: auto !important;
+  min-height: 0;
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  background: var(--shop-card-bg, #fff);
+  border: 1px solid var(--shop-border, #dbe8f5);
+  border-radius: var(--shop-radius, 12px);
+  box-sizing: border-box;
+}
+
+/* Labelled field stack: label row + control (search / native inputs) */
+.admin-shell .ap-filters .ap-filter-search,
+.admin-shell .ap-filters > label:not(.adm-search):not(.ap-search):not(.ap-check) {
+  display: grid;
+  grid-template-rows: var(--adm-label-h) var(--adm-control-h);
+  gap: var(--adm-label-gap);
+  min-width: 0;
+  margin: 0;
+  align-content: end;
+  align-self: end;
+}
+
+.admin-shell .ap-filters .ap-filter-label,
+.admin-shell .ap-filters > label:not(.adm-search):not(.ap-search) > span,
+.admin-shell .ap-dialog-fields label > span {
+  display: block;
+  margin: 0;
+  padding: 0;
+  font: 600 13px/18px var(--font-sans), sans-serif;
+  color: var(--shop-text, #132b50);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-shell .ap-filters .ap-filter-search > .adm-search,
+.admin-shell .ap-filters .ap-filter-search > .ap-search {
+  width: 100%;
+  min-width: 0;
+  height: var(--adm-control-h);
+  margin: 0;
+}
+
+/* Legacy bare search (no wrapper): reserve label-row height so it bottoms with selects */
+.admin-shell .ap-filters > .adm-search,
+.admin-shell .ap-filters > .ap-search {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: var(--adm-control-h);
+  margin: 0;
+  align-self: end;
+  padding-top: 0;
+}
+
+.admin-shell .ap-filters .ap-filter-search.wide,
+.admin-shell .ap-filters > .adm-search.wide,
+.admin-shell .ap-filters > .ap-search.wide {
+  grid-column: span 2;
+}
+
+.admin-shell .ap-filter-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  align-self: end;
+  min-height: var(--adm-control-h);
+  margin: 0;
+}
+
+.admin-shell .ap-filter-actions .ap-primary,
+.admin-shell .ap-filter-actions .ap-ghost,
+.admin-shell .ap-filters > .ap-primary,
+.admin-shell .ap-filters > .ap-ghost {
+  height: var(--adm-control-h);
+  margin: 0;
+  flex: none;
+}
+
+@media (max-width: 900px) {
+  .admin-shell .ap-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .admin-shell .ap-filters .ap-filter-search,
+  .admin-shell .ap-filters .ap-filter-search.wide,
+  .admin-shell .ap-filters > .adm-search.wide,
+  .admin-shell .ap-filters > .ap-search.wide {
+    grid-column: 1 / -1;
+  }
+  .admin-shell .ap-filter-actions {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .admin-shell .ap-filter-actions .ap-primary,
+  .admin-shell .ap-filter-actions .ap-ghost {
+    flex: 1 1 calc(50% - 4px);
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-shell .ap-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Labelled select / date range: 18px label row + 40px control */
 .admin-shell .adm-select,
 .admin-shell .adm-select .searchable-select-wrap,
 .admin-shell .adm-date-range {
@@ -17,7 +132,7 @@
 .admin-shell .adm-select .searchable-select-wrap:not(.compact),
 .admin-shell .adm-date-range {
   display: grid;
-  grid-template-rows: 18px var(--adm-control-h);
+  grid-template-rows: var(--adm-label-h) var(--adm-control-h);
   gap: var(--adm-label-gap);
   align-content: end;
 }
@@ -82,9 +197,8 @@
 .admin-shell .user-role-assignment > span { grid-column: 1 / -1; }
 .admin-shell .user-role-select { grid-column: 1; }
 .admin-shell .user-role-select .searchable-select-btn { min-width: 0; height: 36px; font-size: 13px; }
-.admin-shell .user-filters .user-date-range { grid-column: 1 / -1; }
 
-/* Search boxes with icon (.om-search) */
+/* Search boxes with icon — ONE chrome shell; the inner <input> must stay borderless. */
 .admin-shell .adm-search {
   box-sizing: border-box;
   height: var(--adm-control-h);
@@ -92,40 +206,58 @@
   border-radius: 8px;
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 8px;
   padding: 0 12px;
   background: #fff;
   color: var(--shop-muted, #8593a5);
 }
-.admin-shell .adm-search svg { width: 18px; height: 18px; flex-shrink: 0; }
-.admin-shell .adm-search input {
+.admin-shell .adm-search svg { width: 18px; height: 18px; flex-shrink: 0; pointer-events: none; }
+.admin-shell .adm-search input,
+.admin-shell .adm-search input:hover,
+.admin-shell .adm-search input:focus,
+.admin-shell .adm-search input:focus-visible,
+.admin-shell .ap-filters .adm-search input,
+.admin-shell .ap-filters .ap-search input,
+.admin-shell .ap-filters .adm-search input:focus,
+.admin-shell .ap-filters .adm-search input:focus-visible,
+.admin-shell .ap-filters .ap-search input:focus,
+.admin-shell .ap-filters .ap-search input:focus-visible {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  box-sizing: border-box !important;
   border: 0 !important;
-  outline: 0 !important;
-  background: none !important;
-  width: 100%;
-  min-width: 0;
-  height: 100% !important;
-  padding: 0 10px !important;
-  font: 500 14px var(--font-sans), sans-serif;
-  color: var(--shop-text, #132b50);
+  border-radius: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font: 500 14px var(--font-sans), sans-serif !important;
+  color: var(--shop-text, #132b50) !important;
+  line-height: 1.2 !important;
 }
-.admin-shell .adm-search:focus-within,
+.admin-shell .adm-search:focus-within {
+  border-color: var(--shop-primary, #087bf5);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--shop-primary, #087bf5) 28%, transparent);
+  outline: none;
+}
 .admin-shell .adm-select .searchable-select-btn:focus-visible,
 .admin-shell .adm-date-range .date-picker-trigger:focus-visible {
   outline: 2px solid var(--shop-primary, #087bf5);
   outline-offset: 2px;
 }
 
-/* Plain text / number / datetime inputs and textareas in admin filters and dialogs */
-.admin-shell .ap-filters label > span,
-.admin-shell .ap-dialog-fields label > span {
-  font: 600 13px/18px var(--font-sans), sans-serif;
-  color: var(--shop-text, #132b50);
-}
-.admin-shell .ap-filters label:not(.adm-search) > input,
+/* Plain text / number / datetime inputs in admin filters and dialogs */
+.admin-shell .ap-filters > label:not(.adm-search):not(.ap-search) > input,
 .admin-shell .ap-dialog-fields label > input:not([type="checkbox"]):not([type="radio"]),
 .admin-shell .admin-management-dialog > label > input {
   box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   height: var(--adm-control-h);
   border: 1px solid var(--adm-border);
   border-radius: 8px;
@@ -134,7 +266,7 @@
   color: var(--shop-text, #132b50);
   font: 500 14px var(--font-sans), sans-serif;
 }
-.admin-shell .ap-filters label:not(.adm-search) > input:focus-visible,
+.admin-shell .ap-filters > label:not(.adm-search):not(.ap-search) > input:focus-visible,
 .admin-shell .ap-dialog-fields label > input:focus-visible,
 .admin-shell .admin-management-dialog > label > input:focus-visible,
 .admin-shell .admin-management-dialog > label > textarea:focus-visible,

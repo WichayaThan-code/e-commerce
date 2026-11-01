@@ -82,6 +82,14 @@ final class ShopThemeChrome {
 
     /** GENERAL / FASHION / FOOD_BEVERAGE: drop header / footer / fontCustom / hero extras; MEDIA_FULL silently becomes FULL. */
     static void stripForNonCustom(Map<String, Object> config) {
+        stripForNonCustom(config, false);
+    }
+
+    /**
+     * Themes port: GENERAL may keep the MEDIA_FULL hero layout (centred poster, no CUSTOM extras such as stickers /
+     * background media); FASHION / FOOD_BEVERAGE still fall back to FULL.
+     */
+    static void stripForNonCustom(Map<String, Object> config, boolean keepMediaFull) {
         if (config == null) return;
         config.remove("header");
         config.remove("footer");
@@ -89,12 +97,12 @@ final class ShopThemeChrome {
         var hero = asMap(config.get("hero"));
         if (hero != null) {
             for (var key : HERO_EXTRA_KEYS) hero.remove(key);
-            if (isMediaFull(hero.get("layout"))) hero.put("layout", ShopSectionVariant.FULL.name());
+            if (!keepMediaFull && isMediaFull(hero.get("layout"))) hero.put("layout", ShopSectionVariant.FULL.name());
         }
         if (config.get("sections") instanceof List<?> sections) {
             for (var item : sections) {
                 var row = asMap(item);
-                if (row != null && isMediaFull(row.get("variant"))) row.put("variant", ShopSectionVariant.FULL.name());
+                if (!keepMediaFull && row != null && isMediaFull(row.get("variant"))) row.put("variant", ShopSectionVariant.FULL.name());
             }
         }
     }

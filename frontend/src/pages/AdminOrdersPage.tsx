@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, Search, ShoppingBag } from 'lucide-react'
 import AdminHeader from '../components/AdminHeader'
@@ -414,25 +415,69 @@ function appliedOrderFilters(filters: OrderFilters) {
 }
 
 function OrdersTab({ tp, localeTag, notify }: { tp: TP; localeTag: string; notify: (message: string) => void }) {
-  const [draft, setDraft] = useState(EMPTY_ORDER_FILTERS)
-  const [filters, setFilters] = useState(EMPTY_ORDER_FILTERS)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const qFromUrl = searchParams.get('q') ?? ''
+  const [draft, setDraft] = useState({ ...EMPTY_ORDER_FILTERS, q: qFromUrl })
+  const [filters, setFilters] = useState({ ...EMPTY_ORDER_FILTERS, q: qFromUrl })
   const list = usePlatformList<OrderSummary>(params => adminOrderApi.list(params), appliedOrderFilters(filters), { errorText: tp('errors.load') })
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const autoOpenedForQ = useRef<string | null>(null)
   const items = list.result?.items ?? []
   const set = (key: keyof OrderFilters, value: string) => setDraft(current => ({ ...current, [key]: value }))
-  const submit = (event: FormEvent) => { event.preventDefault(); setFilters(draft); list.setPage(0) }
-  const reset = () => { setDraft(EMPTY_ORDER_FILTERS); setFilters(EMPTY_ORDER_FILTERS); list.setPage(0) }
+
+  const writeQParam = (q: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      const trimmed = q.trim()
+      if (trimmed) next.set('q', trimmed)
+      else next.delete('q')
+      return next
+    }, { replace: true })
+  }
+
+  useEffect(() => {
+    const q = searchParams.get('q') ?? ''
+    setDraft((current) => (current.q === q ? current : { ...current, q }))
+    setFilters((current) => (current.q === q ? current : { ...current, q }))
+    if (!q) autoOpenedForQ.current = null
+  }, [searchParams])
+
+  useEffect(() => {
+    if (list.loading || !list.result) return
+    const q = filters.q.trim()
+    if (!q || list.result.items.length !== 1) return
+    if (autoOpenedForQ.current === q) return
+    autoOpenedForQ.current = q
+    setSelectedId(list.result.items[0].id)
+  }, [list.loading, list.result, filters.q])
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    setFilters(draft)
+    list.setPage(0)
+    writeQParam(draft.q)
+  }
+  const reset = () => {
+    setDraft(EMPTY_ORDER_FILTERS)
+    setFilters(EMPTY_ORDER_FILTERS)
+    list.setPage(0)
+    autoOpenedForQ.current = null
+    writeQParam('')
+  }
   const hasFilter = Object.values(filters).some(Boolean)
 
   return <>
     <form className="ap-filters" onSubmit={submit}>
-      <label className="ap-search adm-search wide"><Search /><input value={draft.q} onChange={event => set('q', event.target.value)} placeholder={tp('orders.filters.q')} aria-label={tp('orders.filters.q')} maxLength={100} /></label>
+      <div className="ap-filter-search wide">
+        <span className="ap-filter-label">{tp('common.search')}</span>
+        <label className="ap-search adm-search"><Search /><input value={draft.q} onChange={event => set('q', event.target.value)} placeholder={tp('orders.filters.q')} aria-label={tp('orders.filters.q')} maxLength={100} /></label>
+      </div>
       <label><span>{tp('orders.filters.shopId')}</span><input value={draft.shopId} inputMode="numeric" pattern="[0-9]*" className="num" onChange={event => set('shopId', event.target.value.replace(/\D/g, ''))} /></label>
       <AdminSelect label={tp('orders.filters.status')} value={draft.status} onChange={value => set('status', value)} options={[{ value: '', label: tp('common.all') }, ...ORDER_STATUSES.map(value => ({ value, label: lab(tp, 'orderStatus', value) }))]} />
       <AdminSelect label={tp('orders.filters.paymentStatus')} value={draft.paymentStatus} onChange={value => set('paymentStatus', value)} options={[{ value: '', label: tp('common.all') }, ...PAYMENT_STATUSES.map(value => ({ value, label: lab(tp, 'paymentStatus', value) }))]} />
       <AdminSelect label={tp('orders.filters.fulfillmentStatus')} value={draft.fulfillmentStatus} onChange={value => set('fulfillmentStatus', value)} options={[{ value: '', label: tp('common.all') }, ...FULFILLMENT_STATUSES.map(value => ({ value, label: lab(tp, 'fulfillment', value) }))]} />
       <AdminDateRange from={draft.from} to={draft.to} onChange={range => { set('from', range.from); set('to', range.to) }} />
-      <div className="ap-filter-actions"><button type="submit" className="ap-primary">{tp('common.search')}</button><button type="button" className="ap-ghost" onClick={reset}>{tp('common.reset')}</button></div>
+      <div className="ap-filter-actions"><button type="button" className="ap-ghost" onClick={reset}>{tp('common.reset')}</button><button type="submit" className="ap-primary">{tp('common.search')}</button></div>
     </form>
 
     <section className="ap-card">
@@ -535,10 +580,13 @@ function ShipmentsTab({ tp }: { tp: TP }) {
 
   return <>
     <form className="ap-filters" onSubmit={submit}>
-      <label className="ap-search adm-search wide"><Search /><input value={draft.q} onChange={event => setDraft({ ...draft, q: event.target.value })} placeholder={tp('orders.filters.shipmentQ')} aria-label={tp('orders.filters.shipmentQ')} maxLength={100} /></label>
+      <div className="ap-filter-search wide">
+        <span className="ap-filter-label">{tp('common.search')}</span>
+        <label className="ap-search adm-search"><Search /><input value={draft.q} onChange={event => setDraft({ ...draft, q: event.target.value })} placeholder={tp('orders.filters.shipmentQ')} aria-label={tp('orders.filters.shipmentQ')} maxLength={100} /></label>
+      </div>
       <label><span>{tp('orders.filters.shopId')}</span><input value={draft.shopId} inputMode="numeric" pattern="[0-9]*" className="num" onChange={event => setDraft({ ...draft, shopId: event.target.value.replace(/\D/g, '') })} /></label>
       <AdminSelect label={tp('common.status')} value={draft.status} onChange={value => setDraft({ ...draft, status: value })} options={[{ value: '', label: tp('common.all') }, ...SHIPMENT_STATUSES.map(value => ({ value, label: lab(tp, 'shipmentStatus', value) }))]} />
-      <div className="ap-filter-actions"><button type="submit" className="ap-primary">{tp('common.search')}</button><button type="button" className="ap-ghost" onClick={reset}>{tp('common.reset')}</button></div>
+      <div className="ap-filter-actions"><button type="button" className="ap-ghost" onClick={reset}>{tp('common.reset')}</button><button type="submit" className="ap-primary">{tp('common.search')}</button></div>
     </form>
 
     <section className="ap-card">

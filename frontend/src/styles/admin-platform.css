@@ -24,15 +24,16 @@
 .ap-tabs button.active { color: var(--shop-primary, #087bf5); border-bottom-color: var(--shop-primary, #087bf5); }
 .ap-tabs button:focus-visible { outline: 2px solid var(--shop-primary, #087bf5); outline-offset: -2px; border-radius: 6px; }
 
-/* ---------- filters ---------- */
-.ap-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 12px; align-items: end; padding: 14px; margin: 0 0 14px; background: var(--shop-card-bg, #fff); border: 1px solid var(--shop-border, #dbe8f5); border-radius: var(--shop-radius, 12px); }
-.ap-filters label { display: grid; gap: 4px; font-size: 11px; font-weight: 700; color: var(--shop-muted, #43648f); }
-.ap-filters input, .ap-filters select { height: 38px; width: 100%; min-width: 0; border: 1px solid #cddff2; border-radius: 8px; padding: 0 10px; background: #fff; color: var(--shop-text, #132b50); font: 500 13px var(--font-sans), sans-serif; }
-.ap-filters input:focus-visible, .ap-filters select:focus-visible { outline: 2px solid var(--shop-primary, #087bf5); outline-offset: 0; border-color: var(--shop-primary, #087bf5); }
-.ap-search { grid-column: span 2; position: relative; display: flex !important; align-items: center; height: 38px; border: 1px solid #cddff2; border-radius: 8px; padding: 0 10px; background: #fff; color: var(--shop-muted, #43648f); gap: 6px; }
-.ap-search svg { width: 17px; height: 17px; flex: none; }
-.ap-search input { border: 0 !important; outline: 0 !important; height: 100% !important; padding: 0 !important; background: transparent !important; }
-.ap-search:focus-within { border-color: var(--shop-primary, #087bf5); }
+/* ---------- filters (layout/control sizing lives in admin-form-controls.css) ---------- */
+.ap-filters { background: var(--shop-card-bg, #fff); border: 1px solid var(--shop-border, #dbe8f5); border-radius: var(--shop-radius, 12px); }
+/* Focus ring for plain filter fields only — never the icon-search input (that uses .adm-search:focus-within). */
+.ap-filters > label:not(.adm-search):not(.ap-search) > input:focus-visible,
+.ap-filters select:focus-visible {
+  outline: 2px solid var(--shop-primary, #087bf5);
+  outline-offset: 0;
+  border-color: var(--shop-primary, #087bf5);
+}
+.ap-search { position: relative; }
 .ap-filter-actions { display: flex; gap: 8px; }
 
 /* ---------- buttons ---------- */
@@ -179,7 +180,7 @@
   .platform-content { padding: 78px 12px 18px 76px; }
   .ap-heading { flex-wrap: wrap; }
   .ap-kpi { text-align: left; }
-  .ap-search { grid-column: 1 / -1; }
+  .ap-filter-search, .ap-filter-search.wide, .ap-search.wide { grid-column: 1 / -1; }
   .ap-fields, .ap-diff { grid-template-columns: 1fr; }
   .ap-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ap-pager { grid-template-columns: 1fr; justify-items: start; }

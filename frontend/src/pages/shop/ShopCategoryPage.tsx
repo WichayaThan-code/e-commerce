@@ -1,3 +1,5 @@
+import { TsfCatalogPage, TsfCategoryRail } from "../../components/shop/general/GeneralStorefront";
+import { tsfThemeDefaults, usesTsfTree } from "../../theme/shopTheme";
 import { useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import CatalogSection from "../../components/shop/sections/CatalogSection";
@@ -82,6 +84,10 @@ export default function ShopCategoryPage() {
     );
   }
 
+  if (!categoryKey && usesTsfTree(theme.templateKey)) {
+    return <main><TsfCategoryRail shop={shop} activeId={null} title={listLabel} railStyle={tsfThemeDefaults(theme.templateKey).categoryStyle} /></main>;
+  }
+
   if (!categoryKey) {
     const listCatalog = previewCatalogControls({
       onNotify: notify,
@@ -109,6 +115,10 @@ export default function ShopCategoryPage() {
   }
 
   const catalogSection = theme.config.sections.find((item) => item.key === "CATALOG");
+
+  if (usesTsfTree(theme.templateKey)) {
+    return <TsfCatalogPage shop={shop} title={categoryLabel} products={products} catalog={catalog} activeCategoryId={category.id} />;
+  }
 
   return (
     <>

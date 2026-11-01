@@ -10,8 +10,12 @@ import { hasPromoBanners } from "./promoTargets";
 import { ShopCouponStripPreview } from "./ShopCouponStrip";
 import ShopBlockShell from "./ShopBlockShell";
 import { blockSection, blockSectionConfig } from "./blockLayout";
+import TsfHome from "./general/TsfHome";
+import { usesTsfTree } from "../../theme/shopTheme";
 
 export { resolveStorefrontTheme };
+
+const PREVIEW_CATEGORY_NAMES = new Map<number, string>();
 
 type ShopStorefrontProps = {
   shop: PublicShop;
@@ -25,6 +29,10 @@ type ShopStorefrontProps = {
   refetching?: boolean;
   /** Render at a fixed device width without an iframe (merchant theme preview). */
   previewWidth?: number;
+  /** Preview only: category id -> name map (cards show the category label like the public page). */
+  categoryNames?: Map<number, string>;
+  /** Preview only: cap for the "All products" grid (the public page infinite-scrolls). */
+  allProductsLimit?: number;
 };
 
 type ShopSectionsProps = {
@@ -115,16 +123,25 @@ export default function ShopStorefront({
   children,
   refetching = false,
   previewWidth,
+  categoryNames,
+  allProductsLimit,
 }: ShopStorefrontProps) {
+  const theme = resolveStorefrontTheme(shop);
+  // Preview parity: tsf templates render the exact same home body as the public ShopPage (TsfHome).
+  const tsf = previewWidth != null && usesTsfTree(theme.templateKey);
   return (
     <ShopThemeShell shop={shop} header={header} refetching={refetching} previewWidth={previewWidth} after={children}>
-      <ShopSections
+      {tsf ? (
+        <TsfHome slug={shop.slug} shop={shop} theme={theme} products={products} catalog={catalog}
+          allProducts={{ items: allProductsLimit != null ? products.slice(0, allProductsLimit) : products, hasMore: false }}
+          categoryNames={categoryNames ?? PREVIEW_CATEGORY_NAMES} couponStrip={<ShopCouponStripPreview />} />
+      ) : <ShopSections
         shop={shop}
         products={products}
         catalog={catalog}
         preview={previewWidth != null}
         couponStrip={previewWidth != null ? <ShopCouponStripPreview /> : undefined}
-      />
+      />}
     </ShopThemeShell>
   );
 }

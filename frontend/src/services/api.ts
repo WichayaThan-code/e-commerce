@@ -120,8 +120,8 @@ export type TranslationMeta = { origin: 'MACHINE' | 'HUMAN' | 'MANUAL'; status: 
 
 export type ThemeColors = { primary:string; secondary:string; background:string; text:string; accent?:string }
 export type ThemeStyle = { radius:number; cardStyle:'FLAT'|'BORDERED'|'SHADOW'; density:'COMPACT'|'COMFORTABLE'; buttonShape:'ROUNDED'|'PILL'|'SQUARE' }
-export type ThemeHero = { layout:'FULL'|'STRIP'|'MEDIA_FULL'; title:string; subtitle:string; ctaLabel:string; ctaLink:string }
-export type SectionConfig = { key:'HERO'|'BANNERS'|'CATEGORIES'|'TRUST'|'INTRO'|'FEATURED'|'BESTSELLERS'|'NEW_ARRIVALS'|'CATALOG'|'HOURS'; enabled:boolean; variant:'FULL'|'STRIP'|'MEDIA_FULL'|'GRID'|'LARGE'|'MENU'|null }
+export type ThemeHero = { layout:'FULL'|'STRIP'|'MEDIA_FULL'|'SPLIT'|'POSTER'; title:string; subtitle:string; ctaLabel:string; ctaLink:string }
+export type SectionConfig = { key:'HERO'|'BANNERS'|'CATEGORIES'|'TRUST'|'INTRO'|'FEATURED'|'BESTSELLERS'|'NEW_ARRIVALS'|'CATALOG'|'HOURS'; enabled:boolean; variant:'FULL'|'STRIP'|'MEDIA_FULL'|'SPLIT'|'POSTER'|'GRID'|'LARGE'|'MENU'|null }
 export type ThemeBanner = { imageUrl:string; title?:string; link?:string; mediaId?:string }
 export type ThemeMediaKind = 'IMAGE'|'VIDEO'|'FONT'
 export type ThemeMediaItem = {
@@ -490,6 +490,8 @@ export type PublicProduct = {
   optionSchema?: { name: string; values: string[] }[]
   /** All-time sold quantity; filled by the shop product list (null elsewhere). */
   soldCount?: number | null
+  /** ISO timestamp the product was created (public storefront DTO). */
+  createdAt?: string | null
 }
 /** GET /api/products/best-sellers row: public product fields + rank / sold quantity / shop. rating & reviewCount are null until reviews exist. */
 export type BestSellerProduct = {
@@ -521,6 +523,43 @@ export const bestSellerApi = {
     const qs = params.toString()
     return request<ProductPage<BestSellerProduct>>(`/api/products/best-sellers${qs ? `?${qs}` : ''}`)
   },
+}
+export type RecommendationSort = 'featured' | 'best' | 'price_asc' | 'price_desc' | 'rating' | 'newest'
+export type RecommendationQuery = { categoryId?: number; minPrice?: number; maxPrice?: number; minRating?: number; brands?: string; sort?: RecommendationSort; page?: number; size?: number }
+const VIEW_SESSION_KEY = 'tsf.viewSession'
+function viewSessionId() {
+  try {
+    let id = localStorage.getItem(VIEW_SESSION_KEY)
+    if (!id || !/^[A-Za-z0-9_-]{8,100}$/.test(id)) {
+      id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`).replace(/[^A-Za-z0-9_-]/g, '')
+      localStorage.setItem(VIEW_SESSION_KEY, id)
+    }
+    return id
+  } catch { return '' }
+}
+/** Public call that sends the bearer token only when already signed in (personalization); on 401 retries anonymously, never redirects. */
+async function optionalAuthRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers)
+  const session = viewSessionId()
+  if (session) headers.set('X-View-Session', session)
+  if (accessToken) {
+    const authed = new Headers(headers)
+    authed.set('Authorization', `Bearer ${accessToken}`)
+    try { return await request<T>(path, { ...init, headers: authed }) } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 401) throw error
+    }
+  }
+  return request<T>(path, { ...init, headers })
+}
+export const recommendationApi = {
+  list: (query: RecommendationQuery = {}) => {
+    const params = new URLSearchParams()
+    Object.entries(query).forEach(([key, value]) => { if (value !== undefined && value !== null && value !== '') params.set(key, String(value)) })
+    const qs = params.toString()
+    return optionalAuthRequest<ProductPage<BestSellerProduct>>(`/api/products/recommendations${qs ? `?${qs}` : ''}`)
+  },
+  recordView: (productId: string) => optionalAuthRequest<void>('/api/products/views', { method: 'POST', body: JSON.stringify({ productId }) }),
+  recentlyViewed: (size = 12) => request<BestSellerProduct[]>(`/api/products/recently-viewed?size=${size}`, {}, true, false),
 }
 export type ProductReview = { id: string; rating: number; comment?: string | null; reviewerName: string; createdAt: string }
 export type ProductReviewPage = { items: ProductReview[]; page: number; size: number; total: number; ratingAvg?: number | null; reviewCount: number }
@@ -1158,6 +1197,33 @@ function queryOf(params: Record<string, string | number | boolean | null | undef
 
 const merchantOrders = (shopId: number, path = '') => shopPath(shopId, `/orders${path}`)
 
+/** A1 GET /api/merchant/shops/{shopId}/dashboard/summary (ORDER_READ). date = optional YYYY-MM-DD, Asia/Bangkok day. */
+export type MerchantDashboardRange = 'today' | '7d' | '30d' | '1y'
+export type MerchantDashboardSummary = { range: string; from: string; to: string; days: number; date: string | null; timezone: string; currency: string; sales: number | string; paidOrderCount: number; orderCount: number; previousFrom: string; previousTo: string; previousSales: number | string; previousOrderCount: number; todaySales: number | string; todayPaidOrderCount: number; todayOrderCount: number; pendingOrders: number }
+export type MerchantDashboardTopCustomer = {
+  customerKey: string
+  displayName: string
+  orderCount: number
+  totalAmount: number | string
+  sharePercent: number | string
+}
+export type MerchantDashboardInsights = {
+  range: string; from: string; to: string; days: number; timezone: string; currency: string; bucket: 'day' | 'week' | 'month'
+  sales: number | string; paidOrderCount: number
+  series: { start: string; end: string; sales: number | string; orders: number }[]
+  paymentMethods: { method: string; orders: number; sales: number | string }[]
+  topProducts: { productId: string | null; name: string; imageUrl: string | null; quantity: number; sales: number | string }[]
+  topCustomers: MerchantDashboardTopCustomer[]
+}
+export const merchantDashboardApi = {
+  /** period: { range } or { from, to } (YYYY-MM-DD, Bangkok, inclusive, max 3 years) or { date } */
+  summary: (shopId: number, period: { range?: MerchantDashboardRange; from?: string; to?: string; date?: string } = {}) =>
+    request<MerchantDashboardSummary>(`${shopPath(shopId, '/dashboard/summary')}${queryOf(period)}`, { cache: 'no-store' }, true),
+  /** A12 GET .../dashboard/insights: same period + paid rule as summary. bucket = day (<=31 days) | week | month. */
+  insights: (shopId: number, period: { range?: MerchantDashboardRange; from?: string; to?: string; date?: string } = {}) =>
+    request<MerchantDashboardInsights>(`${shopPath(shopId, '/dashboard/insights')}${queryOf(period)}`, { cache: 'no-store' }, true),
+}
+
 export const merchantOrderApi = {
   /** query: status, paymentStatus, fulfillmentStatus, from, to, q, page, size, sort, direction, acceptance, customer (opaque insight key) */
   list: (shopId: number, params: Record<string, string | number | boolean | null | undefined> = {}) =>
@@ -1356,6 +1422,33 @@ export type AdminAuditLogView = {
 
 const adminPath = (path: string) => `/api/admin${path}`
 
+/** B5 GET /api/admin/dashboard/summary (PLATFORM_SHOP_READ). Default period = today when omitted; FE uses 7d. */
+export type AdminDashboardRange = 'today' | '7d' | '30d' | '1y'
+export type AdminDashboardSeriesPoint = { start: string; end: string; sales: number | string; orders: number }
+export type AdminDashboardTopShop = { shopId: number; shopName: string; slug: string; sales: number | string; orderCount: number }
+export type AdminDashboardCounts = {
+  shopsTotal: number; shopsPendingReview: number; shopsApproved: number; shopsRejected: number; shopsSuspended: number
+  pendingApplications: number; usersTotal: number; usersNewInPeriod: number
+}
+export type AdminDashboardRecentOrder = {
+  orderNumber: string; shopId: number; shopName: string; grandTotal: number | string
+  status: string; paymentStatus: string; placedAt: string | null
+}
+export type AdminDashboardPaymentMethod = { method: string; amount: number | string; orderCount: number }
+/** Masked email only — never raw user id / phone / full email. */
+export type AdminDashboardRecentUser = { displayName: string; emailMasked: string; role: string; createdAt: string | null }
+export type AdminDashboardSummary = {
+  range: string; from: string; to: string; days: number; timezone: string; currency: string; bucket: 'day' | 'week' | 'month'
+  totalSales: number | string; orderCount: number; paidOrderCount: number
+  previousFrom: string; previousTo: string; previousSales: number | string; previousOrderCount: number; previousPaidOrderCount: number
+  series: AdminDashboardSeriesPoint[]; topShops: AdminDashboardTopShop[]; counts: AdminDashboardCounts
+  recentOrders: AdminDashboardRecentOrder[]; paymentMethods: AdminDashboardPaymentMethod[]; recentUsers: AdminDashboardRecentUser[]
+}
+export const adminDashboardApi = {
+  summary: (period: { range?: AdminDashboardRange; from?: string; to?: string } = {}) =>
+    request<AdminDashboardSummary>(`${adminPath('/dashboard/summary')}${queryOf(period)}`, { cache: 'no-store' }, true),
+}
+
 export const adminPlatformApi = {
   merchants: (params: Record<string, string | number | boolean | null | undefined> = {}) =>
     request<PlatformPage<AdminMerchantRow>>(`${adminPath('/merchants')}${queryOf(params)}`, { cache: 'no-store' }, true),
@@ -1456,4 +1549,38 @@ export const merchantNotificationsApi = {
     request<void>(shopPath(shopId, `/notifications/${encodeURIComponent(key)}/read`), { method: 'POST' }, true),
   markAllRead: (shopId: number) =>
     request<void>(shopPath(shopId, '/notifications/read-all'), { method: 'POST' }, true),
+}
+
+/** AB3: public order tracking (no login; POST /api/public/orders/lookup). PII is masked by the backend. */
+export type PublicOrderStatus = {
+  orderNumber: string; shopName: string; placedAt?: string | null; status: string; paymentStatus: string; paymentMethod?: string | null
+  fulfillmentStatus?: string | null; grandTotal: Money; currency: string; paidAt?: string | null; merchantConfirmedAt?: string | null
+  cancelledAt?: string | null; completedAt?: string | null
+  recipient?: { name?: string | null; phone?: string | null; province?: string | null; postalCode?: string | null } | null
+  items?: { productName: string; optionLabel?: string | null; imageUrl?: string | null; quantity: number; lineTotal: Money }[] | null
+  shipment?: {
+    status: string; carrierCode?: string | null; carrierName?: string | null; trackingNumber?: string | null; trackingUrl?: string | null
+    packedAt?: string | null; shippedAt?: string | null; deliveredAt?: string | null
+    events?: { id: number; eventType: string; status?: string | null; location?: string | null; eventAt: string }[] | null
+  } | null
+}
+export const publicOrderApi = {
+  lookup: (orderNumber: string, contact: string) => request<PublicOrderStatus>('/api/public/orders/lookup', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderNumber, contact }),
+  }),
+}
+/** AB3: backend share page with Open Graph tags (Facebook / LINE previews). null when the API is on localhost (crawlers cannot reach it). */
+export function productShareUrl(shopSlug: string, productSlug: string): string | null {
+  if (/\/\/(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(API_URL)) return null
+  return `${API_URL}/share/p/${encodeURIComponent(shopSlug)}/${encodeURIComponent(productSlug)}`
+}
+
+
+/** Buyer favourites (V45 user_favorites): /api/me/favorites - CART_READ / CART_UPDATE. Never carries user ids. */
+export type FavoriteItem = { productId: string; productSlug: string; shopSlug: string; createdAt: string }
+export type FavoriteToggle = { productId: string; favorite: boolean; alreadyFavorite: boolean }
+export const favoritesApi = {
+  list: (shopSlug?: string) => request<FavoriteItem[]>(`/api/me/favorites${shopSlug ? `?shopSlug=${encodeURIComponent(shopSlug)}` : ''}`, { cache: 'no-store' }, true),
+  add: (productId: string) => request<FavoriteToggle>('/api/me/favorites', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId }) }, true),
+  remove: (productId: string) => request<void>(`/api/me/favorites/${encodeURIComponent(productId)}`, { method: 'DELETE' }, true),
 }

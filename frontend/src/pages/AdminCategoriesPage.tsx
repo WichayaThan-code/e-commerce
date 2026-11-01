@@ -9,11 +9,27 @@ import {
 } from 'lucide-react'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
+import AdminSidePanel from '../components/admin/AdminSidePanel'
+import AdminSelect from '../components/admin/AdminSelect'
 import { useAuth } from '../contexts/AuthContext'
 import { hasPlatformAccess } from '../services/permissions'
 import '../styles/admin-dashboard.css'
 import '../styles/admin-categories.css'
+import '../styles/admin-platform.css'
 import '../styles/admin-form-controls.css'
+import '../styles/admin-side-panel.css'
+
+const STATUS_OPTIONS = [
+  { value: '', label: 'ทั้งหมด' },
+  { value: 'ใช้งาน', label: 'ใช้งาน' },
+  { value: 'ซ่อน', label: 'ซ่อน' },
+] as const
+
+const SORT_OPTIONS = [
+  { value: 'วันที่สร้าง (ใหม่สุด)', label: 'วันที่สร้าง (ใหม่สุด)' },
+  { value: 'จำนวนสินค้า (มากสุด)', label: 'จำนวนสินค้า (มากสุด)' },
+  { value: 'ชื่อหมวดหมู่', label: 'ชื่อหมวดหมู่' },
+] as const
 
 type CategoryRow={id:number;name:string;description:string;products:number;stores:number;active:boolean;created:string;tone:string;icon:React.ComponentType<{size?:number}>}
 
@@ -33,17 +49,19 @@ const categories:CategoryRow[]=[
 export default function AdminCategoriesPage(){
   const {user,loading}=useAuth()
   const [query,setQuery]=useState('')
-  const [status,setStatus]=useState('ทั้งหมด')
+  const [status,setStatus]=useState('')
   const [sort,setSort]=useState('วันที่สร้าง (ใหม่สุด)')
   const [selected,setSelected]=useState<number[]>([])
+  const [pageSize,setPageSize]=useState(10)
   const [notice,setNotice]=useState('')
-  const filtered=useMemo(()=>categories.filter(item=>`${item.name} ${item.description}`.toLowerCase().includes(query.trim().toLowerCase())&&(status==='ทั้งหมด'||(status==='ใช้งาน'?item.active:!item.active))).sort((a,b)=>sort==='จำนวนสินค้า (มากสุด)'?b.products-a.products:sort==='ชื่อหมวดหมู่'?a.name.localeCompare(b.name,'th'):a.id-b.id),[query,status,sort])
+  const filtered=useMemo(()=>categories.filter(item=>`${item.name} ${item.description}`.toLowerCase().includes(query.trim().toLowerCase())&&(!status||(status==='ใช้งาน'?item.active:!item.active))).sort((a,b)=>sort==='จำนวนสินค้า (มากสุด)'?b.products-a.products:sort==='ชื่อหมวดหมู่'?a.name.localeCompare(b.name,'th'):a.id-b.id),[query,status,sort])
   if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
   if(!user){window.location.replace('/login');return null}
   if(!hasPlatformAccess(user)){window.location.replace('/dashboard');return null}
   const notify=(message:string)=>{setNotice(message);window.setTimeout(()=>setNotice(''),1900)}
   const toggle=(id:number)=>setSelected(rows=>rows.includes(id)?rows.filter(row=>row!==id):[...rows,id])
-  const reset=()=>{setQuery('');setStatus('ทั้งหมด');setSort('วันที่สร้าง (ใหม่สุด)')}
+  const reset=()=>{setQuery('');setStatus('');setSort('วันที่สร้าง (ใหม่สุด)')}
+  const visible=filtered.slice(0, pageSize)
 
   return <main className="admin-shell category-shell">
     <AdminHeader user={user} />
@@ -57,15 +75,27 @@ export default function AdminCategoriesPage(){
         <article className="hidden"><span>Ⅱ</span><div><b>หมวดหมู่ที่ซ่อน</b><strong>3 <em>- 0%</em></strong><small>คิดเป็น 12.5%</small></div></article>
         <article className="products"><span><BarChart3/></span><div><b>สินค้าในหมวดหมู่</b><strong>5,842 <em>↑ 18%</em></strong><small>จากเดือนก่อน</small></div></article>
       </section>
-      <section className="category-filters"><label className="category-search adm-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="ค้นหาหมวดหมู่ (ชื่อหมวดหมู่, คำอธิบาย...)" aria-label="ค้นหาหมวดหมู่"/></label><label><span>สถานะ</span><select value={status} onChange={event=>setStatus(event.target.value)}><option>ทั้งหมด</option><option>ใช้งาน</option><option>ซ่อน</option></select></label><label><span>เรียงตาม</span><select value={sort} onChange={event=>setSort(event.target.value)}><option>วันที่สร้าง (ใหม่สุด)</option><option>จำนวนสินค้า (มากสุด)</option><option>ชื่อหมวดหมู่</option></select></label><button className="category-find" onClick={()=>notify(`พบ ${filtered.length} หมวดหมู่`)}>ค้นหา</button><button className="category-reset" onClick={reset}>รีเซ็ต</button></section>
-      <section className="category-table-card"><header><h2>รายการหมวดหมู่สินค้า (24 รายการ)</h2></header><div className="category-table-scroll"><div className="category-table"><div className="category-tr category-th"><input type="checkbox" aria-label="เลือกทั้งหมด" checked={filtered.length>0&&selected.length===filtered.length} onChange={()=>setSelected(selected.length===filtered.length?[]:filtered.map(item=>item.id))}/><b>#</b><b>ไอคอน</b><b>ชื่อหมวดหมู่</b><b>จำนวนสินค้า</b><b>ร้านค้าที่ใช้งาน</b><b>สถานะ</b><b>วันที่สร้าง</b><b>การดำเนินการ</b><span/></div>{filtered.map(item=>{const Icon=item.icon;return <div className="category-tr" key={item.id}><input type="checkbox" aria-label={`เลือก ${item.name}`} checked={selected.includes(item.id)} onChange={()=>toggle(item.id)}/><span>{item.id}</span><i className={`category-icon ${item.tone}`}><Icon/></i><div className="category-name"><b>{item.name}</b><small>{item.description}</small></div><strong>{item.products.toLocaleString()}</strong><strong>{item.stores}</strong><span><i className={`category-status ${item.active?'active':'hidden'}`}><small/>{item.active?'ใช้งาน':'ซ่อน'}</i></span><span className="category-date">{item.created}</span><button className="category-manage" onClick={()=>notify(`จัดการหมวดหมู่ ${item.name}`)}>จัดการ</button><button className="category-more" aria-label={`เมนู ${item.name}`} onClick={()=>notify(`เมนูเพิ่มเติม: ${item.name}`)}><MoreVertical/></button></div>})}{filtered.length===0&&<div className="category-empty">ไม่พบหมวดหมู่ที่ตรงกับตัวกรอง</div>}</div></div><footer><div>แสดง <select aria-label="จำนวนรายการต่อหน้า"><option>10</option><option>25</option></select> รายการต่อหน้า</div><span>1 - {filtered.length} จาก 24 รายการ</span><nav aria-label="แบ่งหน้า"><button disabled><ChevronLeft/></button><button className="current">1</button><button onClick={()=>notify('เปิดหน้าที่ 2')}>2</button><button onClick={()=>notify('เปิดหน้าที่ 3')}>3</button><button onClick={()=>notify('เปิดหน้าถัดไป')}><ChevronRight/></button></nav></footer></section>
+      <form className="ap-filters category-filters" onSubmit={event => { event.preventDefault(); notify(`พบ ${filtered.length} หมวดหมู่`) }}>
+        <div className="ap-filter-search wide">
+          <span className="ap-filter-label">ค้นหา</span>
+          <label className="category-search adm-search ap-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="ค้นหาหมวดหมู่ (ชื่อหมวดหมู่, คำอธิบาย...)" aria-label="ค้นหาหมวดหมู่"/></label>
+        </div>
+        <AdminSelect label="สถานะ" value={status} onChange={setStatus} options={[...STATUS_OPTIONS]} />
+        <AdminSelect label="เรียงตาม" value={sort} onChange={setSort} options={[...SORT_OPTIONS]} />
+        <div className="ap-filter-actions">
+          <button type="button" className="ap-ghost category-reset" onClick={reset}>รีเซ็ต</button>
+          <button type="submit" className="ap-primary category-find">ค้นหา</button>
+        </div>
+      </form>
+      <div className="admin-split admin-split--with-aside">
+        <section className="category-table-card"><header><h2>รายการหมวดหมู่สินค้า (24 รายการ)</h2></header><div className="category-table-scroll"><div className="category-table"><div className="category-tr category-th"><input type="checkbox" aria-label="เลือกทั้งหมด" checked={visible.length>0&&selected.length===visible.length} onChange={()=>setSelected(selected.length===visible.length?[]:visible.map(item=>item.id))}/><b>#</b><b>ไอคอน</b><b>ชื่อหมวดหมู่</b><b>จำนวนสินค้า</b><b>ร้านค้าที่ใช้งาน</b><b>สถานะ</b><b>วันที่สร้าง</b><b>การดำเนินการ</b><span/></div>{visible.map(item=>{const Icon=item.icon;return <div className="category-tr" key={item.id}><input type="checkbox" aria-label={`เลือก ${item.name}`} checked={selected.includes(item.id)} onChange={()=>toggle(item.id)}/><span>{item.id}</span><i className={`category-icon ${item.tone}`}><Icon/></i><div className="category-name"><b>{item.name}</b><small>{item.description}</small></div><strong>{item.products.toLocaleString()}</strong><strong>{item.stores}</strong><span><i className={`category-status ${item.active?'active':'hidden'}`}><small/>{item.active?'ใช้งาน':'ซ่อน'}</i></span><span className="category-date">{item.created}</span><button className="category-manage" onClick={()=>notify(`จัดการหมวดหมู่ ${item.name}`)}>จัดการ</button><button className="category-more" aria-label={`เมนู ${item.name}`} onClick={()=>notify(`เมนูเพิ่มเติม: ${item.name}`)}><MoreVertical/></button></div>})}{filtered.length===0&&<div className="category-empty">ไม่พบหมวดหมู่ที่ตรงกับตัวกรอง</div>}</div></div><footer><div>แสดง <AdminSelect compact className="adm-page-size" label="จำนวนรายการต่อหน้า" value={String(pageSize)} onChange={value => setPageSize(Number(value))} options={[{ value: '10', label: '10' }, { value: '25', label: '25' }]} /> รายการต่อหน้า</div><span>1 - {Math.min(visible.length, filtered.length)} จาก {filtered.length} รายการ</span><nav aria-label="แบ่งหน้า"><button disabled><ChevronLeft/></button><button className="current">1</button><button onClick={()=>notify('เปิดหน้าที่ 2')}>2</button><button onClick={()=>notify('เปิดหน้าที่ 3')}>3</button><button onClick={()=>notify('เปิดหน้าถัดไป')}><ChevronRight/></button></nav></footer></section>
+        <AdminSidePanel variant="aside" bare className="category-tools">
+          <section className="popular-categories"><header><h2>หมวดหมู่ยอดนิยม</h2><button type="button" onClick={()=>notify('แสดงหมวดหมู่ยอดนิยมทั้งหมด')}>ดูทั้งหมด →</button></header><ol>{categories.slice(0,5).map((item,index)=>{const Icon=item.icon;return <li key={item.id}><b>{index+1}</b><i className={`category-icon ${item.tone}`}><Icon/></i><span><strong>{item.name}</strong><small>{item.products.toLocaleString()} สินค้า</small></span></li>})}</ol></section>
+          <section className="extra-tools"><h2>เครื่องมือเพิ่มเติม</h2>{[[SlidersHorizontal,'จัดเรียงลำดับหมวดหมู่','ลากและวางเพื่อจัดลำดับ'],[FileSpreadsheet,'นำเข้าหมวดหมู่ (Excel)','เพิ่มหมวดหมู่จำนวนมาก'],[Download,'ส่งออกข้อมูล','ดาวน์โหลดรายการหมวดหมู่'],[History,'ประวัติการเปลี่ยนแปลง','ดูบันทึกการแก้ไข'],[Settings,'ตั้งค่าการแสดงผล','จัดการการแสดงผลบนหน้าเว็บไซต์']].map(([Icon,title,detail],index)=><button key={title as string} type="button" onClick={()=>notify(title as string)}><i className={`tool-icon t${index}`}><Icon/></i><span><b>{title as string}</b><small>{detail as string}</small></span><ChevronRight/></button>)}</section>
+          <section className="category-tip"><button type="button" aria-label="ปิดคำแนะนำ" onClick={()=>notify('ปิดคำแนะนำแล้ว')}>×</button><h2><Lightbulb/>คำแนะนำ</h2><p>หมวดหมู่ที่จัดอย่างเป็นระบบ<br/>ช่วยให้ลูกค้าค้นหาสินค้าได้ง่ายขึ้น<br/>และเพิ่มโอกาสในการขายของร้านค้า</p></section>
+        </AdminSidePanel>
+      </div>
     </div>
-
-    <aside className="category-tools">
-      <section className="popular-categories"><header><h2>หมวดหมู่ยอดนิยม</h2><button onClick={()=>notify('แสดงหมวดหมู่ยอดนิยมทั้งหมด')}>ดูทั้งหมด →</button></header><ol>{categories.slice(0,5).map((item,index)=>{const Icon=item.icon;return <li key={item.id}><b>{index+1}</b><i className={`category-icon ${item.tone}`}><Icon/></i><span><strong>{item.name}</strong><small>{item.products.toLocaleString()} สินค้า</small></span></li>})}</ol></section>
-      <section className="extra-tools"><h2>เครื่องมือเพิ่มเติม</h2>{[[SlidersHorizontal,'จัดเรียงลำดับหมวดหมู่','ลากและวางเพื่อจัดลำดับ'],[FileSpreadsheet,'นำเข้าหมวดหมู่ (Excel)','เพิ่มหมวดหมู่จำนวนมาก'],[Download,'ส่งออกข้อมูล','ดาวน์โหลดรายการหมวดหมู่'],[History,'ประวัติการเปลี่ยนแปลง','ดูบันทึกการแก้ไข'],[Settings,'ตั้งค่าการแสดงผล','จัดการการแสดงผลบนหน้าเว็บไซต์']].map(([Icon,title,detail],index)=><button key={title as string} onClick={()=>notify(title as string)}><i className={`tool-icon t${index}`}><Icon/></i><span><b>{title as string}</b><small>{detail as string}</small></span><ChevronRight/></button>)}</section>
-      <section className="category-tip"><button aria-label="ปิดคำแนะนำ" onClick={()=>notify('ปิดคำแนะนำแล้ว')}>×</button><h2><Lightbulb/>คำแนะนำ</h2><p>หมวดหมู่ที่จัดอย่างเป็นระบบ<br/>ช่วยให้ลูกค้าค้นหาสินค้าได้ง่ายขึ้น<br/>และเพิ่มโอกาสในการขายของร้านค้า</p></section>
-    </aside>
     {notice&&<div className="admin-toast" role="status">{notice}</div>}
   </main>
 }

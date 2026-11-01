@@ -1,29 +1,28 @@
 import { useState } from "react";
 import {
-  BarChart3, Bell, Box, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight,
-  CircleHelp, CircleUserRound, Clock3, Crown, Download, FileText, Headphones, Home,
-  Landmark, Settings, ShoppingBag, Store, TicketPercent, TrendingUp, Truck,
+  Building2,
+  CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Download,
+  FileText,
+  Landmark,
+  ShoppingBag,
+  TrendingUp,
   WalletCards,
 } from "lucide-react";
-import MerchantBell from "../components/merchant/MerchantBell";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
-import LanguageSwitcher from "../components/LanguageSwitcher";
-import MerchantShopMenu from "../components/MerchantShopMenu";
-import MerchantLogoutButton from "../components/merchant/MerchantLogoutButton";
+import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
-import "../styles/finance.css";
+import "../styles/finance.css";
+import MerchantSidebar from "../components/merchant/MerchantSidebar";
 
-const menu = [
-  [Home, "หน้าหลัก", "/merchant/dashboard"], [Box, "จัดการสินค้า", "/merchant/products"],
-  [ShoppingBag, "คำสั่งซื้อ", "/merchant/orders", "12"], [CircleUserRound, "ลูกค้า", "/merchant/customers"],
-  [TicketPercent, "โปรโมชั่น/คูปอง", "/merchant/promotions"], [BarChart3, "รายงาน", "/merchant/reports"],
-  [WalletCards, "การเงิน", "/merchant/finance"], [Truck, "การจัดส่ง", "/merchant/shipping"],
-  [Store, "ร้านของฉัน", "/merchant/store"], [Settings, "ตั้งค่า", "/merchant/settings"],
-] as const;
 const sales = [9500, 9000, 10200, 12800, 13800, 12900, 14600, 16000, 13700, 15800, 17600, 15800, 18200, 21430];
 const income = [8200, 7100, 8400, 10400, 11600, 10200, 12000, 13500, 11100, 13500, 15100, 13400, 15900, 19000];
 const transactions = [
@@ -39,7 +38,7 @@ function Brand(){return <a className="merchant-brand" href="/"><span><ShoppingBa
 
 export default function FinancePage(){
   const {user,loading}=useAuth();
-  const {canInShop,canSeeMenuItem,deniedTitle}=usePermissions();
+  const {canInShop,deniedTitle}=usePermissions();
   const canExport=canInShop("REPORT_EXPORT");
   const [tab,setTab]=useState("ภาพรวม");
   const [range,setRange]=useState("1 ก.ย. 2026 - 12 ก.ย. 2026");
@@ -52,8 +51,8 @@ export default function FinancePage(){
   const notify=(text:string)=>{setNotice(text);window.setTimeout(()=>setNotice(""),1900)};
   const download=(kind="รายงาน")=>{const csv="date,type,order,sales,fee,income\n12/09/2026,QR,#TSF202609120045,890,44.50,845.50\n12/09/2026,Card,#TSF202609120044,1250,62.50,1187.50";const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));const link=document.createElement("a");link.href=url;link.download=`thaishopfun-${kind}.csv`;link.click();URL.revokeObjectURL(url);notify(`ดาวน์โหลด${kind}แล้ว`)};
   return <main className="merchant-shell pm-shell finance-shell">
-    <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
-    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href,badge])=><a className={label==="การเงิน"?"active":""} href={href} key={label} onClick={e=>{if((href as string)==="#"){e.preventDefault();notify(`${label}: อยู่ระหว่างเชื่อมข้อมูล`)}}}><Icon/>{label}{badge&&<i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help"><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button><MerchantLogoutButton /></div></aside>
+    <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><MerchantTopbarActions /></header>
+    <MerchantSidebar active="finance"/>
     <section className="pm-content finance-content">
       <header className="pm-heading finance-heading"><div><h1><WalletCards/>การเงิน</h1><p>ตรวจสอบยอดขาย รายได้ ค่าธรรมเนียม และการโอนเงิน</p></div><div className="finance-actions"><button onClick={()=>{const next=range.startsWith("1 ก.ย.")?"1 ส.ค. 2026 - 31 ส.ค. 2026":"1 ก.ย. 2026 - 12 ก.ย. 2026";setRange(next);notify(`เปลี่ยนช่วงวันที่เป็น ${next}`)}}><CalendarDays/><span>{range}</span><ChevronDown/></button><button disabled={!canExport} title={deniedTitle(canExport)} onClick={()=>download()}><Download/>ดาวน์โหลดรายงาน</button></div></header>
       <nav className="finance-tabs" aria-label="เมนูการเงิน">{["ภาพรวม","รายการรายรับ-รายจ่าย","ค่าธรรมเนียม","การโอนเงิน","ใบแจ้งหนี้ / ใบกำกับภาษี"].map((item,index)=><button className={tab===item?"active":""} onClick={()=>{setTab(item);notify(`แสดง${item}`)}} key={item}>{index===0&&<Landmark/>}{item}</button>)}</nav>

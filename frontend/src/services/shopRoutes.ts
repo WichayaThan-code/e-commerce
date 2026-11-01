@@ -26,6 +26,7 @@ export const marketplaceSearchPath = (q: string, brand?: string | null) => {
 };
 
 export const shopContactPath = (slug: string) => `/shop/${slug}/contact`;
+export const shopFavoritesPath = (slug: string) => `/shop/${slug}/favorites`;
 export const shopPoliciesPath = (slug: string) => `/shop/${slug}/policies`;
 
 /** แปลง :categoryKey → หา category ใน list: ตัวเลขล้วน = id, อื่นๆ = slug (รองรับเมื่อ backend เพิ่ม slug) */

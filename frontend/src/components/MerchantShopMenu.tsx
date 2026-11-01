@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, LogOut, Plus } from "lucide-react";
+import { ChevronDown, LogOut, Plus, Store } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useActiveShop } from "../contexts/ActiveShopContext";
@@ -13,6 +13,13 @@ const STATUS_LABEL: Record<NonNullable<StoreAccess["status"]>, string> = {
   PENDING_REVIEW: "รออนุมัติ",
   REJECTED: "ปฏิเสธ",
   SUSPENDED: "ถูกระงับ",
+};
+
+const STATUS_TONE: Record<NonNullable<StoreAccess["status"]>, string> = {
+  APPROVED: "is-active",
+  PENDING_REVIEW: "is-pending",
+  REJECTED: "is-bad",
+  SUSPENDED: "is-bad",
 };
 
 export default function MerchantShopMenu() {
@@ -54,13 +61,15 @@ export default function MerchantShopMenu() {
   return (
     <>
     <div className="merchant-shop-menu" ref={root}>
-      <button className="merchant-profile" type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        <span>🏪</span>
-        <p>
-          <b>{ready ? current?.shopName || "ร้านค้า" : "..."}</b>
-          <small>{current ? STATUS_LABEL[current.status] : "เจ้าของร้าน"}</small>
-        </p>
-        <ChevronDown />
+      <button className="shop-switch" type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+        <span className="shop-switch-icon" aria-hidden="true"><Store size={16} strokeWidth={2.25} /></span>
+        <span className="shop-switch-copy">
+          <strong>{ready ? current?.shopName || "ร้านค้า" : "..."}</strong>
+          <em className={current ? STATUS_TONE[current.status] : undefined}>
+            {current ? STATUS_LABEL[current.status] : "เจ้าของร้าน"}
+          </em>
+        </span>
+        <ChevronDown className="shop-switch-caret" size={16} aria-hidden="true" />
       </button>
       {open && (
         <div className="merchant-shop-menu-panel" role="listbox" aria-label="เลือกร้านค้า">

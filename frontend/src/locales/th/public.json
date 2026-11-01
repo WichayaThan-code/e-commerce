@@ -540,7 +540,8 @@
   },
   "footer": {
     "tagline": "พื้นที่ของคนไทย เพื่อร้านค้าไทยทุกคน",
-    "rights": "© 2026 ThaiShopFun. All rights reserved."
+    "rights": "© 2026 ThaiShopFun. All rights reserved.",
+    "trackOrder": "ตรวจสอบสถานะคำสั่งซื้อ"
   },
   "shops": {
     "breadcrumb": "ร้านค้าแนะนำ",
@@ -572,6 +573,50 @@
     "bannerProductsCta": "ดูสินค้าแนะนำ →"
   },
   "shop": {
+    "general": {
+      "newBadge": "ใหม่",
+      "soldCount": "ขายแล้ว {{n}} ชิ้น",
+      "allProducts": "สินค้าทั้งหมด",
+      "footerShop": "ช้อป",
+      "footerHelp": "ช่วยเหลือ",
+      "footerStore": "ร้าน",
+      "footerOrders": "คำสั่งซื้อของฉัน",
+      "footerTrack": "ติดตามพัสดุ",
+      "announceAria": "ประกาศของร้าน",
+      "ctaShop": "ช้อปเลย",
+      "ctaCategories": "ดูหมวดหมู่",
+      "menuOpen": "เปิดเมนูร้าน",
+      "menuClose": "ปิดเมนูร้าน",
+      "searchOpen": "ค้นหาในร้าน",
+      "cart": "ตะกร้าสินค้า",
+      "tabBarAria": "เมนูลัดของร้าน",
+      "footerAbout": "เกี่ยวกับร้าน",
+      "footerLinks": "ลิงก์ของร้าน",
+      "footerRights": "สงวนลิขสิทธิ์",
+      "footerPowered": "เปิดร้านบน ThaiShopFun",
+      "wishlist": "รายการโปรด",
+      "wishlistSoon": "หน้ารายการโปรดจะเปิดให้ใช้เร็วๆ นี้ กดหัวใจบนสินค้าเพื่อบันทึกไว้ก่อนได้",
+      "account": "บัญชีของฉัน",
+      "trustSub": {
+        "AUTHENTIC": "คัดสรรจากผู้ผลิตโดยตรง",
+        "FAST_SHIP": "Kerry / Flash / ไปรษณีย์",
+        "RETURNS": "เปลี่ยนคืนได้ภายใน 7 วัน",
+        "SECURE_PAY": "PromptPay / บัตร / ปลายทาง"
+      },
+      "addToCart": "เพิ่มลงตะกร้า",
+      "hoursSectionTitle": "เวลาเปิด-ปิด & ที่ตั้งร้าน",
+      "hoursCardTitle": "เวลาเปิดร้าน",
+      "mapOpen": "ดูแผนที่",
+      "call": "โทร {{phone}}",
+      "favoritesTitle": "รายการโปรด",
+      "favoritesEmpty": "ยังไม่มีสินค้าโปรดในร้านนี้",
+      "favoritesLogin": "เข้าสู่ระบบเพื่อบันทึกสินค้าที่ชอบ",
+      "favoritesLoginCta": "เข้าสู่ระบบ",
+      "favoritesLoading": "กำลังโหลด...",
+      "favoriteAdded": "เพิ่มในรายการโปรดแล้ว",
+      "favoriteRemoved": "นำออกจากรายการโปรดแล้ว",
+      "favoriteFailed": "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"
+    },
     "chrome": {
       "menuAria": "เมนูร้าน",
       "searchPlaceholder": "ค้นหาสินค้าในร้าน",
@@ -681,7 +726,16 @@
       "details": "รายละเอียดสินค้า",
       "more": "สินค้าอื่นจากร้านนี้",
       "close": "ปิด",
-      "options": "ตัวเลือก"
+      "options": "ตัวเลือก",
+      "qr": "QR Code",
+      "qrTitle": "QR Code สินค้า",
+      "qrClose": "ปิด",
+      "qrProduct": "หน้าสินค้า",
+      "qrCheckout": "ซื้อทันที",
+      "qrProductHint": "สแกนเพื่อเปิดหน้าสินค้านี้",
+      "qrCheckoutHint": "สแกนเพื่อซื้อทันที (ต้องเข้าสู่ระบบ แล้วไปหน้าชำระเงิน)",
+      "qrLocal": "กำลังรันบน localhost: QR จะใช้ได้เฉพาะเครื่องนี้",
+      "qrDownload": "ดาวน์โหลด PNG"
     },
     "productsPageAria": "แบ่งหน้าสินค้า",
     "productError": "เปิดสินค้าไม่สำเร็จ",
@@ -854,6 +908,12 @@
       "addSoon": "ใส่ตะกร้า (เร็วๆ นี้)",
       "add": "ใส่ตะกร้า",
       "adding": "กำลังใส่ตะกร้า…"
+    },
+    "heroSlider": {
+      "aria": "สไลด์รูปหน้าร้าน",
+      "prev": "รูปก่อนหน้า",
+      "next": "รูปถัดไป",
+      "goTo": "ไปที่รูปที่ {{n}}"
     }
   },
   "home": {
@@ -888,6 +948,9 @@
     "logoutOk": "ออกจากระบบแล้ว",
     "logoutFail": "ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง",
     "pickCategory": "เลือกหมวด {{name}}",
+    "loadError": "โหลดสินค้าแนะนำไม่สำเร็จ",
+    "retry": "ลองใหม่",
+    "emptyRecommended": "ยังไม่มีสินค้าแนะนำ",
     "promoThaiTitle": "ของดีจากทั่วไทย\nส่งถึงบ้านคุณ",
     "promoThaiText": "สนับสนุนผู้ประกอบการไทย\nช้อปง่าย ได้ของดี",
     "promoThaiBtn": "ช้อปสินค้าไทย",
@@ -1162,5 +1225,64 @@
         "shop": "ThaiCraft"
       }
     ]
+  },
+  "tracking": {
+    "title": "ตรวจสอบสถานะคำสั่งซื้อ",
+    "lead": "กรอกเลขคำสั่งซื้อ และเบอร์โทรผู้รับหรืออีเมลบัญชีที่ใช้สั่งซื้อ",
+    "orderNumber": "เลขคำสั่งซื้อ",
+    "contact": "เบอร์โทรผู้รับ หรืออีเมล",
+    "contactPlaceholder": "เช่น 0812345678 หรือ you@example.com",
+    "search": "ตรวจสอบ",
+    "searching": "กำลังตรวจสอบ…",
+    "required": "กรุณากรอกเลขคำสั่งซื้อและเบอร์โทร/อีเมล",
+    "notFound": "ไม่พบคำสั่งซื้อ หรือข้อมูลยืนยันไม่ตรงกัน",
+    "tooMany": "ลองหลายครั้งเกินไป กรุณารอ 15 นาทีแล้วลองใหม่",
+    "failed": "ตรวจสอบไม่สำเร็จ กรุณาลองใหม่",
+    "payment": "การชำระเงิน",
+    "total": "ยอดรวม",
+    "recipient": "ผู้รับ",
+    "shipment": "การจัดส่ง",
+    "noShipment": "ร้านยังไม่ได้จัดส่ง",
+    "openCarrier": "ติดตามที่ขนส่ง",
+    "loginHint": "ต้องการดูรายละเอียดทั้งหมด?",
+    "cta": "ติดตามคำสั่งซื้อ",
+    "steps": {
+      "payment": "ชำระเงิน",
+      "preparing": "เตรียมสินค้า",
+      "shipping": "กำลังจัดส่ง",
+      "delivered": "ได้รับสินค้า"
+    },
+    "status": {
+      "PENDING_PAYMENT": "รอชำระเงิน",
+      "PAID_AWAITING_MERCHANT_CONFIRM": "ชำระแล้ว รอร้านยืนยัน",
+      "MERCHANT_CONFIRMED": "ร้านยืนยันแล้ว",
+      "READY_TO_PACK": "รอแพ็กสินค้า",
+      "PACKING": "กำลังแพ็ก",
+      "PACKED": "แพ็กเสร็จแล้ว",
+      "DISPATCHED": "กำลังจัดส่ง",
+      "DELIVERED": "จัดส่งสำเร็จ",
+      "COMPLETED": "สำเร็จ",
+      "CANCELLED": "ยกเลิกแล้ว",
+      "REFUNDED": "คืนเงินแล้ว",
+      "REFUND_REQUESTED": "กำลังขอคืนเงิน"
+    },
+    "paymentStatus": {
+      "UNPAID": "ยังไม่ชำระ",
+      "PENDING": "รอตรวจสอบ",
+      "PAID": "ชำระแล้ว",
+      "FAILED": "ไม่สำเร็จ",
+      "REFUNDED": "คืนเงินแล้ว",
+      "PARTIALLY_REFUNDED": "คืนเงินบางส่วน"
+    },
+    "shipmentStatus": {
+      "PENDING": "รอดำเนินการ",
+      "PACKED": "แพ็กแล้ว",
+      "SHIPPED": "ส่งแล้ว",
+      "IN_TRANSIT": "อยู่ระหว่างขนส่ง",
+      "OUT_FOR_DELIVERY": "กำลังนำส่ง",
+      "DELIVERED": "ส่งถึงแล้ว",
+      "FAILED": "ส่งไม่สำเร็จ",
+      "RETURNED": "ตีกลับ"
+    }
   }
 }

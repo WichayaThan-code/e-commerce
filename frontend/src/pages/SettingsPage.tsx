@@ -2,34 +2,36 @@ import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  BarChart3, Bell, Box, CircleHelp, CircleUserRound, Clock3, CreditCard, Crown, FileText,
-  Grid2X2, Headphones, Home, Link2, Settings, ShieldCheck, ShoppingBag, Sparkles, Store,
-  TicketPercent, Trash2, Truck, UsersRound, WalletCards, type LucideIcon,
+  Bell,
+  Clock3,
+  CreditCard,
+  FileText,
+  Grid2X2,
+  Link2,
+  Settings,
+  ShieldCheck,
+  ShoppingBag,
+  Sparkles,
+  Trash2,
+  Truck,
+  UsersRound,
+  type LucideIcon,
 } from "lucide-react";
-import MerchantBell from "../components/merchant/MerchantBell";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
-import LanguageSwitcher from "../components/LanguageSwitcher";
-import MerchantShopMenu from "../components/MerchantShopMenu";
+import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
 import ShopPoliciesEditor from "../components/merchant/ShopPoliciesEditor";
 import ShippingMethodsSettings from "../components/merchant/ShippingMethodsSettings";
 import PaymentSettings from "../components/merchant/PaymentSettings";
 import ConfirmDialog from "../components/form/ConfirmDialog";
-import MerchantLogoutButton from "../components/merchant/MerchantLogoutButton";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { usePermissions } from "../hooks/usePermissions";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
-import "../styles/settings.css";
+import "../styles/settings.css";
+import MerchantSidebar from "../components/merchant/MerchantSidebar";
 
-const menu = [
-  [Home,"หน้าหลัก","/merchant/dashboard"],[Box,"จัดการสินค้า","/merchant/products"],
-  [ShoppingBag,"คำสั่งซื้อ","/merchant/orders","12"],[CircleUserRound,"ลูกค้า","/merchant/customers"],
-  [TicketPercent,"โปรโมชั่น/คูปอง","/merchant/promotions"],[BarChart3,"รายงาน","/merchant/reports"],
-  [WalletCards,"การเงิน","/merchant/finance"],[Truck,"การจัดส่ง","/merchant/shipping"],
-  [Store,"ร้านของฉัน","/merchant/store"],[Settings,"ตั้งค่า","/merchant/settings"],
-] as const;
 
 /** /merchant/settings = operational settings. Shop profile/appearance/hours live in /merchant/store. */
 type SettingsTabKey = "policies" | "general" | "payment" | "shipping" | "integrations" | "team" | "notifications" | "security" | "plan";
@@ -62,7 +64,7 @@ function resolveTab(raw: string | null): SettingsTabKey {
 export default function SettingsPage(){
   const {user,loading}=useAuth();
   const {shopId,ready}=useActiveShop();
-  const {canInShop,canSeeMenuItem,deniedTitle}=usePermissions();
+  const {canInShop,deniedTitle}=usePermissions();
   const {t}=useTranslation("merchant");
   const navigate=useNavigate();
   const [searchParams,setSearchParams]=useSearchParams();
@@ -118,8 +120,8 @@ export default function SettingsPage(){
   const CurrentIcon=current.icon;
 
   return <main className="merchant-shell pm-shell settings-shell">
-    <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><LanguageSwitcher /> <MerchantBell /><MerchantShopMenu /></header>
-    <aside className="merchant-sidebar pm-sidebar"><nav>{menu.filter(canSeeMenuItem).map(([Icon,label,href,badge])=><a className={label==="ตั้งค่า"?"active":""} href={href} key={label} onClick={e=>guardHref(e,href)}><Icon/>{label}{badge&&<i>{badge}</i>}</a>)}</nav><section className="upgrade-card"><Crown/><h3>ยกระดับร้านค้าของคุณ</h3><p>ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย<br/>ได้มากกว่าเดิม</p><button onClick={()=>notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>ดูแพ็กเกจ</button></section><div className="merchant-support"><a href="/help" onClick={e=>guardHref(e,"/help")}><CircleHelp/>ศูนย์ช่วยเหลือ</a><button onClick={()=>notify("กำลังติดต่อทีมงาน")}><Headphones/>ติดต่อทีมงาน</button><MerchantLogoutButton /></div></aside>
+    <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><MerchantTopbarActions /></header>
+    <MerchantSidebar active="settings" onNavigate={guardHref}/>
     <section className="pm-content settings-content">
       <header className="pm-heading settings-heading"><div><h1><Settings/>ตั้งค่า</h1><p>นโยบายร้าน การชำระเงิน การจัดส่ง และบัญชีผู้ใช้ · ข้อมูลร้าน ธีม และเวลาทำการ อยู่ที่ <a href="/merchant/store" onClick={e=>guardHref(e,"/merchant/store")}>ร้านของฉัน</a></p></div></header>
       <nav className="settings-tabs" aria-label="หมวดการตั้งค่า">{SETTINGS_TABS.map((tab,index)=>{const Icon=tab.icon;const sep=index>0&&SETTINGS_TABS[index-1].group!==tab.group;return [sep?<span key={`${tab.key}-sep`} className="settings-tab-sep" aria-hidden="true"/>:null,<button key={tab.key} type="button" className={activeTab===tab.key?"active":""} aria-current={activeTab===tab.key?"page":undefined} onClick={()=>requestTab(tab.key)}><Icon/>{tab.label}</button>]})}</nav>

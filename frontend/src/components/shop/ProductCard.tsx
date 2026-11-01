@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usesTsfTree } from "../../theme/shopTheme";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { loginPathForCart, useOptionalCart } from "../../contexts/CartContext";
@@ -7,6 +8,8 @@ import { Heart, ShoppingCart, Star } from "lucide-react";
 import { usePublicTranslation } from "../../hooks/usePublicTranslation";
 import { mediaUrl, type PublicProduct, type PublicShop } from "../../services/api";
 import { localizedText } from "../../services/catalogText";
+import { useOptionalShopPublic } from "../../contexts/ShopPublicContext";
+import { TsfProductCard } from "./general/GeneralStorefront";
 
 export type ProductCardVariant = "catalog" | "featured-row" | "featured-large" | "menu-row";
 
@@ -43,7 +46,16 @@ function optionalMetric(product: PublicProduct, key: "rating" | "soldCount" | "s
   return Number.isFinite(number) && number > 0 ? number : null;
 }
 
-export default function ProductCard({
+/** GENERAL storefront (themes port): shop subpages use the artifact ProductCard; other templates keep the legacy card. */
+export default function ProductCard(props: ProductCardProps) {
+  const storefront = useOptionalShopPublic();
+  if (usesTsfTree(storefront?.theme.templateKey)) {
+    return <TsfProductCard shop={props.shop} product={props.product} favorite={props.favorites.includes(props.product.id)} onToggleFavorite={props.onToggleFavorite} onNotify={props.onNotify} />;
+  }
+  return <LegacyProductCard {...props} />;
+}
+
+function LegacyProductCard({
   shop,
   product,
   variant = "catalog",
@@ -165,7 +177,7 @@ export default function ProductCard({
           <h2><span>{name}</span></h2>
           {description ? <p className="shop-menu-desc">{description}</p> : null}
           <div className="shop-menu-foot">
-            <p className="recommend-price shop-price-catalog">
+            <p className={`recommend-price shop-price-catalog${discount != null ? " is-sale" : ""}`}>
               <b className="num">{price == null ? "—" : money(price, localeTag)}</b>
               {compare != null && discount != null && <del className="num">{money(compare, localeTag)}</del>}
             </p>
@@ -192,7 +204,7 @@ export default function ProductCard({
   );
 
   const priceRow = (
-    <p className={`recommend-price ${rail ? "shop-price-featured" : "shop-price-catalog"}`}>
+    <p className={`recommend-price ${rail ? "shop-price-featured" : "shop-price-catalog"}${discount != null ? " is-sale" : ""}`}>
       <b className="num">{price == null ? "—" : money(price, localeTag)}</b>
       {compare != null && discount != null && <del className="num">{money(compare, localeTag)}</del>}
     </p>

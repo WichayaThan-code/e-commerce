@@ -8,6 +8,8 @@ import {
 } from "../components/shop/sections/types";
 import { useShopPublic } from "../contexts/ShopPublicContext";
 import { useDelayedLoading } from "./useDelayedLoading";
+import { useFavorites } from "./useFavorites";
+import { usePublicTranslation } from "./usePublicTranslation";
 import { shopApi, type PublicProduct } from "../services/api";
 import { SHOP_PRICE_BAND_IDS, shopPriceBandsQuery, type ShopPriceBandId } from "../services/shopPriceBands";
 
@@ -65,7 +67,12 @@ export function useShopCatalog(options: {
   const [total, setTotal] = useState(0);
   const [productState, setProductState] = useState<"loading" | "error" | "ok">(enabled ? "loading" : "ok");
   const [brandQuery, setBrandQuery] = useState("");
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const { tp } = usePublicTranslation();
+  const favoriteMessages = useMemo(() => ({
+    login: tp("shop.general.favoritesLogin"), added: tp("shop.general.favoriteAdded"),
+    removed: tp("shop.general.favoriteRemoved"), failed: tp("shop.general.favoriteFailed"),
+  }), [tp]);
+  const { ids: favorites, toggle: toggleFavorite } = useFavorites(slug, notify, favoriteMessages);
   const [reloadKey, setReloadKey] = useState(0);
 
   const productLoading = productState === "loading";
@@ -180,6 +187,8 @@ export function useShopCatalog(options: {
     priceBands,
     brandQuery,
     favorites,
+    toggleFavorite,
+    products,
     categoryId,
     categoryLocked,
     onSort,
@@ -187,9 +196,9 @@ export function useShopCatalog(options: {
     onPage,
     onTogglePriceBand,
     onBrandQuery: setBrandQuery,
-    onToggleFavorite: (productId) => setFavorites((current) => (
-      current.includes(productId) ? current.filter((id) => id !== productId) : [...current, productId]
-    )),
+    onToggleFavorite: (productId) => {
+      void toggleFavorite(productId, products.find((product) => product.id === productId)?.slug);
+    },
     onCategory,
     onRetry: loadProducts,
     onNotify: notify,

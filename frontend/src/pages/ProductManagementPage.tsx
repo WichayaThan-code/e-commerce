@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { SkeletonTable, SkeletonBusy, LoadError } from "../components/feedback/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { Link, useSearchParams } from "react-router-dom";
-import { Archive, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Download, Eye, LoaderCircle, Pencil, Plus, RotateCcw, Search, Upload } from "lucide-react";
+import { Archive, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Download, Ellipsis, ExternalLink, Eye, Link2, LoaderCircle, Pencil, Plus, QrCode, RotateCcw, Search, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useImportActivity } from "../contexts/ImportActivityContext";
 import ConfirmDialog from "../components/form/ConfirmDialog";
 import MerchantShell from "../components/merchant/MerchantShell";
 import AuthImage from "../components/merchant/AuthImage";
 import SearchableSelect from "../components/SearchableSelect";
+import ProductQrModal from "../components/shop/ProductQrModal";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { useAuth } from "../contexts/AuthContext";
 import { usePermissions } from "../hooks/usePermissions";
@@ -16,6 +17,7 @@ import { labelForCategory } from "../services/categories";
 import { catalogMessage, formatMoney, formatWhen } from "../services/catalogText";
 import { hasMerchantAccess, hasPlatformAccess } from "../services/permissions";
 import { ApiError, catalogApi, productApi, type Product, type ProductBrand, type ProductCategory, type ProductSort, type ProductStatus, type StockFilter } from "../services/api";
+import { canOpenStorefront, copyText, productPageUrl, productShareLink } from "../utils/productLinks";
 import type { Locale } from "../i18n";
 
 const tabs = [
@@ -60,7 +62,9 @@ export default function ProductManagementPage() {
   const canCreate = canInShop("PRODUCT_CREATE");
   const canUpdate = canInShop("PRODUCT_UPDATE");
   const canArchive = canInShop("PRODUCT_ARCHIVE");
-  const { shopId } = useActiveShop();
+  const { shopId, shops } = useActiveShop();
+  const shop = shops.find((item) => item.shopId === shopId);
+  const shopSlug = shop?.slug?.trim() || "";
   const [params, setParams] = useSearchParams();
   const q = params.get("q") || "";
   const status = (params.get("status") || "") as "" | ProductStatus;
@@ -88,6 +92,8 @@ export default function ProductManagementPage() {
   const { busy: importBusy, finishedTick, startImport, job: importJob } = useImportActivity();
   const importRef = useRef<HTMLInputElement>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [qrProduct, setQrProduct] = useState<Product | null>(null);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
 
   useEffect(() => { setQuery(q); }, [q]);
   useEffect(() => {
@@ -190,6 +196,126 @@ export default function ProductManagementPage() {
     setTone(nextTone);
     setNotice(text);
     window.setTimeout(() => setNotice(""), 2200);
+  };
+  useEffect(() => {
+    if (!menuFor) return;
+    const close = () => setMenuFor(null);
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") close(); };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menuFor]);
+
+  const rowActions = (product: Product) => {
+    const storefrontOk = canOpenStorefront(product.status, shopSlug, product.slug);
+    const storefrontTip = storefrontOk ? undefined : t("catalog.actions.notPublished");
+    const open = menuFor === product.id;
+    const closeMenu = () => setMenuFor(null);
+    return (
+      <div className="pm-row-actions">
+        {canUpdate
+          ? <Link aria-label={t("catalog.actions.edit")} title={t("catalog.actions.edit")} to={`/merchant/products/${product.id}/edit`}><Pencil /></Link>
+          : <button type="button" aria-label={t("catalog.actions.edit")} disabled title={deniedTitle(false)}><Pencil /></button>}
+        <div className="pm-share-wrap" onPointerDown={(event) => event.stopPropagation()}>
+          <button
+            type="button"
+            aria-label={t("catalog.actions.more")}
+            title={t("catalog.actions.more")}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            onClick={() => setMenuFor((current) => (current === product.id ? null : product.id))}
+          >
+            <Ellipsis />
+          </button>
+          {open ? (
+            <div className="pm-row-menu" role="menu">
+              <Link role="menuitem" to={`/merchant/products/${product.id}`} onClick={closeMenu}>
+                <Eye />{t("catalog.actions.view")}
+              </Link>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={!storefrontOk}
+                title={storefrontTip}
+                onClick={() => {
+                  if (!storefrontOk) return;
+                  closeMenu();
+                  window.open(productPageUrl(shopSlug, product.slug), "_blank", "noopener,noreferrer");
+                }}
+              >
+                <ExternalLink />{t("catalog.actions.viewStorefront")}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={!storefrontOk}
+                title={storefrontTip}
+                onClick={() => {
+                  if (!storefrontOk) return;
+                  closeMenu();
+                  void copyText(productShareLink(shopSlug, product.slug)).then((ok) => {
+                    toast(ok ? t("catalog.toast.linkCopied") : catalogMessage(t, null), ok ? "ok" : "fail");
+                  });
+                }}
+              >
+                <Link2 />{t("catalog.actions.copyLink")}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={!storefrontOk}
+                title={storefrontTip}
+                onClick={() => {
+                  if (!storefrontOk) return;
+                  closeMenu();
+                  setQrProduct(product);
+                }}
+              >
+                <QrCode />{t("catalog.actions.qrCode")}
+              </button>
+              {product.status === "ARCHIVED" ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={busy || !canArchive}
+                  title={deniedTitle(canArchive) ?? t("catalog.actions.unarchive")}
+                  onClick={() => { closeMenu(); void runMany([product.id], "unarchive"); }}
+                >
+                  <RotateCcw />{t("catalog.actions.unarchive")}
+                </button>
+              ) : (
+                <>
+                  {product.status !== "PUBLISHED" ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={busy || !canUpdate}
+                      title={deniedTitle(canUpdate)}
+                      onClick={() => { closeMenu(); void runMany([product.id], "publish"); }}
+                    >
+                      <Upload />{t("catalog.actions.publish")}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="danger"
+                    disabled={busy || !canArchive}
+                    title={deniedTitle(canArchive)}
+                    onClick={() => { closeMenu(); setConfirmIds([product.id]); }}
+                  >
+                    <Archive />{t("catalog.actions.archive")}
+                  </button>
+                </>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
   };
   const runMany = async (ids: string[], action: "publish" | "archive" | "unarchive") => {
     if (shopId == null) return;
@@ -410,18 +536,7 @@ export default function ProductManagementPage() {
                         </td>
                         <td className="pm-state-cell"><span className={product.status === "PUBLISHED" ? "pm-status ready" : product.status === "ARCHIVED" ? "pm-status empty" : "pm-status low"}>{t(`catalog.status.${product.status}`)}</span></td>
                         <td className="pm-clip" title={formatWhen(product.modifiedAt, locale)}>{formatWhen(product.modifiedAt, locale)}</td>
-                        <td>
-                          <div className="pm-row-actions">
-                            <Link aria-label={t("catalog.actions.view")} to={`/merchant/products/${product.id}`}><Eye /></Link>
-                            {canUpdate ? <Link aria-label={t("catalog.actions.edit")} to={`/merchant/products/${product.id}/edit`}><Pencil /></Link> : <button type="button" aria-label={t("catalog.actions.edit")} disabled title={deniedTitle(false)}><Pencil /></button>}
-                            {product.status === "ARCHIVED"
-                              ? <button type="button" aria-label={t("catalog.actions.unarchive")} title={deniedTitle(canArchive) ?? t("catalog.actions.unarchive")} disabled={busy || !canArchive} onClick={() => void runMany([product.id], "unarchive")}><RotateCcw /></button>
-                              : <>
-                                  {product.status !== "PUBLISHED" ? <button type="button" aria-label={t("catalog.actions.publish")} title={deniedTitle(canUpdate)} disabled={busy || !canUpdate} onClick={() => void runMany([product.id], "publish")}><Upload /></button> : null}
-                                  <button type="button" className="delete" aria-label={t("catalog.actions.archive")} title={deniedTitle(canArchive)} disabled={busy || !canArchive} onClick={() => setConfirmIds([product.id])}><Archive /></button>
-                                </>}
-                          </div>
-                        </td>
+                        <td>{rowActions(product)}</td>
                       </tr>
                     );
                   })}
@@ -446,16 +561,7 @@ export default function ProductManagementPage() {
                       <span><span className="num">{priceLabel(product, locale, formatMoney)}</span> · <span className="num">{available}</span></span>
                       <em className={badge === "out" ? "pm-status empty" : badge === "low" ? "pm-status low" : "pm-status ready"}>{badge === "in" ? t(`catalog.status.${product.status}`) : t(`catalog.badges.${badge}`)}</em>
                       <small>{formatWhen(product.modifiedAt, locale)}</small>
-                      <div className="pm-row-actions">
-                        <Link aria-label={t("catalog.actions.view")} to={`/merchant/products/${product.id}`}><Eye /></Link>
-                        {canUpdate ? <Link aria-label={t("catalog.actions.edit")} to={`/merchant/products/${product.id}/edit`}><Pencil /></Link> : <button type="button" aria-label={t("catalog.actions.edit")} disabled title={deniedTitle(false)}><Pencil /></button>}
-                        {product.status === "ARCHIVED"
-                          ? <button type="button" aria-label={t("catalog.actions.unarchive")} title={deniedTitle(canArchive) ?? t("catalog.actions.unarchive")} disabled={busy || !canArchive} onClick={() => void runMany([product.id], "unarchive")}><RotateCcw /></button>
-                          : <>
-                              {product.status !== "PUBLISHED" ? <button type="button" title={deniedTitle(canUpdate)} disabled={busy || !canUpdate} onClick={() => void runMany([product.id], "publish")}><Upload /></button> : null}
-                              <button type="button" className="delete" title={deniedTitle(canArchive)} disabled={busy || !canArchive} onClick={() => setConfirmIds([product.id])}><Archive /></button>
-                            </>}
-                      </div>
+                      {rowActions(product)}
                     </div>
                   </article>
                 );
@@ -533,6 +639,13 @@ export default function ProductManagementPage() {
           onConfirm={() => void runMany(confirmIds, "archive")}
         />
       )}
+      {qrProduct && shopSlug ? (
+        <ProductQrModal
+          productUrl={productPageUrl(shopSlug, qrProduct.slug)}
+          name={qrProduct.nameTh}
+          onClose={() => setQrProduct(null)}
+        />
+      ) : null}
     </MerchantShell>
   );
 }

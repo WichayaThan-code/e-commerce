@@ -3,17 +3,19 @@ import { Skeleton, SkeletonText, LoadError } from "../components/feedback/Skelet
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, ShoppingCart, Store, Truck, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, QrCode, ShoppingCart, Store, Truck, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { loginPathForCart, useCart } from "../contexts/CartContext";
 import { cartErrorMessage, isOwnShop } from "../components/cart/cartFormat";
 import { useShopCrumb, useShopPublic } from "../contexts/ShopPublicContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import { localizedText } from "../services/catalogText";
-import { ApiError, mediaUrl, shopApi, type PublicProduct, type PublicShopCategory, type PublicSku } from "../services/api";
+import { ApiError, mediaUrl, recommendationApi, shopApi, type PublicProduct, type PublicShopCategory, type PublicSku } from "../services/api";
 import { shopCategoryPath, shopPath, shopProductPath } from "../services/shopRoutes";
 import NotFoundPage from "./NotFoundPage";
 import ProductConfiguratorPanel from "../components/shop/ProductConfiguratorPanel";
+import ProductQrModal from "../components/shop/ProductQrModal";
+import { copyText, productPageUrl, productShareLink } from "../utils/productLinks";
 import "../styles/recommended-products.css";
 import "../styles/shop-page.css";
 
@@ -117,6 +119,9 @@ export default function ShopProductPage() {
 
   useEffect(() => { load(); }, [slug, productSlug]);
 
+  // Record a product view for recommendations / recently viewed (fire-and-forget, never blocks the page).
+  useEffect(() => { if (product?.id) recommendationApi.recordView(product.id).catch(() => {}); }, [product?.id]);
+
   useEffect(() => {
     if (state === "ok" && product) markHasData();
   }, [state, product, markHasData]);
@@ -164,8 +169,13 @@ export default function ShopProductPage() {
   const compare = selectedSku ? amount(selectedSku.compareAtPrice) ?? amount(product?.compareAtPrice) : prices.length <= 1 ? amount(product?.compareAtPrice) : null;
   const discount = currentPrice != null && compare != null && compare > currentPrice ? Math.round((1 - currentPrice / compare) * 100) : 0;
 
+  /** Clean product page URL (no query) for QR / fallback sharing. */
+  const pageUrl = product ? productPageUrl(slug, product.slug) : window.location.href.split(/[?#]/)[0];
+  /** Facebook / LINE need the backend OG page (/share/p/...) on a public domain; on localhost use the page URL. */
+  const shareUrl = product ? productShareLink(slug, product.slug) : pageUrl;
+  const [qrOpen, setQrOpen] = useState(false);
   const share = (kind: "facebook" | "line" | "x") => {
-    const url = encodeURIComponent(window.location.href);
+    const url = encodeURIComponent(shareUrl);
     const target = kind === "facebook"
       ? `https://www.facebook.com/sharer/sharer.php?u=${url}`
       : kind === "line"
@@ -174,15 +184,11 @@ export default function ShopProductPage() {
     window.open(target, "_blank", "noopener,noreferrer");
   };
   const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      notify(tp("shop.view.copied"));
-    } catch {
-      notify(tp("shop.productError"));
-    }
+    const ok = await copyText(shareUrl);
+    notify(ok ? tp("shop.view.copied") : tp("shop.productError"));
   };
   /** Adds the chosen SKU through the cart API. Returns true when at least 1 piece was added. */
-  const placeInCart = async (configuration?: { selections: Record<string, unknown>; version?: number }) => {
+  const placeInCart = async (configuration?: { selections: Record<string, unknown>; version?: number }, now = false) => {
     // guests sign in first; admins blocked; merchants may buy other shops but not their own
     if (cart.access === "guest") { notify(tp("cart.loginToAdd")); window.location.assign(loginPathForCart()); return false; }
     if (cart.access === "blocked") { notify(tp("cart.blocked.toast")); return false; }
@@ -195,7 +201,9 @@ export default function ShopProductPage() {
     }
     setAdding(true);
     try {
-      const result = configuration ? await cart.addConfigured(selectedSku.id, qty, configuration) : await cart.add(selectedSku.id, qty);
+      const result = now
+        ? await cart.buyNow(selectedSku.id, qty, configuration)
+        : configuration ? await cart.addConfigured(selectedSku.id, qty, configuration) : await cart.add(selectedSku.id, qty);
       if (result?.adjusted) {
         if (result.appliedQuantity < 1) { notify(tp("cart.errors.stockLeftInCart", { count: stock, inCart: stock })); return false; }
         notify(tp("cart.quantityAdjusted", { count: result.appliedQuantity }));
@@ -214,8 +222,16 @@ export default function ShopProductPage() {
   };
   const buyNow = async () => {
     if (adding) return;
-    if (await placeInCart()) navigate("/cart");
+    if (await placeInCart(undefined, true)) navigate("/checkout");
   };
+  // QR "checkout" links carry ?buy=1: run Buy Now once when the page is ready (guests are sent to login and come back here)
+  const autoBuy = useRef(new URLSearchParams(window.location.search).get("buy") === "1");
+  useEffect(() => {
+    if (!autoBuy.current || !product || cart.access === "loading") return;
+    autoBuy.current = false;
+    void buyNow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product, cart.access, selectedSku]);
 
   const name = product ? localizedText(localeTag, product.nameTh, product.nameEn, product.nameZh) : "";
   const description = product ? localizedText(localeTag, product.descriptionTh, product.descriptionEn, product.descriptionZh) : "";
@@ -300,6 +316,7 @@ export default function ShopProductPage() {
                 <button type="button" aria-label={tp("shop.view.shareFacebook")} onClick={() => share("facebook")}><Facebook /></button>
                 <button type="button" aria-label={tp("shop.view.shareLine")} onClick={() => share("line")}>{tp("shop.view.line")}</button>
                 <button type="button" aria-label={tp("shop.view.shareX")} onClick={() => share("x")}>X</button>
+                <button type="button" aria-label={tp("shop.view.qr")} onClick={() => setQrOpen(true)}><QrCode /></button>
               </div>
             </div>
             <div className="buyer-info">
@@ -354,7 +371,14 @@ export default function ShopProductPage() {
                   const ok = await placeInCart({ selections, version });
                   if (ok) notify(tp("shop.view.added"));
                   return ok;
+                }}
+                onBuyNow={async ({ selections, version }) => {
+                  if (adding) return false;
+                  const ok = await placeInCart({ selections, version }, true);
+                  if (ok) navigate("/checkout");
+                  return ok;
                 }} /> : null}
+              {qrOpen && product ? <ProductQrModal productUrl={pageUrl} name={name} onClose={() => setQrOpen(false)} /> : null}
             </div>
           </article>
           <section className="buyer-card buyer-shop">

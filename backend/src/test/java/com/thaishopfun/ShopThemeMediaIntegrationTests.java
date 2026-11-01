@@ -244,21 +244,26 @@ class ShopThemeMediaIntegrationTests {
     }
 
     @Test
-    void nonCustomThemeCannotUpload() throws Exception {
+    void nonCustomThemeUploadsImagesOnly() throws Exception {
         var owner = register("media-general@example.com", "0815200005");
         long shopId = openShop(owner, "ร้านทั่วไปสื่อ", "Media General Shop", "1100000000205");
         approve(shopId);
 
-        // No theme row yet = GENERAL.
-        mvc.perform(upload(owner, shopId, "IMAGE", file("a.png", "image/png", png(1))))
+        // No theme row yet = GENERAL: VIDEO / FONT stay CUSTOM-only, IMAGE (hero slides) is allowed.
+        mvc.perform(upload(owner, shopId, "VIDEO", file("a.mp4", "video/mp4", mp4())))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("THEME_MEDIA_CUSTOM_ONLY"));
-
         saveTheme(owner, shopId, "GENERAL", "[]");
-        mvc.perform(upload(owner, shopId, "IMAGE", file("a.png", "image/png", png(1))))
+        mvc.perform(upload(owner, shopId, "FONT", file("a.woff2", "font/woff2", woff2())))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("THEME_MEDIA_CUSTOM_ONLY"));
+        mvc.perform(upload(owner, shopId, "IMAGE", file("a.svg", "image/svg+xml", "<svg/>".getBytes(StandardCharsets.UTF_8))))
+            .andExpect(status().isBadRequest());
         assertEquals(0, themeMedia.count());
+        mvc.perform(upload(owner, shopId, "IMAGE", file("a.png", "image/png", png(1))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.kind").value("IMAGE"));
+        assertEquals(1, themeMedia.count());
     }
 
     @Test

@@ -337,7 +337,7 @@ export default function CheckoutPage() {
     return index === 0 ? node : <span key={`sep-${group.shopId}`}>, {node}</span>;
   });
 
-  return <main className="cart-page checkout-page">
+  return <main className="cart-page checkout-page checkout-cartlook">
     <div className="cart-heading cart-width"><Link to="/cart"><ArrowLeft size={16}/> {tp("checkout.backToCart")}</Link><ol aria-label={tp("checkout.steps.label")}><li><span>1</span> {tp("checkout.steps.cart")}</li><li aria-current="step"><span>2</span> {tp("checkout.steps.checkout")}</li><li><span>3</span> {tp("checkout.steps.done")}</li></ol></div>
     <div className="cart-page-title cart-width"><div className="cart-title"><CreditCard/><div><h1>{tp("checkout.title")}</h1><p>{tp("checkout.subtitle")}</p></div></div></div>
 

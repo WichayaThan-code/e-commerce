@@ -603,6 +603,73 @@ class OrderIntegrationTests {
         assertEquals(1, orderCount());
     }
 
+    @Autowired com.thaishopfun.order.PublicOrderLookupRateLimiter lookupLimiter;
+
+    private ResultActions lookup(String ip, String json) throws Exception {
+        return mvc.perform(post("/api/public/orders/lookup").with(r -> { r.setRemoteAddr(ip); return r; })
+            .contentType(MediaType.APPLICATION_JSON).content(json));
+    }
+
+    @Test
+    void publicOrderLookupVerifiesContactMasksPiiAndRateLimits() throws Exception {
+        lookupLimiter.reset();
+        var shop = openShop("o-track@example.com", "0815000092", "TrackShop", "Track", "1234567890492");
+        var sku = sku(publishedVariantProduct(shop, "TK"), "TK-BLK-S");
+        var buyer = token("o-track-buyer@example.com", "0815000192");
+        add(buyer, sku, 1);
+        var out = checkout(buyer, "track-key-0001").andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String number = JsonPath.read(out, "$.orders[0].orderNumber");
+        String body = "{\"orderNumber\":\"%s\",\"contact\":\"%s\"}";
+        // phone in another format + lower-case number -> 200, masked view without ids / owner contact
+        var ok = lookup("10.0.0.1", body.formatted(number.toLowerCase(), "+66 81-234-5678")).andExpect(status().isOk())
+            .andExpect(jsonPath("$.orderNumber").value(number))
+            .andExpect(jsonPath("$.status").value("PENDING_PAYMENT"))
+            .andExpect(jsonPath("$.recipient.phone").value("xxx-xxx-5678"))
+            .andExpect(jsonPath("$.items.length()").value(1))
+            .andExpect(jsonPath("$.shipment").doesNotExist())
+            .andExpect(jsonPath("$.id").doesNotExist())
+            .andExpect(jsonPath("$.buyerUserId").doesNotExist())
+            .andReturn().getResponse().getContentAsString();
+        assertFalse(ok.contains("0812345678"));
+        assertFalse(ok.contains("o-track@example.com"));
+        assertFalse(ok.contains("0815000092"));
+        // buyer e-mail, case-insensitive
+        lookup("10.0.0.1", body.formatted(number, " O-Track-Buyer@Example.com ")).andExpect(status().isOk());
+        // wrong contact and unknown number look exactly the same
+        lookup("10.0.0.2", body.formatted(number, "0899999999")).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+        lookup("10.0.0.2", body.formatted("TSF-20000101-ZZZZZZ", "0812345678")).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("ORDER_NOT_FOUND"));
+        lookup("10.0.0.2", body.formatted(number, "someone@else.com")).andExpect(status().isNotFound());
+        lookup("10.0.0.2", "{}").andExpect(status().isNotFound());
+        lookup("10.0.0.2", body.formatted("TSF-20000101-YYYYYY", "x")).andExpect(status().isNotFound());
+        // 5 failures from this IP -> even a correct lookup is blocked
+        lookup("10.0.0.2", body.formatted(number, "0812345678")).andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.code").value("TOO_MANY_LOOKUPS"));
+        // other IP still fine (order number has 2 failures)
+        lookup("10.0.0.3", body.formatted(number, "0812345678")).andExpect(status().isOk());
+        lookup("10.0.0.4", body.formatted(number, "0800000001")).andExpect(status().isNotFound());
+        lookup("10.0.0.5", body.formatted(number, "0800000002")).andExpect(status().isNotFound());
+        lookup("10.0.0.7", body.formatted(number, "0800000003")).andExpect(status().isNotFound());
+        // 5 failures on this order number -> blocked from any IP
+        lookup("10.0.0.6", body.formatted(number, "0812345678")).andExpect(status().isTooManyRequests());
+        lookupLimiter.reset();
+        lookup("10.0.0.6", body.formatted(number, "0812345678")).andExpect(status().isOk());
+    }
+
+    @Test
+    void productShareLinkRendersEscapedOpenGraphAndRedirects() throws Exception {
+        var shop = openShop("o-share@example.com", "0815000093", "ShareShop", "Share", "1234567890493");
+        String productId = JsonPath.read(publishedVariantProduct(shop, "SH"), "$.id");
+        var slugs = jdbc.queryForMap("select s.slug as shop_slug, p.slug as product_slug from products p join shops s on s.id = p.shop_id where p.id = ?",
+            UUID.fromString(productId));
+        jdbc.update("update products set name_th = ? where id = ?", "Tee <script>\"x\"", UUID.fromString(productId));
+        var html = mvc.perform(get("/share/p/%s/%s".formatted(slugs.get("shop_slug"), slugs.get("product_slug"))))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertTrue(html.contains("og:title"));
+        assertTrue(html.contains("Tee &lt;script&gt;&quot;x&quot;"));
+        assertFalse(html.contains("<script>\"x\""));
+        assertTrue(html.contains("/shop/" + slugs.get("shop_slug") + "/product/" + slugs.get("product_slug")));
+        mvc.perform(get("/share/p/%s/no-such-product".formatted(slugs.get("shop_slug")))).andExpect(status().isNotFound());
+    }
+
     private ResultActions checkout(String buyer, String key) throws Exception {
         var req = post("/api/checkout");
         if (key != null) req.header("Idempotency-Key", key);

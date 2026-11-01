@@ -34,7 +34,11 @@ public class ShopThemeMediaService {
     /** AG3: IMAGE background of a layout block ({@code layout.blocks[].settings.backgroundMediaId}). */
     private static final String BLOCK_MEDIA_KEY = "backgroundMediaId";
     /** AG5: extra id keys of the CUSTOM chrome (hero video poster, custom fonts). */
-    private static final Set<String> CHROME_MEDIA_KEYS = Set.of("posterMediaId", "headingMediaId", "bodyMediaId");
+    private static final Set<String> CHROME_MEDIA_KEYS = Set.of("posterMediaId", "headingMediaId", "bodyMediaId", "slideMediaId", "introMediaId");
+    /** Hero slider (every template): {@code hero.slides[].slideMediaId}, at most {@link #MAX_HERO_SLIDES}. */
+    public static final String SLIDE_KEY = "slideMediaId";
+    public static final int MAX_HERO_SLIDES = 5;
+    public static final String INTRO_KEY = "introMediaId";
 
     private final ShopThemeMediaRepository media;
     private final ShopThemeRepository themes;
@@ -66,7 +70,8 @@ public class ShopThemeMediaService {
         var shop = ownedShop(userId, shopId);
         var kind = ShopThemeMediaKind.from(kindRaw);
         if (kind == null) throw new AuthException(HttpStatus.BAD_REQUEST, "THEME_MEDIA_KIND_INVALID", ValidationMessages.text("THEME_MEDIA_KIND_INVALID"));
-        if (!isCustom(shop)) {
+        // Hero slides: every template may upload IMAGEs (same validation + quota); VIDEO / FONT stay CUSTOM-only.
+        if (kind != ShopThemeMediaKind.IMAGE && !isCustom(shop)) {
             throw new AuthException(HttpStatus.CONFLICT, "THEME_MEDIA_CUSTOM_ONLY", ValidationMessages.text("THEME_MEDIA_CUSTOM_ONLY"));
         }
         if (file == null || file.isEmpty()) throw invalid();
@@ -257,6 +262,113 @@ public class ShopThemeMediaService {
         } else if (row.getKind() != expected) {
             problems.add(ValidationMessages.violation(field, "THEME_MEDIA_KIND_INVALID"));
         }
+    }
+
+    /**
+     * Save path (every template): normalizes {@code hero.slides} to {@code [{slideMediaId}]} (order kept) and checks
+     * the max of 5 and that each id is a live IMAGE of this shop. Absent / null / empty list = no slides.
+     */
+    @SuppressWarnings("unchecked")
+    public void prepareHeroSlides(UUID shopUuid, Map<String, Object> config) {
+        if (config == null || !(config.get("hero") instanceof Map<?, ?> rawHero)) return;
+        var hero = (Map<String, Object>) rawHero;
+        if (!hero.containsKey("slides")) return;
+        var raw = hero.get("slides");
+        if (raw == null) {
+            hero.remove("slides");
+            return;
+        }
+        var problems = new ArrayList<FieldViolation>();
+        if (!(raw instanceof List<?> list)) {
+            throw new ValidationException(List.of(ValidationMessages.violation("config.hero.slides", "THEME_HERO_SLIDES_INVALID")));
+        }
+        if (list.size() > MAX_HERO_SLIDES) {
+            throw new ValidationException(List.of(ValidationMessages.violation("config.hero.slides", "THEME_HERO_SLIDES_TOO_MANY")));
+        }
+        var cleaned = new ArrayList<Map<String, Object>>();
+        var seen = new LinkedHashSet<UUID>();
+        for (int index = 0; index < list.size(); index++) {
+            var item = list.get(index);
+            Object id = item instanceof Map<?, ?> row ? row.get(SLIDE_KEY) : item;
+            var field = "config.hero.slides[" + index + "]." + SLIDE_KEY;
+            var text = id == null ? "" : String.valueOf(id).trim();
+            if (text.isEmpty()) {
+                problems.add(ValidationMessages.violation(field, "THEME_MEDIA_INVALID"));
+                continue;
+            }
+            var before = problems.size();
+            checkRef(problems, shopUuid, field, text);
+            if (problems.size() == before && seen.add(UUID.fromString(text))) {
+                var out = new java.util.LinkedHashMap<String, Object>();
+                out.put(SLIDE_KEY, UUID.fromString(text).toString());
+                cleaned.add(out);
+            }
+        }
+        if (!problems.isEmpty()) throw new ValidationException(problems);
+        if (cleaned.isEmpty()) hero.remove("slides");
+        else hero.put("slides", cleaned);
+    }
+
+    /** Read path (every template): each slide gets its public {@code imageUrl}; deleted media is dropped silently. */
+    @SuppressWarnings("unchecked")
+    public void resolveHeroSlides(Shop shop, Map<String, Object> config) {
+        if (config == null || !(config.get("hero") instanceof Map<?, ?> rawHero)) return;
+        var hero = (Map<String, Object>) rawHero;
+        if (!(hero.get("slides") instanceof List<?> list)) {
+            hero.remove("slides");
+            return;
+        }
+        var out = new ArrayList<Map<String, Object>>();
+        for (var item : list) {
+            if (out.size() >= MAX_HERO_SLIDES) break;
+            if (!(item instanceof Map<?, ?> row)) continue;
+            var id = row.get(SLIDE_KEY) == null ? null : parse(String.valueOf(row.get(SLIDE_KEY)));
+            if (id == null) continue;
+            var live = media.findByIdAndShopIdAndDeletedAtIsNull(id, shop.getUuid())
+                .filter(m -> m.getKind() == ShopThemeMediaKind.IMAGE).isPresent();
+            if (!live) continue;
+            var slide = new java.util.LinkedHashMap<String, Object>();
+            slide.put(SLIDE_KEY, id.toString());
+            slide.put("imageUrl", publicUrl(shop.getSlug(), id));
+            out.add(slide);
+        }
+        if (out.isEmpty()) hero.remove("slides");
+        else hero.put("slides", out);
+    }
+
+    /** StoryBlock (tsf templates): {@code intro.introMediaId} must be a live IMAGE of this shop; blank = no image. */
+    @SuppressWarnings("unchecked")
+    public void prepareIntro(UUID shopUuid, Map<String, Object> config) {
+        if (config == null || !(config.get("intro") instanceof Map<?, ?> raw)) return;
+        var intro = (Map<String, Object>) raw;
+        intro.remove("imageUrl");
+        var id = intro.get(INTRO_KEY);
+        var text = id == null ? "" : String.valueOf(id).trim();
+        if (text.isEmpty()) {
+            intro.remove(INTRO_KEY);
+            return;
+        }
+        var problems = new ArrayList<FieldViolation>();
+        checkRef(problems, shopUuid, "config.intro." + INTRO_KEY, text);
+        if (!problems.isEmpty()) throw new ValidationException(problems);
+        intro.put(INTRO_KEY, UUID.fromString(text).toString());
+    }
+
+    /** Read path: intro image gets its public {@code imageUrl}; deleted media is dropped silently. */
+    @SuppressWarnings("unchecked")
+    public void resolveIntro(Shop shop, Map<String, Object> config) {
+        if (config == null || !(config.get("intro") instanceof Map<?, ?> raw)) return;
+        var intro = (Map<String, Object>) raw;
+        intro.remove("imageUrl");
+        var id = intro.get(INTRO_KEY) == null ? null : parse(String.valueOf(intro.get(INTRO_KEY)));
+        var live = id != null && media.findByIdAndShopIdAndDeletedAtIsNull(id, shop.getUuid())
+            .filter(m -> m.getKind() == ShopThemeMediaKind.IMAGE).isPresent();
+        if (!live) {
+            intro.remove(INTRO_KEY);
+            return;
+        }
+        intro.put(INTRO_KEY, id.toString());
+        intro.put("imageUrl", publicUrl(shop.getSlug(), id));
     }
 
     public static String publicUrl(String slug, UUID mediaId) {

@@ -11,6 +11,8 @@ import { useDocumentMeta } from "../../hooks/useDocumentMeta";
 import { usePublicTranslation } from "../../hooks/usePublicTranslation";
 import { mediaUrl, type PublicShop } from "../../services/api";
 import { shopPoliciesPath, shopProductsPath } from "../../services/shopRoutes";
+import { heroSlideUrls } from "../../components/shop/sections/HeroSlider";
+import { resolveStorefrontTheme } from "../../components/shop/ShopThemeShell";
 import "../../styles/shop-contact.css";
 
 type ChannelKey = "phone" | "email" | "line" | "facebook" | "instagram" | "tiktok" | "website";
@@ -137,7 +139,9 @@ export default function ShopContactPage() {
     .filter(Boolean)
     .join(" ");
   const area = [shop.district, shop.province].map((part) => part?.trim()).filter(Boolean).join(" ");
-  const cover = shop.coverUrl ? mediaUrl(shop.coverUrl) : "";
+  // Item 1: first hero slide first; coverUrl only for shops that have no slides yet.
+  const firstSlide = useMemo(() => heroSlideUrls(resolveStorefrontTheme(shop).config.hero?.slides)[0], [shop]);
+  const cover = firstSlide ?? (shop.coverUrl ? mediaUrl(shop.coverUrl) : "");
   const approved = shop.status === "APPROVED";
   const hasAside = Boolean(hours || address);
   const primary =

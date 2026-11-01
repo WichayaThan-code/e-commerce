@@ -18,9 +18,10 @@ import { hasPlatformAccess } from '../services/permissions'
 import { usePermissions } from '../hooks/usePermissions'
 import { adminApplicationApi, adminPlatformApi, ApiError, mediaUrl, type AdminStoreApplication } from '../services/api'
 import '../styles/admin-dashboard.css'
+import '../styles/admin-stores.css'
+import '../styles/admin-platform.css'
 import '../styles/admin-form-controls.css'
 import AdminSelect from '../components/admin/AdminSelect'
-import '../styles/admin-stores.css'
 
 type StoreStatus = 'ใช้งาน' | 'รออนุมัติ' | 'ถูกระงับ' | 'ปฏิเสธ'
 type StoreRecord = {
@@ -208,14 +209,19 @@ export default function AdminStoresPage(){
         <article className="suspended"><span><CircleX/></span><div><b>ร้านค้าที่ถูกระงับ</b><strong>{suspendedCount.toLocaleString('th-TH')}</strong><small>คิดเป็น {share(suspendedCount, rows.length)}%</small></div></article>
       </section>
 
-      <section className="store-filters">
-        <label className="store-search adm-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="ค้นหาร้านค้า (ชื่อร้าน, เจ้าของ, อีเมล, เบอร์โทร...)" aria-label="ค้นหาร้านค้า"/></label>
+      <form className="ap-filters store-filters" onSubmit={event => { event.preventDefault(); notify(`พบ ${filtered.length} ร้านค้า`) }}>
+        <div className="ap-filter-search wide">
+          <span className="ap-filter-label">ค้นหา</span>
+          <label className="store-search adm-search ap-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="ค้นหาร้านค้า (ชื่อร้าน, เจ้าของ, อีเมล, เบอร์โทร...)" aria-label="ค้นหาร้านค้า"/></label>
+        </div>
         <AdminSelect label="สถานะร้านค้า" value={status} onChange={setStatus} options={['ทั้งหมด', 'ใช้งาน', 'รออนุมัติ', 'ถูกระงับ', 'ปฏิเสธ'].map(value=>({ value, label: value }))}/>
         <AdminSelect label="หมวดหมู่" value={category} onChange={setCategory} options={['ทั้งหมด', ...new Set(rows.map(row=>row.category))].map(value=>({ value, label: value }))}/>
         <AdminSelect label="จังหวัด" value={province} onChange={setProvince} options={['ทั้งหมด', ...new Set(rows.map(row=>row.province))].map(value=>({ value, label: value }))}/>
-        <button className="reset-filter" onClick={reset}>รีเซ็ต</button>
-        <button className="search-filter" onClick={()=>notify(`พบ ${filtered.length} ร้านค้า`)}>ค้นหา</button>
-      </section>
+        <div className="ap-filter-actions">
+          <button type="button" className="ap-ghost reset-filter" onClick={reset}>รีเซ็ต</button>
+          <button type="submit" className="ap-primary search-filter">ค้นหา</button>
+        </div>
+      </form>
 
       <section className="stores-table-card">
         <header><h2>รายการร้านค้า ({rows.length.toLocaleString('th-TH')} รายการ)</h2><div><button onClick={()=>notify('เตรียมส่งออกข้อมูลร้านค้า')}><Download/>ส่งออกข้อมูล<ChevronDown/></button><button onClick={()=>notify('เปิดการจัดการคอลัมน์')}><SlidersHorizontal/>จัดการคอลัมน์</button></div></header>

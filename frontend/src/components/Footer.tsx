@@ -35,6 +35,7 @@ export default function Footer({ notice }: FooterProps) {
         <div className="page-width">
           <Brand homeAria={homeAria} />
           <p>{t("footer.tagline")}</p>
+          <p><Link to="/track-order">{t("footer.trackOrder")}</Link></p>
           <small>{t("footer.rights")}</small>
         </div>
       </footer>

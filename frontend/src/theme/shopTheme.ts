@@ -31,11 +31,14 @@ export const SHOP_TRUST_ICONS = ['AUTHENTIC', 'FAST_SHIP', 'RETURNS', 'SECURE_PA
 export type ShopTrustIcon = (typeof SHOP_TRUST_ICONS)[number]
 
 export type ThemeBanner = { imageUrl: string; title?: string; link?: string; mediaId?: string }
-export type ThemeTrustItem = { icon: ShopTrustIcon; label: string; enabled: boolean }
+/** sub: optional plain-text sub-line (80) overriding the default i18n one (tsf templates). */
+export type ThemeTrustItem = { icon: ShopTrustIcon; label: string; enabled: boolean; sub?: string }
+/** tsf announcement bar (plain text, max 2 x 120); empty = falls back to the first trust labels. */
+export type ThemeAnnouncement = { items: string[] }
 export type ThemeTrust = { enabled: boolean; items: ThemeTrustItem[] }
 
 /** AG5: MEDIA_FULL (full-bleed image / video / gradient hero with stickers) exists for CUSTOM themes only. */
-export type HeroLayout = 'FULL' | 'STRIP' | 'MEDIA_FULL'
+export type HeroLayout = 'FULL' | 'STRIP' | 'MEDIA_FULL' | 'SPLIT' | 'POSTER'
 export type CatalogVariant = 'GRID' | 'LARGE' | 'MENU'
 export type SectionVariant = HeroLayout | CatalogVariant | null
 
@@ -81,6 +84,10 @@ export type ThemeColors = {
   ctaBackground?: string
   ctaText?: string
   border?: string
+  /** GENERAL (themes spec) only: strong hairline, sale price, focus ring. */
+  borderStrong?: string
+  sale?: string
+  focus?: string
 }
 
 export type ThemeStyle = {
@@ -160,6 +167,9 @@ export const HERO_TEXT_ALIGNS = ['LEFT', 'CENTER'] as const
 export type HeroTextAlign = (typeof HERO_TEXT_ALIGNS)[number]
 export const HERO_HEADLINE_SIZES = ['L', 'XL'] as const
 export type HeroHeadlineSize = (typeof HERO_HEADLINE_SIZES)[number]
+
+/** Brand options for every template (absent = LEFT / LEFT, the previous look). */
+export type ThemeBrand = { logoPosition?: HeroTextAlign; textAlign?: HeroTextAlign }
 export const MAX_HERO_STICKERS = 6
 export const HERO_RANGES = {
   overlay: [0, 80],
@@ -190,12 +200,23 @@ export type ThemeHeroSticker = {
 }
 export type ThemeHeroCta = { label: string; link: string }
 
+/** Hero slider (every template): up to {@link MAX_HERO_SLIDES} shop-media images; empty = the shop cover. */
+export type ThemeHeroSlide = { slideMediaId: string; imageUrl: string }
+export const MAX_HERO_SLIDES = 5
+
 export type ThemeHero = {
   layout: HeroLayout
+  slides?: ThemeHeroSlide[]
   title: string
   subtitle: string
   ctaLabel: string
   ctaLink: string
+  /** GENERAL only: plain-text eyebrow + secondary CTA (backend drops them for other templates). */
+  eyebrow?: string
+  ctaSecondaryLabel?: string
+  ctaSecondaryLink?: string
+  /** GENERAL MEDIA_FULL decorative text stickers: max 3 x 24 chars plain text. */
+  badges?: string[]
   background?: ThemeHeroBackground
   overlay?: number
   heightVh?: number
@@ -257,9 +278,39 @@ export type SectionConfig = {
   variant: SectionVariant
 }
 
+/** StoryBlock (INTRO) copy for the tsf templates; plain text only. introMediaId = shop media IMAGE, imageUrl filled on read. */
+export type ThemeIntro = {
+  eyebrow?: string
+  title?: string
+  body?: string
+  ctaLabel?: string
+  ctaLink?: string
+  introMediaId?: string
+  imageUrl?: string
+  reverse?: boolean
+}
+
+function plainTextList(raw: unknown, max: number): string[] {
+  return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string').slice(0, max) : []
+}
+
+function resolveIntro(raw: unknown): ThemeIntro | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const row = raw as Record<string, unknown>
+  const out: ThemeIntro = {}
+  for (const key of ['eyebrow', 'title', 'body', 'ctaLabel', 'ctaLink', 'introMediaId', 'imageUrl'] as const) {
+    if (typeof row[key] === 'string') out[key] = row[key] as string
+  }
+  if (typeof row.reverse === 'boolean') out.reverse = row.reverse
+  return out
+}
+
 export type ThemeConfig = {
   colors: ThemeColors
+  /** Heading font (and the body font too when fontBody is absent - older single-font themes). */
   font: ShopThemeFontKey
+  fontBody?: ShopThemeFontKey
+  brand?: ThemeBrand
   style: ThemeStyle
   hero: ThemeHero
   banners: ThemeBanner[]
@@ -268,6 +319,10 @@ export type ThemeConfig = {
   gradients?: ThemeGradients
   productCard?: ThemeProductCard
   sectionSettings?: ThemeSectionSettings
+  /** GENERAL / FASHION / FOOD_BEVERAGE only (StoryBlock). */
+  intro?: ThemeIntro
+  /** tsf templates only (announcement bar). */
+  announcement?: ThemeAnnouncement
   /** CUSTOM only; always present (possibly synthesized from sections) after normalizeTheme. */
   layout?: ThemeLayout
   /** AG5, CUSTOM only. Absent = the existing mall header / tabs / footer stay as they are. */
@@ -306,8 +361,8 @@ export const SHOP_BREAKPOINTS = {
 
 export const PREVIEW_WIDTHS = { mobile: 375, tablet: 768, desktop: 1280 } as const
 
-const HERO_VARIANTS = new Set<string>(['FULL', 'STRIP'])
-const CUSTOM_HERO_VARIANTS = new Set<string>(['FULL', 'STRIP', 'MEDIA_FULL'])
+const HERO_VARIANTS = new Set<string>(['FULL', 'STRIP', 'SPLIT', 'POSTER'])
+const CUSTOM_HERO_VARIANTS = new Set<string>(['FULL', 'STRIP', 'MEDIA_FULL', 'SPLIT', 'POSTER'])
 const CATALOG_VARIANTS = new Set<string>(['GRID', 'LARGE', 'MENU'])
 
 const DEFAULT_STYLE: ThemeStyle = {
@@ -330,10 +385,10 @@ export function minimalFallbackTheme(): ShopTheme {
       trust: {
         enabled: true,
         items: [
-          { icon: 'AUTHENTIC', label: '?????? 100%', enabled: true },
-          { icon: 'FAST_SHIP', label: '?????', enabled: true },
-          { icon: 'RETURNS', label: '????????????', enabled: true },
-          { icon: 'SECURE_PAY', label: '???????????', enabled: true },
+          { icon: 'AUTHENTIC', label: 'ของแท้ 100%', enabled: true },
+          { icon: 'FAST_SHIP', label: 'ส่งไว', enabled: true },
+          { icon: 'RETURNS', label: 'คืนสินค้าได้', enabled: true },
+          { icon: 'SECURE_PAY', label: 'ชำระเงินปลอดภัย', enabled: true },
         ],
       },
       sections: [
@@ -504,6 +559,74 @@ export function isCustomTemplate(templateKey?: string | null): boolean {
   return templateKey === 'CUSTOM'
 }
 
+/** Themes port: templates rendered by the dedicated .tsf-store tree (add FOOD_BEVERAGE here when its port lands). */
+export const TSF_TREE_TEMPLATES: readonly ShopThemeTemplateKey[] = ['GENERAL', 'FASHION', 'FOOD_BEVERAGE']
+
+export function usesTsfTree(templateKey?: string | null): boolean {
+  return TSF_TREE_TEMPLATES.includes(templateKey as ShopThemeTemplateKey)
+}
+
+/** data-theme value for the .tsf-store tree ('general' | 'fashion'), undefined for legacy templates. */
+export function tsfThemeName(templateKey?: string | null): string | undefined {
+  if (!usesTsfTree(templateKey)) return undefined
+  return templateKey === 'FOOD_BEVERAGE' ? 'food' : String(templateKey).toLowerCase()
+}
+
+/** Per-theme defaults for things non-CUSTOM templates cannot save (image ratio, category rail style). */
+export function tsfThemeDefaults(templateKey?: string | null): { ratio: ShopImageRatio; categoryStyle: 'circle' | 'tile' | 'chip' } {
+  if (templateKey === 'FASHION') return { ratio: 'PORTRAIT', categoryStyle: 'tile' }
+  if (templateKey === 'FOOD_BEVERAGE') return { ratio: 'SQUARE', categoryStyle: 'chip' }
+  return { ratio: 'SQUARE', categoryStyle: 'circle' }
+}
+
+/** Themes spec scales (GENERAL only): radius 0/4/12/20/999, spacing 4..96, type scale. */
+const GENERAL_SCALE_VARS: Record<string, string> = {
+  '--tsf-radius-none': '0px',
+  '--tsf-radius-sm': '4px',
+  '--tsf-radius-md': '12px',
+  '--tsf-radius-lg': '20px',
+  '--tsf-radius-pill': '999px',
+  '--tsf-space-1': '4px',
+  '--tsf-space-2': '8px',
+  '--tsf-space-3': '12px',
+  '--tsf-space-4': '16px',
+  '--tsf-space-5': '24px',
+  '--tsf-space-6': '32px',
+  '--tsf-space-7': '48px',
+  '--tsf-space-8': '64px',
+  '--tsf-space-9': '96px',
+  '--tsf-text-xs': '12px',
+  '--tsf-text-sm': '14px',
+  '--tsf-text-md': '16px',
+  '--tsf-text-lg': '18px',
+  '--tsf-text-xl': '22px',
+  '--tsf-text-2xl': '28px',
+  '--tsf-text-3xl': 'clamp(28px, 2.2vw + 18px, 44px)',
+  '--tsf-leading-tight': '1.25',
+  '--tsf-leading-body': '1.6',
+  '--tsf-weight-heading': '700',
+  '--tsf-max-width': '1440px',
+}
+
+/** GENERAL palette roles from the themes spec; derived from the 4 base colors when the shop has not saved them. */
+function generalSpecCssVars(config: ThemeConfig): Record<string, string> {
+  const { primary, background, text, accent } = config.colors
+  // Same accent fallback as before (primary) so older GENERAL shops without an accent keep their tab / hover colors.
+  const accentHex = optionalHex(accent) ?? primary
+  const focus = optionalHex(config.colors.focus) ?? primary
+  return {
+    ...GENERAL_SCALE_VARS,
+    '--shop-surface': `color-mix(in srgb, ${text} 5%, ${background})`,
+    '--shop-muted': `color-mix(in srgb, ${text} 73%, ${background})`,
+    '--shop-border': `color-mix(in srgb, ${text} 13%, ${background})`,
+    '--shop-border-strong': optionalHex(config.colors.borderStrong) ?? `color-mix(in srgb, ${text} 55%, ${background})`,
+    '--shop-sale': optionalHex(config.colors.sale) ?? '#c4271b',
+    '--shop-focus': focus,
+    '--shop-on-accent': contrastOnColor(accentHex),
+    '--shop-primary-hover': `color-mix(in srgb, ${primary} 86%, #000)`,
+  }
+}
+
 /**
  * CSS variables for the themed shell. Old templates (GENERAL/FASHION/FOOD_BEVERAGE) get exactly the
  * pre-AG1 variable set even if the config carries AG1 tokens; only CUSTOM emits the new variables.
@@ -518,7 +641,11 @@ export function themeCssVars(config: ThemeConfig, templateKey?: ShopThemeTemplat
   const pageBgMix = bgLum != null && bgLum > 0.92 ? 5 : 4
   const pageBg = `color-mix(in srgb, ${text} ${pageBgMix}%, ${background})`
   const accentHex = optionalHex(accent) ?? primary
-  if (!custom) {
+  if (usesTsfTree(templateKey) || !templateKey) {
+    return { ...legacyCssVars(), ...generalSpecCssVars(config) }
+  }
+  if (!custom) return legacyCssVars()
+  function legacyCssVars(): Record<string, string> {
     return {
       '--shop-primary': primary,
       '--shop-secondary': secondary,
@@ -528,7 +655,8 @@ export function themeCssVars(config: ThemeConfig, templateKey?: ShopThemeTemplat
       '--shop-text': text,
       '--shop-accent': accentHex,
       '--shop-font': shopThemeFontStack(config.font),
-      '--font-sans': shopThemeFontStack(config.font),
+      '--font-sans': shopThemeFontStack(themeBodyFont(config)),
+      ...(config.fontBody ? { '--shop-font-body': shopThemeFontStack(config.fontBody) } : {}),
       '--shop-muted': `color-mix(in srgb, ${text} 65%, ${background})`,
       '--shop-border': `color-mix(in srgb, ${text} 10%, ${background})`,
       '--shop-surface': `color-mix(in srgb, ${text} 4%, ${background})`,
@@ -566,8 +694,9 @@ export function themeCssVars(config: ThemeConfig, templateKey?: ShopThemeTemplat
     '--shop-page-bg': pageGradient || pageBg,
     '--shop-text': text,
     '--shop-accent': accentHex,
-    '--shop-font': shopThemeFontStack(config.font),
-    '--font-sans': shopThemeFontStack(config.font),
+    '--shop-font': shopThemeFontStack(themeBodyFont(config)),
+    '--font-sans': shopThemeFontStack(themeBodyFont(config)),
+    ...(config.fontBody ? { '--shop-font-heading': shopThemeFontStack(config.font), '--shop-font-body': shopThemeFontStack(config.fontBody) } : {}),
     '--shop-muted': muted,
     '--shop-border': border,
     '--shop-surface': surface,
@@ -586,6 +715,30 @@ export function themeCssVars(config: ThemeConfig, templateKey?: ShopThemeTemplat
     ...(sectionGradient ? { '--shop-gradient-section': sectionGradient } : {}),
     ...styleCssVars(config.style ?? DEFAULT_STYLE, true),
   }
+}
+
+export function themeBodyFont(config: { font: ShopThemeFontKey; fontBody?: ShopThemeFontKey }): ShopThemeFontKey {
+  return config.fontBody ?? config.font
+}
+
+function resolveOptionalFont(raw: unknown): ShopThemeFontKey | undefined {
+  const key = typeof raw === 'string' ? raw.trim().toUpperCase() : ''
+  return (SHOP_THEME_FONTS as readonly string[]).includes(key) ? (key as ShopThemeFontKey) : undefined
+}
+
+function resolveBrand(raw: unknown): ThemeBrand | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const row = raw as Record<string, unknown>
+  const pick = (value: unknown): HeroTextAlign | undefined => {
+    const key = typeof value === 'string' ? value.trim().toUpperCase() : ''
+    return key === 'LEFT' || key === 'CENTER' ? key : undefined
+  }
+  const out: ThemeBrand = {}
+  const logo = pick(row.logoPosition)
+  const align = pick(row.textAlign)
+  if (logo) out.logoPosition = logo
+  if (align) out.textAlign = align
+  return Object.keys(out).length ? out : undefined
 }
 
 function resolveFont(raw: unknown, fallback: ShopThemeFontKey): ShopThemeFontKey {
@@ -648,6 +801,7 @@ function resolveTrust(raw: unknown, fallback: ThemeTrust): ThemeTrust {
       icon,
       label: typeof item.label === 'string' ? item.label : base.label,
       enabled: typeof item.enabled === 'boolean' ? item.enabled : true,
+      ...(typeof item.sub === 'string' ? { sub: item.sub } : {}),
     }
   })
   return {
@@ -791,6 +945,21 @@ export function clampInt(raw: unknown, min: number, max: number): number | undef
   const num = typeof raw === 'number' ? raw
     : typeof raw === 'string' && /^-?\d+$/.test(raw.trim()) ? Number.parseInt(raw.trim(), 10) : Number.NaN
   return Number.isFinite(num) ? Math.max(min, Math.min(max, Math.round(num))) : undefined
+}
+
+function resolveHeroSlides(raw: unknown): ThemeHeroSlide[] {
+  if (!Array.isArray(raw)) return []
+  const out: ThemeHeroSlide[] = []
+  for (const row of raw) {
+    if (out.length >= MAX_HERO_SLIDES) break
+    if (!row || typeof row !== 'object') continue
+    const item = row as Record<string, unknown>
+    const slideMediaId = typeof item.slideMediaId === 'string' ? item.slideMediaId.trim() : ''
+    const imageUrl = typeof item.imageUrl === 'string' ? item.imageUrl.trim() : ''
+    if (!slideMediaId || out.some((slide) => slide.slideMediaId === slideMediaId)) continue
+    out.push({ slideMediaId, imageUrl })
+  }
+  return out
 }
 
 function resolveHeroExtras(raw: Record<string, unknown>): Partial<ThemeHero> {
@@ -1160,6 +1329,10 @@ export function normalizeTheme(raw?: Partial<ShopTheme> | null, options: Normali
     background: legacyColor('background'),
     text: legacyColor('text'),
     ...(pickColor('accent') ? { accent: pickColor('accent') } : {}),
+    // tsf-tree templates (GENERAL / FASHION) keep the spec palette roles; FOOD_BEVERAGE ignores them like other AG1 keys.
+    ...(usesTsfTree(templateKey) && optionalHex(colorIn.borderStrong) ? { borderStrong: optionalHex(colorIn.borderStrong) } : {}),
+    ...(usesTsfTree(templateKey) && optionalHex(colorIn.sale) ? { sale: optionalHex(colorIn.sale) } : {}),
+    ...(usesTsfTree(templateKey) && optionalHex(colorIn.focus) ? { focus: optionalHex(colorIn.focus) } : {}),
   } : {
     primary: pickColor('primary', true)!,
     secondary: pickColor('secondary', true)!,
@@ -1174,6 +1347,9 @@ export function normalizeTheme(raw?: Partial<ShopTheme> | null, options: Normali
   }
 
   const font = resolveFont(incoming.font, base.font)
+  const brandRaw = incoming as unknown as Record<string, unknown>
+  const fontBody = resolveOptionalFont(brandRaw.fontBody)
+  const brand = resolveBrand(brandRaw.brand)
   const resolvedStyle = resolveStyle(incoming.style, base.style ?? DEFAULT_STYLE)
   const style: ThemeStyle = custom ? resolvedStyle : {
     radius: resolvedStyle.radius,
@@ -1188,14 +1364,31 @@ export function normalizeTheme(raw?: Partial<ShopTheme> | null, options: Normali
   const sectionSettings = custom ? resolveSectionSettings(incoming.sectionSettings, base.sectionSettings) : undefined
   const heroIncoming = incoming.hero || {}
   const hero: ThemeHero = {
-    layout: resolveHeroLayout(heroIncoming.layout ?? (incoming.sections?.find((s) => s.key === 'HERO')?.variant), base.hero.layout, custom),
+    // Themes port: GENERAL may use MEDIA_FULL (poster) too; FASHION / FOOD_BEVERAGE fall back to FULL.
+    layout: resolveHeroLayout(heroIncoming.layout ?? (incoming.sections?.find((s) => s.key === 'HERO')?.variant), base.hero.layout, custom || templateKey === 'GENERAL'),
     title: typeof heroIncoming.title === 'string' ? heroIncoming.title : base.hero.title,
     subtitle: typeof heroIncoming.subtitle === 'string' ? heroIncoming.subtitle : base.hero.subtitle,
     ctaLabel: typeof heroIncoming.ctaLabel === 'string' ? heroIncoming.ctaLabel : base.hero.ctaLabel,
     ctaLink: typeof heroIncoming.ctaLink === 'string' ? heroIncoming.ctaLink : base.hero.ctaLink,
+    slides: resolveHeroSlides('slides' in heroIncoming ? heroIncoming.slides : base.hero.slides),
+    ...(templateKey === 'GENERAL' ? {
+      eyebrow: typeof heroIncoming.eyebrow === 'string' ? heroIncoming.eyebrow : (base.hero.eyebrow ?? ''),
+      ctaSecondaryLabel: typeof heroIncoming.ctaSecondaryLabel === 'string' ? heroIncoming.ctaSecondaryLabel : (base.hero.ctaSecondaryLabel ?? ''),
+      ctaSecondaryLink: typeof heroIncoming.ctaSecondaryLink === 'string' ? heroIncoming.ctaSecondaryLink : (base.hero.ctaSecondaryLink ?? ''),
+      badges: plainTextList((heroIncoming as { badges?: unknown }).badges ?? base.hero.badges, 3),
+    } : {}),
     // AG5: hero media extras are CUSTOM-only (other templates never carry or read them).
     ...(custom ? resolveHeroExtras(heroIncoming) : {}),
   }
+
+  const introValue = usesTsfTree(templateKey)
+    ? resolveIntro('intro' in (incoming as object) ? (incoming as { intro?: unknown }).intro : base.intro)
+    : undefined
+
+  const announcementRaw = recordOf('announcement' in (incoming as object) ? (incoming as { announcement?: unknown }).announcement : base.announcement)
+  const announcementValue: ThemeAnnouncement | undefined = usesTsfTree(templateKey) && announcementRaw
+    ? { items: plainTextList(announcementRaw.items, 2) }
+    : undefined
 
   const byKey = new Map((incoming.sections || []).map((row) => [row.key, row]))
   const sections: SectionConfig[] = SHOP_SECTION_KEYS.map((key) => {
@@ -1204,7 +1397,7 @@ export function normalizeTheme(raw?: Partial<ShopTheme> | null, options: Normali
     return {
       key,
       enabled: typeof row?.enabled === 'boolean' ? row.enabled : preset.enabled,
-      variant: resolveSectionVariant(key, row?.variant, preset.variant, custom),
+      variant: resolveSectionVariant(key, row?.variant, preset.variant, custom || (key === 'HERO' && templateKey === 'GENERAL')),
     }
   })
 
@@ -1213,6 +1406,10 @@ export function normalizeTheme(raw?: Partial<ShopTheme> | null, options: Normali
     ...(gradients ? { gradients } : {}),
     ...(productCard ? { productCard } : {}),
     ...(sectionSettings ? { sectionSettings } : {}),
+    ...(introValue ? { intro: introValue } : {}),
+    ...(announcementValue ? { announcement: announcementValue } : {}),
+    ...(fontBody ? { fontBody } : {}),
+    ...(brand ? { brand } : {}),
   }
 
   let finalSections = sections
@@ -1253,7 +1450,7 @@ export function sectionSupportsVariant(key: ShopSectionKey) {
 }
 
 export function variantsForSection(key: ShopSectionKey, custom = false): SectionVariant[] {
-  if (key === 'HERO') return custom ? ['FULL', 'STRIP', 'MEDIA_FULL'] : ['FULL', 'STRIP']
+  if (key === 'HERO') return custom ? ['FULL', 'SPLIT', 'POSTER', 'STRIP', 'MEDIA_FULL'] : ['FULL', 'SPLIT', 'POSTER', 'STRIP']
   if (key === 'FEATURED' || key === 'BESTSELLERS' || key === 'NEW_ARRIVALS' || key === 'CATALOG') {
     return ['GRID', 'LARGE', 'MENU']
   }

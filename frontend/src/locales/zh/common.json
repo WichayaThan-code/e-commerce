@@ -32,7 +32,8 @@
     "deals": "优惠活动",
     "help": "帮助中心",
     "logout": "退出登录",
-    "loggingOut": "正在退出..."
+    "loggingOut": "正在退出...",
+    "trackOrder": "查询订单"
   },
   "nav": {
     "categories": "商品分类",

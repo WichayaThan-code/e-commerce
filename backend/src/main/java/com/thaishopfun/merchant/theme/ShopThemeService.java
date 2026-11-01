@@ -34,8 +34,11 @@ public class ShopThemeService {
         "colors", "font", "style", "hero", "banners", "trust", "sections",
         "gradients", "productCard", "sectionSettings", "layout",
         // AG5: CUSTOM-only chrome (stripped for every other template by ShopThemeChrome.stripForNonCustom)
-        "header", "footer", "fontCustom"
+        "header", "footer", "fontCustom",
+        // Brand options for every template: separate body font + logo position / text alignment.
+        "fontBody", "brand"
     );
+    private static final List<String> BRAND_ALIGNS = List.of("LEFT", "CENTER");
     private static final Set<String> COLOR_KEYS = Set.of(
         "primary", "secondary", "background", "text", "accent",
         "surface", "muted", "ctaBackground", "ctaText", "border"
@@ -115,7 +118,11 @@ public class ShopThemeService {
         // pre-AG1 except that AG1 token keys are silently dropped (never validated, never a 400).
         var custom = template == ShopThemeTemplate.CUSTOM;
         var copy = ThemePresets.deepCopy(request.config());
-        var config = custom ? stripUnknown(copy) : stripAg1Tokens(copy);
+        var config = custom ? stripUnknown(copy) : stripAg1Tokens(copy, template);
+        if (custom) {
+            var customHero = asMap(config.get("hero"));
+            if (customHero != null) for (var key : ThemePresets.GENERAL_HERO_KEYS) customHero.remove(key);
+        }
         if (config != null) {
             // AG2: only CUSTOM themes may reference the media library; other templates silently drop mediaId.
             if (custom) normalizeMediaIds(config);
@@ -124,6 +131,15 @@ public class ShopThemeService {
             ThemePresets.ensureMallExtras(config, template);
         }
         validateConfig(config, custom);
+        if (ThemePresets.allowsExtraColors(template)) validateGeneralExtraColors(config);
+        // StoryBlock (non-CUSTOM tsf templates): plain-text copy + optional shop-media image; CUSTOM never carries it.
+        if (!custom && config != null) {
+            validateIntro(config);
+            validateTsfCopy(config);
+            themeMedia.prepareIntro(shop.getUuid(), config);
+        }
+        // Hero slider (all templates): max 5 live IMAGEs from the shop media library.
+        themeMedia.prepareHeroSlides(shop.getUuid(), config);
         if (custom) {
             themeMedia.assertMediaRefs(shop.getUuid(), config);
             assertBlockProducts(shop, config);
@@ -166,11 +182,14 @@ public class ShopThemeService {
             ShopThemeBlocks.resolveMedia(shop.getSlug(), config);
             resolveFeatureProducts(shop, config);
             ShopThemeChrome.resolveMedia(shop.getSlug(), config);
+            config.remove("intro");
         } else {
-            ShopThemeChrome.stripForNonCustom(config);
+            ShopThemeChrome.stripForNonCustom(config, resolved == ShopThemeTemplate.GENERAL);
             ShopThemeMediaService.stripMediaIds(config);
             config.remove("layout");
+            themeMedia.resolveIntro(shop, config);
         }
+        themeMedia.resolveHeroSlides(shop, config);
         return new MerchantDtos.ShopThemeResponse(theme.getTemplateKey(), config);
     }
 
@@ -262,15 +281,31 @@ public class ShopThemeService {
     }
 
     /** Non-CUSTOM: remove only AG1 token keys; everything else is left exactly as pre-AG1. */
-    private Map<String, Object> stripAg1Tokens(Map<String, Object> config) {
+    private Map<String, Object> stripAg1Tokens(Map<String, Object> config, ShopThemeTemplate template) {
         if (config == null) return null;
         for (var key : AG1_TOP_KEYS) config.remove(key);
         var colors = asMap(config.get("colors"));
-        if (colors != null) for (var key : AG1_COLOR_KEYS) colors.remove(key);
+        if (colors != null) {
+            for (var key : AG1_COLOR_KEYS) colors.remove(key);
+            // Spec palette roles (borderStrong / sale / focus) belong to the themes-spec templates (GENERAL, FASHION); others drop them silently.
+            if (!ThemePresets.allowsExtraColors(template)) {
+                for (var key : ThemePresets.GENERAL_EXTRA_COLOR_KEYS) colors.remove(key);
+            } else {
+                for (var key : ThemePresets.GENERAL_EXTRA_COLOR_KEYS) {
+                    var value = colors.get(key);
+                    if (value == null || string(value) == null || string(value).isBlank()) colors.remove(key);
+                }
+            }
+        }
         var style = asMap(config.get("style"));
         if (style != null) for (var key : AG1_STYLE_KEYS) style.remove(key);
-        // AG5: header / footer / fontCustom / hero extras are dropped and a MEDIA_FULL hero silently falls back to FULL.
-        ShopThemeChrome.stripForNonCustom(config);
+        // GENERAL keeps its plain-text hero copy (eyebrow + secondary CTA); other templates drop those keys.
+        var heroIn = asMap(config.get("hero"));
+        if (heroIn != null && template != ShopThemeTemplate.GENERAL) {
+            for (var key : ThemePresets.GENERAL_HERO_KEYS) heroIn.remove(key);
+        }
+        // AG5: header / footer / fontCustom / hero extras are dropped; MEDIA_FULL falls back to FULL except for GENERAL (themes port).
+        ShopThemeChrome.stripForNonCustom(config, template == ShopThemeTemplate.GENERAL);
         return config;
     }
 
@@ -335,6 +370,169 @@ public class ShopThemeService {
         return out;
     }
 
+    /** GENERAL spec palette roles are optional, but when present they must be #RRGGBB (same code as the base colors). */
+    private void validateGeneralExtraColors(Map<String, Object> config) {
+        var colors = config == null ? null : asMap(config.get("colors"));
+        if (colors == null) return;
+        var problems = new ArrayList<FieldViolation>();
+        for (var key : ThemePresets.GENERAL_EXTRA_COLOR_KEYS) {
+            if (!colors.containsKey(key)) continue;
+            var value = string(colors.get(key));
+            if (value == null || !HEX.matcher(value).matches()) {
+                problems.add(ValidationMessages.violation("config.colors." + key, "THEME_COLOR_INVALID"));
+            }
+        }
+        var hero = config == null ? null : asMap(config.get("hero"));
+        if (hero != null) {
+            var eyebrow = hero.get("eyebrow");
+            if (eyebrow != null && !(eyebrow instanceof String)) {
+                problems.add(ValidationMessages.violation("config.hero.eyebrow", "THEME_HERO_TEXT_INVALID"));
+            }
+            checkLen(problems, "config.hero.eyebrow", string(eyebrow), 60, "THEME_HERO_EYEBROW_TOO_LONG");
+            plainText(problems, "config.hero.eyebrow", string(eyebrow));
+            plainText(problems, "config.hero.title", string(hero.get("title")));
+            plainText(problems, "config.hero.subtitle", string(hero.get("subtitle")));
+            plainText(problems, "config.hero.ctaLabel", string(hero.get("ctaLabel")));
+            var label = hero.get("ctaSecondaryLabel");
+            var link = hero.get("ctaSecondaryLink");
+            if ((label != null && !(label instanceof String)) || (link != null && !(link instanceof String))) {
+                problems.add(ValidationMessages.violation("config.hero.ctaSecondaryLabel", "THEME_HERO_TEXT_INVALID"));
+            } else {
+                checkLen(problems, "config.hero.ctaSecondaryLabel", string(label), 120, "THEME_HERO_CTA_TOO_LONG");
+                plainText(problems, "config.hero.ctaSecondaryLabel", string(label));
+                var href = string(link);
+                if (href != null && !href.isBlank() && !INTERNAL_PATH.matcher(href).matches() && !HTTPS.matcher(href).matches()) {
+                    problems.add(ValidationMessages.violation("config.hero.ctaSecondaryLink", "THEME_HERO_LINK_INVALID"));
+                }
+            }
+        }
+        if (!problems.isEmpty()) throw new ValidationException(problems);
+    }
+
+    private static final Set<String> INTRO_KEYS = Set.of("eyebrow", "title", "body", "ctaLabel", "ctaLink", "introMediaId", "imageUrl", "reverse");
+    private static final Pattern HTTP_OR_HTTPS = Pattern.compile("^https?://[\\w\\-./?#=&%]+$", Pattern.CASE_INSENSITIVE);
+
+    /** StoryBlock copy: plain text with length limits; CTA link is an internal path or http(s); reverse is a boolean. */
+    private void validateIntro(Map<String, Object> config) {
+        if (!config.containsKey("intro")) return;
+        var raw = config.get("intro");
+        if (raw == null) {
+            config.remove("intro");
+            return;
+        }
+        var problems = new ArrayList<FieldViolation>();
+        var intro = asMap(raw);
+        if (intro == null) {
+            throw new ValidationException(List.of(ValidationMessages.violation("config.intro", "THEME_INTRO_TEXT_INVALID")));
+        }
+        intro.keySet().removeIf(key -> !INTRO_KEYS.contains(key));
+        var limits = new LinkedHashMap<String, Integer>();
+        limits.put("eyebrow", 60);
+        limits.put("title", 120);
+        limits.put("body", 1000);
+        limits.put("ctaLabel", 60);
+        limits.put("ctaLink", 500);
+        for (var entry : limits.entrySet()) {
+            var field = "config.intro." + entry.getKey();
+            var value = intro.get(entry.getKey());
+            if (value == null) continue;
+            if (!(value instanceof String text)) {
+                problems.add(ValidationMessages.violation(field, "THEME_INTRO_TEXT_INVALID"));
+                continue;
+            }
+            if (text.length() > entry.getValue() || text.indexOf('<') >= 0 || text.indexOf('>') >= 0) {
+                problems.add(ValidationMessages.violation(field, "THEME_INTRO_TEXT_INVALID"));
+            }
+        }
+        var href = intro.get("ctaLink") instanceof String text ? text.trim() : null;
+        if (href != null && !href.isEmpty() && !INTERNAL_PATH.matcher(href).matches() && !HTTP_OR_HTTPS.matcher(href).matches()) {
+            problems.add(ValidationMessages.violation("config.intro.ctaLink", "THEME_INTRO_LINK_INVALID"));
+        }
+        var reverse = intro.get("reverse");
+        if (reverse != null && !(reverse instanceof Boolean)) {
+            problems.add(ValidationMessages.violation("config.intro.reverse", "THEME_INTRO_TEXT_INVALID"));
+        }
+        if (!problems.isEmpty()) throw new ValidationException(problems);
+    }
+
+    private static boolean badText(Object value, int max) {
+        return !(value instanceof String text) || text.length() > max || text.indexOf('<') >= 0 || text.indexOf('>') >= 0;
+    }
+
+    /**
+     * Themes port copy (non-CUSTOM): GENERAL MEDIA_FULL hero badges (max 3 x 24 chars, decorative stickers),
+     * trust sub-lines (80 chars) and the announcement bar (max 2 x 120 chars). Plain text only.
+     */
+    @SuppressWarnings("unchecked")
+    private void validateTsfCopy(Map<String, Object> config) {
+        var problems = new ArrayList<FieldViolation>();
+        var hero = asMap(config.get("hero"));
+        if (hero != null && hero.containsKey("badges")) {
+            var raw = hero.get("badges");
+            if (raw == null) hero.remove("badges");
+            else if (!(raw instanceof List<?> badges) || badges.size() > 3) {
+                problems.add(ValidationMessages.violation("config.hero.badges", "THEME_HERO_BADGES_INVALID"));
+            } else {
+                for (int i = 0; i < badges.size(); i++) {
+                    if (badText(badges.get(i), 24)) problems.add(ValidationMessages.violation("config.hero.badges[" + i + "]", "THEME_HERO_BADGES_INVALID"));
+                }
+            }
+        }
+        var trust = asMap(config.get("trust"));
+        if (trust != null && trust.get("items") instanceof List<?> items) {
+            for (int i = 0; i < items.size(); i++) {
+                if (items.get(i) instanceof Map<?, ?> row && ((Map<String, Object>) row).containsKey("sub")) {
+                    var sub = ((Map<String, Object>) row).get("sub");
+                    if (sub == null) ((Map<String, Object>) row).remove("sub");
+                    else if (badText(sub, 80)) problems.add(ValidationMessages.violation("config.trust.items[" + i + "].sub", "THEME_TRUST_SUB_INVALID"));
+                }
+            }
+        }
+        if (config.containsKey("announcement")) {
+            var raw = config.get("announcement");
+            var announcement = asMap(raw);
+            if (raw == null) config.remove("announcement");
+            else if (announcement == null) problems.add(ValidationMessages.violation("config.announcement", "THEME_ANNOUNCEMENT_INVALID"));
+            else {
+                announcement.keySet().removeIf(key -> !"items".equals(key));
+                var list = announcement.get("items");
+                if (list != null) {
+                    if (!(list instanceof List<?> rows) || rows.size() > 2) {
+                        problems.add(ValidationMessages.violation("config.announcement.items", "THEME_ANNOUNCEMENT_INVALID"));
+                    } else {
+                        for (int i = 0; i < rows.size(); i++) {
+                            if (badText(rows.get(i), 120)) problems.add(ValidationMessages.violation("config.announcement.items[" + i + "]", "THEME_ANNOUNCEMENT_INVALID"));
+                        }
+                    }
+                }
+            }
+        }
+        if (!problems.isEmpty()) throw new ValidationException(problems);
+    }
+
+    /** GENERAL hero copy is plain text: no markup characters at all. */
+    private static void plainText(List<FieldViolation> problems, String field, String value) {
+        if (value != null && (value.indexOf('<') >= 0 || value.indexOf('>') >= 0)) {
+            problems.add(ValidationMessages.violation(field, "THEME_HERO_TEXT_INVALID"));
+        }
+    }
+
+    private void validateBrand(Map<String, Object> config, List<FieldViolation> problems) {
+        var raw = config.get("brand");
+        if (raw == null) { config.remove("brand"); return; }
+        var brand = asMap(raw);
+        if (brand == null) { problems.add(ValidationMessages.violation("config.brand", "THEME_TOKEN_INVALID")); return; }
+        var out = new java.util.LinkedHashMap<String, Object>();
+        for (var key : List.of("logoPosition", "textAlign")) {
+            var value = brand.get(key);
+            if (value == null) continue;
+            var text = value instanceof String s ? s.trim().toUpperCase() : null;
+            if (text == null || !BRAND_ALIGNS.contains(text)) problems.add(ValidationMessages.violation("config.brand." + key, "THEME_TOKEN_INVALID"));
+            else out.put(key, text);
+        }
+        if (out.isEmpty()) config.remove("brand"); else config.put("brand", out);
+    }
+
     @SuppressWarnings("unchecked")
     private void validateConfig(Map<String, Object> config, boolean custom) {
         var problems = new ArrayList<FieldViolation>();
@@ -357,11 +555,25 @@ public class ShopThemeService {
                     if (!colors.containsKey(key) || colors.get(key) == null || string(colors.get(key)).isBlank()) continue;
                     requireHex(problems, "config.colors." + key, colors.get(key));
                 }
+            } else if (colors.get("accent") != null && !String.valueOf(colors.get("accent")).isBlank()) {
+                // Accent is editable for every template now, so it must be a hex everywhere.
+                requireHex(problems, "config.colors.accent", colors.get("accent"));
             }
         }
 
         var font = ShopThemeFont.from(string(config.get("font")));
         if (font == null) problems.add(ValidationMessages.violation("config.font", "THEME_FONT_INVALID"));
+        if (config.containsKey("fontBody")) {
+            var rawBody = config.get("fontBody");
+            if (rawBody == null || (rawBody instanceof String blank && blank.isBlank())) {
+                config.remove("fontBody");
+            } else {
+                var bodyFont = rawBody instanceof String text ? ShopThemeFont.from(text) : null;
+                if (bodyFont == null) problems.add(ValidationMessages.violation("config.fontBody", "THEME_FONT_INVALID"));
+                else config.put("fontBody", bodyFont.name());
+            }
+        }
+        if (config.containsKey("brand")) validateBrand(config, problems);
 
         var style = asMap(config.get("style"));
         if (style != null) {

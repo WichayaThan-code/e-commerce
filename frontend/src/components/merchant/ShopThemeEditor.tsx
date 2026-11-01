@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Check, ChevronDown, ChevronUp, CircleAlert, GripVertical, Monitor, Palette, Plus, RotateCcw, Shirt, Smartphone, Store, Tablet, Trash2, UtensilsCrossed,
+  ArrowLeft, Check, ChevronDown, ImagePlus, GalleryHorizontal, LayoutGrid, List, ChevronUp, CircleAlert, GripVertical, Monitor, Palette, Plus, RotateCcw, Shirt, Smartphone, Store, Tablet, Trash2, UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
 import ConfirmDialog from "../form/ConfirmDialog";
@@ -12,14 +12,18 @@ import { LoadError, SkeletonForm } from "../feedback/Skeleton";
 import ThemeMediaPicker from "./ThemeMediaPicker";
 import { MediaField, ThemeSelect } from "./ThemeEditorParts";
 import ShopBlocksEditor from "./ShopBlocksEditor";
+import SearchableSelect from "../SearchableSelect";
 import { chromePayload, FontPanel, FooterPanel, HeaderPanel, HeroMediaPanel } from "./ShopChromeEditor";
 import { HeroStickerDragContext, type StickerDragApi } from "../shop/sections/HeroMediaFull";
 import { ColorField, GradientEditor, HEX, ThemeTokenSelect } from "./ThemeEditorParts";
 import ShopStorefront from "../shop/ShopStorefront";
 import { isShopSectionAvailable } from "../shop/sections/availability";
-import { previewCatalogControls } from "../shop/sections/types";
+import { previewCatalogControls, shopApiSort } from "../shop/sections/types";
+import { useShopCategories } from "../../hooks/useShopCategories";
+import { usePublicTranslation } from "../../hooks/usePublicTranslation";
+import { localizedText } from "../../services/catalogText";
 import {
-  ApiError, merchantApi, shopApi,
+  ApiError, mediaUrl, merchantApi, shopApi,
   type ApiFieldError, type MerchantSettings, type PublicProduct, type PublicShop,
 } from "../../services/api";
 import {
@@ -28,18 +32,25 @@ import {
   SHOP_BUTTON_SHAPES, SHOP_CARD_STYLES, SHOP_CTA_STYLES, SHOP_DENSITIES, SHOP_IMAGE_RATIOS,
   SHOP_SHADOWS, SHOP_THEME_FONTS, SHOP_THEME_TEMPLATES,
   shopThemeFontStack, themeContrastIssues, variantsForSection,
-  SHOP_TITLE_ALIGNS, SHOP_TRUST_ICONS,
+  SHOP_TITLE_ALIGNS, SHOP_TRUST_ICONS, MAX_HERO_SLIDES,
   type SectionVariant, type ShopButtonShape, type ShopCardStyle, type ShopCtaStyle, type ShopDensity, type ShopImageRatio,
   type ShopSectionKey, type ShopShadow, type ShopTheme,
   type ShopThemeFontKey, type ShopThemeTemplateKey, type ShopTitleAlign, type ShopTrustIcon, type ThemeBanner, type ThemeColors,
   type ThemeConfig, type ThemeGradient, type ThemeProductCard,
-  type ThemeTrustItem,
+  type ThemeTrustItem, type ThemeHeroSlide, type ThemeIntro, usesTsfTree,
 } from "../../theme/shopTheme";
 import "../../styles/form-fields.css";
 import "../../styles/sale-types.css";
 import "../../styles/theme-token-select.css";
 import "../../styles/theme-media-picker.css";
 import "../../styles/theme-editor-controls.css";
+import "../../styles/theme-customizer.css";
+
+type HeroLayoutValue = "FULL" | "STRIP" | "MEDIA_FULL" | "SPLIT" | "POSTER";
+const HERO_LAYOUT_VALUES = new Set<string>(["FULL", "STRIP", "MEDIA_FULL", "SPLIT", "POSTER"]);
+function isHeroLayoutValue(value: unknown): value is HeroLayoutValue {
+  return typeof value === "string" && HERO_LAYOUT_VALUES.has(value);
+}
 
 export type ShopThemeShopInfo = {
   shopName: string;
@@ -66,10 +77,10 @@ type ShopThemeEditorProps = {
   deniedTitle?: string;
   /** Existing logo upload control (reused from the shop info tab). */
   logoControl: ReactNode;
-  /** Existing cover upload control (reused from the shop info tab). */
-  coverControl: ReactNode;
   onDirtyChange: (dirty: boolean) => void;
   notify: (message: string) => void;
+  /** Customizer top bar "← back" (the page guards unsaved changes). */
+  onBack?: () => void;
 };
 
 type PendingConfirm = { kind: "template"; key: ShopThemeTemplateKey } | { kind: "reset" } | null;
@@ -91,6 +102,24 @@ const DEVICES: { key: DeviceKey; icon: LucideIcon }[] = [
   { key: "desktop", icon: Monitor },
 ];
 const PREVIEW_PRODUCT_LIMIT = 8;
+const PREVIEW_CATALOG_SIZE = 30;
+
+/** WCAG contrast ratio of two #rgb/#rrggbb colours (non-hex → 21, i.e. no warning). */
+function contrastRatio(a?: string | null, b?: string | null) {
+  const lum = (hex?: string | null) => {
+    const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec((hex ?? "").trim());
+    if (!m) return null;
+    const h = m[1].length === 3 ? m[1].split("").map((c) => c + c).join("") : m[1];
+    const [r, g, bl] = [0, 2, 4].map((i) => {
+      const v = parseInt(h.slice(i, i + 2), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const la = lum(a); const lb = lum(b);
+  if (la == null || lb == null) return 21;
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
 
 function moveItem<T>(items: T[], from: number, to: number) {
   if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return items;
@@ -119,8 +148,59 @@ function sameConfig(a: ThemeConfig, b: ThemeConfig) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+/** Artifact ThemeCustomizer segmented control (.tsf-seg): one pressed button per option. */
+function ThemeSegmented({ label, value, options, disabled, error, hideLabel, onChange }: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  disabled?: boolean;
+  error?: string;
+  hideLabel?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className={`form-field tc-seg-field${hideLabel ? " tc-seg-nolabel" : ""}`}>
+      <span className="form-label">{label}</span>
+      <div className="tc-seg" role="group" aria-label={label} aria-invalid={Boolean(error)}>
+        {options.map((opt) => (
+          <button key={opt.value} type="button" aria-pressed={opt.value === value} disabled={disabled} onClick={() => onChange(opt.value)}>{opt.label}</button>
+        ))}
+      </div>
+      {error ? <FieldError text={error} /> : null}
+    </div>
+  );
+}
+
+/** Artifact colour row (.tsf-color): swatch, label, mono hex on the right. */
+function ColorRow({ label, value, disabled, error, hexError, onChange }: {
+  label: string; value: string; disabled?: boolean; error?: string; hexError: string; onChange: (value: string) => void;
+}) {
+  const valid = HEX.test(value);
+  return (
+    <div className={`tc-color${valid ? "" : " is-invalid"}`}>
+      <input type="color" className="tc-color-swatch" aria-label={label} value={valid && value.length === 7 ? value : "#000000"} disabled={disabled} onChange={(event) => onChange(event.target.value)} />
+      <span className="tc-color-name">{label}</span>
+      <input className="tc-color-hex" aria-label={`${label} HEX`} value={value} maxLength={7} spellCheck={false} disabled={disabled} onChange={(event) => onChange(event.target.value.trim())} />
+      {error || !valid ? <FieldError text={error || hexError} /> : null}
+    </div>
+  );
+}
+
+/** Mini template preview (artifact .tsf-tpl): header band, title bars, product grid in the preset colours. */
+function TemplateThumb({ colors }: { colors: ThemeColors }) {
+  return (
+    <span className="tc-tpl-thumb" aria-hidden="true" style={{ background: colors.background }}>
+      <span className="tc-tpl-band" style={{ background: colors.primary }}>
+        <i style={{ background: colors.background }} />
+        <i style={{ background: colors.accent ?? colors.secondary }} />
+      </span>
+      <span className="tc-tpl-grid">{[0, 1, 2, 3].map((n) => <i key={n} style={{ background: colors.text }} />)}</span>
+    </span>
+  );
+}
+
 export default function ShopThemeEditor({
-  shopId, shop, canUpdate, deniedTitle, logoControl, coverControl, onDirtyChange, notify,
+  shopId, shop, canUpdate, deniedTitle, logoControl, onDirtyChange, notify, onBack,
 }: ShopThemeEditorProps) {
   const { t } = useTranslation("merchant");
   const [loading, setLoading] = useState(true);
@@ -133,7 +213,8 @@ export default function ShopThemeEditor({
   const [fieldErrors, setFieldErrors] = useState<ApiFieldError[]>([]);
   const [confirm, setConfirm] = useState<PendingConfirm>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [device, setDevice] = useState<DeviceKey>("mobile");
+  const [device, setDevice] = useState<DeviceKey>("desktop");
+  const [panelTab, setPanelTab] = useState<"template" | "brand" | "hero" | "sections">("template");
   const [previewProducts, setPreviewProducts] = useState<PublicProduct[]>([]);
   const [stageWidth, setStageWidth] = useState(0);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -194,7 +275,9 @@ export default function ShopThemeEditor({
   useEffect(() => {
     if (!shop.slug) return;
     let active = true;
-    shopApi.products(shop.slug, { size: PREVIEW_PRODUCT_LIMIT, page: 0, sort: "newest" })
+    // Preview parity: same public request as the store home (useShopCatalog default: featured sort, 30 per page)
+    // so FEATURED / BESTSELLERS (sold counts) match /shop/:slug.
+    shopApi.products(shop.slug, { size: PREVIEW_CATALOG_SIZE, page: 0, sort: shopApiSort("featured") })
       .then((result) => {
         if (active) setPreviewProducts(result.items);
       })
@@ -208,7 +291,8 @@ export default function ShopThemeEditor({
 
   useEffect(() => {
     ensureThemeFontLink(draft.config.font);
-  }, [draft.config.font]);
+    if (draft.config.fontBody) ensureThemeFontLink(draft.config.fontBody);
+  }, [draft.config.font, draft.config.fontBody]);
 
   // Track the preview stage width so wide devices can be scaled down to fit.
   useEffect(() => {
@@ -236,6 +320,9 @@ export default function ShopThemeEditor({
     clearErrors(errorPrefix);
     setDraft((current) => ({ ...current, config: change(current.config) }));
   };
+
+  const setIntro = (change: Partial<ThemeIntro>, field: string) =>
+    patchConfig((current) => ({ ...current, intro: { ...(current.intro ?? {}), ...change } }), "intro." + field);
 
   const applyPreset = (key: ShopThemeTemplateKey) => {
     const preset = presetFor(key);
@@ -271,7 +358,20 @@ export default function ShopThemeEditor({
     setConfirm(null);
   };
 
-  const setHeroLayout = (layout: "FULL" | "STRIP" | "MEDIA_FULL") =>
+
+  // Hero slider (every template): max MAX_HERO_SLIDES shop-media images, saved with the theme.
+  const setSlides = (change: (slides: ThemeHeroSlide[]) => ThemeHeroSlide[]) =>
+    patchConfig((config) => ({ ...config, hero: { ...config.hero, slides: change(config.hero.slides ?? []).slice(0, MAX_HERO_SLIDES) } }), "config.hero.slides");
+  const addSlide = (slide: ThemeHeroSlide) => setSlides((slides) => (slides.some((row) => row.slideMediaId === slide.slideMediaId) ? slides : [...slides, slide]));
+  const removeSlide = (index: number) => setSlides((slides) => slides.filter((_, rowIndex) => rowIndex !== index));
+  const moveSlide = (index: number, delta: number) => setSlides((slides) => {
+    const target = index + delta;
+    if (target < 0 || target >= slides.length) return slides;
+    const next = [...slides];
+    [next[index], next[target]] = [next[target], next[index]];
+    return next;
+  });
+  const setHeroLayout = (layout: HeroLayoutValue) =>
     patchConfig((config) => ({
       ...config,
       hero: { ...config.hero, layout },
@@ -290,19 +390,33 @@ export default function ShopThemeEditor({
         ...config,
         layout: { blocks },
         sections,
-        hero: heroVariant === "FULL" || heroVariant === "STRIP" || heroVariant === "MEDIA_FULL"
+        hero: isHeroLayoutValue(heroVariant)
           ? { ...config.hero, layout: heroVariant }
           : config.hero,
       };
     }, "config.layout");
 
-  const setHero = (field: "title" | "subtitle" | "ctaLabel" | "ctaLink", value: string) =>
+  const setHero = (field: "title" | "subtitle" | "ctaLabel" | "ctaLink" | "eyebrow" | "ctaSecondaryLabel" | "ctaSecondaryLink", value: string) =>
     patchConfig((config) => ({ ...config, hero: { ...config.hero, [field]: value } }), `config.hero.${field}`);
+
+  const setHeroBadge = (slot: number, value: string) =>
+    patchConfig((config) => {
+      const next = [0, 1, 2].map((index) => (index === slot ? value : (config.hero.badges?.[index] ?? "")));
+      while (next.length && !next[next.length - 1].trim()) next.pop();
+      return { ...config, hero: { ...config.hero, badges: next } };
+    }, "config.hero.badges");
+
+  const setAnnouncement = (slot: number, value: string) =>
+    patchConfig((config) => {
+      const next = [0, 1].map((index) => (index === slot ? value : (config.announcement?.items?.[index] ?? "")));
+      while (next.length && !next[next.length - 1].trim()) next.pop();
+      return { ...config, announcement: { items: next } };
+    }, "config.announcement");
 
   const setSection = (index: number, change: { enabled?: boolean; variant?: SectionVariant }) =>
     patchConfig((config) => {
       const target = config.sections[index];
-      const hero = target.key === "HERO" && (change.variant === "FULL" || change.variant === "STRIP" || change.variant === "MEDIA_FULL")
+      const hero = target.key === "HERO" && isHeroLayoutValue(change.variant)
         ? { ...config.hero, layout: change.variant }
         : config.hero;
       return {
@@ -441,6 +555,12 @@ export default function ShopThemeEditor({
     theme: draft,
   }), [shop, shopId, draft, t, previewProducts.length]);
 
+  const previewCategories = useShopCategories(shop.slug || null);
+  const { localeTag: previewLocale } = usePublicTranslation();
+  const previewCategoryNames = useMemo(
+    () => new Map(previewCategories.rows.map((row) => [row.id, localizedText(previewLocale, row.nameTh, row.nameEn, row.nameZh) || row.nameTh])),
+    [previewCategories.rows, previewLocale],
+  );
   const previewCatalog = useMemo(
     () => previewCatalogControls({ total: previewProducts.length, productState: "ok" }),
     [previewProducts.length],
@@ -466,65 +586,130 @@ export default function ShopThemeEditor({
     : { title: t("storeTheme.confirm.reset.title"), message: t("storeTheme.confirm.reset.message"), label: t("storeTheme.confirm.reset.confirm") };
 
   return (
-    <div className="store-layout store-theme-layout">
-      <section className="store-form-card store-theme-card">
-        <header>
-          <div>
-            <h2>{t("storeTheme.title")}</h2>
-            <p>{t("storeTheme.lead")}</p>
-          </div>
-          {dirty ? <div className="store-enabled"><span className="theme-dirty">{t("storeTheme.unsaved")}</span></div> : null}
-        </header>
-
+    <div className="tc-shell">
+      <header className="tc-topbar">
+        {onBack ? <button type="button" className="tc-back" onClick={onBack}><ArrowLeft />{t("storeTheme.customizer.back")}</button> : null}
+        <div className="tc-title">
+          <h1>{t("storeTheme.title")}</h1>
+          <p>{t("storeTheme.lead")}</p>
+        </div>
+        <div className="theme-device-toggle tc-devices" role="group" aria-label={t("storeTheme.preview.devices")}>
+          {DEVICES.map(({ key, icon: Icon }) => (
+            <button
+              type="button"
+              key={key}
+              className={device === key ? "active" : ""}
+              aria-pressed={device === key}
+              aria-label={`${t(`storeTheme.preview.${key}`)} ${PREVIEW_WIDTHS[key]}px`}
+              title={`${t(`storeTheme.preview.${key}`)} · ${PREVIEW_WIDTHS[key]}px`}
+              onClick={() => setDevice(key)}
+            >
+              <Icon /><span>{PREVIEW_WIDTHS[key]}</span>
+            </button>
+          ))}
+        </div>
+        <div className="tc-actions">
+          {dirty ? <span className="theme-dirty">{t("storeTheme.unsaved")}</span> : null}
+          <button type="button" disabled={disabled || saving} title={deniedTitle} onClick={() => setConfirm({ kind: "reset" })}>
+            <RotateCcw />{t("storeTheme.actions.reset")}
+          </button>
+          <button type="button" className="primary" disabled={disabled || saving || !dirty} title={deniedTitle} onClick={() => void save()}>
+            {saving ? t("storeTheme.actions.saving") : t("storeTheme.customizer.publish")}
+          </button>
+        </div>
+      </header>
+      <div className="tc-body">
+      <section className="tc-panel store-theme-card">
+        <nav className="tc-tabs" role="tablist" aria-label={t("storeTheme.customizer.tabs")}>
+          <button type="button" role="tab" aria-selected={panelTab === "template"} className={panelTab === "template" ? "active" : ""} onClick={() => setPanelTab("template")}><LayoutGrid aria-hidden="true" /><span>{t("storeTheme.customizer.tab.templates")}</span></button>
+          <button type="button" role="tab" aria-selected={panelTab === "brand"} className={panelTab === "brand" ? "active" : ""} onClick={() => setPanelTab("brand")}><Palette aria-hidden="true" /><span>{t("storeTheme.customizer.tab.brand")}</span></button>
+          <button type="button" role="tab" aria-selected={panelTab === "hero"} className={panelTab === "hero" ? "active" : ""} onClick={() => setPanelTab("hero")}><GalleryHorizontal aria-hidden="true" /><span>{t("storeTheme.customizer.tab.hero")}</span></button>
+          <button type="button" role="tab" aria-selected={panelTab === "sections"} className={panelTab === "sections" ? "active" : ""} onClick={() => setPanelTab("sections")}><List aria-hidden="true" /><span>{t("storeTheme.customizer.tab.sections")}</span></button>
+        </nav>
+        <div className="tc-panel-body">
+        {panelTab === "template" ? (<>
         <fieldset className="theme-block">
-          <legend>{t("storeTheme.templates.title")}</legend>
-          <div className="sale-types">
+          <legend>{t("storeTheme.tc.templateHead")}</legend>
+          <div className="tc-tpls">
             {SHOP_THEME_TEMPLATES.map((key) => {
-              const Icon = TEMPLATE_ICONS[key];
               const active = draft.templateKey === key;
+              const colors = presetFor(key).config.colors;
+              const dots = [colors.primary, colors.secondary, colors.accent ?? colors.text, colors.background];
               return (
                 <button
                   type="button"
                   key={key}
-                  className={active ? "active" : ""}
+                  className={`tc-tpl${active ? " active" : ""}`}
                   aria-pressed={active}
                   disabled={disabled}
                   onClick={() => chooseTemplate(key)}
                 >
-                  <i>{active ? <Check /> : null}</i>
-                  <Icon />
-                  <span>
-                    <b>{t(`storeTheme.templates.${key}.name`)}</b>
-                    <small>{t(`storeTheme.templates.${key}.desc`)}</small>
-                  </span>
+                  <TemplateThumb colors={colors} />
+                  <b>{t(`storeTheme.tc.tpl.${key}.name`)}</b>
+                  <small>{t(`storeTheme.tc.tpl.${key}.desc`)}</small>
+                  <span className="tc-tpl-dots">{dots.map((c, n) => <i key={n} style={{ background: c }} />)}</span>
                 </button>
               );
             })}
           </div>
+          <p className="theme-hint tc-note">{t("storeTheme.tc.templateNote")}</p>
+        </fieldset>
+        </>) : null}
+        {panelTab === "brand" ? (<>
+        <fieldset className="theme-block">
+          <legend>{t("storeTheme.tc.logo")}</legend>
+          <div className="tc-upload tc-logo-box">{logoControl}</div>
+          <FormField label={t("storeTheme.tc.shopName")}>
+            <input value={shop.shopName} readOnly aria-readonly="true" title={t("storeTheme.tc.shopNameHint")} />
+          </FormField>
+          {draft.templateKey === "CUSTOM" && config.header ? (
+            <ThemeSegmented
+              label={t("storeTheme.tc.logoPos")}
+              value={config.header.layout}
+              disabled={disabled}
+              error={errorFor("header.layout")}
+              options={[{ value: "LOGO_LEFT", label: t("storeTheme.tc.left") }, { value: "LOGO_CENTER", label: t("storeTheme.tc.center") }]}
+              onChange={(value) => patchConfig((current) => (current.header
+                ? { ...current, header: { ...current.header, layout: value as NonNullable<ThemeConfig["header"]>["layout"] } }
+                : current), "config.header.layout")}
+            />
+          ) : draft.templateKey !== "CUSTOM" ? (
+            <ThemeSegmented
+              label={t("storeTheme.tc.logoPos")}
+              value={config.brand?.logoPosition ?? "LEFT"}
+              disabled={disabled}
+              error={errorFor("brand.logoPosition")}
+              options={[{ value: "LEFT", label: t("storeTheme.tc.left") }, { value: "CENTER", label: t("storeTheme.tc.center") }]}
+              onChange={(value) => patchConfig((current) => ({ ...current, brand: { ...current.brand, logoPosition: value as "LEFT" | "CENTER" } }), "config.brand.logoPosition")}
+            />
+          ) : null}
         </fieldset>
 
         <fieldset className="theme-block">
-          <legend>{t("storeTheme.media.title")}</legend>
-          <p className="theme-hint">{t("storeTheme.media.hint")}</p>
-          <div className="store-form-grid">
-            {logoControl}
-            {coverControl}
-          </div>
-        </fieldset>
-
-        <fieldset className="theme-block">
-          <legend>{t("storeTheme.colors.title")}</legend>
-          <div className="theme-grid">
-            {COLOR_KEYS.map((key) => (
-              <ColorField
-                key={key}
-                label={t(`storeTheme.colors.${key}`)}
-                value={config.colors[key]}
-                error={errorFor(`colors.${key}`)}
-                hexError={t("storeTheme.errors.hex")}
-                disabled={disabled}
-                onChange={(value) => patchConfig((current) => ({ ...current, colors: { ...current.colors, [key]: value } }), `config.colors.${key}`)}
-              />
+          <legend>{t("storeTheme.tc.colors")}</legend>
+          <div className="tc-colors">
+            {(["primary", "secondary", "accent", "background", "text"] as const).map((key) => (
+              key === "accent" ? (
+                <ColorRow
+                  key={key}
+                  label={t("storeTheme.tc.color.accent")}
+                  value={config.colors.accent ?? config.colors.primary}
+                  error={errorFor("colors.accent")}
+                  hexError={t("storeTheme.errors.hex")}
+                  disabled={disabled}
+                  onChange={(value) => setExtraColor("accent", value)}
+                />
+              ) : (
+                <ColorRow
+                  key={key}
+                  label={t(`storeTheme.tc.color.${key}`)}
+                  value={config.colors[key]}
+                  error={errorFor(`colors.${key}`)}
+                  hexError={t("storeTheme.errors.hex")}
+                  disabled={disabled}
+                  onChange={(value) => patchConfig((current) => ({ ...current, colors: { ...current.colors, [key]: value } }), `config.colors.${key}`)}
+                />
+              )
             ))}
           </div>
           {themeContrastIssues(config.colors).length > 0 ? (
@@ -535,11 +720,35 @@ export default function ShopThemeEditor({
           ) : null}
         </fieldset>
 
+        <fieldset className="theme-block">
+          <legend>{t("storeTheme.tc.fonts")}</legend>
+          <ThemeSelect
+            label={t("storeTheme.tc.fontHeading")}
+            value={config.font}
+            disabled={disabled}
+            error={errorFor("font")}
+            onChange={(event) => patchConfig((current) => ({ ...current, font: event.target.value as ShopThemeFontKey }), "config.font")}
+          >
+            {SHOP_THEME_FONTS.map((font) => <option key={font} value={font}>{t(`storeTheme.font.${font}`)}</option>)}
+          </ThemeSelect>
+          <p className="theme-font-sample" style={{ fontFamily: shopThemeFontStack(config.font) }}>{t("storeTheme.font.sample")}</p>
+          <ThemeSelect
+            label={t("storeTheme.tc.fontBody")}
+            value={config.fontBody ?? config.font}
+            disabled={disabled}
+            error={errorFor("fontBody")}
+            onChange={(event) => patchConfig((current) => ({ ...current, fontBody: event.target.value as ShopThemeFontKey }), "config.fontBody")}
+          >
+            {SHOP_THEME_FONTS.map((font) => <option key={font} value={font}>{t(`storeTheme.font.${font}`)}</option>)}
+          </ThemeSelect>
+          <p className="theme-font-sample" style={{ fontFamily: shopThemeFontStack(config.fontBody ?? config.font) }}>{t("storeTheme.font.sample")}</p>
+        </fieldset>
+
         {draft.templateKey === "CUSTOM" ? (
           <fieldset className="theme-block">
             <legend>{t("storeTheme.colors.extraTitle")}</legend>
             <div className="theme-grid">
-              {EXTRA_COLOR_KEYS.map((key) => (
+              {EXTRA_COLOR_KEYS.filter((key) => key !== "accent").map((key) => (
                 <ColorField
                   key={key}
                   label={t(`storeTheme.colors.${key}`)}
@@ -576,48 +785,39 @@ export default function ShopThemeEditor({
                 }}
               />
             </FormField>
-            <ThemeSelect
+            <ThemeSegmented
               label={t("storeTheme.style.cardStyle")}
               value={config.style.cardStyle}
               disabled={disabled}
               error={errorFor("style.cardStyle")}
-              onChange={(event) => patchConfig((current) => ({
+              options={SHOP_CARD_STYLES.map((value) => ({ value, label: t(`storeTheme.style.card.${value}`) }))}
+              onChange={(value) => patchConfig((current) => ({
                 ...current,
-                style: { ...current.style, cardStyle: event.target.value as ShopCardStyle },
+                style: { ...current.style, cardStyle: value as ShopCardStyle },
               }), "config.style.cardStyle")}
-            >
-              {SHOP_CARD_STYLES.map((value) => (
-                <option key={value} value={value}>{t(`storeTheme.style.card.${value}`)}</option>
-              ))}
-            </ThemeSelect>
-            <ThemeSelect
+            />
+            <ThemeSegmented
               label={t("storeTheme.style.density")}
               value={config.style.density}
               disabled={disabled}
               error={errorFor("style.density")}
-              onChange={(event) => patchConfig((current) => ({
+              options={SHOP_DENSITIES.map((value) => ({ value, label: t(`storeTheme.style.densityOpts.${value}`) }))}
+              onChange={(value) => patchConfig((current) => ({
                 ...current,
-                style: { ...current.style, density: event.target.value as ShopDensity },
+                style: { ...current.style, density: value as ShopDensity },
               }), "config.style.density")}
-            >
-              {SHOP_DENSITIES.map((value) => (
-                <option key={value} value={value}>{t(`storeTheme.style.densityOpts.${value}`)}</option>
-              ))}
-            </ThemeSelect>
-            <ThemeSelect
+            />
+            <ThemeSegmented
               label={t("storeTheme.style.buttonShape")}
               value={config.style.buttonShape}
               disabled={disabled}
               error={errorFor("style.buttonShape")}
-              onChange={(event) => patchConfig((current) => ({
+              options={SHOP_BUTTON_SHAPES.map((value) => ({ value, label: t(`storeTheme.style.button.${value}`) }))}
+              onChange={(value) => patchConfig((current) => ({
                 ...current,
-                style: { ...current.style, buttonShape: event.target.value as ShopButtonShape },
+                style: { ...current.style, buttonShape: value as ShopButtonShape },
               }), "config.style.buttonShape")}
-            >
-              {SHOP_BUTTON_SHAPES.map((value) => (
-                <option key={value} value={value}>{t(`storeTheme.style.button.${value}`)}</option>
-              ))}
-            </ThemeSelect>
+            />
           </div>
         </fieldset>
 
@@ -722,58 +922,148 @@ export default function ShopThemeEditor({
           </>
         ) : null}
 
-        <fieldset className="theme-block">
-          <legend>{t("storeTheme.font.title")}</legend>
-          <ThemeSelect
-            label={t("storeTheme.font.label")}
-            value={config.font}
-            disabled={disabled}
-            error={errorFor("font")}
-            onChange={(event) => patchConfig((current) => ({ ...current, font: event.target.value as ShopThemeFontKey }), "config.font")}
-          >
-            {SHOP_THEME_FONTS.map((font) => <option key={font} value={font}>{t(`storeTheme.font.${font}`)}</option>)}
-          </ThemeSelect>
-          <p className="theme-font-sample" style={{ fontFamily: shopThemeFontStack(config.font) }}>{t("storeTheme.font.sample")}</p>
-        </fieldset>
-
         {draft.templateKey === "CUSTOM" ? <FontPanel {...chromeProps} /> : null}
 
-        <fieldset className="theme-block">
-          <legend>{t("storeTheme.hero.title")}</legend>
-          <div className="theme-grid">
-            <ThemeSelect
-              label={t("storeTheme.hero.layout")}
-              value={config.hero.layout}
+        {draft.templateKey === "CUSTOM" ? (
+          <>
+            <HeaderPanel {...chromeProps} />
+            <FooterPanel {...chromeProps} />
+          </>
+        ) : null}
+        {(() => {
+          const warn = [
+            contrastRatio(config.colors.text, config.colors.background) < 4.5 ? t("storeTheme.customizer.contrastText") : null,
+            contrastRatio(config.colors.primary, config.colors.background) < 3 ? t("storeTheme.customizer.contrastPrimary") : null,
+          ].filter(Boolean);
+          return warn.length ? <p className="tc-contrast-warn" role="status"><CircleAlert />{warn.join(" · ")}</p> : null;
+        })()}
+        </>) : null}
+        {panelTab === "hero" ? (<>
+        {(() => {
+          // Item 2: primary เต็มจอ / แบ่งครึ่ง / โปสเตอร์; legacy STRIP (+ MEDIA_FULL for CUSTOM / GENERAL) stay as extra options.
+          const layouts: HeroLayoutValue[] = draft.templateKey === "CUSTOM" || draft.templateKey === "GENERAL" ? ["FULL", "SPLIT", "POSTER", "STRIP", "MEDIA_FULL"] : ["FULL", "SPLIT", "POSTER", "STRIP"];
+          const slides = config.hero.slides ?? [];
+          const general = draft.templateKey === "GENERAL";
+          return (
+            <>
+              <fieldset className="theme-block">
+                <legend>{t("storeTheme.tc.heroLayout")}</legend>
+                <ThemeSegmented
+                  label={t("storeTheme.tc.heroLayout")}
+                  hideLabel
+                  value={config.hero.layout}
+                  disabled={disabled}
+                  error={errorFor("hero.layout")}
+                  options={layouts.map((value) => ({ value, label: t(`storeTheme.variants.${value}`) }))}
+                  onChange={(value) => setHeroLayout(value as HeroLayoutValue)}
+                />
+                {draft.templateKey === "CUSTOM" ? (
+                  <ThemeSegmented
+                    label={t("storeTheme.tc.textAlign")}
+                    value={config.hero.textAlign ?? "LEFT"}
+                    disabled={disabled}
+                    error={errorFor("hero.textAlign")}
+                    options={[{ value: "LEFT", label: t("storeTheme.tc.left") }, { value: "CENTER", label: t("storeTheme.tc.center") }]}
+                    onChange={(value) => patchConfig((current) => ({ ...current, hero: { ...current.hero, textAlign: value as "LEFT" | "CENTER" } }), "config.hero.textAlign")}
+                  />
+                ) : (
+                  <ThemeSegmented
+              label={t("storeTheme.tc.textAlign")}
+              value={config.brand?.textAlign ?? "LEFT"}
               disabled={disabled}
-              error={errorFor("hero.layout")}
-              onChange={(event) => setHeroLayout(event.target.value as "FULL" | "STRIP" | "MEDIA_FULL")}
-            >
-              <option value="FULL">{t("storeTheme.variants.FULL")}</option>
-              <option value="STRIP">{t("storeTheme.variants.STRIP")}</option>
-              {draft.templateKey === "CUSTOM" ? <option value="MEDIA_FULL">{t("storeTheme.variants.MEDIA_FULL")}</option> : null}
-            </ThemeSelect>
-            <FormField label={t("storeTheme.hero.heroTitle")} error={errorFor("hero.title")}>
-              <input value={config.hero.title} maxLength={120} disabled={disabled} placeholder={shop.shopName} onChange={(event) => setHero("title", event.target.value)} />
-            </FormField>
-          </div>
-          <FormTextarea
-            label={t("storeTheme.hero.subtitle")}
-            value={config.hero.subtitle}
-            maxLength={240}
-            disabled={disabled}
-            error={errorFor("hero.subtitle")}
-            onChange={(event) => setHero("subtitle", event.target.value)}
-          />
-          <div className="theme-grid">
-            <FormField label={t("storeTheme.hero.ctaLabel")} error={errorFor("hero.ctaLabel")}>
-              <input value={config.hero.ctaLabel} maxLength={120} disabled={disabled} onChange={(event) => setHero("ctaLabel", event.target.value)} />
-            </FormField>
-            <FormField label={t("storeTheme.hero.ctaLink")} error={errorFor("hero.ctaLink")}>
-              <input value={config.hero.ctaLink} disabled={disabled} placeholder="/shops  |  https://" onChange={(event) => setHero("ctaLink", event.target.value)} />
-            </FormField>
-          </div>
-          <p className="theme-hint">{t("storeTheme.hero.ctaHint")}</p>
-        </fieldset>
+              error={errorFor("brand.textAlign")}
+              options={[{ value: "LEFT", label: t("storeTheme.tc.left") }, { value: "CENTER", label: t("storeTheme.tc.center") }]}
+              onChange={(value) => patchConfig((current) => ({ ...current, brand: { ...current.brand, textAlign: value as "LEFT" | "CENTER" } }), "config.brand.textAlign")}
+            />
+                )}
+              </fieldset>
+
+              <fieldset className="theme-block theme-hero-slides">
+                <legend>{t("storeTheme.tc.media")}</legend>
+                <div className="tc-upload tc-slides-box">
+                  <FieldError text={errorFor("hero.slides")} />
+                  {slides.length ? (
+                    <ol className="tc-slides">
+                      {slides.map((slide, index, all) => (
+                        <li key={slide.slideMediaId} className="tc-slide">
+                          <img src={mediaUrl(slide.imageUrl)} alt={t("storeTheme.heroSlides.slideAlt", { n: index + 1 })} />
+                          <span>{t("storeTheme.heroSlides.slideAlt", { n: index + 1 })}</span>
+                          <span className="theme-section-move">
+                            <button type="button" disabled={disabled || index === 0} onClick={() => moveSlide(index, -1)} aria-label={t("storeTheme.heroSlides.moveUp")} title={t("storeTheme.heroSlides.moveUp")}><ChevronUp /></button>
+                            <button type="button" disabled={disabled || index === all.length - 1} onClick={() => moveSlide(index, 1)} aria-label={t("storeTheme.heroSlides.moveDown")} title={t("storeTheme.heroSlides.moveDown")}><ChevronDown /></button>
+                            <button type="button" disabled={disabled} onClick={() => removeSlide(index)} aria-label={t("storeTheme.heroSlides.remove")} title={t("storeTheme.heroSlides.remove")}><Trash2 /></button>
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : <span className="tc-upload-icon" aria-hidden="true"><ImagePlus /></span>}
+                  <div className="tc-upload-side">
+                    {slides.length < MAX_HERO_SLIDES ? (
+                      <MediaField label={t("storeTheme.tc.mediaUpload")}>
+                        <ThemeMediaPicker
+                          kind="IMAGE"
+                          value={undefined}
+                          shopId={shopId}
+                          shopSlug={shop.slug}
+                          disabled={disabled}
+                          onChange={(mediaId, item) => { if (mediaId && item?.url) addSlide({ slideMediaId: mediaId, imageUrl: item.url }); }}
+                        />
+                      </MediaField>
+                    ) : <p className="theme-hint">{t("storeTheme.heroSlides.full", { max: MAX_HERO_SLIDES })}</p>}
+                    <small>{t("storeTheme.tc.mediaHint", { max: MAX_HERO_SLIDES })}</small>
+                    <small>{slides.length ? `${slides.length}/${MAX_HERO_SLIDES}` : t("storeTheme.heroSlides.empty", { max: MAX_HERO_SLIDES })}</small>
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset className="theme-block">
+                <legend>{t("storeTheme.tc.text")}</legend>
+                {general ? (
+                  <FormField label={t("storeTheme.tc.eyebrow")} error={errorFor("hero.eyebrow")}>
+                    <input value={config.hero.eyebrow ?? ""} maxLength={60} disabled={disabled} placeholder={t("storeTheme.hero.eyebrowPlaceholder")} onChange={(event) => setHero("eyebrow", event.target.value)} />
+                  </FormField>
+                ) : null}
+                <FormField label={t("storeTheme.tc.title")} error={errorFor("hero.title")}>
+                  <input value={config.hero.title} maxLength={120} disabled={disabled} placeholder={shop.shopName} onChange={(event) => setHero("title", event.target.value)} />
+                </FormField>
+                <FormTextarea
+                  label={t("storeTheme.tc.subtitle")}
+                  value={config.hero.subtitle}
+                  maxLength={240}
+                  disabled={disabled}
+                  error={errorFor("hero.subtitle")}
+                  onChange={(event) => setHero("subtitle", event.target.value)}
+                />
+                <FormField label={t("storeTheme.tc.cta")} error={errorFor("hero.ctaLabel")}>
+                  <input value={config.hero.ctaLabel} maxLength={120} disabled={disabled} onChange={(event) => setHero("ctaLabel", event.target.value)} />
+                </FormField>
+                {general ? (
+                  <FormField label={t("storeTheme.tc.cta2")} error={errorFor("hero.ctaSecondaryLabel")}>
+                    <input value={config.hero.ctaSecondaryLabel ?? ""} maxLength={120} disabled={disabled} placeholder={t("storeTheme.hero.ctaSecondaryPlaceholder")} onChange={(event) => setHero("ctaSecondaryLabel", event.target.value)} />
+                  </FormField>
+                ) : null}
+              </fieldset>
+
+              <fieldset className="theme-block">
+                <legend>{t("storeTheme.tc.more")}</legend>
+                <FormField label={t("storeTheme.tc.ctaLink")} error={errorFor("hero.ctaLink")}>
+                  <input value={config.hero.ctaLink} disabled={disabled} placeholder="/shops  |  https://" onChange={(event) => setHero("ctaLink", event.target.value)} />
+                </FormField>
+                {general ? (
+                  <FormField label={t("storeTheme.tc.cta2Link")} error={errorFor("hero.ctaSecondaryLink")}>
+                    <input value={config.hero.ctaSecondaryLink ?? ""} disabled={disabled} placeholder="/shops  |  https://" onChange={(event) => setHero("ctaSecondaryLink", event.target.value)} />
+                  </FormField>
+                ) : null}
+                {general ? [0, 1, 2].map((slot) => (
+                  <FormField key={slot} label={`${t("storeTheme.hero.badges")} ${slot + 1}`} error={errorFor(`hero.badges[${slot}]`) ?? (slot === 0 ? errorFor("hero.badges") : undefined)}>
+                    <input value={config.hero.badges?.[slot] ?? ""} maxLength={24} placeholder={t("storeTheme.hero.badgesHint")} disabled={disabled} onChange={(event) => setHeroBadge(slot, event.target.value)} />
+                  </FormField>
+                )) : null}
+                <p className="theme-hint">{general ? t("storeTheme.hero.generalHint") : t("storeTheme.hero.ctaHint")}</p>
+              </fieldset>
+            </>
+          );
+        })()}
 
         {draft.templateKey === "CUSTOM" && config.hero.layout === "MEDIA_FULL" ? (
           <HeroMediaPanel {...chromeProps} />
@@ -886,17 +1176,32 @@ export default function ShopThemeEditor({
                     onChange={(event) => setTrustItem(index, { label: event.target.value })}
                   />
                 </FormField>
+                {usesTsfTree(draft.templateKey) ? (
+                  <FormField label={t("storeTheme.sections.trustSub")} error={errorFor(`trust.items[${index}].sub`)}>
+                    <input
+                      value={item.sub ?? ""}
+                      maxLength={80}
+                      placeholder={t("storeTheme.sections.trustSubPlaceholder")}
+                      disabled={disabled || !config.trust.enabled}
+                      onChange={(event) => setTrustItem(index, { sub: event.target.value })}
+                    />
+                  </FormField>
+                ) : null}
               </li>
             ))}
           </ul>
+        {usesTsfTree(draft.templateKey) ? (
+            <div className="theme-grid">
+              {[0, 1].map((slot) => (
+                <FormField key={slot} label={`${t("storeTheme.announcement.label")} ${slot + 1}`} error={errorFor(`announcement.items[${slot}]`) ?? (slot === 0 ? errorFor("announcement.items") : undefined)}>
+                  <input value={config.announcement?.items?.[slot] ?? ""} maxLength={120} placeholder={t("storeTheme.announcement.hint")} disabled={disabled} onChange={(event) => setAnnouncement(slot, event.target.value)} />
+                </FormField>
+              ))}
+            </div>
+          ) : null}
         </fieldset>
-
-        {draft.templateKey === "CUSTOM" ? (
-          <>
-            <HeaderPanel {...chromeProps} />
-            <FooterPanel {...chromeProps} />
-          </>
-        ) : null}
+        </>) : null}
+        {panelTab === "sections" ? (<>
 
         {draft.templateKey === "CUSTOM" && config.layout ? (
           <ShopBlocksEditor
@@ -909,9 +1214,9 @@ export default function ShopThemeEditor({
             onChange={setBlocks}
           />
         ) : (
+        <>
         <fieldset className="theme-block">
-          <legend>{t("storeTheme.sections.title")}</legend>
-          <p className="theme-hint">{t("storeTheme.sections.hint")}</p>
+          <legend>{t("storeTheme.tc.sectionsHead", { n: config.sections.filter((row) => row.enabled).length, total: config.sections.length })}</legend>
           <FieldError text={errorFor("sections")} />
           <ul className="theme-sections">
             {config.sections.map((section, index) => {
@@ -931,24 +1236,30 @@ export default function ShopThemeEditor({
                   }}
                 >
                   <span className="theme-section-grip" aria-hidden="true"><GripVertical /></span>
-                  <b
-                    className="theme-section-name"
-                    title={isShopSectionAvailable(section.key) ? undefined : t("storeTheme.sections.comingSoonHint")}
-                  >
-                    {t(`storeTheme.sections.${section.key as ShopSectionKey}`)}
-                    {isShopSectionAvailable(section.key) ? null : ` · ${t("storeTheme.sections.comingSoon")}`}
-                  </b>
-                  {variants.length ? (
-                    <ThemeSelect inline
-                      label={`${t(`storeTheme.sections.${section.key}`)} · ${t("storeTheme.sections.variant")}`}
-                      value={section.variant ?? variants[0] ?? ""}
-                      disabled={disabled}
-                      aria-invalid={Boolean(rowError)}
-                      onChange={(event) => setSection(index, { variant: event.target.value as SectionVariant })}
+                  <span className="theme-section-main">
+                    <b
+                      className="theme-section-name"
+                      title={isShopSectionAvailable(section.key) ? undefined : t("storeTheme.sections.comingSoonHint")}
                     >
-                      {variants.map((variant) => <option key={variant} value={variant ?? ""}>{t(`storeTheme.variants.${variant}`)}</option>)}
-                    </ThemeSelect>
-                  ) : <span />}
+                      {t(`storeTheme.sections.${section.key as ShopSectionKey}`)}
+                      {isShopSectionAvailable(section.key) ? null : ` · ${t("storeTheme.sections.comingSoon")}`}
+                    </b>
+                    {variants.length ? (
+                      <ThemeSelect inline
+                        label={`${t(`storeTheme.sections.${section.key}`)} · ${t("storeTheme.sections.variant")}`}
+                        value={section.variant ?? variants[0] ?? ""}
+                        disabled={disabled}
+                        aria-invalid={Boolean(rowError)}
+                        onChange={(event) => setSection(index, { variant: event.target.value as SectionVariant })}
+                      >
+                        {variants.map((variant) => <option key={variant} value={variant ?? ""}>{variant}</option>)}
+                      </ThemeSelect>
+                    ) : <small className="theme-section-state">{section.enabled ? t("storeTheme.tc.shown") : t("storeTheme.tc.hidden")}</small>}
+                  </span>
+                  <span className="theme-section-move">
+                    <button type="button" disabled={disabled || index === 0} aria-label={t("storeTheme.sections.moveUp")} title={t("storeTheme.sections.moveUp")} onClick={() => reorder(index, index - 1)}><ChevronUp /></button>
+                    <button type="button" disabled={disabled || index === config.sections.length - 1} aria-label={t("storeTheme.sections.moveDown")} title={t("storeTheme.sections.moveDown")} onClick={() => reorder(index, index + 1)}><ChevronDown /></button>
+                  </span>
                   <ToggleSwitch
                     checked={section.enabled}
                     disabled={disabled}
@@ -957,58 +1268,122 @@ export default function ShopThemeEditor({
                     offText={t("storeTheme.sections.off")}
                     onChange={(enabled) => setSection(index, { enabled })}
                   />
-                  <span className="theme-section-move">
-                    <button type="button" disabled={disabled || index === 0} aria-label={t("storeTheme.sections.moveUp")} title={t("storeTheme.sections.moveUp")} onClick={() => reorder(index, index - 1)}><ChevronUp /></button>
-                    <button type="button" disabled={disabled || index === config.sections.length - 1} aria-label={t("storeTheme.sections.moveDown")} title={t("storeTheme.sections.moveDown")} onClick={() => reorder(index, index + 1)}><ChevronDown /></button>
-                  </span>
                   {rowError ? <FieldError text={rowError} /> : null}
                 </li>
               );
             })}
           </ul>
+          <p className="theme-hint tc-note">{t("storeTheme.tc.sectionsNote")}</p>
         </fieldset>
+        {draft.templateKey === "GENERAL" ? (() => {
+          const catalogIndex = config.sections.findIndex((row) => row.key === "CATALOG");
+          const current = catalogIndex >= 0 ? (config.sections[catalogIndex].variant ?? "GRID") : "GRID";
+          const options: { key: "GRID" | "LARGE" | "MENU"; Icon: LucideIcon }[] = [
+            { key: "GRID", Icon: LayoutGrid }, { key: "LARGE", Icon: GalleryHorizontal }, { key: "MENU", Icon: List },
+          ];
+          return (
+            <fieldset className="theme-block">
+              <legend>{t("storeTheme.catalogLayout.title")}</legend>
+              <p className="theme-hint">{t("storeTheme.catalogLayout.hint")}</p>
+              <div className="tc-layout-opts" role="radiogroup" aria-label={t("storeTheme.catalogLayout.title")}
+                onKeyDown={(event) => {
+                  const step = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : event.key === "ArrowUp" || event.key === "ArrowLeft" ? -1 : 0;
+                  if (!step || disabled || catalogIndex < 0) return;
+                  event.preventDefault();
+                  const idx = options.findIndex((o) => o.key === current);
+                  const next = options[(idx + step + options.length) % options.length].key;
+                  setSection(catalogIndex, { variant: next });
+                  const group = event.currentTarget;
+                  requestAnimationFrame(() => group.querySelector<HTMLButtonElement>(`[data-key="${next}"]`)?.focus());
+                }}>
+                {options.map(({ key, Icon }) => {
+                  const active = current === key;
+                  return (
+                    <button type="button" key={key} data-key={key} role="radio" aria-checked={active} tabIndex={active ? 0 : -1}
+                      className={`tc-layout-opt${active ? " is-active" : ""}`}
+                      disabled={disabled || catalogIndex < 0} onClick={() => setSection(catalogIndex, { variant: key })}>
+                      <span className={`tc-layout-prev tc-layout-prev-${key.toLowerCase()}`} aria-hidden="true">
+                        {key === "GRID" ? <><i /><i /><i /><i /><i /><i /></> : key === "LARGE" ? <><i /><i /></> : <><i /><i /><i /></>}
+                      </span>
+                      <span className="tc-layout-text">
+                        <b><Icon aria-hidden="true" />{t(`storeTheme.catalogLayout.${key}.name`)}</b>
+                        <small>{t(`storeTheme.catalogLayout.${key}.desc`)}</small>
+                      </span>
+                      <span className="tc-layout-radio" aria-hidden="true">{active ? <Check /> : null}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {catalogIndex >= 0 ? <FieldError text={errorFor(`sections[${catalogIndex}].variant`)} /> : null}
+            </fieldset>
+          );
+        })() : null}
+        </>
         )}
-
-        <div className="pm-actions theme-actions">
-          <button type="button" disabled={disabled || saving} title={deniedTitle} onClick={() => setConfirm({ kind: "reset" })}>
-            <RotateCcw />{t("storeTheme.actions.reset")}
-          </button>
-          <button type="button" className="primary" disabled={disabled || saving || !dirty} title={deniedTitle} onClick={() => void save()}>
-            {saving ? t("storeTheme.actions.saving") : t("storeTheme.actions.save")}
-          </button>
+        {usesTsfTree(draft.templateKey) ? (
+          <fieldset className="theme-block theme-intro">
+            <legend>{t("storeTheme.intro.title")}</legend>
+            <p className="theme-hint">{t("storeTheme.intro.hint")}</p>
+            <FieldError text={errorFor("intro")} />
+            <div className="theme-grid">
+              <FormField label={t("storeTheme.intro.eyebrow")} error={errorFor("intro.eyebrow")}>
+                <input value={config.intro?.eyebrow ?? ""} maxLength={60} disabled={disabled} onChange={(event) => setIntro({ eyebrow: event.target.value }, "eyebrow")} />
+              </FormField>
+              <FormField label={t("storeTheme.intro.heading")} error={errorFor("intro.title")}>
+                <input value={config.intro?.title ?? ""} maxLength={120} disabled={disabled} placeholder={shop.shopName} onChange={(event) => setIntro({ title: event.target.value }, "title")} />
+              </FormField>
+            </div>
+            <FormTextarea
+              label={t("storeTheme.intro.body")}
+              value={config.intro?.body ?? ""}
+              maxLength={1000}
+              disabled={disabled}
+              error={errorFor("intro.body")}
+              onChange={(event) => setIntro({ body: event.target.value }, "body")}
+            />
+            <div className="theme-grid">
+              <FormField label={t("storeTheme.intro.ctaLabel")} error={errorFor("intro.ctaLabel")}>
+                <input value={config.intro?.ctaLabel ?? ""} maxLength={60} disabled={disabled} onChange={(event) => setIntro({ ctaLabel: event.target.value }, "ctaLabel")} />
+              </FormField>
+              <FormField label={t("storeTheme.intro.ctaLink")} error={errorFor("intro.ctaLink")}>
+                <input value={config.intro?.ctaLink ?? ""} maxLength={500} disabled={disabled} placeholder="/products" onChange={(event) => setIntro({ ctaLink: event.target.value }, "ctaLink")} />
+              </FormField>
+            </div>
+            <p className="theme-hint">{t("storeTheme.intro.linkHint")}</p>
+            <MediaField label={t("storeTheme.intro.image")}>
+              <ThemeMediaPicker
+                kind="IMAGE"
+                value={config.intro?.introMediaId}
+                shopId={shopId}
+                shopSlug={shop.slug}
+                disabled={disabled}
+                onChange={(mediaId, item) => setIntro({ introMediaId: mediaId || undefined, imageUrl: mediaId ? item?.url : undefined }, "introMediaId")}
+              />
+            </MediaField>
+            <FieldError text={errorFor("intro.introMediaId")} />
+            <p className="theme-hint">{t("storeTheme.intro.imageHint")}</p>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input type="checkbox" checked={!!config.intro?.reverse} disabled={disabled} onChange={(event) => setIntro({ reverse: event.target.checked }, "reverse")} />
+              {t("storeTheme.intro.reverse")}
+            </label>
+          </fieldset>
+        ) : null}
+        </>) : null}
         </div>
       </section>
 
-      <aside className="store-side">
-        <section className="store-preview store-theme-preview">
-          <header>
-            <h2>{t("storeTheme.preview.title")}</h2>
-            <div className="theme-device-toggle" role="group" aria-label={t("storeTheme.preview.devices")}>
-              {DEVICES.map(({ key, icon: Icon }) => (
-                <button
-                  type="button"
-                  key={key}
-                  className={device === key ? "active" : ""}
-                  aria-pressed={device === key}
-                  aria-label={`${t(`storeTheme.preview.${key}`)} ${PREVIEW_WIDTHS[key]}px`}
-                  title={`${t(`storeTheme.preview.${key}`)} · ${PREVIEW_WIDTHS[key]}px`}
-                  onClick={() => setDevice(key)}
-                >
-                  <Icon />
-                </button>
-              ))}
-            </div>
-          </header>
-          <div className="theme-preview-stage" ref={stageRef}>
-            <div className="theme-preview-device" style={{ width: previewWidth, zoom }}>
-              <HeroStickerDragContext.Provider value={stickerDrag}>
-                <ShopStorefront shop={previewShop} products={previewProducts} catalog={previewCatalog} previewWidth={previewWidth} />
-              </HeroStickerDragContext.Provider>
-            </div>
+      <section className="tc-preview store-theme-preview">
+        <div className="theme-preview-stage" ref={stageRef}>
+          <div className="theme-preview-device tc-device" style={{ width: previewWidth, zoom }}>
+            <HeroStickerDragContext.Provider value={stickerDrag}>
+              <ShopStorefront shop={previewShop} products={previewProducts} catalog={previewCatalog} previewWidth={previewWidth}
+                categoryNames={previewCategoryNames} allProductsLimit={PREVIEW_PRODUCT_LIMIT} />
+            </HeroStickerDragContext.Provider>
           </div>
-          <p className="theme-hint">{t("storeTheme.preview.hint", { width: previewWidth })}</p>
-        </section>
-      </aside>
+        </div>
+        <p className="theme-hint">{t("storeTheme.preview.hint", { width: previewWidth })}</p>
+      </section>
+      </div>
 
       {confirm ? (
         <ConfirmDialog

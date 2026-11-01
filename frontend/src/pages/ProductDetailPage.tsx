@@ -2,15 +2,17 @@ import { useEffect, useState } from "react";
 import { SkeletonForm, SkeletonTable, SkeletonBusy, LoadError } from "../components/feedback/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { Link, useParams } from "react-router-dom";
-import { Archive, ExternalLink, LoaderCircle, Pencil, Upload } from "lucide-react";
+import { Archive, ExternalLink, Link2, LoaderCircle, Pencil, QrCode, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ConfirmDialog from "../components/form/ConfirmDialog";
 import SearchableSelect from "../components/SearchableSelect";
 import MerchantShell from "../components/merchant/MerchantShell";
 import AuthImage from "../components/merchant/AuthImage";
+import ProductQrModal from "../components/shop/ProductQrModal";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { catalogMessage, formatMoney, formatWhen } from "../services/catalogText";
 import { ApiError, productApi, type LedgerEntry, type Product, type ProductSku } from "../services/api";
+import { canOpenStorefront, copyText, productPageUrl, productShareLink } from "../utils/productLinks";
 
 type StockMovement = "RECEIVE" | "ISSUE" | "ADJUST" | "RESERVE" | "RELEASE";
 
@@ -28,7 +30,9 @@ export default function ProductDetailPage() {
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
+  const [qrOpen, setQrOpen] = useState(false);
   const [adjust, setAdjust] = useState({ skuId: "", entryType: "RECEIVE" as StockMovement, quantityDelta: "1", reason: "" });
+  const shopSlug = shop?.slug?.trim() || "";
 
   const load = (quiet = false) => {
     if (shopId == null) return;
@@ -149,6 +153,8 @@ export default function ProductDetailPage() {
   const stockMark = (sku: ProductSku) => (sku.available <= 0 && sku.onHand > 0 ? "low" : sku.available <= 0 ? "out" : null);
   const names = { th: product.nameTh, en: product.nameEn, zh: product.nameZh };
   const descriptions = { th: product.descriptionTh, en: product.descriptionEn, zh: product.descriptionZh };
+  const storefrontReady = canOpenStorefront(product.status, shopSlug, product.slug);
+  const storefrontTip = storefrontReady ? undefined : t("catalog.actions.notPublished");
   return (
     <MerchantShell notice={notice} tone={tone}>
       <SkeletonBusy refetching={isRefetching} busy={isRefetching}>
@@ -158,7 +164,34 @@ export default function ProductDetailPage() {
           <p><span className={product.status === "PUBLISHED" ? "pm-status ready" : product.status === "ARCHIVED" ? "pm-status empty" : "pm-status low"}>{t(`catalog.status.${product.status}`)}</span></p>
         </div>
         <div className="pm-actions">
-          {product.status === "PUBLISHED" && shop ? <a href={`/shop/${shop.slug}/product/${product.slug}`}><ExternalLink />{t("catalog.actions.viewShop")}</a> : null}
+          <button
+            type="button"
+            title={storefrontTip ?? t("catalog.actions.viewStorefront")}
+            disabled={!storefrontReady}
+            onClick={() => window.open(productPageUrl(shopSlug, product.slug), "_blank", "noopener,noreferrer")}
+          >
+            <ExternalLink />{t("catalog.actions.viewStorefront")}
+          </button>
+          <button
+            type="button"
+            title={storefrontTip ?? t("catalog.actions.copyLink")}
+            disabled={!storefrontReady}
+            onClick={() => {
+              void copyText(productShareLink(shopSlug, product.slug)).then((ok) => {
+                toast(ok ? t("catalog.toast.linkCopied") : catalogMessage(t, null), ok ? "ok" : "fail");
+              });
+            }}
+          >
+            <Link2 />{t("catalog.actions.copyLink")}
+          </button>
+          <button
+            type="button"
+            title={storefrontTip ?? t("catalog.actions.qrCode")}
+            disabled={!storefrontReady}
+            onClick={() => setQrOpen(true)}
+          >
+            <QrCode />{t("catalog.actions.qrCode")}
+          </button>
           <Link to={`/merchant/products/${product.id}/edit`}><Pencil />{t("catalog.actions.edit")}</Link>
           {product.status === "ARCHIVED"
             ? <button type="button" disabled={busy} onClick={() => void act("unarchive")}>{t("catalog.actions.unarchive")}</button>
@@ -299,6 +332,13 @@ export default function ProductDetailPage() {
           onConfirm={() => void act("archive")}
         />
       )}
+      {qrOpen && storefrontReady ? (
+        <ProductQrModal
+          productUrl={productPageUrl(shopSlug, product.slug)}
+          name={product.nameTh}
+          onClose={() => setQrOpen(false)}
+        />
+      ) : null}
       </SkeletonBusy>
     </MerchantShell>
   );

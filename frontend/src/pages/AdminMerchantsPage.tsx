@@ -126,12 +126,15 @@ function MerchantsTab({ tp, notify }: { tp: TP; notify: Notify }) {
 
   return <>
     <form className="ap-filters" onSubmit={submit}>
-      <label className="ap-search adm-search wide"><Search /><input value={draft.q} onChange={event => set('q', event.target.value)} placeholder={tp('merchants.filters.q')} aria-label={tp('merchants.filters.q')} maxLength={100} /></label>
+      <div className="ap-filter-search wide">
+        <span className="ap-filter-label">{tp('common.search')}</span>
+        <label className="ap-search adm-search"><Search /><input value={draft.q} onChange={event => set('q', event.target.value)} placeholder={tp('merchants.filters.q')} aria-label={tp('merchants.filters.q')} maxLength={100} /></label>
+      </div>
       <AdminSelect label={tp('common.status')} value={draft.status} onChange={value => set('status', value)} options={[{ value: '', label: tp('common.all') }, ...MERCHANT_STATUSES.map(value => ({ value, label: tp(`status.${value}`) }))]} />
       <AdminSelect label={tp('merchants.filters.ownerType')} value={draft.ownerType} onChange={value => set('ownerType', value)} options={[{ value: '', label: tp('common.all') }, ...OWNER_TYPES.map(value => ({ value, label: tp(`ownerType.${value}`) }))]} />
       <AdminSelect label={tp('merchants.filters.shopStatus')} value={draft.shopStatus} onChange={value => set('shopStatus', value)} options={[{ value: '', label: tp('common.all') }, ...SHOP_STATUSES.map(value => ({ value, label: tp(`status.${value}`) }))]} />
       <AdminDateRange from={draft.from} to={draft.to} onChange={range => { set('from', range.from); set('to', range.to) }} />
-      <div className="ap-filter-actions"><button type="submit" className="ap-primary">{tp('common.search')}</button><button type="button" className="ap-ghost" onClick={reset}>{tp('common.reset')}</button></div>
+      <div className="ap-filter-actions"><button type="button" className="ap-ghost" onClick={reset}>{tp('common.reset')}</button><button type="submit" className="ap-primary">{tp('common.search')}</button></div>
     </form>
 
     <section className="ap-card">
@@ -292,11 +295,14 @@ function ShopsTab({ tp, notify, localeTag }: { tp: TP; notify: Notify; localeTag
 
   return <>
     <form className="ap-filters" onSubmit={submit}>
-      <label className="ap-search adm-search wide"><Search /><input value={draft.q} onChange={event => set('q', event.target.value)} placeholder={tp('shops.filters.q')} aria-label={tp('shops.filters.q')} maxLength={100} /></label>
+      <div className="ap-filter-search wide">
+        <span className="ap-filter-label">{tp('common.search')}</span>
+        <label className="ap-search adm-search"><Search /><input value={draft.q} onChange={event => set('q', event.target.value)} placeholder={tp('shops.filters.q')} aria-label={tp('shops.filters.q')} maxLength={100} /></label>
+      </div>
       <AdminSelect label={tp('common.status')} value={draft.status} onChange={value => set('status', value)} options={[{ value: '', label: tp('common.all') }, ...SHOP_STATUSES.map(value => ({ value, label: tp(`status.${value}`) }))]} />
       <label><span>{tp('common.province')}</span><input value={draft.province} onChange={event => set('province', event.target.value)} maxLength={100} /></label>
       <AdminDateRange from={draft.from} to={draft.to} onChange={range => { set('from', range.from); set('to', range.to) }} />
-      <div className="ap-filter-actions"><button type="submit" className="ap-primary">{tp('common.search')}</button><button type="button" className="ap-ghost" onClick={reset}>{tp('common.reset')}</button></div>
+      <div className="ap-filter-actions"><button type="button" className="ap-ghost" onClick={reset}>{tp('common.reset')}</button><button type="submit" className="ap-primary">{tp('common.search')}</button></div>
     </form>
 
     <section className="ap-card">
@@ -437,9 +443,12 @@ function PlansTab({ tp }: { tp: TP }) {
     </section>
 
     <form className="ap-filters" onSubmit={submit}>
-      <label className="ap-search adm-search wide"><Search /><input value={draft.q} onChange={event => setDraft({ ...draft, q: event.target.value })} placeholder={tp('plans.filters.q')} aria-label={tp('plans.filters.q')} maxLength={100} /></label>
+      <div className="ap-filter-search wide">
+        <span className="ap-filter-label">{tp('common.search')}</span>
+        <label className="ap-search adm-search"><Search /><input value={draft.q} onChange={event => setDraft({ ...draft, q: event.target.value })} placeholder={tp('plans.filters.q')} aria-label={tp('plans.filters.q')} maxLength={100} /></label>
+      </div>
       <AdminSelect label={tp('common.status')} value={draft.status} onChange={value => setDraft({ ...draft, status: value })} options={[{ value: '', label: tp('common.all') }, ...SHOP_STATUSES.map(value => ({ value, label: tp(`status.${value}`) }))]} />
-      <div className="ap-filter-actions"><button type="submit" className="ap-primary">{tp('common.search')}</button><button type="button" className="ap-ghost" onClick={() => { setDraft(EMPTY_PLAN_FILTERS); setFilters(EMPTY_PLAN_FILTERS); list.setPage(0) }}>{tp('common.reset')}</button></div>
+      <div className="ap-filter-actions"><button type="button" className="ap-ghost" onClick={() => { setDraft(EMPTY_PLAN_FILTERS); setFilters(EMPTY_PLAN_FILTERS); list.setPage(0) }}>{tp('common.reset')}</button><button type="submit" className="ap-primary">{tp('common.search')}</button></div>
     </form>
 
     <section className="ap-card">

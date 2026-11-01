@@ -18,6 +18,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     Optional<Order> lockById(@Param("id") UUID id);
 
     boolean existsByOrderNumber(String orderNumber);
+    /** Public order tracking (order numbers are generated globally unique). */
+    Optional<Order> findFirstByOrderNumber(String orderNumber);
 
     @Query("select o from Order o where o.buyerUserId = :buyer and o.idempotencyKey like :prefix order by o.placedAt asc, o.orderNumber asc")
     List<Order> findCheckoutReplay(@Param("buyer") UUID buyer, @Param("prefix") String prefix);

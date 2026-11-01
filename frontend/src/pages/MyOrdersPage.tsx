@@ -431,8 +431,8 @@ export default function MyOrdersPage() {
                               ) : order.paymentMethod ? (
                                 <span className="orders-badge">{tp("orders.paymentsHistory.bankTransfer")}</span>
                               ) : null}
-                              {order.paymentStatus ? (
-                                <span className="orders-badge is-muted">
+                              {order.paymentStatus === "UNPAID" && order.status !== "CANCELLED" && order.status !== "EXPIRED" ? (
+                                <span className="orders-badge is-unpaid">
                                   {tp(`orders.list.paymentStatus.${order.paymentStatus}`, { defaultValue: order.paymentStatus })}
                                 </span>
                               ) : null}

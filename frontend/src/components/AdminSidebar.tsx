@@ -85,7 +85,7 @@ export default function AdminSidebar({ active, className = '', showHelp = false,
 
   return (
     <aside className={`admin-sidebar ${className}`.trim()}>
-      {canVisit('/admin') && <a className={active === 'home' ? 'active' : ''} href="/admin"><Home />หน้าแรก</a>}
+      {canVisit('/admin/dashboard') && <a className={active === 'home' ? 'active' : ''} href="/admin/dashboard"><Home />หน้าแรก</a>}
       {groups.filter(group => group.keys.some(key => canVisit(item(key).href))).map(group => (
         <section key={group.label}>
           <h3>{group.label}</h3>

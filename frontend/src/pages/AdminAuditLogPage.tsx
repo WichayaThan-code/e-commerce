@@ -112,7 +112,10 @@ export default function AdminAuditLogPage() {
 
         {!canRead ? <div className="ap-card"><p className="ap-empty" title={deniedTitle(false)}>{tp('errors.noPermission')}</p></div> : <>
           <form className="ap-filters" onSubmit={submit}>
-            <label className="ap-search adm-search wide"><Search /><input value={draft.q} onChange={event => set('q', event.target.value)} placeholder={tp('audit.filters.q')} aria-label={tp('audit.filters.q')} maxLength={100} /></label>
+            <div className="ap-filter-search wide">
+              <span className="ap-filter-label">{tp('common.search')}</span>
+              <label className="ap-search adm-search"><Search /><input value={draft.q} onChange={event => set('q', event.target.value)} placeholder={tp('audit.filters.q')} aria-label={tp('audit.filters.q')} maxLength={100} /></label>
+            </div>
             <label><span>{tp('audit.filters.action')}</span><input value={draft.action} onChange={event => set('action', event.target.value)} maxLength={100} /></label>
             <label><span>{tp('audit.filters.resourceType')}</span><input value={draft.resourceType} onChange={event => set('resourceType', event.target.value)} maxLength={50} /></label>
             <label><span>{tp('audit.filters.shopId')}</span><input value={draft.shopId} inputMode="numeric" pattern="[0-9]*" className="num" onChange={event => set('shopId', event.target.value.replace(/\D/g, ''))} /></label>
@@ -122,8 +125,8 @@ export default function AdminAuditLogPage() {
               options={[{ value: '', label: tp('common.all') }, ...KINDS.map(value => ({ value, label: tp(`audit.kind.${value}`) }))]} />
             <AdminDateRange from={draft.from} to={draft.to} onChange={range => { set('from', range.from); set('to', range.to) }} />
             <div className="ap-filter-actions">
-              <button type="submit" className="ap-primary">{tp('common.search')}</button>
               <button type="button" className="ap-ghost" onClick={reset}>{tp('common.reset')}</button>
+              <button type="submit" className="ap-primary">{tp('common.search')}</button>
             </div>
           </form>
 

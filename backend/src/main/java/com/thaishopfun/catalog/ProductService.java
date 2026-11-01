@@ -660,6 +660,33 @@ public class ProductService {
         return new CatalogDtos.PageResponse<>(items, pageNumber, pageSize, total);
     }
 
+    /** Public product cards (best-seller shape) for already ranked ids; rank = rankOffset + position + 1. Used by recommendations. */
+    @Transactional(readOnly = true)
+    public List<CatalogDtos.PublicBestSellerResponse> rankedPublicCards(List<UUID> orderedIds, Map<UUID, Long> sold, int rankOffset, String locale) {
+        if (orderedIds.isEmpty()) return List.of();
+        var byId = new HashMap<UUID, Product>();
+        for (var product : products.findAllById(orderedIds)) byId.put(product.getId(), product);
+        var ratings = reviewAggregates(orderedIds);
+        var textIds = orderedIds.stream().map(UUID::toString).toList();
+        var index = translations.loadIndex(TranslationEntityType.PRODUCT, textIds);
+        var options = translations.loadIndex(TranslationEntityType.PRODUCT_OPTION, textIds);
+        var items = new ArrayList<CatalogDtos.PublicBestSellerResponse>();
+        for (int i = 0; i < orderedIds.size(); i++) {
+            var product = byId.get(orderedIds.get(i));
+            if (product == null) continue;
+            var view = toPublic(product, index, options, locale);
+            var shop = product.getShop();
+            items.add(new CatalogDtos.PublicBestSellerResponse(
+                rankOffset + i + 1, sold.getOrDefault(view.id(), 0L),
+                view.id(), view.slug(), view.nameTh(), view.nameEn(), view.nameZh(), view.categoryId(), view.brand(),
+                view.basePrice(), view.compareAtPrice(), view.currency(), view.skus(), view.images(),
+                shop.getSlug(), shop.getName(), shop.getNameEn(),
+                ratings.containsKey(view.id()) ? ratings.get(view.id())[0] : null,
+                ratings.containsKey(view.id()) ? ratings.get(view.id())[1].longValue() : null));
+        }
+        return items;
+    }
+
     /** product id -> [avg rating (1 decimal), count] over PUBLISHED reviews (see review.ProductReviewService). */
     private Map<UUID, BigDecimal[]> reviewAggregates(List<UUID> productIds) {
         var result = new HashMap<UUID, BigDecimal[]>();
@@ -1344,7 +1371,9 @@ public class ProductService {
             }).toList(),
             imageResponses(product, false),
             filterGroupViews(variants.groupViews(product.getId()), used),
-            localizedGroups
+            localizedGroups,
+            null,
+            product.getCreatedDateTime()
         );
     }
 

@@ -260,13 +260,15 @@
 .recommend-page.shop-themed{
   background:var(--shop-page-bg,var(--shop-bg,#fff));color:var(--shop-text,#132b50);font-family:var(--shop-font),sans-serif;
 }
-.shop-themed,
-.shop-themed button:not(.num),
-.shop-themed input,
-.shop-themed select,
-.shop-themed textarea,
-.shop-themed label,
-.shop-themed a{
+/* tsf storefronts (GENERAL / FASHION / FOOD_BEVERAGE) pick heading vs body fonts themselves in tsf-general.css. */
+.recommend-page.shop-themed.tsf-store{font-family:var(--tsf-font-body,var(--shop-font)),sans-serif}
+.shop-themed:where(:not(.tsf-store)),
+.shop-themed:where(:not(.tsf-store)) button:not(.num),
+.shop-themed:where(:not(.tsf-store)) input,
+.shop-themed:where(:not(.tsf-store)) select,
+.shop-themed:where(:not(.tsf-store)) textarea,
+.shop-themed:where(:not(.tsf-store)) label,
+.shop-themed:where(:not(.tsf-store)) a{
   font-family:var(--shop-font),sans-serif;
 }
 .shop-themed .num,

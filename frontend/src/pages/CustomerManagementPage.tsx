@@ -2,22 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  BarChart3,
-  Box,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
-  CircleUserRound,
   Crown,
   Download,
   Globe2,
-  Headphones,
   Copy,
   ExternalLink,
   EyeOff,
   Heart,
-  Home,
   Mail,
   MapPin,
   MessageCircle,
@@ -25,27 +19,19 @@ import {
   ReceiptText,
   Phone,
   Search,
-  Settings,
   ShoppingBag,
   ShoppingCart,
-  Store,
-  TicketPercent,
-  Truck,
   UserPlus,
   UsersRound,
   Wallet,
-  WalletCards,
 } from "lucide-react";
-import MerchantBell from "../components/merchant/MerchantBell";
 import MerchantBrand from "../components/merchant/MerchantBrand";
 import MerchantOrderDrawer from "../components/merchant/MerchantOrderDrawer";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
-import LanguageSwitcher from "../components/LanguageSwitcher";
-import MerchantShopMenu from "../components/MerchantShopMenu";
+import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
 import DateRangePicker from "../components/form/DateRangePicker";
 import SearchableSelect from "../components/SearchableSelect";
 import { LoadError, Skeleton, SkeletonTable } from "../components/feedback/Skeleton";
-import MerchantLogoutButton from "../components/merchant/MerchantLogoutButton";
 import { useAuth } from "../contexts/AuthContext";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
@@ -69,22 +55,11 @@ import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/customer-management.css";
 import "../styles/form-fields.css";
-import "../styles/order-management.css";
+import "../styles/order-management.css";
+import MerchantSidebar from "../components/merchant/MerchantSidebar";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
-const menu = [
-  [Home, "หน้าหลัก", "/merchant/dashboard"],
-  [Box, "จัดการสินค้า", "/merchant/products"],
-  [ShoppingBag, "คำสั่งซื้อ", "/merchant/orders"],
-  [CircleUserRound, "ลูกค้า", "/merchant/customers"],
-  [TicketPercent, "โปรโมชั่น/คูปอง", "/merchant/promotions"],
-  [BarChart3, "รายงาน", "/merchant/reports"],
-  [Truck, "การจัดส่ง", "/merchant/shipping"],
-  [WalletCards, "การเงิน", "/merchant/finance"],
-  [Store, "ตั้งค่าร้าน", "/merchant/settings"],
-  [Settings, "ตั้งค่าบัญชี", "/merchant/account"],
-] as const;
 
 function Channel({ name }: { name: string | null }) {
   if (!name) return <span className="cm-channel">—</span>;
@@ -152,7 +127,7 @@ export default function CustomerManagementPage() {
   const { localeTag } = usePublicTranslation();
   const { user, loading } = useAuth();
   const { shopId } = useActiveShop();
-  const { canInShop, canSeeMenuItem, deniedTitle } = usePermissions();
+  const { canInShop, deniedTitle } = usePermissions();
   const canCreate = canInShop("CUSTOMER_CREATE");
   const canUpdate = canInShop("CUSTOMER_UPDATE");
   const canReadPii = canInShop("CUSTOMER_PII_READ");
@@ -396,39 +371,9 @@ export default function CustomerManagementPage() {
       <header className="merchant-topbar">
         <MerchantBrand />
         <MerchantTopbarSearch />
-        <LanguageSwitcher /> <MerchantBell />
-        <MerchantShopMenu />
+        <MerchantTopbarActions />
       </header>
-      <aside className="merchant-sidebar pm-sidebar cm-sidebar">
-        <nav>
-          {menu.filter(canSeeMenuItem).map(([Icon, label, href]) => (
-            <a className={label === "ลูกค้า" ? "active" : ""} href={href} key={label}>
-              <Icon />
-              {label}
-            </a>
-          ))}
-        </nav>
-        <section className="upgrade-card">
-          <Crown />
-          <h3>ยกระดับร้านค้าของคุณ</h3>
-          <p>
-            ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย
-            <br />
-            ได้มากกว่าเดิม
-          </p>
-          <button type="button" disabled title={t("customers.comingSoon")}>{t("customers.comingSoon")}</button>
-        </section>
-        <div className="merchant-support">
-          <a href="/help">
-            <CircleHelp />
-            ศูนย์ช่วยเหลือ
-          </a>
-          <button type="button" disabled title={t("customers.comingSoon")}>
-            <Headphones />
-            ติดต่อทีมงาน
-          </button>
-        <MerchantLogoutButton /></div>
-      </aside>
+      <MerchantSidebar active="customers"/>
       <section className="pm-content cm-content">
         <header className="pm-heading cm-heading">
           <div>

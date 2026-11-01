@@ -2,40 +2,27 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  BarChart3,
-  Box,
   ChevronLeft,
   ChevronRight,
-  CircleHelp,
-  CircleUserRound,
-  Crown,
   Download,
   Eye,
-  Headphones,
-  Home,
   PackageCheck,
   Printer,
   Search,
-  Settings,
   ShoppingBag,
   SlidersHorizontal,
-  Store,
   Tags,
-  TicketPercent,
   Truck,
   UserRound,
-  WalletCards,
   X,
 } from "lucide-react";
-import MerchantBell from "../components/merchant/MerchantBell";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
+import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
 import MerchantOrderDrawer from "../components/merchant/MerchantOrderDrawer";
 import OrderBulkBar, { type BulkRunPayload, type BulkSelectionItem } from "../components/merchant/OrderBulkBar";
 import OrderBulkResults, { type BulkResultRow } from "../components/merchant/OrderBulkResults";
 import OrderTagChips from "../components/merchant/OrderTagChips";
 import OrderTagManager from "../components/merchant/OrderTagManager";
-import LanguageSwitcher from "../components/LanguageSwitcher";
-import MerchantShopMenu from "../components/MerchantShopMenu";
 import { LoadError, SkeletonTable } from "../components/feedback/Skeleton";
 import DateRangePicker from "../components/form/DateRangePicker";
 import SearchableSelect from "../components/SearchableSelect";
@@ -51,7 +38,6 @@ import {
 } from "../components/merchant/orderFormat";
 import { FEATURES } from "../config/features";
 import { useActiveShop } from "../contexts/ActiveShopContext";
-import MerchantLogoutButton from "../components/merchant/MerchantLogoutButton";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
@@ -68,22 +54,11 @@ import {
 import "../styles/form-fields.css";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
-import "../styles/order-management.css";
+import "../styles/order-management.css";
+import MerchantSidebar from "../components/merchant/MerchantSidebar";
 
 const BULK_MAX = 50;
 
-const menu = [
-  [Home, "หน้าหลัก", "/merchant/dashboard"],
-  [Box, "จัดการสินค้า", "/merchant/products"],
-  [ShoppingBag, "คำสั่งซื้อ", "/merchant/orders"],
-  [CircleUserRound, "ลูกค้า", "/merchant/customers"],
-  [TicketPercent, "โปรโมชั่น/คูปอง", "/merchant/promotions"],
-  [BarChart3, "รายงาน", "/merchant/reports"],
-  [WalletCards, "การเงิน", "/merchant/finance"],
-  [Truck, "การจัดส่ง", "/merchant/shipping"],
-  [Store, "ร้านของฉัน", "/merchant/store"],
-  [Settings, "ตั้งค่า", "/merchant/settings"],
-] as const;
 
 const TABS = [
   "all", "AWAITING", "PENDING_PAYMENT", "PAID_AWAITING_MERCHANT_CONFIRM", "MERCHANT_CONFIRMED",
@@ -122,7 +97,7 @@ export default function OrderManagementPage() {
   const { localeTag } = usePublicTranslation();
   const { user, loading } = useAuth();
   const { shopId } = useActiveShop();
-  const { canSeeMenuItem, canInShop } = usePermissions();
+  const { canInShop } = usePermissions();
   const canReadCustomers = canInShop("CUSTOMER_READ");
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState(() => searchParams.get("q")?.trim() || "");
@@ -567,41 +542,9 @@ export default function OrderManagementPage() {
       <header className="merchant-topbar">
         <Brand />
         <MerchantTopbarSearch />
-        <LanguageSwitcher /> <MerchantBell />
-        <MerchantShopMenu />
+        <MerchantTopbarActions />
       </header>
-      <aside className="merchant-sidebar pm-sidebar om-sidebar">
-        <nav>
-          {menu.filter(canSeeMenuItem).map(([Icon, label, href]) => (
-            <a className={label === "คำสั่งซื้อ" ? "active" : ""} href={href} key={label}>
-              <Icon />
-              {label}
-            </a>
-          ))}
-        </nav>
-        <section className="upgrade-card">
-          <Crown />
-          <h3>ยกระดับร้านค้าของคุณ</h3>
-          <p>
-            ใช้ฟีเจอร์ครบชุด เพิ่มยอดขาย
-            <br />
-            ได้มากกว่าเดิม
-          </p>
-          <button onClick={() => notify("กำลังเปิดรายละเอียดแพ็กเกจ")}>
-            ดูแพ็กเกจ
-          </button>
-        </section>
-        <div className="merchant-support">
-          <a href="/help">
-            <CircleHelp />
-            ศูนย์ช่วยเหลือ
-          </a>
-          <button onClick={() => notify("กำลังติดต่อทีมงาน")}>
-            <Headphones />
-            ติดต่อทีมงาน
-          </button>
-        <MerchantLogoutButton /></div>
-      </aside>
+      <MerchantSidebar active="orders"/>
       <section className="pm-content om-content">
         <header className="pm-heading om-heading">
           <div>

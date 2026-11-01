@@ -138,6 +138,7 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
                   {accountKind(user) !== "ADMIN" && (
                     <Link to="/account/orders"><Package /> {t('account.orders')} <ChevronRight /></Link>
                   )}
+                  <Link to="/track-order"><Package /> {t('account.trackOrder')} <ChevronRight /></Link>
                   <Link to="/deals"><Gift /> {t('account.deals')} <ChevronRight /></Link>
                   <Link to="/help"><Headphones /> {t('account.help')} <ChevronRight /></Link>
                   <button className="member-signout" disabled={signingOut} onClick={() => void signOut()}>

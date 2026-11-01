@@ -1,0 +1,31 @@
+/* GENERAL template hero (HeroSection FULL/STRIP), moved from the retired shop-general.css. */
+.shop-general-hero{
+  position:relative;overflow:hidden;isolation:isolate;color:#fff;margin:0 0 var(--tsf-space-6,32px);
+  background:linear-gradient(120deg,var(--shop-secondary) 0%,color-mix(in srgb,var(--shop-secondary) 78%,var(--shop-primary)) 100%);
+}
+.shop-general-hero-cover{position:absolute;inset:0;z-index:-2;background-size:cover;background-position:center;opacity:.28}
+.shop-general-hero-circle{
+  position:absolute;z-index:-1;right:-120px;top:50%;width:520px;height:520px;transform:translateY(-50%);
+  border-radius:50%;background:color-mix(in srgb,#fff 9%,transparent);box-shadow:0 0 0 70px color-mix(in srgb,#fff 4%,transparent);
+}
+.shop-general-hero-inner{margin:0 auto;padding:var(--tsf-space-8,64px) 0;display:grid;gap:var(--tsf-space-4,16px);max-width:var(--tsf-max-width,1440px)}
+.shop-general-hero-eyebrow{margin:0;font-size:var(--tsf-text-sm,14px);font-weight:600;letter-spacing:.02em;opacity:.85}
+.shop-general-hero h1{margin:0;max-width:16ch;color:#fff;font-size:clamp(32px,5vw,56px);font-weight:800;line-height:1.12}
+.shop-general-hero-sub{margin:0;max-width:52ch;font-size:var(--tsf-text-lg,18px);opacity:.88}
+.shop-general-ctas{display:flex;flex-wrap:wrap;gap:var(--tsf-space-3,12px)}
+.shop-general-cta{
+  min-height:48px;padding:0 var(--tsf-space-5,24px);display:inline-flex;align-items:center;justify-content:center;
+  border-radius:var(--shop-btn-radius,9px);font-weight:700;font-size:var(--tsf-text-md,16px);text-decoration:none;
+  transition:background-color .15s ease,border-color .15s ease,color .15s ease;
+}
+.shop-general-cta.is-primary{background:#fff;color:var(--shop-secondary);border:1px solid #fff}
+.shop-general-cta.is-primary:hover{background:color-mix(in srgb,#fff 88%,#000)}
+.shop-general-cta.is-secondary{background:transparent;color:#fff;border:1px solid color-mix(in srgb,#fff 70%,transparent)}
+.shop-general-cta.is-secondary:hover{background:color-mix(in srgb,#fff 12%,transparent)}
+@container shop (max-width:767px) {
+  .shop-general-hero-inner{padding:var(--tsf-space-6,32px) 0;gap:var(--tsf-space-3,12px)}
+  .shop-general-hero h1{font-size:clamp(28px,8vw,36px)}
+  .shop-general-hero-sub{font-size:var(--tsf-text-md,16px)}
+  .shop-general-hero-circle{width:300px;height:300px;right:-110px;top:20%}
+  .shop-general-cta{flex:1 1 0;min-width:0;padding:0 var(--tsf-space-3,12px)}
+}

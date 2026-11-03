@@ -1,6 +1,7 @@
 package com.thaishopfun.admin;
 
 import com.thaishopfun.admin.AdminPlatformDtos.*;
+import com.thaishopfun.audit.PlatformAuditService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.merchant.Shop;
 import com.thaishopfun.merchant.ShopReinstatementService;
@@ -28,28 +29,33 @@ public class AdminShopService {
     private final ShopReinstatementService reinstatements;
     private final AdminShopUsageService usage;
     private final AdminRefs refs;
+    private final PlatformAuditService platformAudit;
 
     public AdminShopService(NamedParameterJdbcTemplate jdbc, ShopRepository shops, ShopSuspensionService suspensions,
-                            ShopReinstatementService reinstatements, AdminShopUsageService usage, AdminRefs refs) {
+                            ShopReinstatementService reinstatements, AdminShopUsageService usage, AdminRefs refs,
+                            PlatformAuditService platformAudit) {
         this.jdbc = jdbc;
         this.shops = shops;
         this.suspensions = suspensions;
         this.reinstatements = reinstatements;
         this.usage = usage;
         this.refs = refs;
+        this.platformAudit = platformAudit;
     }
 
     public record Filter(String q, String status, UUID merchantId, UUID ownerUserId, String category, String province,
-                         String suspendReasonCode, LocalDate from, LocalDate to) {}
+                         String suspendReasonCode, LocalDate from, LocalDate to, String plan) {}
 
-    @Transactional(readOnly = true)
-    public Page<ShopRow> list(Filter filter, String sort, String dir, int page, int size) {
+    @Transactional
+    public Page<ShopRow> list(Filter filter, String sort, String dir, int page, int size, UUID actorId) {
+        auditContactSearchIfNeeded(filter.q(), actorId);
+        var normalized = withNormalizedPlan(filter);
         var safeSize = AdminRefs.size(size);
         var safePage = AdminRefs.page(page);
         var p = new MapSqlParameterSource();
-        var where = where(filter, p);
+        var where = where(normalized, p);
         var total = Optional.ofNullable(jdbc.queryForObject(
-            "SELECT COUNT(*) FROM shops s LEFT JOIN users u ON u.id = s.owner_user_id WHERE " + where, p, Long.class)).orElse(0L);
+            "SELECT COUNT(*) FROM shops s LEFT JOIN owners o ON o.id = s.owner_id LEFT JOIN users u ON u.id = s.owner_user_id WHERE " + where, p, Long.class)).orElse(0L);
         var order = SORTS.getOrDefault(sort == null ? "createdAt" : sort, "s.created_date_time") + " " + AdminRefs.direction(dir) + ", s.shop_no DESC";
         p.addValue("limit", safeSize).addValue("offset", (long) safePage * safeSize);
         var rows = jdbc.query("""
@@ -67,18 +73,26 @@ public class AdminShopService {
             rs.getObject("merchant_id", UUID.class), merchantName(rs.getString("title"), rs.getString("o_first"), rs.getString("o_last")),
             rs.getString("merchant_status"),
             rs.getObject("user_id", UUID.class) == null ? null : new UserRef(rs.getObject("user_id", UUID.class), rs.getString("first_name"),
-                rs.getString("last_name"), rs.getString("email"), rs.getString("phone"), rs.getString("user_status")),
+                rs.getString("last_name"), AdminContactMask.email(rs.getString("email")), AdminContactMask.phone(rs.getString("phone")), rs.getString("user_status")),
             rs.getLong("members"), rs.getLong("products"), rs.getLong("orders"),
             AdminRefs.instant(rs, "created_date_time"), AdminRefs.instant(rs, "published_at"), AdminRefs.instant(rs, "suspended_at")));
         return AdminRefs.page(rows, safePage, safeSize, total);
     }
 
-    private static String where(Filter f, MapSqlParameterSource p) {
+    private void auditContactSearchIfNeeded(String q, UUID actorId) {
+        AdminContactSearch.auditIfNeeded(platformAudit, actorId, q, "PLATFORM_SHOP_READ", "SHOP");
+    }
+
+    /** SQL WHERE for shops (+ owners/users joins). Contact match via {@link AdminContactSearch}. */
+    static String where(Filter f, MapSqlParameterSource p) {
         var sql = new StringBuilder("s.deleted_at IS NULL");
         if (f.q() != null && !f.q().isBlank()) {
-            p.addValue("q", AdminRefs.like(f.q())).addValue("raw", f.q().trim());
+            var raw = f.q().trim();
+            p.addValue("q", AdminRefs.like(raw)).addValue("raw", raw);
             sql.append(" AND (LOWER(s.name) LIKE :q OR LOWER(COALESCE(s.name_en, '')) LIKE :q OR LOWER(s.slug) LIKE :q")
-                .append(" OR LOWER(COALESCE(u.email, '')) LIKE :q OR CAST(s.shop_no AS VARCHAR(20)) = :raw)");
+                .append(" OR CAST(s.shop_no AS VARCHAR(20)) = :raw");
+            AdminContactSearch.appendMatchers(sql, p, raw, List.of("u.phone", "o.phone"), List.of("u.email", "o.email"));
+            sql.append(")");
         }
         if (f.status() != null && !f.status().isBlank()) {
             p.addValue("statuses", AdminRefs.storedShopStatuses(f.status()));
@@ -94,7 +108,60 @@ public class AdminShopService {
         }
         if (f.from() != null) { p.addValue("from", AdminRefs.startOf(f.from())); sql.append(" AND s.created_date_time >= :from"); }
         if (f.to() != null) { p.addValue("to", AdminRefs.endOf(f.to())); sql.append(" AND s.created_date_time < :to"); }
+        if (f.plan() != null && !f.plan().isBlank()) {
+            if (AdminShopUsageService.NO_PLAN.equals(f.plan())) {
+                sql.append(" AND s.plan_code IS NULL");
+            } else {
+                p.addValue("plan", f.plan());
+                sql.append(" AND s.plan_code = :plan");
+            }
+        }
         return sql.toString();
+    }
+
+    /** Validate / normalize {@code filter.plan()} (blank → null; invalid → 400 PLAN_INVALID). */
+    private static Filter withNormalizedPlan(Filter filter) {
+        var plan = AdminShopUsageService.normalizePlan(filter.plan());
+        if (Objects.equals(plan, filter.plan())) return filter;
+        return new Filter(filter.q(), filter.status(), filter.merchantId(), filter.ownerUserId(), filter.category(),
+            filter.province(), filter.suspendReasonCode(), filter.from(), filter.to(), plan);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminShopUsageService.ShopKey> listKeys(Filter filter, String sort, String dir) {
+        var p = new MapSqlParameterSource();
+        var where = where(filter, p);
+        var order = SORTS.getOrDefault(sort == null ? "createdAt" : sort, "s.created_date_time") + " " + AdminRefs.direction(dir) + ", s.shop_no DESC";
+        return jdbc.query("""
+            SELECT s.id, s.shop_no, s.name, s.status, s.slug, s.plan_code
+              FROM shops s LEFT JOIN owners o ON o.id = s.owner_id LEFT JOIN users u ON u.id = s.owner_user_id
+             WHERE %s ORDER BY %s
+            """.formatted(where, order), p, (rs, i) -> mapKey(rs));
+    }
+
+    private List<AdminShopUsageService.ShopKey> listKeysPage(Filter filter, String sort, String dir, int page, int size) {
+        var p = new MapSqlParameterSource();
+        var where = where(filter, p);
+        var order = SORTS.getOrDefault(sort == null ? "createdAt" : sort, "s.created_date_time") + " " + AdminRefs.direction(dir) + ", s.shop_no DESC";
+        p.addValue("limit", size).addValue("offset", (long) page * size);
+        return jdbc.query("""
+            SELECT s.id, s.shop_no, s.name, s.status, s.slug, s.plan_code
+              FROM shops s LEFT JOIN owners o ON o.id = s.owner_id LEFT JOIN users u ON u.id = s.owner_user_id
+             WHERE %s ORDER BY %s LIMIT :limit OFFSET :offset
+            """.formatted(where, order), p, (rs, i) -> mapKey(rs));
+    }
+
+    private long countKeys(Filter filter) {
+        var p = new MapSqlParameterSource();
+        var where = where(filter, p);
+        return Optional.ofNullable(jdbc.queryForObject(
+            "SELECT COUNT(*) FROM shops s LEFT JOIN owners o ON o.id = s.owner_id LEFT JOIN users u ON u.id = s.owner_user_id WHERE " + where, p, Long.class)).orElse(0L);
+    }
+
+    private static AdminShopUsageService.ShopKey mapKey(java.sql.ResultSet rs) throws java.sql.SQLException {
+        return new AdminShopUsageService.ShopKey(
+            rs.getObject("id", UUID.class), rs.getLong("shop_no"), rs.getString("name"),
+            AdminRefs.apiShopStatus(rs.getString("status")), rs.getString("slug"), rs.getString("plan_code"));
     }
 
     @Transactional(readOnly = true)
@@ -110,31 +177,60 @@ public class AdminShopService {
 
     @Transactional(readOnly = true)
     public Page<ShopUsage> usagePage(Filter filter, String sort, String dir, int page, int size) {
-        var rows = list(filter, sort, dir, page, size);
-        var keys = new ArrayList<AdminShopUsageService.ShopKey>();
-        for (var row : rows.items()) {
-            shops.findByShopId(row.shopId()).ifPresent(shop -> keys.add(key(shop)));
-        }
-        var map = usage.usage(keys);
-        return AdminRefs.page(keys.stream().map(k -> map.get(k.id())).toList(), rows.page(), rows.size(), rows.totalItems());
+        var normalized = withNormalizedPlan(filter);
+        var safeSize = AdminRefs.size(size);
+        var safePage = AdminRefs.page(page);
+        var total = countKeys(normalized);
+        var pageKeys = listKeysPage(normalized, sort, dir, safePage, safeSize);
+        var map = usage.usage(pageKeys);
+        return AdminRefs.page(pageKeys.stream().map(k -> map.get(k.id())).toList(), safePage, safeSize, total);
+    }
+
+    /**
+     * Aggregates for usage summary cards. Validates {@code plan} then aggregates every shop matching q/status
+     * (plan filter is not applied to summary totals — cards show the full breakdown).
+     */
+    @Transactional(readOnly = true)
+    public List<PlanUsageSummary> usageSummaries(Filter filter) {
+        var normalized = withNormalizedPlan(filter);
+        var base = new Filter(normalized.q(), normalized.status(), normalized.merchantId(), normalized.ownerUserId(),
+            normalized.category(), normalized.province(), normalized.suspendReasonCode(), normalized.from(), normalized.to(), null);
+        var p = new MapSqlParameterSource();
+        var whereSql = where(base, p);
+        return usage.summarizeSql(whereSql, p);
     }
 
     @Transactional
     public ShopActionResponse suspend(Long shopId, ReasonRequest request, UUID actorId) {
         var shop = require(shopId);
-        var changed = suspensions.suspendShop(shop, actorId, code(request, ShopSuspensionService.DEFAULT_SUSPEND_CODE), request.reason().trim(), true);
+        var code = SuspensionReasonCodes.resolveSuspend(request.reasonCode(), ShopSuspensionService.DEFAULT_SUSPEND_CODE);
+        var changed = suspensions.suspendShop(shop, actorId, code, request.reason().trim(), true);
         return new ShopActionResponse(changed, detail(shop));
     }
 
     @Transactional
     public ShopActionResponse reactivate(Long shopId, ReasonRequest request, UUID actorId) {
         var shop = require(shopId);
-        var changed = suspensions.reactivateShop(shop, actorId, code(request, ShopSuspensionService.DEFAULT_RESTORE_CODE), request.reason().trim(), true);
+        var code = SuspensionReasonCodes.resolveRestore(request.reasonCode(), ShopSuspensionService.DEFAULT_RESTORE_CODE);
+        var changed = suspensions.reactivateShop(shop, actorId, code, request.reason().trim(), true);
         return new ShopActionResponse(changed, detail(shop));
     }
 
-    static String code(ReasonRequest request, String fallback) {
-        return request.reasonCode() == null || request.reasonCode().isBlank() ? fallback : request.reasonCode().trim();
+    @Transactional
+    public ShopActionResponse assignPlan(Long shopId, String planCode, UUID actorId) {
+        var shop = require(shopId);
+        var next = usage.requirePlanOrClear(planCode);
+        var before = shop.getPlanCode();
+        var changed = !Objects.equals(before, next);
+        if (changed) {
+            shop.assignPlanCode(next);
+            shops.save(shop);
+            platformAudit.record(PlatformAuditService.Entry.platform(actorId, "SHOP_PLAN_CHANGED", "SHOP", shop.getUuid())
+                .shop(shop.getUuid())
+                .permission("PLATFORM_SHOP_SUSPEND")
+                .change(Map.of("planCode", before == null ? "" : before), Map.of("planCode", next == null ? "" : next)));
+        }
+        return new ShopActionResponse(changed, detail(shop));
     }
 
     private Shop require(Long shopId) {
@@ -142,7 +238,8 @@ public class AdminShopService {
     }
 
     private static AdminShopUsageService.ShopKey key(Shop shop) {
-        return new AdminShopUsageService.ShopKey(shop.getUuid(), shop.getId(), shop.getName(), shop.getStatus().name());
+        return new AdminShopUsageService.ShopKey(shop.getUuid(), shop.getId(), shop.getName(),
+            AdminRefs.apiShopStatus(shop.getStatus().name()), shop.getSlug(), shop.getPlanCode());
     }
 
     ShopDetail detail(Shop shop) {
@@ -163,7 +260,7 @@ public class AdminShopService {
             AdminRefs.name(names.get(shop.getSuspendedBy())), shop.getSuspendReasonCode(), shop.getSuspendReason(),
             shop.getRestoredAt(), shop.getRestoredBy(), AdminRefs.name(names.get(shop.getRestoredBy())));
         var userRef = account == null ? null : new UserRef(account.getId(), account.getFirstName(), account.getLastName(),
-            account.getEmail(), account.getPhone(), account.getStatus().name());
+            AdminContactMask.email(account.getEmail()), AdminContactMask.phone(account.getPhone()), account.getStatus().name());
         return new ShopDetail(shop.getId(), shop.getName(), shop.getNameEn(), shop.getSlug(), shop.getStatus().name(), shop.getCategory(),
             shop.getDescription(), shop.getAddress(), shop.getProvince(), shop.getDistrict(), shop.getSubdistrict(), shop.getPostalCode(),
             owner == null ? null : owner.getId(),

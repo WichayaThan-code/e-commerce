@@ -407,6 +407,9 @@ export default function AdminUsersPage() {
                 : history === null ? <p><SkeletonText lines={3} /></p>
                 : history.length === 0 ? <p><span>ยังไม่มีประวัติ</span></p>
                 : history.map((event, index) => <p key={`${event.type}-${event.at}-${index}`}><span>{event.title}{event.shopName && !event.title.includes(event.shopName) ? ` · ${event.shopName}` : ''}</span><small>{formatDateTime(event.at)}{event.actorName && event.actorName !== event.subjectName ? ` · โดย ${event.actorName}` : ''}</small></p>)}
+              {canAudit && selectedId && (
+                <p><a href={`/admin/audit-logs?targetType=USER&targetId=${encodeURIComponent(selectedId)}&kind=BUSINESS`}>{t('adminPlatform.audit.openForTarget')}</a></p>
+              )}
             </div>}
         {actionError && <p className="admin-action-error" role="alert">{actionError}</p>}
       </>}

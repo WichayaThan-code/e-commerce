@@ -22,8 +22,14 @@ public final class AdminPlatformDtos {
         @Pattern(regexp = "^[A-Z][A-Z0-9_]{1,49}$", message = "reasonCode ต้องเป็นตัวพิมพ์ใหญ่ ตัวเลข หรือ _ (2-50 ตัว)") String reasonCode
     ) {}
 
-    /** Optional reason on the pre-existing endpoints (users suspend / restore, store-applications suspend / reactivate). */
-    public record OptionalReasonRequest(@Size(max = 1000, message = "เหตุผลยาวเกิน 1000 ตัวอักษร") String reason) {}
+    /**
+     * Reason on pre-existing store-application / user endpoints.
+     * Suspend of a shop via store-applications requires {@code reasonCode}; {@code reason} (reasonText) is optional ≤500.
+     */
+    public record OptionalReasonRequest(
+        @Size(max = 500, message = "เหตุผลยาวเกิน 500 ตัวอักษร") String reason,
+        @Pattern(regexp = "^$|^[A-Z][A-Z0-9_]{1,49}$", message = "reasonCode ต้องเป็นตัวพิมพ์ใหญ่ ตัวเลข หรือ _ (2-50 ตัว)") String reasonCode
+    ) {}
 
     public record Suspension(String status, Instant suspendedAt, UUID suspendedBy, String suspendedByName, String reasonCode,
                              String reason, Instant restoredAt, UUID restoredBy, String restoredByName) {}
@@ -78,8 +84,16 @@ public final class AdminPlatformDtos {
 
     public record Plan(String code, String name, PlanLimits limits) {}
 
-    /** source = NONE: the schema has no plan / subscription tables, so no shop is on a plan and no limit applies. */
+    /** source = DB when plans are loaded from the {@code plans} table; note is informational. */
     public record PlanCatalog(String source, List<Plan> plans, String note) {}
+
+    /** Body for PUT /api/admin/shops/{id}/plan — null/blank planCode clears the assignment. */
+    public record PlanAssignRequest(String planCode) {}
+
+    /** Aggregated usage totals per planCode (null planCode = shops with no plan). Additive for the usage page. */
+    public record PlanUsageSummary(
+        String planCode, String planName, long shopCount, long products, long staff, long storageBytes, long ordersLast30Days
+    ) {}
 
     public record ProductUsage(long total, long published, long draft, long archived, long activeSkus, long images) {}
 
@@ -93,14 +107,16 @@ public final class AdminPlatformDtos {
     public record ShopUsage(
         Long shopId, String shopName, String status, String planCode, PlanLimits limits,
         ProductUsage products, OrderUsage orders, StaffUsage staff, long customers, long activeCoupons,
-        StorageUsage storage, Instant computedAt
+        StorageUsage storage, Instant computedAt, String slug
     ) {}
 
     // ---------------- audit logs ----------------
 
-    public record AuditActor(UUID id, String type, String name, String email) {}
+    /** role = active platform role code of the actor when known (e.g. PLATFORM_ADMIN); never a shop role. */
+    public record AuditActor(UUID id, String type, String name, String email, String role) {}
 
-    public record AuditTarget(String type, UUID id, Long shopId, String shopName) {}
+    /** name = display name of the target (shop / merchant / user); shopName kept for SHOP rows. */
+    public record AuditTarget(String type, UUID id, Long shopId, String shopName, String name) {}
 
     public record AuditLogView(
         Long id, Instant occurredAt, AuditActor actor, String action, AuditTarget target, String permission,

@@ -1,6 +1,7 @@
 package com.thaishopfun.admin;
 
 import com.thaishopfun.admin.AdminPlatformDtos.*;
+import com.thaishopfun.audit.PlatformAuditService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.merchant.Owner;
 import com.thaishopfun.merchant.OwnerRepository;
@@ -31,20 +32,23 @@ public class AdminMerchantService {
     private final ShopRepository shops;
     private final ShopSuspensionService suspensions;
     private final AdminRefs refs;
+    private final PlatformAuditService platformAudit;
 
     public AdminMerchantService(NamedParameterJdbcTemplate jdbc, OwnerRepository owners, ShopRepository shops,
-                                ShopSuspensionService suspensions, AdminRefs refs) {
+                                ShopSuspensionService suspensions, AdminRefs refs, PlatformAuditService platformAudit) {
         this.jdbc = jdbc;
         this.owners = owners;
         this.shops = shops;
         this.suspensions = suspensions;
         this.refs = refs;
+        this.platformAudit = platformAudit;
     }
 
     public record Filter(String q, String status, String ownerType, String shopStatus, UUID userId, LocalDate from, LocalDate to) {}
 
-    @Transactional(readOnly = true)
-    public Page<MerchantRow> list(Filter filter, String sort, String dir, int page, int size) {
+    @Transactional
+    public Page<MerchantRow> list(Filter filter, String sort, String dir, int page, int size, UUID actorId) {
+        AdminContactSearch.auditIfNeeded(platformAudit, actorId, filter.q(), "PLATFORM_SHOP_READ", "OWNER");
         var safeSize = AdminRefs.size(size);
         var safePage = AdminRefs.page(page);
         var p = new MapSqlParameterSource();
@@ -77,9 +81,12 @@ public class AdminMerchantService {
     private static String where(Filter f, MapSqlParameterSource p) {
         var sql = new StringBuilder("1 = 1");
         if (f.q() != null && !f.q().isBlank()) {
-            p.addValue("q", AdminRefs.like(f.q()));
-            sql.append(" AND (LOWER(o.first_name) LIKE :q OR LOWER(o.last_name) LIKE :q OR LOWER(o.email) LIKE :q OR o.phone LIKE :q")
-                .append(" OR LOWER(u.email) LIKE :q OR EXISTS (SELECT 1 FROM shops s WHERE s.owner_id = o.id AND LOWER(s.name) LIKE :q))");
+            var raw = f.q().trim();
+            p.addValue("q", AdminRefs.like(raw));
+            sql.append(" AND (LOWER(o.first_name) LIKE :q OR LOWER(o.last_name) LIKE :q")
+                .append(" OR EXISTS (SELECT 1 FROM shops s WHERE s.owner_id = o.id AND LOWER(s.name) LIKE :q)");
+            AdminContactSearch.appendMatchers(sql, p, raw, List.of("o.phone", "u.phone"), List.of("o.email", "u.email"));
+            sql.append(")");
         }
         if (f.status() != null && !f.status().isBlank()) {
             var status = f.status().trim().toUpperCase(Locale.ROOT);
@@ -109,14 +116,16 @@ public class AdminMerchantService {
     @Transactional
     public MerchantActionResponse suspend(UUID merchantId, ReasonRequest request, UUID actorId) {
         var owner = require(merchantId);
-        var affected = suspensions.suspendMerchant(owner, actorId, AdminShopService.code(request, ShopSuspensionService.DEFAULT_SUSPEND_CODE), request.reason().trim());
+        var code = SuspensionReasonCodes.resolveSuspend(request.reasonCode(), ShopSuspensionService.DEFAULT_SUSPEND_CODE);
+        var affected = suspensions.suspendMerchant(owner, actorId, code, request.reason().trim());
         return new MerchantActionResponse(affected != null, detail(owner), affected == null ? List.of() : affected);
     }
 
     @Transactional
     public MerchantActionResponse reactivate(UUID merchantId, ReasonRequest request, UUID actorId) {
         var owner = require(merchantId);
-        var affected = suspensions.reactivateMerchant(owner, actorId, AdminShopService.code(request, ShopSuspensionService.DEFAULT_RESTORE_CODE), request.reason().trim());
+        var code = SuspensionReasonCodes.resolveRestore(request.reasonCode(), ShopSuspensionService.DEFAULT_RESTORE_CODE);
+        var affected = suspensions.reactivateMerchant(owner, actorId, code, request.reason().trim());
         return new MerchantActionResponse(affected != null, detail(owner), affected == null ? List.of() : affected);
     }
 

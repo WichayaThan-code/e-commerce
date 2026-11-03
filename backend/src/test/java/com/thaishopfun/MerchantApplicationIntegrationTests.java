@@ -250,7 +250,8 @@ class MerchantApplicationIntegrationTests {
           .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("MERCHANT"))
           .andExpect(jsonPath("$.roleCodes").isArray());
 
-        mvc.perform(post("/api/admin/store-applications/bulk/suspend").header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON).content("{\"shopIds\":[" + shopId + "]}"))
+        mvc.perform(post("/api/admin/store-applications/bulk/suspend").header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"shopIds\":[" + shopId + "],\"reasonCode\":\"ADMIN_SUSPEND\",\"reason\":\"ระงับหลังอนุมัติ\"}"))
           .andExpect(status().isOk()).andExpect(jsonPath("$.updated").value(1)).andExpect(jsonPath("$.applications[0].status").value("SUSPENDED"));
         mvc.perform(post("/api/admin/store-applications/bulk/reject").header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON).content("{\"shopIds\":[" + shopId + "]}"))
           .andExpect(status().isOk()).andExpect(jsonPath("$.updated").value(0)).andExpect(jsonPath("$.skipped").value(1));
@@ -262,7 +263,7 @@ class MerchantApplicationIntegrationTests {
           .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PENDING"));
         mvc.perform(get("/api/admin/store-applications").header("Authorization", "Bearer " + admin))
           .andExpect(status().isOk()).andExpect(jsonPath("$[0].reinstatementMessage").value("ขอให้ตรวจสอบอีกครั้ง ร้านพร้อมแก้ไขตามเงื่อนไข"));
-        mvc.perform(post("/api/admin/store-applications/" + shopId + "/reactivate").header("Authorization", "Bearer " + admin))
+        mvc.perform(post("/api/admin/store-applications/" + shopId + "/reactivate").header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON).content("{}"))
           .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"));
         mvc.perform(get("/api/merchant/store-access").header("Authorization", "Bearer " + merchant))
           .andExpect(status().isOk()).andExpect(jsonPath("$.approved").value(true)).andExpect(jsonPath("$.status").value("APPROVED"));

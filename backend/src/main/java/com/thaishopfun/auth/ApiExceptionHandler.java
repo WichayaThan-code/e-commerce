@@ -7,7 +7,11 @@ import com.thaishopfun.common.ValidationException;
 import com.thaishopfun.common.ValidationMessages;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.dao.TransientDataAccessResourceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -91,6 +95,30 @@ public class ApiExceptionHandler {
     ResponseEntity<AuthDtos.ApiError> conflict(DataIntegrityViolationException exception) {
         log.warn("Data integrity violation: {}", exception.getMostSpecificCause().getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new AuthDtos.ApiError("CONFLICT", "ข้อมูลซ้ำหรือขัดแย้งกับข้อมูลที่มีอยู่ กรุณาลองใหม่"));
+    }
+
+    /**
+     * DB connection failures only (not EmptyResult / BadSqlGrammar / optimistic lock, etc.).
+     * Log keeps the stack; response body never includes JDBC URL, host, or stack traces.
+     */
+    @ExceptionHandler({
+        DataAccessResourceFailureException.class,
+        TransientDataAccessResourceException.class,
+        QueryTimeoutException.class,
+        DatabaseUnavailableException.class
+    })
+    ResponseEntity<AuthDtos.ApiError> databaseUnavailable(Exception exception) {
+        log.error("Database unavailable: {}", exception.getClass().getSimpleName(), exception);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .body(new AuthDtos.ApiError("DATABASE_UNAVAILABLE", "ฐานข้อมูลใช้งานไม่ได้"));
+    }
+
+    /** Other DataAccessException kinds (EmptyResult, BadSqlGrammar, etc.) — 500, no JDBC/secrets in body. */
+    @ExceptionHandler(DataAccessException.class)
+    ResponseEntity<AuthDtos.ApiError> otherDataAccess(DataAccessException exception) {
+        log.error("Data access error: {}", exception.getClass().getSimpleName(), exception);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(new AuthDtos.ApiError("INTERNAL_ERROR", "เกิดข้อผิดพลาด กรุณาลองใหม่"));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

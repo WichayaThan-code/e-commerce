@@ -1,5 +1,6 @@
 package com.thaishopfun.auth.authz;
 
+import com.thaishopfun.auth.DatabaseConnectivityFailures;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,10 @@ public final class JsonSecurityErrorHandlers {
     public static AuthenticationEntryPoint authenticationEntryPoint() {
         var bearer = new BearerTokenAuthenticationEntryPoint();
         return (request, response, exception) -> {
+            if (DatabaseConnectivityFailures.isConnectivityFailure(exception)) {
+                write(response, HttpStatus.SERVICE_UNAVAILABLE, "DATABASE_UNAVAILABLE", "ฐานข้อมูลใช้งานไม่ได้");
+                return;
+            }
             bearer.commence(request, response, exception); // status 401 + WWW-Authenticate header
             var code = classify(request, exception);
             write(response, HttpStatus.UNAUTHORIZED, code, switch (code) {

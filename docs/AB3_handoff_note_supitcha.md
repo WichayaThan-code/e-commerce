@@ -196,3 +196,339 @@ Masking: ชื่อ `ส***`, เบอร์ `xxx-xxx-1234`, ที่อย�
 - Frontend: `AdminDashboardPage` ผูกผู้ใช้ใหม่ + สัดส่วนวิธีชำระเงิน (หัวการ์ดตามช่วงวัน, ป้ายตัวอย่างออก, empty state); ต้อนรับใช้ชื่อเดียวกับ Header; Header แสดงบทบาทไทย; paymentStatus เป็นภาษาไทย; ลิงก์ ดู/ดูทั้งหมด ไป /admin/orders?q=…, /admin/stores, /admin/users; เอาคำอธิบายค่าธรรมเนียมออกจากกราฟ; ประกาศยังเป็นตัวอย่าง
 - เทสต์: `AdminDashboardSummaryTests` ครอบคลุม paymentMethods รวมข้ามร้าน, recentUsers ช่วงวัน/mask, 401/403; ล้างใน @AfterEach
 - ยังค้าง: ค่าธรรมเนียมจริง (B7), ประกาศจริง (B9), เมนูการเงิน/รายงานยัง placeholder
+
+## AB3 — Admin System Status Phase 1 (2026-11-02)
+
+- Migration: `V46__platform_system_read.sql` เพิ่มสิทธิ์ `PLATFORM_SYSTEM_READ` (scope PLATFORM) และ map ให้ role `PLATFORM_ADMIN`; อัปเดต `db/seed/seed_reference_data.sql` ให้เทสต์ H2 โหลดแคตตาล็อกเดียวกัน (ห้ามแก้ migration เก่า; ล่าสุด V46)
+- Backend: `GET /api/admin/system/status` ใน `AdminSystemStatusController` / `AdminSystemStatusService`
+  - สิทธิ์: `@RequirePermission("PLATFORM_SYSTEM_READ")` — ไม่ล็อกอิน 401, ไม่มีสิทธิ์ 403 (JSON `PERMISSION_DENIED`)
+  - คืน overall / checkedAt / app (version, buildTime nullable, startedAt, uptimeSeconds, javaVersion, profile) + components: database (SELECT 1 timeout 2s + latency), migrations (Flyway bean; ถ้าไม่มีใน test = UP detail n/a), mail (เช็ก host อย่างเดียว ไม่ส่งเมล/ไม่เปิด connection → UNKNOWN เมื่อยังไม่ตั้งค่า), storage (โฟลเดอร์ upload เขียนได้ + freeBytes/totalBytes)
+  - overall: database DOWN → DOWN; component อื่น DOWN → DEGRADED; นอกนั้น UP
+  - ไม่ส่ง host / password / jdbc: / path เต็ม / stack trace; ไม่แตะ `GET /api/health`
+  - ไม่เพิ่ม dependency ใหม่ (ใช้ Flyway / BuildProperties / JdbcTemplate ที่มีอยู่; version ถอย Implementation-Version แล้ว `dev`)
+- Frontend: `/admin/system-status` — `AdminSystemStatusPage` + `admin-system-status.css`; เมนู `สถานะระบบ` (Activity) ใน AdminSidebar เมื่อ `can('PLATFORM_SYSTEM_READ')`; `adminPlatformApi.getSystemStatus`; `ROUTE_PERMISSIONS`; ข้อความไทยทั้งหมด; รีเฟรช 60 วินาที (หยุดเมื่อแท็บซ่อน); skeleton / 403 / ลองใหม่
+- เทสต์: `AdminSystemStatusTests` (200+UP, 401, 403, ไม่มี password/jdbc:/host) + `EndpointAccessRuleCoverageTests` ครอบคลุม endpoint ใหม่
+- ต้อง restart backend เพื่อรัน Flyway V46 ก่อนลองหน้าจริง
+
+## AB3 — System Status connection resilience (2026-11-02)
+
+- Backend: เมื่อ JWT pv lookup เจอ DataAccessException โยน DatabaseUnavailableException → JsonSecurityErrorHandlers ตอบ 503 code=DATABASE_UNAVAILABLE message=ฐานข้อมูลใช้งานไม่ได้ (ไม่ใช่ 401 TOKEN_*); ApiExceptionHandler จับ DataAccessException หลัง auth ด้วยรูปแบบเดียวกัน — ไม่มี jdbc/password/host/stack
+- เทสต์: DatabaseUnavailableAuthTests (spy UserAccountRepository.findActivePermissionVersion → 503 + ไม่มีข้อมูลลับ)
+- Frontend: AdminSystemStatusPage แยก connection ONLINE/NETWORK_OFFLINE/BACKEND_UNREACHABLE/BACKEND_ERROR/SESSION_EXPIRED; คง lastGood เป็นสีเทา; poll 30s + backoff 5/10/20/30; timeout 8s; toast เมื่อกลับมา; request flags redirectOn401=false สำหรับ getSystemStatus
+## AB3 — System Status bugfix (2026-11-02)
+
+- Backend: 503 DATABASE_UNAVAILABLE เฉพาะ DataAccessResourceFailureException (รวม CannotGetJdbcConnectionException), TransientDataAccessResourceException, QueryTimeoutException, DatabaseUnavailableException — ผ่าน DatabaseConnectivityFailures; EmptyResult/BadSqlGrammar ฯลฯ ไม่ถูก map เป็น 503; log.error พร้อม stack แต่ body ไม่มี jdbc/password
+- เทสต์: DatabaseUnavailableAuthTests (empty/bad-sql → 500, jdbc-down/pv → 503, integrity → 409 CONFLICT)
+- Frontend: AdminSystemStatusPage unmountedRef + clear toast/poll timers; ไม่ setState/schedule หลัง unmount; แท็บซ่อนไม่เพิ่ม backoff
+
+## AB3 — Suspend/Reactivate Audit Log ครบทุกเส้นทาง (2026-11-02)
+
+### Action names (คงชื่อเดิม — ไม่เปลี่ยนเป็น MERCHANT_SUSPEND)
+| Action ที่ใช้จริง | ความหมาย |
+|---|---|
+| MERCHANT_SUSPENDED | ระงับผู้ขาย |
+| MERCHANT_REACTIVATED | เปิดใช้งานผู้ขายอีกครั้ง |
+| SHOP_SUSPENDED | ระงับร้านค้า |
+| SHOP_REACTIVATED | เปิดใช้งานร้านค้าอีกครั้ง |
+| ACCOUNT_SUSPENDED | ระงับผู้ใช้ |
+| ACCOUNT_RESTORED | คืนสิทธิ์ผู้ใช้ |
+
+เขียนผ่าน `PlatformAuditService` → ตาราง `audit_logs` เดิม (อ่านด้วย `AdminAuditLogService`) — ไม่มีระบบ audit ใหม่ / ไม่มี migration ใหม่ (correlationId เก็บใน after_data JSON)
+
+### Backend
+- `ShopSuspensionService`: cascade merchant↔shop ใส่ `correlationId` เดียวกัน + `parentResourceType`/`parentResourceId`/`cascadeFromMerchantId` ใน after ของลูก; `targetName` (ชื่อแสดงผล ไม่มีเบอร์/อีเมล); parent audit ก่อน child
+- `AdminUserManagementService.setStatus`: after มี status + targetName (ชื่อ-นามสกุลอย่างเดียว)
+- `AdminAuditLogService` / DTO: `AuditActor.role` (platform role ปัจจุบัน), `AuditTarget.name` (SHOP/OWNER/USER)
+- `AdminUserDirectoryService.history`: ชื่อไทยสำหรับ 6 action ข้างต้น
+- บันทึกใน transaction เดียวกับการเปลี่ยนสถานะ — ถ้า insert log ล้ม → rollback สถานะ
+
+### Frontend (ไม่เปลี่ยนดีไซน์หลัก)
+- `/admin/audit-logs`: กรอง 6 action ด้วย AdminSelect; อ่าน `targetType`/`targetId` (alias ของ resourceType/resourceId); รายละเอียดแสดงข้อความไทย + สถานะก่อน/หลัง
+- ลิงก์จากรายละเอียด Merchant / Shop / แท็บประวัติ User → `/admin/audit-logs?...`
+
+### Tests
+- `PlatformAdminIntegrationTests`: cascade + correlationId, 6 action + 400/403/404 ไม่มี log สำเร็จ, ไม่มีเบอร์/อีเมลใน detail
+- `SuspendAuditRollbackTests`: mock `PlatformAuditLogRepository.save` throw → สถานะร้าน/ผู้ใช้ไม่เปลี่ยน
+
+### ไฟล์หลัก
+ShopSuspensionService, AdminUserManagementService, AdminAuditLogService, AdminPlatformDtos, AdminUserDirectoryService, AdminAuditLogPage, AdminMerchantsPage, AdminUsersPage, locales th/en/zh, SuspendAuditRollbackTests
+
+## AB3 — Audit log polish: shop link, i18n, bulk reason (2026-11-02)
+
+### 1) ลิงก์ดูประวัติร้าน
+- AdminMerchantsPage (shops drawer): `/admin/audit-logs?targetType=SHOP&targetId={shopId}&kind=BUSINESS`
+- AdminStoresPage: ลิงก์ใต้ชื่อร้าน (เมื่อ PLATFORM_AUDIT_READ)
+- AdminApplicationsPage (แท็บประวัติ): ลิงก์เดียวกัน
+- AdminAuditLogPage: `targetType=SHOP` + ตัวเลข → กรองด้วย shopId; แสดงชิปตัวกรองกดลบได้
+
+### 2) i18n
+- `adminPlatform.audit.openForTarget`: th ดูประวัติในบันทึกการใช้งาน / en View in audit log / zh 在审计日志中查看
+- AdminUsersPage ใช้ key นี้แทนข้อความตายตัว
+
+### 3) Bulk / legacy reason
+- Backend: BulkShopRequest + OptionalReasonRequest มี reasonCode/reason (≤500); suspend ต้องมี reasonCode มิฉะนั้น 400 REASON_CODE_REQUIRED; bulk ใช้ correlationId เดียวกัน; LEGACY_NO_REASON เหลือเฉพาะ log เก่า
+- Frontend: AdminStoresPage bulk เปิด ReasonDialog (dropdown เหตุผล + หมายเหตุ); adminApplicationApi.suspend/bulk/reactivate ส่งเหตุผล
+- Tests: bulkSuspendRequiresReasonAndSharesCorrelationId (ก)(ข)(ค)
+
+ไม่มี migration ใหม่
+## AB3 — reasonCode allowlist + bulk i18n (2026-11-02)
+
+### 1) Backend allowlist (`SuspensionReasonCodes`)
+- ไฟล์ใหม่: `admin/SuspensionReasonCodes.java` — รายการเดียวร่วมกับ FE `SUSPEND_REASON_CODES`
+- **Suspend อนุญาต (client):** `ADMIN_SUSPEND`, `POLICY_VIOLATION`, `FRAUD`, `ABUSE`, `OTHER`
+- **Restore อนุญาต (client):** `ADMIN_RESTORE`, `OTHER` — ว่าง = default `ADMIN_RESTORE`
+- **รหัสสงวน (ห้ามส่งจาก API → 400 `REASON_CODE_INVALID`, ไม่เขียน log):** `MERCHANT_SUSPENDED`, `NO_REASON_GIVEN` (LEGACY_NO_REASON), และรหัสที่ไม่ได้อยู่ใน allowlist รวม `ADMIN_RESTORE` บนเส้นทาง suspend / `ADMIN_STATUS` ถ้าส่งตรง ๆ
+- ผูกตรวจ: `AdminShopService`, `AdminMerchantService`, `StoreReviewService` (legacy + bulk), `AdminUserManagementService` / `AdminUserController` (reasonCode ถ้าส่งมา)
+- Cascade merchant→shop ยังเขียน `MERCHANT_SUSPENDED` ภายในได้; log เก่าที่รหัสสงวนยังกรองได้ตามเดิม (ไม่แก้ DB/migration)
+- ไม่สร้าง filter-options ใหม่ (ที่มีอยู่เป็น roles/statuses ของ users ไม่เกี่ยวกับเหตุผลระงับ)
+
+### 2) ลบ overload ที่ไม่มีผู้เรียก
+- ลบ `StoreReviewService.suspend(Long shopId)` และ `suspendMany(List<Long>)` (ไม่มี reason) — ตรวจแล้วไม่มี caller/test
+
+### 3) Frontend i18n bulk
+- keys ใน th/en/zh `admin.json` `confirm.bulkSuspendTitle|Body`, `bulkReactivateTitle|Body`, `bulkSuspendedToast`, `bulkReactivatedToast`, `bulkNoneToast` (interpolation `{{count}}`)
+- `AdminStoresPage.tsx` dialog / toast / ปุ่ม bulk ใช้ key เหล่านี้; `ReasonDialog.tsx` ไม่มีข้อความไทยตายตัวของ bulk
+
+### 4) Tests
+- `PlatformAdminIntegrationTests.reservedReasonCodesRejectedWithoutAuditOrStatusChange` — (ก) MERCHANT_SUSPENDED บน shop suspend = 400 ไม่มี log สถานะไม่เปลี่ยน; (ข) NO_REASON_GIVEN บน bulk = 400; (ค) รหัสอนุญาตทั้ง 5 ผ่าน
+- (ง) cascade ยังอยู่ที่ `merchantSuspendCascadesToShopsAndReactivateRestoresOnlyThose`
+- `.\mvnw test` ผ่านทั้งหมด; `npx tsc -b --noEmit` ผ่าน
+
+ไม่มี migration / ไม่แตะ MerchantTopbarActions / .env / AB2 / ไม่ commit-push / ไม่ start-stop server
+## AB3 — polish หลัง allowlist: reactivate overload / ADMIN_STATUS / stores i18n (2026-11-02)
+
+### 1) ลบ overload ที่ไม่มีผู้เรียก
+- ลบ `StoreReviewService.reactivate(Long)` และ `reactivateMany(List<Long>)` (ไม่มี reason) — ตรวจ main+test แล้วไม่มี caller
+
+### 2) ADMIN_STATUS แสดง/กรองคู่กับรหัสใหม่
+- คงรหัสเขียนใหม่ `ADMIN_SUSPEND` / `ADMIN_RESTORE` — ไม่แก้ข้อมูลเก่าใน DB
+- `AdminUserDirectoryService.reasonCodeLabelTh`: `ADMIN_STATUS` → "เปลี่ยนสถานะโดยแอดมิน"; `ADMIN_SUSPEND`/`ADMIN_RESTORE` มีป้ายไทยชัดเจนในประวัติผู้ใช้
+- `AdminAuditLogService`: กรอง `reasonCode=ADMIN_STATUS|ADMIN_SUSPEND|ADMIN_RESTORE` รวมทั้ง 3 รหัส (ครอบครัวเดียวกัน)
+- FE: `adminPlatform.reason.codes.ADMIN_STATUS|ADMIN_RESTORE` (th/en/zh); `AdminAuditLogPage` แสดงป้าย + รหัสดิบ
+- Test: `userHistoryShowsLegacyAdminStatusAndNewAdminSuspendRows` — ประวัติเห็นทั้ง 2 แถว + filter ADMIN_STATUS ได้ 2 รายการ
+
+### 3) AdminStoresPage i18n ครบ
+- คีย์ใหม่ `adminPlatform.storesPage.*` ใน th/en/zh (ข้อความไทยเดิมทุกตัวอักษร)
+- หน้าใช้ status code ภายใน + แปลป้าย; regex Thai ใน `.tsx` = 0
+
+`.\mvnw test` + `npx tsc -b --noEmit` ผ่าน; ไม่มี migration / ไม่แตะไฟล์ห้าม / ไม่ commit-push / ไม่ start-stop server
+## AB3 — Admin Usage page /admin/usage (2026-11-03)
+
+### Frontend
+- ใหม่: `pages/admin/AdminUsagePage.tsx` — สรุปแพ็กเกจจาก `GET /api/admin/plans` + `GET /api/admin/plans/usage`, ตารางร้านจาก `GET /api/admin/shops` (ค้นหา/สถานะ/แพ็กเกจ), แผงขวา `GET /api/admin/shops/{id}/usage` พร้อม progress bar (≥80% warn, ≥100% over, ไม่มี limit = "ไม่จำกัด")
+- Route `/admin/usage` + `ROUTE_PERMISSIONS` = `PLATFORM_SHOP_READ`; เมนู "การใช้งาน (Usage)" ใน AdminSidebar (แสดงเมื่อ canVisit)
+- CSS: progress/quota ใน `admin-platform.css` (ไม่เพิ่ม dependency)
+- i18n: `adminPlatform.usage.*` th/en/zh — ไม่มีข้อความไทยตายตัวในหน้า, ไม่แสดงเบอร์/อีเมลเจ้าของ
+
+### Backend
+- ไม่มี endpoint/migration ใหม่ — ใช้ API เดิม `@RequirePermission PLATFORM_SHOP_READ`
+- Tests ที่มีอยู่แล้วครอบคลุม:
+  - `shopsListFiltersPaginatesAndDetailShowsMembersCountsAndUsage` — admin 200 ที่ `/plans/usage` และ `/shops/{id}/usage`
+  - `merchantOwnerGets403OnEveryAdminEndpoint` — merchant 403 ทุก /api/admin/**
+  - `platformRoleWithoutThePermissionGets403` — บทบาทไม่มี PLATFORM_SHOP_READ ได้ 403 ที่ `/plans/usage`
+
+`.\mvnw test` + `npx tsc -b --noEmit` ผ่าน; ไม่ commit/push; ไม่ start-stop server
+
+
+## AB3 — Admin Usage fixes (server plan filter / summary / limit=0 / QuotaBar) (2026-11-03)
+
+### เป้าหมาย
+แก้ 5 จุดในหน้า Admin Usage โดยไม่เปลี่ยนดีไซน์ ไม่มี migration ไม่แตะไฟล์ห้าม
+
+### Backend
+- `AdminShopService.Filter` เพิ่ม `plan` (optional) — ใช้กับ `usagePage` / `listKeys` (ตารางยังไม่มีคอลัมน์ plan จริง จึงกรองในหน่วยความจำหลังได้ planCode)
+- `GET /api/admin/plans/usage` รับ `plan` (รวม `__NONE__` = ไม่มีแพ็กเกจ) คู่กับ `q`/`status` — totalItems/Pager ตรงผลกรอง
+- ใหม่: `GET /api/admin/plans/usage-summary` (`@RequirePermission PLATFORM_SHOP_READ`) คืน `List<PlanUsageSummary>` รวมทุกร้าน (ไม่จำกัด 200)
+- `AdminPlatformDtos.PlanUsageSummary` + `ShopUsage.slug` (additive) + `planCode` เป็น NON_NULL
+- `AdminShopUsageService`: `assignPlan`/`clearPlanAssignments` (test hook), `matchesPlanFilter`, `summarize`, `ShopKey` มี slug
+
+### Frontend
+- `AdminUsagePage.tsx`: ตารางโหลดจาก `planUsage` (ส่ง q/status/plan ฝั่ง server) เลิกกรอง client และเลิก map 200 ร้าน; สรุปจาก `planUsageSummary`
+- QuotaBar: limit=0 ใช้=0 → 100% ปกติ, ใช้>0 → over; ส่ง `format` (storage เป็น MB/GB); `showCaption=false` เพราะหัวการ์ดมี used/limit แล้ว
+- `api.ts`: `planUsageSummary` + type `AdminPlanUsageSummary` + `slug` บน `AdminShopUsage`
+
+### Tests (`PlatformAdminIntegrationTests`)
+- `usageEndpointsForbiddenForMerchantAndSupportWithoutShopRead` — merchant 403 ที่ `/plans/usage`, `/shops/{id}/usage`, `/plans/usage-summary`; support ไม่มี PLATFORM_SHOP_READ → 403 ที่ `/shops/{id}/usage`
+- `planUsageFilterReturnsOnlyMatchingShopsAndSummaryCountsAll` — plan=BASIC/PRO/__NONE__ + totalItems; summary นับครบ
+
+`.\mvnw test` + `npx tsc -b --noEmit` (รันหลังแก้); ไม่ commit/push; ไม่ start-stop server; ไม่มี migration
+
+
+## AB3 — Admin Usage API polish: planCode null + plan param validation (2026-11-03)
+
+### 1) planCode ส่งใน JSON เสมอ
+- ลบ `@JsonInclude(NON_NULL)` ออกจาก `ShopUsage.planCode` — ร้านไม่มีแพ็กเกจได้ `"planCode": null`
+- แก้ test `shopsListFiltersPaginatesAndDetailShowsMembersCountsAndUsage` ให้ assert `planCode` เป็น null (ไม่ใช่ doesNotExist)
+
+### 2) ตรวจรูปแบบพารามิเตอร์ plan
+- `AdminShopUsageService.normalizePlan`: trim + upper; ว่าง/null = ไม่กรอง; อนุญาต `^[A-Z0-9_]{1,50}$` หรือ `__NONE__`; นอกนั้น 400 `PLAN_INVALID` ผ่าน `AuthException` → `ApiExceptionHandler`
+- ใช้ใน `usagePage` / `usageSummaries`; `GET /plans/usage-summary` รับ `plan` (validate แล้วไม่ใช้กรองสรุป)
+- Test ใหม่ `planParamNormalizesCaseRejectsInvalidAndBlankMeansNoFilter`: basic=BASIC, bad-value! → PLAN_INVALID, plan= ว่าง = ไม่กรอง
+- i18n `adminPlatform.errors.PLAN_INVALID` th/en/zh
+
+`.\mvnw test` + `npx tsc -b --noEmit`; ไม่ migration / ไม่ commit-push / ไม่ start-stop server
+
+
+## AB3 — Shop plans ใน DB (V47) + SQL usage/summary (2026-11-03)
+
+### ต้อง restart backend
+ให้ Flyway รัน **V47__shop_plans.sql** — ร้านเดิมยัง `plan_code = NULL` (ยังไม่ถูกกำหนดแพ็กเกจ)
+
+### V47 โครงสร้าง
+- ตาราง `plans`: code PK, name, limit_products, limit_orders_per_month, limit_staff, limit_storage_bytes (null = ไม่จำกัด), active, created_at, updated_at
+- `shops.plan_code` varchar(50) null → FK `plans(code)` + index `idx_shops_plan_code`
+- **Seed:** FREE (50 สินค้า / 100 ออเดอร์ต่อเดือน / 2 พนักงาน / 100 MB), BASIC (500 / 1000 / 10 / 1 GB), PRO (ไม่จำกัดสินค้าและออเดอร์ / 50 พนักงาน / 10 GB)
+
+### Backend
+- `PlanCatalog` อ่านจาก `plans` (`source=DB`); entity `ShopPlan` สำหรับ Hibernate ในเทสต์ (Flyway ปิดใน test)
+- ลบ ConcurrentHashMap / assignPlan ใน memory — เทสต์ใช้ `UPDATE shops SET plan_code`
+- กรอง `__NONE__` = `plan_code IS NULL` และแบ่งหน้าใน SQL; `/plans/usage` โหลด usage แบบ batch ต่อหน้า
+- `/plans/usage-summary` = GROUP BY plan_code + subquery รวม products/staff/storage/orders 30 วัน (ไม่ N+1)
+- เพิ่ม `PUT /api/admin/shops/{id}/plan` (`PLATFORM_SHOP_SUSPEND`) + audit `SHOP_PLAN_CHANGED`
+- `normalizePlan` / `PLAN_INVALID` เหมือนเดิม
+
+### Tests
+- `planNoneFilterPaginationSummaryAndBatchedUsage` — `__NONE__`, pagination+totalItems, summary, lastUsageBatchSize, PUT plan
+
+`.\mvnw test` + `npx tsc -b --noEmit`; ไม่แตะ FE ดีไซน์ / ไม่ commit-push / ไม่ start-stop จาก agent
+
+## AB3 — AdminStores detail panel + owner contact mask Phase 1 (2026-11-03)
+
+### 1) แผงรายละเอียดร้าน (`AdminStoresPage`)
+- คลิกแถวร้าน หรือปุ่ม more → เปิด Drawer ขวา (pattern/class จาก `admin-platform.css` / `PlatformBits.Drawer` เดียวกับ Merchants/Usage)
+- โหลด `GET /api/admin/shops/{id}` + `GET /api/admin/shops/{id}/usage` (cancelled flag กัน race)
+- เนื้อหา: โลโก้/ชื่อ, slug ลิงก์ `/shop/{slug}` (แท็บใหม่), สถานะ, วันที่สร้าง, merchant ลิงก์ `/admin/merchants`, แพ็กเกจ+QuotaBar, เหตุผลการระงับ (reasonCode label + reason + วันที่), suspend/reactivate (`can` + ReasonDialog), ลิงก์ audit เมื่อ `PLATFORM_AUDIT_READ`
+- skeleton / error+retry / 403; ปิดด้วย X หรือ Esc; หลัง suspend/reactivate refresh แผง+ตาราง
+
+### 2) ปิดบังเบอร์/อีเมลเจ้าของร้าน
+- FE: `frontend/src/utils/maskContact.ts` (`maskPhone` → `08x-xxx-1234`, `maskEmail` → `s***@domain`, idempotent)
+- ตาราง + แผงรายละเอียดใช้ helper นี้
+- BE: `AdminContactMask` — mask ใน `StoreReviewService.toAdmin` (store-applications) และ `AdminShopService` list/detail `UserRef` (owner)
+- **ยังไม่ mask เบอร์เต็ม:** merchant APIs / owner application ของร้านตัวเอง, `AdminMerchantService` (merchant list ยังส่ง phone/email เต็ม), `AdminUserDirectoryService` (user directory), shop **members** email ใน shop detail (เทสต์ยัง assert อีเมลเต็มของ staff)
+
+### 3) QuotaBar กลาง
+- `frontend/src/components/admin/QuotaBar.tsx` — export `QuotaBar`, `buildUsageQuotas`, `quotaRatio`, `quotaTone`
+- `AdminUsagePage` เปลี่ยนมา import ของกลาง
+
+### 4) i18n `adminPlatform.stores.detail.*` (th/en/zh ครบ)
+title, info, openStorefront, status, createdAt, merchant, owner, phone, email, planUsage, plan, noPlan, suspension, suspendedAt, reasonCode, reason, suspend, reactivate, auditLink, loadError, forbidden
+
+### 5) Tests
+- `adminShopOwnerContactIsMaskedInShopAndStoreApplicationApis` — shop detail/list + store-applications ไม่มีเบอร์/อีเมลเต็ม
+- `assignShopPlanForbiddenForMerchantAndSupportWithoutSuspendPermission` — PUT `/api/admin/shops/{id}/plan` 403 สำหรับ merchant และ support ที่มีแค่ SHOP_READ
+
+### ผลตรวจ
+- `.\mvnw test` ผ่านทั้งหมด
+- `npx tsc -b --noEmit` ผ่าน
+- Manual `/admin/stores`: ต้อง restart backend ถ้ายังไม่โหลดโค้ดใหม่ — คลิก tinzshop ดูแผง+usage, suspend/reactivate จากแผง, เบอร์ปิดบัง, สลับ EN/ZH ไม่มีไทยค้าง
+
+ไม่ migration / ไม่ commit-push / ไม่ start-stop server / ไม่แตะ MerchantTopbarActions / .env / AB2
+
+## AB3 — Contact mask fix + PLATFORM_CONTACT_REVEAL + stores polish (2026-11-03)
+
+### ต้อง restart backend
+ให้ Flyway รัน **V48__platform_contact_reveal.sql** — เพิ่มสิทธิ์ `PLATFORM_CONTACT_REVEAL` ให้ `PLATFORM_ADMIN`
+
+### 1) แก้ mask (FE + BE)
+- `maskContact.ts`: `alreadyMasked` เช็กเฉพาะรูปแบบที่ระบบสร้าง (`/^\S\*{3}@/` สำหรับอีเมล, `NNx-xxx-dddd` / `xxx-xxx-dddd` สำหรับเบอร์) ไม่เช็กแค่ว่ามี x หรือ *
+- แปลง +66/66 → 0 ก่อนปิดบัง ทั้ง FE และ `AdminContactMask.java`
+- null/ว่าง → null (BE) / "—" (FE); เบอร์สั้นกว่า 4 หลัก → `****`
+- Unit test: `AdminContactMaskTest` (ไม่มี FE test runner)
+
+### 2) V48 + เปิดดูข้อมูลติดต่อ
+- Migration `V48__platform_contact_reveal.sql` + อัปเดต `seed_reference_data.sql` (permission + mapping + allowlist รวม `PLATFORM_SYSTEM_READ`)
+- `POST /api/admin/store-applications/{shopId}/contact` — `@RequirePermission("PLATFORM_CONTACT_REVEAL")` คืน phone/email เต็ม
+- Audit `CONTACT_REVEALED` (actor/target/permission/เวลา) — **ไม่**ใส่ค่าเต็มใน before/after
+- `AdminApplicationsPage`: แสดงแบบปิดบัง; ปุ่ม "แสดงข้อมูลติดต่อ" เมื่อ `can('PLATFORM_CONTACT_REVEAL')`; ค่าเต็มอยู่ใน state ของหน้าเท่านั้น (ไม่ localStorage)
+- i18n `adminPlatform.applications.contactReveal.*` th/en/zh
+
+### 3) Stores polish
+- ค้นหาเบอร์/อีเมล: `GET /api/admin/shops?q=` ค้นจากค่าเต็มใน DB (users+owners) response ยังปิดบัง; `AdminStoresPage` ส่ง q/status ไป server แล้วตัดแถวด้วย shopId
+- ลิงก์ merchant → `/admin/merchants?merchant={id}`; `AdminMerchantsPage` เปิดแผง merchant จาก param
+- **Suspend reason:** backend `ReasonRequest` บังคับ reason ข้อความ ≥5 อยู่แล้ว → **ReasonDialog บังคับกรอก** (ถอด `reasonOptional` / เลิกส่ง `ADMIN_SUSPEND` เป็น reason)
+
+### Tests
+- `AdminContactMaskTest` — +66, อีเมลมี x, สั้น, null
+- `shopsSearchMatchesFullPhoneAndEmailButResponseStaysMasked`
+- `revealStoreApplicationContactAuditsWithoutStoringRawValues` — 200+audit, merchant 403, support 403
+- `PermissionMatrixIntegrationTests` — PLATFORM_ADMIN size 19 + hasItems CONTACT_REVEAL
+
+`.\mvnw test` ผ่าน · `npx tsc -b --noEmit` ผ่าน · ไม่ commit-push · ไม่ start-stop
+
+## AB3 — Contact search lockdown + AdminApplications i18n (2026-11-03)
+
+### 1) ค้นหาเบอร์/อีเมล (ปิดช่องโหว่เดา)
+`AdminShopService.where()` ไม่ใช้ `LIKE %digits%` / LIKE ส่วนหน้าอีเมลอีกต่อไป
+- **เบอร์:** 4 หลัก = ตรงท้ายพอดี (`RIGHT(...,4)`); 9–10 หลักหลัง +66→0 = ตรงเต็ม (รองรับรูปแบบ 66… ใน DB); หลักอื่นค้นแค่ชื่อ/slug/id
+- **อีเมล:** ตรงเต็ม (case-insensitive) หรือโดเมนพอดีเมื่อขึ้นต้นด้วย `@` (`RIGHT(email)=@domain`)
+- ค้นเบอร์เต็มหรืออีเมลเต็ม → audit `CONTACT_SEARCHED` (actor + `searchType` PHONE|EMAIL) **ไม่**บันทึกค่าที่ค้น
+- response ยังปิดบัง
+
+### 2) ปรับเล็ก
+- `POST .../store-applications/{id}/contact` → header `Cache-Control: no-store`
+- `maskContact.ts`: ไม่มีเงื่อนไข `^\d{4}$` ใน alreadyMasked (คงรูปแบบ mask ที่ระบบสร้างเท่านั้น)
+
+### 3) i18n `AdminApplicationsPage`
+- ข้อความไทยตายตัวทั้งหมด → `adminPlatform.applications.*` (th/en/zh คีย์ตรงกัน; ไทยคงตัวอักษรเดิม)
+- ไม่มีอักษรไทยในซอร์สหน้า (regex [\u0E00-\u0E7F] ผ่าน)
+- **งานถัดไป:** หัวคอลัมน์ export ใน `StoreReviewService.java` (~บรรทัด 63) ยังเป็นไทยตายตัว — ยังไม่แก้ในรอบนี้
+
+### Tests
+- `shopsContactSearchAllowsLast4AndFullExactOnlyAndAuditsFullLookup`
+- `.\mvnw test` + `npx tsc -b --noEmit` ผ่าน
+- ไม่ migration / ไม่ commit-push / ไม่ start-stop
+
+## AB3 — Shared AdminContactSearch for Merchants / Users (2026-11-03)
+
+### 1) Helper กลาง
+- ใหม่: `AdminContactSearch.java`
+  - เบอร์: 4 ตัวท้ายพอดี หรือเบอร์เต็มพอดี (9-10 หลัก หลัง +66→0)
+  - อีเมล: ตรงเต็มพอดี (ไม่สนตัวพิมพ์) หรือโดเมนพอดีเมื่อขึ้นต้นด้วย `@`
+  - `CONTACT_SEARCHED` เมื่อค้นเบอร์/อีเมลเต็ม — เก็บแค่ `searchType` ไม่เก็บค่าที่ค้น
+  - SQL ใช้ named parameters เท่านั้น
+- `AdminShopService.where()` ย้ายไปใช้ helper — พฤติกรรมเดิมคงเดิม
+
+### 2) Merchants / Users
+- `AdminMerchantService` / `AdminUserDirectoryService`: ลบ LIKE บน email/phone (และ qDigits LIKE ของ users)
+- ชื่อ / ชื่อร้านยัง LIKE ได้; list รับ actorId เพื่อ audit
+- `AdminPlatformController` / `AdminUserController` ส่ง `RequestUser.id(jwt)`
+
+### 3) Response masking (สถานะเดิม — ยังไม่ปิดบังในรอบนี้)
+- `AdminMerchantService` list/detail ยังส่ง phone/email เต็ม (FE `AdminMerchantsPage` แสดงตรงๆ)
+- `AdminUserDirectoryService` list/detail/export ยังส่ง phone/email เต็ม (FE `AdminUsersPage` แสดงตรงๆ)
+- ปิดบังอยู่แล้วเฉพาะ shops owner + store-applications
+
+### 4) Frontend
+- `maskContact.ts` `alreadyMaskedPhone`: ไม่มีเงื่อนไข `/^\d{4}$/` อยู่แล้ว (ตรวจยืนยัน)
+
+### 5) Tests (`PlatformAdminIntegrationTests`)
+- ปรับ `shopsContactSearch…` ใช้โดเมน `@phonesearch.test` + assert มีร้านเป้าหมายในผล (ไม่ผูกจำนวน fixture)
+- ใหม่: `merchantsContactSearchAllowsLast4AndFullExactOnlyAndAuditsFullLookup`
+- ใหม่: `usersContactSearchAllowsLast4AndFullExactOnlyAndAuditsFullLookup`
+- ปรับ `merchantsListAndDetail…` จาก `q=mer-a@` → อีเมลเต็ม
+
+### ข้อห้ามที่ยึด
+ไม่ migration / ไม่แก้ดีไซน์ / ไม่แตะ MerchantTopbarActions / .env / AB2 / ไม่ dependency ใหม่ / ไม่ commit-push / ไม่ start-stop server
+
+### 6) ปรับ test ที่เกี่ยวข้อง
+- `AdminDirectoryIntegrationTests.userListFiltersOnTheServer`: ไม่ใช้ prefix อีเมลแล้ว — ค้นอีเมลเต็ม / ชื่อ; soft-delete assert ด้วยอีเมลเต็ม
+
+### ผลตรวจ
+- `.\mvnw test` ผ่านทั้งหมด (313 tests, 0 fail)
+- `npx tsc -b --noEmit` ผ่าน
+- Manual `/admin/merchants` และ `/admin/users`: ต้อง restart backend ถ้ายังไม่โหลดโค้ดใหม่ — ค้น 4 ตัวท้ายแล้วเจอ, ค้น 2 หลักแล้วไม่เจอจากเบอร์
+## AB3 — maskContact + users export CONTACT_SEARCHED (2026-11-03)
+
+### 1) maskContact.ts
+- lreadyMaskedPhone: ไม่มีเงื่อนไข `|| /^\d{4}$/.test(value)` อยู่แล้ว (ตรวจยืนยัน ไม่ต้องลบ)
+
+### 2) Users export audit
+- AdminUserDirectoryService.exportCsv: เรียก `AdminContactSearch.auditIfNeeded` เหมือน list (permission `PLATFORM_ACCOUNT_READ`, resource `USER`); ถอด `readOnly` เพื่อเขียน audit
+- AdminUserController.export: ส่ง `RequestUser.id(jwt)`
+
+### 3) Test
+- ใหม่: `usersExportWithFullPhoneAuditsContactSearchedWithoutStoringQuery` — export ด้วยเบอร์เต็มแล้วมี `CONTACT_SEARCHED` ไม่เก็บค่าที่ค้น
+
+### ผลตรวจ
+- `.\mvnw test` ผ่านทั้งหมด (314 tests, 0 fail)
+- `npx tsc -b --noEmit` ผ่าน

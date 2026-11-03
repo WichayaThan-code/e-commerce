@@ -350,6 +350,11 @@
 .tsf-store a.tsf-btn.tsf-btn-ghost-inverse, .tsf-store button.tsf-btn.tsf-btn-ghost-inverse { background: transparent; color: #fff; border: 1px solid #fff; }
 .tsf-store a.tsf-btn.tsf-btn-ghost-inverse:hover, .tsf-store button.tsf-btn.tsf-btn-ghost-inverse:hover { background: rgba(255,255,255,.14); color: #fff; }
 .tsf-store a.tsf-btn.tsf-btn-secondary, .tsf-store button.tsf-btn.tsf-btn-secondary { color: var(--shop-text); }
+.tsf-store a.tsf-btn.tsf-btn-secondary:hover,
+.tsf-store button.tsf-btn.tsf-btn-secondary:hover,
+.tsf-store a.tsf-btn.tsf-btn-secondary:focus-visible,
+.tsf-store button.tsf-btn.tsf-btn-secondary:focus-visible { color: var(--shop-bg); }
+.tsf-store button.tsf-btn.tsf-btn-secondary:disabled:hover { background: transparent; color: var(--shop-text); }
 .tsf-store a.tsf-btn.tsf-btn-accent, .tsf-store button.tsf-btn.tsf-btn-accent { background: var(--shop-accent); color: var(--shop-on-accent, #1a1206); }
 /* STRIP hero: copy sits on shop-secondary — accent primary + light link */
 .tsf-store .tsf-hero-strip a.tsf-btn.tsf-btn-primary { background: var(--shop-accent, #f5b301); color: var(--shop-on-accent, #1a1206); }

@@ -47,7 +47,11 @@ function withLanguage(headers: Headers) {
   headers.set('Accept-Language', acceptLanguageHeader())
 }
 
-export async function request<T>(path:string, init:RequestInit = {}, authenticate = false, retry = true):Promise<T> {
+/** Extra request flags. Defaults preserve existing call-site behaviour. */
+export type RequestFlags = { redirectOn401?: boolean }
+
+export async function request<T>(path:string, init:RequestInit = {}, authenticate = false, retry = true, flags: RequestFlags = {}):Promise<T> {
+  const redirectOn401 = flags.redirectOn401 !== false
   if (authenticate && !accessToken) await refreshSession()
   const headers = new Headers(init.headers)
   withLanguage(headers)
@@ -64,7 +68,7 @@ export async function request<T>(path:string, init:RequestInit = {}, authenticat
   if (response.status === 401 && authenticate && retry) {
     try {
       await refreshSession()
-      return request<T>(path, init, true, false)
+      return request<T>(path, init, true, false, flags)
     } catch { accessToken = null }
   }
   if (!response.ok) {
@@ -73,7 +77,7 @@ export async function request<T>(path:string, init:RequestInit = {}, authenticat
       window.dispatchEvent(new Event(PERMISSIONS_STALE_EVENT))
     }
     const apiError = new ApiError(error.code || (response.status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_FAILED'), error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status, error.jobId, error.fieldErrors, error as Record<string, unknown>)
-    if (response.status === 401 && authenticate && !window.location.pathname.startsWith('/login')) {
+    if (response.status === 401 && authenticate && redirectOn401 && !window.location.pathname.startsWith('/login')) {
       const next = `${window.location.pathname}${window.location.search}`
       window.location.assign(`/login?next=${encodeURIComponent(next)}`)
     }
@@ -273,13 +277,26 @@ export function exportCustomerInsights(
   return downloadFile(`/api/merchant/shops/${shopId}/customer-insights/export${qs}`, `customers-${shopId}.xlsx`)
 }
 
+export type StoreApplicationReason = { reasonCode?: string; reason?: string }
+export type AdminContactReveal = { phone: string | null; email: string | null }
+
 export const adminApplicationApi = {
   list: () => request<AdminStoreApplication[]>('/api/admin/store-applications', {}, true),
   approve: (shopId:number) => request<AdminStoreApplication>(`/api/admin/store-applications/${shopId}/approve`, {method:'POST'}, true),
   reject: (shopId:number) => request<AdminStoreApplication>(`/api/admin/store-applications/${shopId}/reject`, {method:'POST'}, true),
-  suspend: (shopId:number) => request<AdminStoreApplication>(`/api/admin/store-applications/${shopId}/suspend`, {method:'POST'}, true),
-  bulk: (action:'approve'|'reject'|'suspend'|'reactivate', shopIds:number[]) => request<{updated:number; skipped:number; applications:AdminStoreApplication[]}>(`/api/admin/store-applications/bulk/${action}`, {method:'POST', body:JSON.stringify({shopIds})}, true),
-  reactivate: (shopId:number) => request<AdminStoreApplication>(`/api/admin/store-applications/${shopId}/reactivate`, {method:'POST'}, true),
+  suspend: (shopId:number, body: StoreApplicationReason) =>
+    request<AdminStoreApplication>(`/api/admin/store-applications/${shopId}/suspend`, { method: 'POST', body: JSON.stringify(body) }, true),
+  bulk: (action:'approve'|'reject'|'suspend'|'reactivate', shopIds:number[], reason?: StoreApplicationReason) =>
+    request<{updated:number; skipped:number; applications:AdminStoreApplication[]}>(
+      `/api/admin/store-applications/bulk/${action}`,
+      { method: 'POST', body: JSON.stringify({ shopIds, ...(reason ?? {}) }) },
+      true,
+    ),
+  reactivate: (shopId:number, body: StoreApplicationReason = {}) =>
+    request<AdminStoreApplication>(`/api/admin/store-applications/${shopId}/reactivate`, { method: 'POST', body: JSON.stringify(body) }, true),
+  /** PLATFORM_CONTACT_REVEAL — full phone/email for this session only; audited as CONTACT_REVEALED. */
+  revealContact: (shopId: number) =>
+    request<AdminContactReveal>(`/api/admin/store-applications/${shopId}/contact`, { method: 'POST', body: '{}' }, true),
   exportExcel: () => downloadFile('/api/admin/store-applications/export', 'store-applications.xlsx'),
   downloadDocument: (shopId:number, documentId:string, filename:string) => downloadFile(`/api/admin/store-applications/${shopId}/documents/${documentId}`, filename),
 }
@@ -1398,6 +1415,11 @@ export type AdminShopUsage = {
   shopId: number; shopName: string; status: string; planCode?: string | null; limits?: AdminPlanLimits | null
   products?: AdminProductUsage | null; orders?: AdminOrderUsage | null; staff?: AdminStaffUsage | null
   customers: number; activeCoupons: number; storage?: AdminStorageUsage | null; computedAt?: string | null
+  slug?: string | null
+}
+export type AdminPlanUsageSummary = {
+  planCode?: string | null; planName?: string | null; shopCount: number
+  products: number; staff: number; storageBytes: number; ordersLast30Days: number
 }
 export type AdminShopDetail = {
   shopId: number; name: string; nameEn?: string | null; slug?: string | null; status: string; category?: string | null
@@ -1410,8 +1432,8 @@ export type AdminShopDetail = {
 export type ShopActionResponse = { changed: boolean; shop: AdminShopDetail }
 export type AdminPlan = { code: string; name: string; limits?: AdminPlanLimits | null }
 export type AdminPlanCatalog = { source: string; plans: AdminPlan[]; note?: string | null }
-export type AdminAuditActor = { id?: string | null; type?: string | null; name?: string | null; email?: string | null }
-export type AdminAuditTarget = { type?: string | null; id?: string | null; shopId?: number | null; shopName?: string | null }
+export type AdminAuditActor = { id?: string | null; type?: string | null; name?: string | null; email?: string | null; role?: string | null }
+export type AdminAuditTarget = { type?: string | null; id?: string | null; shopId?: number | null; shopName?: string | null; name?: string | null }
 export type AdminAuditLogView = {
   id: number; occurredAt: string; actor?: AdminAuditActor | null; action: string; target?: AdminAuditTarget | null
   permission?: string | null; outcome?: string | null; reasonCode?: string | null; reason?: string | null
@@ -1471,10 +1493,42 @@ export const adminPlatformApi = {
   plans: () => request<AdminPlanCatalog>(adminPath('/plans'), { cache: 'no-store' }, true),
   planUsage: (params: Record<string, string | number | boolean | null | undefined> = {}) =>
     request<PlatformPage<AdminShopUsage>>(`${adminPath('/plans/usage')}${queryOf(params)}`, { cache: 'no-store' }, true),
+  planUsageSummary: (params: Record<string, string | number | boolean | null | undefined> = {}) =>
+    request<AdminPlanUsageSummary[]>(`${adminPath('/plans/usage-summary')}${queryOf(params)}`, { cache: 'no-store' }, true),
   auditLogs: (params: Record<string, string | number | boolean | null | undefined> = {}) =>
     request<PlatformPage<AdminAuditLogView>>(`${adminPath('/audit-logs')}${queryOf(params)}`, { cache: 'no-store' }, true),
   auditLog: (id: number) =>
     request<AdminAuditLogView>(adminPath(`/audit-logs/${id}`), { cache: 'no-store' }, true),
+  /** GET /api/admin/system/status — PLATFORM_SYSTEM_READ (no auto login redirect on 401). */
+  getSystemStatus: (init: RequestInit = {}) =>
+    request<AdminSystemStatus>(adminPath('/system/status'), { cache: 'no-store', ...init }, true, true, { redirectOn401: false }),
+}
+
+export type AdminSystemOverall = 'UP' | 'DEGRADED' | 'DOWN'
+export type AdminSystemComponentStatus = 'UP' | 'DOWN' | 'UNKNOWN'
+export type AdminSystemAppInfo = {
+  version: string
+  buildTime?: string | null
+  startedAt: string
+  uptimeSeconds: number
+  javaVersion: string
+  profile: string
+}
+export type AdminSystemComponent = {
+  key: 'database' | 'migrations' | 'mail' | 'storage' | string
+  status: AdminSystemComponentStatus
+  latencyMs?: number | null
+  detail?: string | null
+  pending?: number | null
+  failed?: number | null
+  freeBytes?: number | null
+  totalBytes?: number | null
+}
+export type AdminSystemStatus = {
+  overall: AdminSystemOverall
+  checkedAt: string
+  app: AdminSystemAppInfo
+  components: AdminSystemComponent[]
 }
 
 export const adminOrderApi = {

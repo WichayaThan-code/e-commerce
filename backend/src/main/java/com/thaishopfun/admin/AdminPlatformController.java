@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -43,8 +44,10 @@ public class AdminPlatformController {
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
         @RequestParam(defaultValue = "createdAt") String sort, @RequestParam(defaultValue = "desc") String dir,
-        @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-        return merchants.list(new AdminMerchantService.Filter(q, status, ownerType, shopStatus, userId, from, to), sort, dir, page, size);
+        @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
+        @AuthenticationPrincipal Jwt jwt) {
+        return merchants.list(new AdminMerchantService.Filter(q, status, ownerType, shopStatus, userId, from, to),
+            sort, dir, page, size, RequestUser.id(jwt));
     }
 
     @RequirePermission("PLATFORM_SHOP_READ")
@@ -77,8 +80,10 @@ public class AdminPlatformController {
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
         @RequestParam(defaultValue = "createdAt") String sort, @RequestParam(defaultValue = "desc") String dir,
-        @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-        return shops.list(new AdminShopService.Filter(q, status, merchantId, ownerUserId, category, province, suspendReasonCode, from, to), sort, dir, page, size);
+        @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
+        @AuthenticationPrincipal Jwt jwt) {
+        return shops.list(new AdminShopService.Filter(q, status, merchantId, ownerUserId, category, province, suspendReasonCode, from, to, null),
+            sort, dir, page, size, RequestUser.id(jwt));
     }
 
     @RequirePermission("PLATFORM_SHOP_READ")
@@ -105,6 +110,12 @@ public class AdminPlatformController {
         return shops.reactivate(shopId, body, RequestUser.id(jwt));
     }
 
+    @RequirePermission("PLATFORM_SHOP_SUSPEND")
+    @PutMapping("/shops/{shopId}/plan")
+    public ShopActionResponse assignShopPlan(@PathVariable Long shopId, @RequestBody PlanAssignRequest body, @AuthenticationPrincipal Jwt jwt) {
+        return shops.assignPlan(shopId, body == null ? null : body.planCode(), RequestUser.id(jwt));
+    }
+
     // ---------------- plans & usage ----------------
 
     @RequirePermission("PLATFORM_SHOP_READ")
@@ -117,10 +128,19 @@ public class AdminPlatformController {
     @GetMapping("/plans/usage")
     public Page<ShopUsage> planUsage(
         @RequestParam(required = false) String q, @RequestParam(required = false) String status,
+        @RequestParam(required = false) String plan,
         @RequestParam(required = false) UUID merchantId,
         @RequestParam(defaultValue = "createdAt") String sort, @RequestParam(defaultValue = "desc") String dir,
         @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-        return shops.usagePage(new AdminShopService.Filter(q, status, merchantId, null, null, null, null, null, null), sort, dir, page, size);
+        return shops.usagePage(new AdminShopService.Filter(q, status, merchantId, null, null, null, null, null, null, plan), sort, dir, page, size);
+    }
+
+    @RequirePermission("PLATFORM_SHOP_READ")
+    @GetMapping("/plans/usage-summary")
+    public List<PlanUsageSummary> planUsageSummary(
+        @RequestParam(required = false) String q, @RequestParam(required = false) String status,
+        @RequestParam(required = false) String plan) {
+        return shops.usageSummaries(new AdminShopService.Filter(q, status, null, null, null, null, null, null, null, plan));
     }
 
     // ---------------- audit logs ----------------

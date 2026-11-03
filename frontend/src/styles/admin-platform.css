@@ -35,6 +35,14 @@
 }
 .ap-search { position: relative; }
 .ap-filter-actions { display: flex; gap: 8px; }
+.ap-filter-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
+.ap-filter-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+  border: 1px solid var(--shop-border, #dbe8f5); border-radius: 999px;
+  background: var(--shop-card-bg, #fff); color: inherit; font-size: 12px; cursor: pointer;
+}
+.ap-filter-chip svg { width: 12px; height: 12px; opacity: 0.7; }
+.ap-filter-chip:hover { border-color: #9bb6d4; }
 
 /* ---------- buttons ---------- */
 .ap-primary, .ap-ghost, .ap-danger { height: 38px; padding: 0 16px; border-radius: var(--shop-btn-radius, 8px); font: 700 13px var(--font-sans), sans-serif; cursor: pointer; border: 1px solid var(--shop-primary, #087bf5); white-space: nowrap; }
@@ -127,6 +135,22 @@
 .ap-usage strong { font-size: 18px; color: var(--shop-secondary, #08245d); }
 .ap-usage em { font-style: normal; font-size: 11px; color: var(--shop-muted, #6681aa); }
 .ap-usage span { font-size: 11px; color: var(--shop-muted, #6681aa); }
+.ap-usage-summary article { gap: 4px; }
+.ap-quota-list { display: grid; gap: 12px; }
+.ap-quota-card { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--shop-border, #dbe8f5); border-radius: 12px; background: var(--shop-surface, #f8fbff); }
+.ap-quota-card > header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.ap-quota-card > header b { font-size: 13px; color: var(--shop-secondary, #08245d); }
+.ap-quota-card > header strong { font-size: 14px; color: var(--shop-text, #132b50); }
+.ap-quota-card > span { font-size: 11px; color: var(--shop-muted, #6681aa); }
+.ap-quota-card.warn { border-color: #f0b429; background: #fffaf0; }
+.ap-quota-card.over { border-color: #e35d6a; background: #fff5f6; }
+.ap-quota { display: grid; gap: 4px; }
+.ap-quota-bar { height: 8px; border-radius: 999px; background: #e4eef8; overflow: hidden; }
+.ap-quota-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--shop-primary, #087bf5); }
+.ap-quota-bar.warn > i { background: #e2a100; }
+.ap-quota-bar.over > i { background: #d64550; }
+.ap-quota small { font-size: 11px; color: var(--shop-muted, #6681aa); }
+.ap-table tr.selected td { background: #eef5fb; }
 
 /* ---------- lists ---------- */
 .ap-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }

@@ -45,6 +45,8 @@ public class Shop {
     @Column(length = 100) private String subdistrict;
     @Column(name = "postal_code", length = 10) private String postalCode;
     @Column(nullable = false, length = 100) private String slug;
+    /** Optional plan from {@code plans.code}; null = no plan assigned. */
+    @Column(name = "plan_code", length = 50) private String planCode;
     @Convert(converter = ShopStatusConverter.class) @Column(nullable = false, length = 30) private ShopStatus status;
     @Column(name = "published_at") private Instant publishedAt;
     @Column(name = "suspended_at") private Instant suspendedAt;
@@ -185,6 +187,11 @@ public class Shop {
     public String getSubdistrict() { return subdistrict; }
     public String getPostalCode() { return postalCode; }
     public String getSlug() { return slug; }
+    public String getPlanCode() { return planCode; }
+    public void assignPlanCode(String code) {
+        this.planCode = code == null || code.isBlank() ? null : code.trim().toUpperCase(java.util.Locale.ROOT);
+        this.updatedAt = Instant.now();
+    }
     public String getWebsite() { return website; }
     public String getLineId() { return lineId; }
     public String getFacebookUrl() { return facebookUrl; }

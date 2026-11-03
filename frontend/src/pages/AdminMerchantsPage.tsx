@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import { Building2, Search } from 'lucide-react'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
@@ -67,14 +68,19 @@ function UsageGrid({ tp, usage, localeTag }: { tp: TP; usage: AdminShopUsage; lo
 type MerchantFilters = { q: string; status: string; ownerType: string; shopStatus: string; from: string; to: string }
 const EMPTY_MERCHANT_FILTERS: MerchantFilters = { q: '', status: '', ownerType: '', shopStatus: '', from: '', to: '' }
 
-function MerchantsTab({ tp, notify }: { tp: TP; notify: Notify }) {
+function MerchantsTab({ tp, notify, initialMerchantId }: { tp: TP; notify: Notify; initialMerchantId?: string | null }) {
   const { can, deniedTitle } = usePermissions()
   const canSuspend = can('PLATFORM_SHOP_SUSPEND')
   const canRestore = can('PLATFORM_SHOP_RESTORE')
+  const canAudit = can('PLATFORM_AUDIT_READ')
   const [draft, setDraft] = useState(EMPTY_MERCHANT_FILTERS)
   const [filters, setFilters] = useState(EMPTY_MERCHANT_FILTERS)
   const list = usePlatformList<AdminMerchantRow>(params => adminPlatformApi.merchants(params), filters, { errorText: tp('errors.load') })
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialMerchantId ?? null)
+
+  useEffect(() => {
+    if (initialMerchantId) setSelectedId(initialMerchantId)
+  }, [initialMerchantId])
   const [detail, setDetail] = useState<AdminMerchantDetail | null>(null)
   const [detailError, setDetailError] = useState('')
   const [confirm, setConfirm] = useState<'suspend' | 'reactivate' | null>(null)
@@ -206,6 +212,11 @@ function MerchantsTab({ tp, notify }: { tp: TP; notify: Notify }) {
               </ul>
             )}
           </section>
+          {canAudit && (
+            <p className="ap-muted">
+              <a href={`/admin/audit-logs?targetType=OWNER&targetId=${encodeURIComponent(detail.merchantId)}&kind=BUSINESS`}>{tp('audit.openForTarget')}</a>
+            </p>
+          )}
           {actionError && !confirm && <p className="ap-error" role="alert">{actionError}</p>}
           <footer className="ap-drawer-actions">
             {detail.status === 'ACTIVE' && <button type="button" className="ap-danger" disabled={!canSuspend || busy} title={deniedTitle(canSuspend)} onClick={() => { setActionError(''); setConfirm('suspend') }}>{tp('merchants.suspend')}</button>}
@@ -237,6 +248,7 @@ function ShopsTab({ tp, notify, localeTag }: { tp: TP; notify: Notify; localeTag
   const { can, deniedTitle } = usePermissions()
   const canSuspend = can('PLATFORM_SHOP_SUSPEND')
   const canRestore = can('PLATFORM_SHOP_RESTORE')
+  const canAudit = can('PLATFORM_AUDIT_READ')
   const [draft, setDraft] = useState(EMPTY_SHOP_FILTERS)
   const [filters, setFilters] = useState(EMPTY_SHOP_FILTERS)
   const list = usePlatformList<AdminShopRow>(params => adminPlatformApi.shops(params), filters, { errorText: tp('errors.load') })
@@ -373,6 +385,11 @@ function ShopsTab({ tp, notify, localeTag }: { tp: TP; notify: Notify; localeTag
               </ul>
             )}
           </section>
+          {canAudit && (
+            <p className="ap-muted">
+              <a href={`/admin/audit-logs?targetType=SHOP&targetId=${detail.shopId}&kind=BUSINESS`}>{tp('audit.openForTarget')}</a>
+            </p>
+          )}
           {actionError && !confirm && <p className="ap-error" role="alert">{actionError}</p>}
           <footer className="ap-drawer-actions">
             {detail.status === 'APPROVED' && <button type="button" className="ap-danger" disabled={!canSuspend || busy} title={deniedTitle(canSuspend)} onClick={() => { setActionError(''); setConfirm('suspend') }}>{tp('shops.suspend')}</button>}
@@ -488,8 +505,14 @@ export default function AdminMerchantsPage() {
   const { user, loading } = useAuth()
   const { can, deniedTitle } = usePermissions()
   const canRead = can('PLATFORM_SHOP_READ')
+  const [searchParams] = useSearchParams()
+  const merchantParam = searchParams.get('merchant')
   const [tab, setTab] = useState<Tab>('merchants')
   const [notice, setNotice] = useState('')
+
+  useEffect(() => {
+    if (merchantParam) setTab('merchants')
+  }, [merchantParam])
 
   useEffect(() => {
     if (!notice) return
@@ -520,7 +543,7 @@ export default function AdminMerchantsPage() {
           <nav className="ap-tabs" role="tablist" aria-label={tp('merchants.title')}>
             {tabs.map(item => <button key={item.key} type="button" role="tab" aria-selected={tab === item.key} className={tab === item.key ? 'active' : ''} onClick={() => setTab(item.key)}>{item.label}</button>)}
           </nav>
-          {tab === 'merchants' && <MerchantsTab tp={tp} notify={setNotice} />}
+          {tab === 'merchants' && <MerchantsTab tp={tp} notify={setNotice} initialMerchantId={merchantParam} />}
           {tab === 'shops' && <ShopsTab tp={tp} notify={setNotice} localeTag={i18n.language} />}
           {tab === 'plans' && <PlansTab tp={tp} />}
         </>}

@@ -48,9 +48,10 @@ public class AdminUserController {
         @RequestParam(defaultValue = "createdAt") String sort,
         @RequestParam(defaultValue = "desc") String dir,
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "10") int size
+        @RequestParam(defaultValue = "10") int size,
+        @AuthenticationPrincipal Jwt jwt
     ) {
-        return users.list(new AdminUserDirectoryService.Filter(q, role, status, from, to), sort, dir, page, size);
+        return users.list(new AdminUserDirectoryService.Filter(q, role, status, from, to), sort, dir, page, size, RequestUser.id(jwt));
     }
 
     @RequirePermission("PLATFORM_ACCOUNT_READ")
@@ -70,12 +71,13 @@ public class AdminUserController {
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
         @RequestParam(defaultValue = "createdAt") String sort,
-        @RequestParam(defaultValue = "desc") String dir
+        @RequestParam(defaultValue = "desc") String dir,
+        @AuthenticationPrincipal Jwt jwt
     ) {
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"users.csv\"")
             .contentType(new MediaType("text", "csv", java.nio.charset.StandardCharsets.UTF_8))
-            .body(users.exportCsv(new AdminUserDirectoryService.Filter(q, role, status, from, to), sort, dir));
+            .body(users.exportCsv(new AdminUserDirectoryService.Filter(q, role, status, from, to), sort, dir, RequestUser.id(jwt)));
     }
 
     @RequirePermission("PLATFORM_ACCOUNT_READ")
@@ -100,14 +102,16 @@ public class AdminUserController {
     @PostMapping("/{id}/suspend")
     public UserDetail suspend(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt,
                               @Valid @RequestBody(required = false) AdminPlatformDtos.OptionalReasonRequest body) {
-        return management.setStatus(id, "SUSPENDED", RequestUser.id(jwt), body == null ? null : body.reason());
+        return management.setStatus(id, "SUSPENDED", RequestUser.id(jwt),
+            body == null ? null : body.reason(), body == null ? null : body.reasonCode());
     }
 
     @RequirePermission("PLATFORM_ACCOUNT_RESTORE")
     @PostMapping("/{id}/restore")
     public UserDetail restore(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt,
                               @Valid @RequestBody(required = false) AdminPlatformDtos.OptionalReasonRequest body) {
-        return management.setStatus(id, "ACTIVE", RequestUser.id(jwt), body == null ? null : body.reason());
+        return management.setStatus(id, "ACTIVE", RequestUser.id(jwt),
+            body == null ? null : body.reason(), body == null ? null : body.reasonCode());
     }
 
     @RequirePermission("PLATFORM_ACCOUNT_DELETE")

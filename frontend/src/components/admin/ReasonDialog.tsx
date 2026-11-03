@@ -1,14 +1,25 @@
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import ConfirmDialog from '../form/ConfirmDialog'
+import AdminSelect from './AdminSelect'
 import '../../styles/admin-platform.css'
 
 export const REASON_MIN = 5
 export const REASON_MAX = 1000
+export const REASON_TEXT_MAX_OPTIONAL = 500
 
-export const isValidReason = (value: string) => {
+/** Shared suspend reason codes (must match backend pattern A-Z / 0-9 / _). */
+export const SUSPEND_REASON_CODES = [
+  'ADMIN_SUSPEND',
+  'POLICY_VIOLATION',
+  'FRAUD',
+  'ABUSE',
+  'OTHER',
+] as const
+
+export const isValidReason = (value: string, min = REASON_MIN, max = REASON_MAX) => {
   const length = value.trim().length
-  return length >= REASON_MIN && length <= REASON_MAX
+  return length >= min && length <= max
 }
 
 type ReasonDialogProps = {
@@ -22,21 +33,44 @@ type ReasonDialogProps = {
   children?: ReactNode
   /** Extra condition that must hold before the confirm button is enabled. */
   extraValid?: boolean
+  /** When set, show a reason-code dropdown. */
+  reasonCodes?: readonly string[] | { value: string; label: string }[]
+  /** Suspend: confirm disabled until a code is chosen. */
+  requireReasonCode?: boolean
+  /** When true, free-text reason is optional (0–reasonMax chars). */
+  reasonOptional?: boolean
+  reasonMax?: number
+  reasonMin?: number
   onCancel: () => void
-  onConfirm: (reason: string) => void
+  onConfirm: (reason: string, reasonCode?: string) => void
 }
 
 /**
- * ConfirmDialog with a mandatory reason textarea (5–1000 characters). Used for every destructive platform action
- * (suspend / reactivate / order intervention); the backend validates the same bounds.
+ * ConfirmDialog with a reason textarea. Used for platform suspend / reactivate / order interventions.
+ * Optional reason-code dropdown for suspend (bulk and legacy store-application paths).
  */
 export default function ReasonDialog({
-  title, message, confirmLabel, danger = true, busy = false, error = '', children, extraValid = true, onCancel, onConfirm,
+  title, message, confirmLabel, danger = true, busy = false, error = '', children, extraValid = true,
+  reasonCodes, requireReasonCode = false, reasonOptional = false,
+  reasonMax = reasonOptional ? REASON_TEXT_MAX_OPTIONAL : REASON_MAX,
+  reasonMin = reasonOptional ? 0 : REASON_MIN,
+  onCancel, onConfirm,
 }: ReasonDialogProps) {
   const { t } = useTranslation('admin')
   const [reason, setReason] = useState('')
-  const valid = isValidReason(reason)
+  const [reasonCode, setReasonCode] = useState('')
+  const trimmed = reason.trim()
+  const textOk = reasonOptional
+    ? trimmed.length <= reasonMax
+    : isValidReason(reason, reasonMin, reasonMax)
+  const codeOk = !requireReasonCode || reasonCode.length > 0
+  const valid = textOk && codeOk
   const touched = reason.length > 0
+  const codeOptions = (reasonCodes ?? []).map(item =>
+    typeof item === 'string'
+      ? { value: item, label: t(`adminPlatform.reason.codes.${item}`, { defaultValue: item }) }
+      : item,
+  )
 
   return (
     <ConfirmDialog
@@ -47,25 +81,38 @@ export default function ReasonDialog({
       danger={danger}
       confirmDisabled={busy || !valid || !extraValid}
       onCancel={onCancel}
-      onConfirm={() => { if (valid && extraValid && !busy) onConfirm(reason.trim()) }}
+      onConfirm={() => { if (valid && extraValid && !busy) onConfirm(trimmed, reasonCode || undefined) }}
     >
       <div className="ap-reason">
+        {codeOptions.length > 0 && (
+          <AdminSelect
+            label={t('adminPlatform.reason.codeLabel')}
+            value={reasonCode}
+            onChange={setReasonCode}
+            options={[
+              { value: '', label: t('adminPlatform.reason.codePlaceholder') },
+              ...codeOptions,
+            ]}
+          />
+        )}
         <label>
-          <span>{t('adminPlatform.reason.label')}</span>
+          <span>{reasonOptional ? t('adminPlatform.reason.optionalLabel') : t('adminPlatform.reason.label')}</span>
           <textarea
             value={reason}
             onChange={event => setReason(event.target.value)}
-            minLength={REASON_MIN}
-            maxLength={REASON_MAX}
+            minLength={reasonOptional ? undefined : reasonMin}
+            maxLength={reasonMax}
             rows={4}
-            required
-            aria-invalid={touched && !valid}
+            required={!reasonOptional}
+            aria-invalid={touched && !textOk}
             placeholder={t('adminPlatform.reason.placeholder')}
           />
         </label>
-        <small className={touched && !valid ? 'invalid' : ''}>
-          <span>{t('adminPlatform.reason.hint', { min: REASON_MIN, max: REASON_MAX })}</span>
-          <span className="num">{reason.trim().length}/{REASON_MAX}</span>
+        <small className={touched && !textOk ? 'invalid' : ''}>
+          <span>{reasonOptional
+            ? t('adminPlatform.reason.optionalHint', { max: reasonMax })
+            : t('adminPlatform.reason.hint', { min: reasonMin, max: reasonMax })}</span>
+          <span className="num">{trimmed.length}/{reasonMax}</span>
         </small>
         {children}
         {error && <p className="ap-error" role="alert">{error}</p>}

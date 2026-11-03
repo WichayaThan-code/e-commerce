@@ -1,5 +1,7 @@
 package com.thaishopfun.merchant;
 
+import com.thaishopfun.admin.SuspensionReasonCodes;
+import com.thaishopfun.audit.PlatformAuditService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.authz.AuthorizationService;
 import org.springframework.data.domain.Sort;
@@ -9,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -20,20 +23,39 @@ public class StoreReviewService {
     private final ShopReinstatementService reinstatements;
     private final AuthorizationService authorization;
     private final ShopSuspensionService suspensions;
+    private final PlatformAuditService platformAudit;
 
     public StoreReviewService(ShopRepository shops, MerchantDocumentRepository documents, MerchantStorageService storage, ShopReinstatementService reinstatements, AuthorizationService authorization,
-                              ShopSuspensionService suspensions) {
+                              ShopSuspensionService suspensions, PlatformAuditService platformAudit) {
         this.shops = shops;
         this.documents = documents;
         this.storage = storage;
         this.reinstatements = reinstatements;
         this.authorization = authorization;
         this.suspensions = suspensions;
+        this.platformAudit = platformAudit;
     }
 
     @Transactional(readOnly = true)
     public List<MerchantDtos.AdminStoreApplicationResponse> list() {
         return shops.findAll(Sort.by(Sort.Direction.DESC, "createdAt")).stream().map(this::toAdmin).toList();
+    }
+
+    /**
+     * Returns full owner phone/email for application review. Audits {@code CONTACT_REVEALED} without storing raw values.
+     */
+    @Transactional
+    public MerchantDtos.ContactRevealResponse revealContact(Long shopId, UUID actorId) {
+        var shop = shop(shopId);
+        var owner = shop.getOwner();
+        var application = shop.getApplication();
+        var phone = owner == null ? application.getOwnerPhone() : owner.getPhone();
+        var email = owner == null ? application.getOwnerEmail() : owner.getEmail();
+        platformAudit.record(PlatformAuditService.Entry.platform(actorId, "CONTACT_REVEALED", "SHOP", shop.getUuid())
+            .shop(shop.getUuid())
+            .permission("PLATFORM_CONTACT_REVEAL")
+            .change(Map.of("contact", "masked"), Map.of("contact", "revealed", "fields", "phone,email")));
+        return new MerchantDtos.ContactRevealResponse(phone, email);
     }
 
     @Transactional(readOnly = true)
@@ -84,16 +106,12 @@ public class StoreReviewService {
         return toAdmin(shop);
     }
 
+    /** Pre-existing endpoint: 409 when not APPROVED; reasonCode required + allowlisted; reasonText optional ≤500. */
     @Transactional
-    public MerchantDtos.AdminStoreApplicationResponse suspend(Long shopId) {
-        return suspend(shopId, null, null);
-    }
-
-    /** Pre-existing endpoint: 409 when not APPROVED (also when already suspended); reason optional, now audited. */
-    @Transactional
-    public MerchantDtos.AdminStoreApplicationResponse suspend(Long shopId, UUID actorId, String reason) {
+    public MerchantDtos.AdminStoreApplicationResponse suspend(Long shopId, UUID actorId, String reasonCode, String reason) {
+        var code = SuspensionReasonCodes.requireSuspend(reasonCode);
         var shop = shop(shopId);
-        suspensions.suspendShop(shop, actorId, legacyCode(reason, ShopSuspensionService.DEFAULT_SUSPEND_CODE), clean(reason), false);
+        suspensions.suspendShop(shop, actorId, code, clean(reason), false);
         return toAdmin(shop);
     }
 
@@ -127,26 +145,22 @@ public class StoreReviewService {
     }
 
     @Transactional
-    public MerchantDtos.BulkShopResponse suspendMany(List<Long> shopIds) {
-        return suspendMany(shopIds, null);
-    }
-
-    @Transactional
-    public MerchantDtos.BulkShopResponse suspendMany(List<Long> shopIds, UUID actorId) {
+    public MerchantDtos.BulkShopResponse suspendMany(List<Long> shopIds, UUID actorId, String reasonCode, String reason) {
+        var code = SuspensionReasonCodes.requireSuspend(reasonCode);
+        var correlationId = UUID.randomUUID().toString();
+        var text = clean(reason);
         return applyMany(shopIds, ShopStatus.APPROVED,
-            shop -> suspensions.suspendShop(shop, actorId, ShopSuspensionService.LEGACY_NO_REASON, null, false));
+            shop -> suspensions.suspendShop(shop, actorId, code, text, false, correlationId));
     }
 
     @Transactional
-    public MerchantDtos.BulkShopResponse reactivateMany(List<Long> shopIds) {
-        return reactivateMany(shopIds, null);
-    }
-
-    @Transactional
-    public MerchantDtos.BulkShopResponse reactivateMany(List<Long> shopIds, UUID actorId) {
+    public MerchantDtos.BulkShopResponse reactivateMany(List<Long> shopIds, UUID actorId, String reasonCode, String reason) {
+        var correlationId = UUID.randomUUID().toString();
+        var code = SuspensionReasonCodes.resolveRestore(reasonCode, ShopSuspensionService.DEFAULT_RESTORE_CODE);
+        var text = clean(reason);
         return applyMany(shopIds, ShopStatus.SUSPENDED, shop -> {
             if (suspensions.merchantSuspended(shop)) return false;
-            return suspensions.reactivateShop(shop, actorId, ShopSuspensionService.LEGACY_NO_REASON, null, false);
+            return suspensions.reactivateShop(shop, actorId, code, text, false, correlationId);
         });
     }
 
@@ -184,25 +198,17 @@ public class StoreReviewService {
         return toAdmin(shop);
     }
 
+    /** Pre-existing endpoint: 409 when not SUSPENDED (or the merchant is suspended); reasonText optional. */
     @Transactional
-    public MerchantDtos.AdminStoreApplicationResponse reactivate(Long shopId) {
-        return reactivate(shopId, null, null);
-    }
-
-    /** Pre-existing endpoint: 409 when not SUSPENDED (or the merchant is suspended); reason optional, now audited. */
-    @Transactional
-    public MerchantDtos.AdminStoreApplicationResponse reactivate(Long shopId, UUID actorId, String reason) {
+    public MerchantDtos.AdminStoreApplicationResponse reactivate(Long shopId, UUID actorId, String reasonCode, String reason) {
         var shop = shop(shopId);
-        suspensions.reactivateShop(shop, actorId, legacyCode(reason, ShopSuspensionService.DEFAULT_RESTORE_CODE), clean(reason), false);
+        var code = SuspensionReasonCodes.resolveRestore(reasonCode, ShopSuspensionService.DEFAULT_RESTORE_CODE);
+        suspensions.reactivateShop(shop, actorId, code, clean(reason), false);
         return toAdmin(shop);
     }
 
     private static String clean(String reason) {
         return reason == null || reason.isBlank() ? null : reason.trim();
-    }
-
-    private static String legacyCode(String reason, String withReason) {
-        return clean(reason) == null ? ShopSuspensionService.LEGACY_NO_REASON : withReason;
     }
 
     @Transactional(readOnly = true)
@@ -234,8 +240,8 @@ public class StoreReviewService {
         var ownerName = owner == null
             ? join(application.getOwnerTitle(), application.getOwnerFirstName(), application.getOwnerLastName())
             : join(owner.getTitle(), owner.getFirstName(), owner.getLastName());
-        var phone = owner == null ? application.getOwnerPhone() : owner.getPhone();
-        var email = owner == null ? application.getOwnerEmail() : owner.getEmail();
+        var phone = com.thaishopfun.admin.AdminContactMask.phone(owner == null ? application.getOwnerPhone() : owner.getPhone());
+        var email = com.thaishopfun.admin.AdminContactMask.email(owner == null ? application.getOwnerEmail() : owner.getEmail());
         var otherShops = owner == null ? List.<MerchantDtos.OwnerShopRef>of() : shops.findByOwner_IdOrderByShopIdAsc(owner.getId()).stream()
             .filter(item -> !item.getId().equals(shop.getId()))
             .map(item -> new MerchantDtos.OwnerShopRef(item.getId(), item.getName(), item.getStatus()))

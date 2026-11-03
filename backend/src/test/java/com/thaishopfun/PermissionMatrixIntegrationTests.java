@@ -337,7 +337,7 @@ class PermissionMatrixIntegrationTests {
                 """))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.user.roleCodes", hasItem("PLATFORM_ADMIN")))
-            .andExpect(jsonPath("$.user.permissions", hasItems("PLATFORM_APPLICATION_READ", "PLATFORM_APPLICATION_REVIEW", "PLATFORM_SHOP_SUSPEND")))
+            .andExpect(jsonPath("$.user.permissions", hasItems("PLATFORM_APPLICATION_READ", "PLATFORM_APPLICATION_REVIEW", "PLATFORM_CONTACT_REVEAL", "PLATFORM_SHOP_SUSPEND")))
             .andExpect(jsonPath("$.user.shopPermissions.length()").value(0));
         mvc.perform(get("/api/admin/store-applications").header("Authorization", bearer(admin.token)))
             .andExpect(status().isOk()).andExpect(jsonPath("$[0].shopId").value(shopId));
@@ -426,7 +426,7 @@ class PermissionMatrixIntegrationTests {
             }
             matrix.invalidate();
         }
-        assertEquals(17, matrix.permissionsOf("PLATFORM_ADMIN").size());
+        assertEquals(19, matrix.permissionsOf("PLATFORM_ADMIN").size());
     }
 
     // ---------------------------------------------------------------- helpers

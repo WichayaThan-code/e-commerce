@@ -2,6 +2,8 @@ package com.thaishopfun;
 
 import com.jayway.jsonpath.JsonPath;
 import com.thaishopfun.admin.AdminAuditLogService;
+import com.thaishopfun.admin.AdminContactMask;
+import com.thaishopfun.admin.AdminShopUsageService;
 import com.thaishopfun.auth.RefreshTokenRepository;
 import com.thaishopfun.auth.UserAccount;
 import com.thaishopfun.auth.UserAccountRepository;
@@ -56,6 +58,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.*;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -107,6 +110,7 @@ class PlatformAdminIntegrationTests {
     @Autowired UserAccountRepository users;
     @Autowired PasswordEncoder passwords;
     @Autowired PlatformRoleRepository platformRoles;
+    @Autowired AdminShopUsageService shopUsage;
 
     private String adminToken;
 
@@ -121,6 +125,11 @@ class PlatformAdminIntegrationTests {
     void cleanAfter() {
         wipeOrders();
         wipe();
+    }
+
+    /** Test-only: set shops.plan_code via JDBC (no in-memory plan map). */
+    private void setShopPlan(long shopNo, String planCode) {
+        jdbc.update("UPDATE shops SET plan_code = ? WHERE shop_no = ?", planCode, shopNo);
     }
 
     private void wipeOrders() {
@@ -206,7 +215,8 @@ class PlatformAdminIntegrationTests {
         // the new endpoints are among them
         var patterns = endpoints.stream().map(AdminEndpoint::pattern).toList();
         for (var p : List.of("/api/admin/merchants", "/api/admin/merchants/{merchantId}/suspend", "/api/admin/shops/{shopId}/reactivate",
-                "/api/admin/plans", "/api/admin/plans/usage", "/api/admin/audit-logs", "/api/admin/audit-logs/{id}")) {
+                "/api/admin/plans", "/api/admin/plans/usage", "/api/admin/plans/usage-summary",
+                "/api/admin/audit-logs", "/api/admin/audit-logs/{id}")) {
             assertTrue(patterns.contains(p), p);
         }
     }
@@ -325,15 +335,389 @@ class PlatformAdminIntegrationTests {
             .andExpect(jsonPath("$.usage.staff.active").value(2))
             .andExpect(jsonPath("$.usage.staff.byRole.STORE_OWNER").value(1))
             .andExpect(jsonPath("$.usage.storage.documents").value(2))
-            .andExpect(jsonPath("$.usage.planCode").doesNotExist());
+            .andExpect(jsonPath("$.usage.planCode").value(nullValue()));
         call(get("/api/admin/shops/999999"), adminToken()).andExpect(status().isNotFound());
 
-        call(get("/api/admin/plans"), adminToken()).andExpect(status().isOk()).andExpect(jsonPath("$.source").value("NONE"))
-            .andExpect(jsonPath("$.plans.length()").value(0));
+        call(get("/api/admin/plans"), adminToken()).andExpect(status().isOk()).andExpect(jsonPath("$.source").value("DB"))
+            .andExpect(jsonPath("$.plans.length()").value(3))
+            .andExpect(jsonPath("$.plans[0].code").exists());
         call(get("/api/admin/plans/usage?sort=shopId&dir=asc"), adminToken()).andExpect(status().isOk())
             .andExpect(jsonPath("$.totalItems").value(3)).andExpect(jsonPath("$.items[0].shopId").value(a.shopId()))
-            .andExpect(jsonPath("$.items[0].products.total").value(1)).andExpect(jsonPath("$.items[1].products.total").value(0));
-        call(get("/api/admin/shops/" + a.shopId() + "/usage"), adminToken()).andExpect(jsonPath("$.orders.total").value(0));
+            .andExpect(jsonPath("$.items[0].products.total").value(1)).andExpect(jsonPath("$.items[1].products.total").value(0))
+            .andExpect(jsonPath("$.items[0].planCode").value(nullValue()));
+        call(get("/api/admin/shops/" + a.shopId() + "/usage"), adminToken()).andExpect(jsonPath("$.orders.total").value(0))
+            .andExpect(jsonPath("$.planCode").value(nullValue()));
+    }
+
+    @Test
+    void usageEndpointsForbiddenForMerchantAndSupportWithoutShopRead() throws Exception {
+        var shop = openShop("usage-403@example.com", "0816000091", "ร้านยูส", "Usage403", "1234567890591", true);
+        call(get("/api/admin/plans/usage"), shop.token()).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("PERMISSION_DENIED"));
+        call(get("/api/admin/shops/" + shop.shopId() + "/usage"), shop.token()).andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("PERMISSION_DENIED"));
+        call(get("/api/admin/plans/usage-summary"), shop.token()).andExpect(status().isForbidden());
+
+        var created = call(post("/api/admin/roles"), adminToken(),
+            "{\"context\":\"PLATFORM\",\"nameTh\":\"ซัพพอร์ตไม่มีอ่านร้าน\",\"permissions\":[\"PLATFORM_ACCOUNT_READ\"]}")
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String code = JsonPath.read(created, "$.role.code");
+        var supportToken = token("usage-support@example.com", "0817000091");
+        call(put("/api/admin/users/" + userId(supportToken) + "/role"), adminToken(), "{\"roleCode\":\"" + code + "\"}")
+            .andExpect(status().isOk());
+        supportToken = login("usage-support@example.com");
+        call(get("/api/admin/shops/" + shop.shopId() + "/usage"), supportToken).andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("PERMISSION_DENIED"));
+        call(get("/api/admin/plans/usage"), supportToken).andExpect(status().isForbidden());
+        call(get("/api/admin/plans/usage-summary"), supportToken).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void planUsageFilterReturnsOnlyMatchingShopsAndSummaryCountsAll() throws Exception {
+        var a = openShop("plan-a@example.com", "0816000092", "ร้านแพลนเอ", "PlanA", "1234567890592", true);
+        var b = openShop("plan-b@example.com", "0816000093", "ร้านแพลนบี", "PlanB", "1234567890593", true);
+        var c = openShop("plan-c@example.com", "0816000094", "ร้านแพลนซี", "PlanC", "1234567890594", true);
+        setShopPlan(a.shopId(), "BASIC");
+        setShopPlan(b.shopId(), "BASIC");
+        setShopPlan(c.shopId(), "PRO");
+
+        call(get("/api/admin/plans/usage?plan=BASIC&sort=shopId&dir=asc"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(2))
+            .andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.items[0].shopId").value(a.shopId()))
+            .andExpect(jsonPath("$.items[0].planCode").value("BASIC"))
+            .andExpect(jsonPath("$.items[1].shopId").value(b.shopId()));
+        call(get("/api/admin/plans/usage?plan=PRO"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items[0].shopId").value(c.shopId()))
+            .andExpect(jsonPath("$.items[0].planCode").value("PRO"));
+        call(get("/api/admin/plans/usage?plan=__NONE__"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(0));
+        call(get("/api/admin/plans/usage?plan=BASIC&q=planb"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items[0].shopId").value(b.shopId()));
+
+        var summary = call(get("/api/admin/plans/usage-summary"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rows = JsonPath.read(summary, "$");
+        long basic = rows.stream().filter(r -> "BASIC".equals(r.get("planCode"))).mapToLong(r -> ((Number) r.get("shopCount")).longValue()).sum();
+        long pro = rows.stream().filter(r -> "PRO".equals(r.get("planCode"))).mapToLong(r -> ((Number) r.get("shopCount")).longValue()).sum();
+        long none = rows.stream().filter(r -> r.get("planCode") == null).mapToLong(r -> ((Number) r.get("shopCount")).longValue()).sum();
+        assertEquals(2, basic);
+        assertEquals(1, pro);
+        assertEquals(0, none);
+    }
+
+    @Test
+    void planParamNormalizesCaseRejectsInvalidAndBlankMeansNoFilter() throws Exception {
+        var a = openShop("plan-case-a@example.com", "0816000095", "ร้านเคสเอ", "PlanCaseA", "1234567890595", true);
+        var b = openShop("plan-case-b@example.com", "0816000096", "ร้านเคสบี", "PlanCaseB", "1234567890596", true);
+        setShopPlan(a.shopId(), "BASIC");
+        setShopPlan(b.shopId(), "PRO");
+
+        call(get("/api/admin/plans/usage?plan=basic&sort=shopId&dir=asc"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items[0].shopId").value(a.shopId()))
+            .andExpect(jsonPath("$.items[0].planCode").value("BASIC"));
+        call(get("/api/admin/plans/usage?plan=BASIC"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items[0].shopId").value(a.shopId()));
+
+        call(get("/api/admin/plans/usage?plan=bad-value!"), adminToken()).andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("PLAN_INVALID"));
+        call(get("/api/admin/plans/usage-summary?plan=bad-value!"), adminToken()).andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("PLAN_INVALID"));
+
+        call(get("/api/admin/plans/usage?plan="), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(2));
+        call(get("/api/admin/plans/usage"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(2));
+        call(get("/api/admin/plans/usage?plan=UNKNOWN_PLAN"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(0));
+    }
+
+    @Test
+    void planNoneFilterPaginationSummaryAndBatchedUsage() throws Exception {
+        var a = openShop("plan-none-a@example.com", "0816000097", "ร้านนันเอ", "PlanNoneA", "1234567890597", true);
+        var b = openShop("plan-none-b@example.com", "0816000098", "ร้านนันบี", "PlanNoneB", "1234567890598", true);
+        var c = openShop("plan-none-c@example.com", "0816000099", "ร้านนันซี", "PlanNoneC", "1234567890599", true);
+        var d = openShop("plan-none-d@example.com", "0816000100", "ร้านนันดี", "PlanNoneD", "1234567890600", true);
+        setShopPlan(a.shopId(), "BASIC");
+        setShopPlan(b.shopId(), "BASIC");
+        setShopPlan(c.shopId(), "BASIC");
+        // d stays without a plan
+
+        call(get("/api/admin/plans/usage?plan=__NONE__"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items.length()").value(1))
+            .andExpect(jsonPath("$.items[0].shopId").value(d.shopId()))
+            .andExpect(jsonPath("$.items[0].planCode").value(nullValue()));
+
+        call(get("/api/admin/plans/usage?plan=BASIC&sort=shopId&dir=asc&page=0&size=2"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(3))
+            .andExpect(jsonPath("$.totalPages").value(2))
+            .andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.items[0].shopId").value(a.shopId()))
+            .andExpect(jsonPath("$.items[1].shopId").value(b.shopId()));
+        call(get("/api/admin/plans/usage?plan=BASIC&sort=shopId&dir=asc&page=1&size=2"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(3))
+            .andExpect(jsonPath("$.items.length()").value(1))
+            .andExpect(jsonPath("$.items[0].shopId").value(c.shopId()));
+        assertEquals(1, shopUsage.lastUsageBatchSize(), "page of 1 shop → one batch of size 1");
+
+        call(get("/api/admin/plans/usage?plan=BASIC&sort=shopId&dir=asc&page=0&size=3"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(3));
+        assertEquals(3, shopUsage.lastUsageBatchSize(), "usage must load the page as one batch, not N+1");
+
+        var summary = call(get("/api/admin/plans/usage-summary"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rows = JsonPath.read(summary, "$");
+        long basic = rows.stream().filter(r -> "BASIC".equals(r.get("planCode"))).mapToLong(r -> ((Number) r.get("shopCount")).longValue()).sum();
+        long none = rows.stream().filter(r -> r.get("planCode") == null).mapToLong(r -> ((Number) r.get("shopCount")).longValue()).sum();
+        assertEquals(3, basic);
+        assertEquals(1, none);
+
+        call(put("/api/admin/shops/" + d.shopId() + "/plan"), adminToken(), "{\"planCode\":\"FREE\"}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.changed").value(true))
+            .andExpect(jsonPath("$.shop.usage.planCode").value("FREE"));
+        call(get("/api/admin/plans/usage?plan=__NONE__"), adminToken()).andExpect(jsonPath("$.totalItems").value(0));
+    }
+
+    @Test
+    void adminShopOwnerContactIsMaskedInShopAndStoreApplicationApis() throws Exception {
+        var phone = "0816000088";
+        var email = "mask-owner@example.com";
+        var shop = openShop(email, phone, "ร้านปิดบัง", "MaskShop", "1234567890588", true);
+        var expectedPhone = AdminContactMask.phone(phone);
+        var expectedEmail = AdminContactMask.email(email);
+        assertEquals("08x-xxx-0088", expectedPhone);
+        assertEquals("m***@example.com", expectedEmail);
+
+        call(get("/api/admin/shops/" + shop.shopId()), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.owner.phone").value(expectedPhone))
+            .andExpect(jsonPath("$.owner.email").value(expectedEmail));
+        call(get("/api/admin/shops?q=MaskShop"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].owner.phone").value(expectedPhone))
+            .andExpect(jsonPath("$.items[0].owner.email").value(expectedEmail));
+
+        var apps = call(get("/api/admin/store-applications"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertFalse(apps.contains(phone), "store-applications must not include full owner phone");
+        assertFalse(apps.contains(email), "store-applications must not include full owner email");
+        assertTrue(apps.contains(expectedPhone));
+        assertTrue(apps.contains(expectedEmail));
+    }
+
+    @Test
+    void shopsContactSearchAllowsLast4AndFullExactOnlyAndAuditsFullLookup() throws Exception {
+        var phone = "0816000077";
+        var email = "search-owner@phonesearch.test";
+        var shop = openShop(email, phone, "ร้านค้นหาเบอร์", "PhoneSearchShop", "1234567890577", true);
+        var maskedPhone = AdminContactMask.phone(phone);
+        var maskedEmail = AdminContactMask.email(email);
+        var other = openShop("other-search@phonesearch.test", "0816000099", "ร้านอื่นค้นหา", "OtherSearch", "1234567890578", true);
+
+        // 1–3 digits must not match by phone
+        var short2 = call(get("/api/admin/shops?q=77"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(((List<?>) JsonPath.read(short2, "$.items[?(@.shopId == " + shop.shopId() + ")]")).isEmpty());
+        var short3 = call(get("/api/admin/shops?q=077"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(((List<?>) JsonPath.read(short3, "$.items[?(@.shopId == " + shop.shopId() + ")]")).isEmpty());
+
+        // last 4 digits → hit, still masked
+        call(get("/api/admin/shops?q=0077"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items[0].shopId").value(shop.shopId()))
+            .andExpect(jsonPath("$.items[0].owner.phone").value(maskedPhone))
+            .andExpect(jsonPath("$.items[0].owner.email").value(maskedEmail));
+
+        // full phone → hit + CONTACT_SEARCHED (no raw value in audit)
+        call(get("/api/admin/shops?q=" + phone), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].shopId").value(shop.shopId()));
+        var phoneAudit = call(get("/api/admin/audit-logs?action=CONTACT_SEARCHED&kind=BUSINESS"), adminToken())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(phoneAudit.contains("PHONE"));
+        assertFalse(phoneAudit.contains(phone));
+
+        // email local-part prefix must not match; full email and @domain must
+        var localPart = call(get("/api/admin/shops?q=search-owner"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(((List<?>) JsonPath.read(localPart, "$.items[?(@.shopId == " + shop.shopId() + ")]")).isEmpty());
+        call(get("/api/admin/shops?q=" + email), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].shopId").value(shop.shopId()));
+        var emailAudit = call(get("/api/admin/audit-logs?action=CONTACT_SEARCHED&kind=BUSINESS"), adminToken())
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(emailAudit.contains("EMAIL"));
+        assertFalse(emailAudit.contains(email));
+        var domainHits = call(get("/api/admin/shops?q=@phonesearch.test"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertFalse(((List<?>) JsonPath.read(domainHits, "$.items[?(@.shopId == " + shop.shopId() + ")]")).isEmpty());
+        assertFalse(((List<?>) JsonPath.read(domainHits, "$.items[?(@.shopId == " + other.shopId() + ")]")).isEmpty());
+
+        var body = call(get("/api/admin/shops?q=0077"), adminToken()).andReturn().getResponse().getContentAsString();
+        assertFalse(body.contains(phone));
+        assertFalse(body.contains(email));
+    }
+
+    @Test
+    void merchantsContactSearchAllowsLast4AndFullExactOnlyAndAuditsFullLookup() throws Exception {
+        var phone = "0816000171";
+        var email = "mer-contact@mercontact.test";
+        var shop = openShop(email, phone, "ร้านค้นหาผู้ขาย", "MerContactShop", "1234567890171", true);
+        var merchantId = merchantOf(shop.shopId());
+        openShop("other-mer@mercontact.test", "0816000199", "ร้านผู้ขายอื่น", "OtherMerContact", "1234567890172", true);
+
+        var short2 = call(get("/api/admin/merchants?q=71"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(((List<?>) JsonPath.read(short2, "$.items[?(@.merchantId == '" + merchantId + "')]")).isEmpty());
+        var short3 = call(get("/api/admin/merchants?q=171"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(((List<?>) JsonPath.read(short3, "$.items[?(@.merchantId == '" + merchantId + "')]")).isEmpty());
+
+        call(get("/api/admin/merchants?q=0171"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items[0].merchantId").value(merchantId));
+
+        call(get("/api/admin/merchants?q=" + phone), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].merchantId").value(merchantId));
+        var phoneAudit = call(get("/api/admin/audit-logs?action=CONTACT_SEARCHED&kind=BUSINESS"), adminToken())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(phoneAudit.contains("PHONE"));
+        assertFalse(phoneAudit.contains(phone));
+
+        var localPart = call(get("/api/admin/merchants?q=mer-contact"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(((List<?>) JsonPath.read(localPart, "$.items[?(@.merchantId == '" + merchantId + "')]")).isEmpty());
+        call(get("/api/admin/merchants?q=" + email), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].merchantId").value(merchantId));
+        var emailAudit = call(get("/api/admin/audit-logs?action=CONTACT_SEARCHED&kind=BUSINESS"), adminToken())
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(emailAudit.contains("EMAIL"));
+        assertFalse(emailAudit.contains(email));
+        var domainHits = call(get("/api/admin/merchants?q=@mercontact.test"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertFalse(((List<?>) JsonPath.read(domainHits, "$.items[?(@.merchantId == '" + merchantId + "')]")).isEmpty());
+    }
+
+    @Test
+    void usersContactSearchAllowsLast4AndFullExactOnlyAndAuditsFullLookup() throws Exception {
+        var phone = "0816000181";
+        var email = "user-contact@usercontact.test";
+        var userToken = token(email, phone);
+        var id = userId(userToken).toString();
+        token("other-user@usercontact.test", "0816000182");
+
+        var short2 = call(get("/api/admin/users?q=81"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(((List<?>) JsonPath.read(short2, "$.items[?(@.id == '" + id + "')]")).isEmpty());
+        var short3 = call(get("/api/admin/users?q=181"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(((List<?>) JsonPath.read(short3, "$.items[?(@.id == '" + id + "')]")).isEmpty());
+
+        call(get("/api/admin/users?q=0181"), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items[0].id").value(id));
+
+        call(get("/api/admin/users?q=" + phone), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].id").value(id));
+        var phoneAudit = call(get("/api/admin/audit-logs?action=CONTACT_SEARCHED&kind=BUSINESS"), adminToken())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(phoneAudit.contains("PHONE"));
+        assertFalse(phoneAudit.contains(phone));
+
+        var localPart = call(get("/api/admin/users?q=user-contact"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(((List<?>) JsonPath.read(localPart, "$.items[?(@.id == '" + id + "')]")).isEmpty());
+        call(get("/api/admin/users?q=" + email), adminToken()).andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].id").value(id));
+        var emailAudit = call(get("/api/admin/audit-logs?action=CONTACT_SEARCHED&kind=BUSINESS"), adminToken())
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(emailAudit.contains("EMAIL"));
+        assertFalse(emailAudit.contains(email));
+        var domainHits = call(get("/api/admin/users?q=@usercontact.test"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertFalse(((List<?>) JsonPath.read(domainHits, "$.items[?(@.id == '" + id + "')]")).isEmpty());
+    }
+
+    @Test
+    void usersExportWithFullPhoneAuditsContactSearchedWithoutStoringQuery() throws Exception {
+        var phone = "0816000183";
+        token("export-contact@usercontact.test", phone);
+        call(get("/api/admin/users/export?q=" + phone), adminToken()).andExpect(status().isOk());
+        var audit = call(get("/api/admin/audit-logs?action=CONTACT_SEARCHED&kind=BUSINESS"), adminToken())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+            .andReturn().getResponse().getContentAsString();
+        assertTrue(audit.contains("PHONE"));
+        assertFalse(audit.contains(phone));
+    }
+
+    @Test
+    void revealStoreApplicationContactAuditsWithoutStoringRawValues() throws Exception {
+        var phone = "0816000076";
+        var email = "reveal-owner@example.com";
+        var shop = openShop(email, phone, "ร้านเปิดดูติดต่อ", "RevealShop", "1234567890576", false);
+
+        call(post("/api/admin/store-applications/" + shop.shopId() + "/contact"), adminToken(), "{}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.phone").value(phone))
+            .andExpect(jsonPath("$.email").value(email));
+
+        call(get("/api/admin/audit-logs?action=CONTACT_REVEALED&kind=BUSINESS&shopId=" + shop.shopId()), adminToken())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+            .andExpect(jsonPath("$.items[0].action").value("CONTACT_REVEALED"))
+            .andExpect(jsonPath("$.items[0].permission").value("PLATFORM_CONTACT_REVEAL"));
+        var audit = call(get("/api/admin/audit-logs?action=CONTACT_REVEALED&kind=BUSINESS&shopId=" + shop.shopId()), adminToken())
+            .andReturn().getResponse().getContentAsString();
+        assertFalse(audit.contains(phone), "audit must not contain full phone");
+        assertFalse(audit.contains(email), "audit must not contain full email");
+
+        call(post("/api/admin/store-applications/" + shop.shopId() + "/contact"), shop.token(), "{}")
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("PERMISSION_DENIED"));
+
+        var created = call(post("/api/admin/roles"), adminToken(),
+            "{\"context\":\"PLATFORM\",\"nameTh\":\"ซัพพอร์ตไม่มีเปิดดูติดต่อ\",\"permissions\":[\"PLATFORM_APPLICATION_READ\",\"PLATFORM_SHOP_READ\"]}")
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String code = JsonPath.read(created, "$.role.code");
+        var supportToken = token("reveal-support@example.com", "0817000076");
+        call(put("/api/admin/users/" + userId(supportToken) + "/role"), adminToken(), "{\"roleCode\":\"" + code + "\"}")
+            .andExpect(status().isOk());
+        supportToken = login("reveal-support@example.com");
+        call(post("/api/admin/store-applications/" + shop.shopId() + "/contact"), supportToken, "{}")
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("PERMISSION_DENIED"));
+    }
+
+    @Test
+    void assignShopPlanForbiddenForMerchantAndSupportWithoutSuspendPermission() throws Exception {
+        var shop = openShop("plan-403@example.com", "0816000089", "ร้านแพลนห้าม", "Plan403", "1234567890589", true);
+        call(put("/api/admin/shops/" + shop.shopId() + "/plan"), shop.token(), "{\"planCode\":\"FREE\"}")
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("PERMISSION_DENIED"));
+
+        var created = call(post("/api/admin/roles"), adminToken(),
+            "{\"context\":\"PLATFORM\",\"nameTh\":\"ซัพพอร์ตไม่มีระงับ\",\"permissions\":[\"PLATFORM_SHOP_READ\",\"PLATFORM_ACCOUNT_READ\"]}")
+            .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String code = JsonPath.read(created, "$.role.code");
+        var supportToken = token("plan-support-403@example.com", "0817000089");
+        call(put("/api/admin/users/" + userId(supportToken) + "/role"), adminToken(), "{\"roleCode\":\"" + code + "\"}")
+            .andExpect(status().isOk());
+        supportToken = login("plan-support-403@example.com");
+        call(get("/api/admin/shops/" + shop.shopId()), supportToken).andExpect(status().isOk());
+        call(put("/api/admin/shops/" + shop.shopId() + "/plan"), supportToken, "{\"planCode\":\"BASIC\"}")
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("PERMISSION_DENIED"));
     }
 
     @Test
@@ -346,7 +730,7 @@ class PlatformAdminIntegrationTests {
         assertEquals(1, (int) JsonPath.read(list, "$.items[0].approvedShops"));
         call(get("/api/admin/merchants?shopStatus=PENDING_REVIEW"), adminToken()).andExpect(jsonPath("$.totalItems").value(1))
             .andExpect(jsonPath("$.items[0].email").value("mer-b@example.com"));
-        call(get("/api/admin/merchants?q=mer-a@"), adminToken()).andExpect(jsonPath("$.totalItems").value(1));
+        call(get("/api/admin/merchants?q=mer-a@example.com"), adminToken()).andExpect(jsonPath("$.totalItems").value(1));
         call(get("/api/admin/merchants?status=WRONG"), adminToken()).andExpect(status().isBadRequest());
         var detail = call(get("/api/admin/merchants/" + merchantId), adminToken()).andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("ACTIVE"))
@@ -380,6 +764,37 @@ class PlatformAdminIntegrationTests {
             .andExpect(jsonPath("$.items[0].ipAddress").value("127.0.0.1"))
             .andExpect(jsonPath("$.items[0].actor.email").value("pla-admin@example.com"))
             .andExpect(jsonPath("$.items[0].kind").value("BUSINESS"));
+    }
+
+    @Test
+    void userHistoryShowsLegacyAdminStatusAndNewAdminSuspendRows() throws Exception {
+        var shop = openShop("hist-rc@example.com", "0816000141", "ร้านประวัติรหัส", "HistRc", "1234567890641", true);
+        var userId = userId(shop.token());
+        adminToken();
+        var adminId = jdbc.queryForObject("SELECT id FROM users WHERE email = ?", UUID.class, "pla-admin@example.com");
+        var now = Timestamp.from(Instant.now());
+        jdbc.update("""
+            INSERT INTO audit_logs (occurred_at, actor_id, actor_type, action, resource_type, resource_id,
+              outcome, reason_code, reason, auth_context, policy_version, created_date_time, created_by, modified_date_time)
+            VALUES (?, ?, 'USER', 'ACCOUNT_SUSPENDED', 'USER', ?, 'SUCCESS', 'ADMIN_STATUS', 'เหตุผลเก่า', 'PLATFORM', '1.0', ?, ?, ?)
+            """, now, adminId, userId, now, adminId, now);
+        jdbc.update("""
+            INSERT INTO audit_logs (occurred_at, actor_id, actor_type, action, resource_type, resource_id,
+              outcome, reason_code, reason, auth_context, policy_version, created_date_time, created_by, modified_date_time)
+            VALUES (?, ?, 'USER', 'ACCOUNT_SUSPENDED', 'USER', ?, 'SUCCESS', 'ADMIN_SUSPEND', 'เหตุผลใหม่', 'PLATFORM', '1.0', ?, ?, ?)
+            """, Timestamp.from(Instant.now().plusSeconds(1)), adminId, userId,
+            Timestamp.from(Instant.now().plusSeconds(1)), adminId, Timestamp.from(Instant.now().plusSeconds(1)));
+
+        var history = call(get("/api/admin/users/" + userId + "/history?limit=50"), adminToken())
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertTrue(history.contains("เปลี่ยนสถานะโดยแอดมิน"), history);
+        assertTrue(history.contains("ระงับโดยผู้ดูแล"), history);
+        assertTrue(history.contains("เหตุผลเก่า"), history);
+        assertTrue(history.contains("เหตุผลใหม่"), history);
+
+        call(get("/api/admin/audit-logs?reasonCode=ADMIN_STATUS&resourceId=" + userId + "&kind=BUSINESS"), adminToken())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(2));
     }
 
     // ======================================================================
@@ -515,18 +930,103 @@ class PlatformAdminIntegrationTests {
     void legacyStoreApplicationEndpointsStillWorkAndAreAudited() throws Exception {
         var shop = openShop("leg-a@example.com", "0816000061", "ร้านเดิม", "LegShop", "1234567890561", true);
         var url = "/api/admin/store-applications/" + shop.shopId();
-        call(post(url + "/suspend"), adminToken()).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SUSPENDED"));
-        call(post(url + "/suspend"), adminToken()).andExpect(status().isConflict()); // existing contract: repeat = 409
+        call(post(url + "/suspend"), adminToken()).andExpect(status().isBadRequest()); // reasonCode required
+        call(post(url + "/suspend"), adminToken(), "{\"reasonCode\":\"POLICY_VIOLATION\",\"reason\":\"ตรวจพบการละเมิด\"}")
+            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SUSPENDED"));
+        call(post(url + "/suspend"), adminToken(), "{\"reasonCode\":\"POLICY_VIOLATION\"}").andExpect(status().isConflict()); // existing contract: repeat = 409
         call(post(url + "/reactivate"), adminToken(), "{\"reason\":\"ตรวจสอบแล้ว\"}").andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"));
         call(get("/api/admin/audit-logs?shopId=" + shop.shopId() + "&kind=BUSINESS&dir=asc"), adminToken())
             .andExpect(jsonPath("$.totalItems").value(3)) // approve (fixture) + suspend + reactivate
             .andExpect(jsonPath("$.items[0].action").value("SHOP_APPROVED"))
             .andExpect(jsonPath("$.items[1].action").value("SHOP_SUSPENDED"))
-            .andExpect(jsonPath("$.items[1].reasonCode").value("NO_REASON_GIVEN"))
+            .andExpect(jsonPath("$.items[1].reasonCode").value("POLICY_VIOLATION"))
+            .andExpect(jsonPath("$.items[1].reason").value("ตรวจพบการละเมิด"))
             .andExpect(jsonPath("$.items[2].reason").value("ตรวจสอบแล้ว"));
-        call(post("/api/admin/store-applications/bulk/suspend"), adminToken(), "{\"shopIds\":[" + shop.shopId() + "]}")
+        call(post("/api/admin/store-applications/bulk/suspend"), adminToken(),
+            "{\"shopIds\":[" + shop.shopId() + "],\"reasonCode\":\"ADMIN_SUSPEND\",\"reason\":\"bulk note\"}")
             .andExpect(jsonPath("$.updated").value(1));
         assertEquals("SUSPENDED", shopStatus(shop.shopId()));
+    }
+
+    @Test
+    void bulkSuspendRequiresReasonAndSharesCorrelationId() throws Exception {
+        var a = openShop("blk-a@example.com", "0816000121", "ร้านบัลค์เอ", "BlkA", "1234567890621", true);
+        var b = openShop("blk-b@example.com", "0816000122", "ร้านบัลค์บี", "BlkB", "1234567890622", true);
+        var c = openShop("blk-c@example.com", "0816000123", "ร้านบัลค์ซี", "BlkC", "1234567890623", true);
+        call(post("/api/admin/store-applications/bulk/suspend"), adminToken(),
+            "{\"shopIds\":[" + a.shopId() + "," + b.shopId() + "," + c.shopId() + "]}")
+            .andExpect(status().isBadRequest());
+        assertEquals(0, count("SELECT COUNT(*) FROM audit_logs WHERE action = 'SHOP_SUSPENDED'"));
+        assertEquals("ACTIVE", shopStatus(a.shopId()));
+
+        call(post("/api/admin/store-applications/bulk/suspend"), adminToken(),
+            "{\"shopIds\":[" + a.shopId() + "," + b.shopId() + "," + c.shopId() + "],\"reasonCode\":\"POLICY_VIOLATION\",\"reason\":\"ระงับชุดทดสอบ\"}")
+            .andExpect(status().isOk()).andExpect(jsonPath("$.updated").value(3));
+        assertEquals(3, count("SELECT COUNT(*) FROM audit_logs WHERE action = 'SHOP_SUSPENDED' AND reason_code = 'POLICY_VIOLATION'"));
+        var page = call(get("/api/admin/audit-logs?action=SHOP_SUSPENDED&kind=BUSINESS&size=10"), adminToken())
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertEquals(3, (int) JsonPath.read(page, "$.totalItems"));
+        String correlation = JsonPath.read(page, "$.items[0].after.correlationId");
+        assertNotNull(correlation);
+        call(get("/api/admin/audit-logs?action=SHOP_SUSPENDED&kind=BUSINESS&size=10"), adminToken())
+            .andExpect(jsonPath("$.items[0].after.correlationId").value(correlation))
+            .andExpect(jsonPath("$.items[1].after.correlationId").value(correlation))
+            .andExpect(jsonPath("$.items[2].after.correlationId").value(correlation))
+            .andExpect(jsonPath("$.items[0].reason").value("ระงับชุดทดสอบ"));
+
+        call(post("/api/admin/store-applications/bulk/reactivate"), adminToken(),
+            "{\"shopIds\":[" + a.shopId() + "," + b.shopId() + "," + c.shopId() + "]}")
+            .andExpect(status().isOk()).andExpect(jsonPath("$.updated").value(3));
+        assertEquals("ACTIVE", shopStatus(a.shopId()));
+        assertEquals("ACTIVE", shopStatus(b.shopId()));
+        assertEquals("ACTIVE", shopStatus(c.shopId()));
+    }
+
+    @Test
+    void reservedReasonCodesRejectedWithoutAuditOrStatusChange() throws Exception {
+        var shop = openShop("rc-a@example.com", "0816000131", "ร้านรหัสเหตุผล", "RcShop", "1234567890631", true);
+        var url = "/api/admin/shops/" + shop.shopId();
+        var beforeLogs = count("SELECT COUNT(*) FROM audit_logs WHERE action = 'SHOP_SUSPENDED'");
+
+        // (ก) reserved cascade code on shop suspend → 400, no log, status unchanged
+        call(post(url + "/suspend"), adminToken(),
+            "{\"reason\":\"ทดสอบรหัสสงวน cascade\",\"reasonCode\":\"MERCHANT_SUSPENDED\"}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("REASON_CODE_INVALID"));
+        assertEquals("ACTIVE", shopStatus(shop.shopId()));
+        assertEquals(beforeLogs, count("SELECT COUNT(*) FROM audit_logs WHERE action = 'SHOP_SUSPENDED'"));
+
+        // restore default must not be accepted on suspend
+        call(post(url + "/suspend"), adminToken(),
+            "{\"reason\":\"ทดสอบรหัสสงวน restore\",\"reasonCode\":\"ADMIN_RESTORE\"}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("REASON_CODE_INVALID"));
+        assertEquals("ACTIVE", shopStatus(shop.shopId()));
+
+        // (ข) LEGACY_NO_REASON on bulk suspend → 400
+        call(post("/api/admin/store-applications/bulk/suspend"), adminToken(),
+            "{\"shopIds\":[" + shop.shopId() + "],\"reasonCode\":\"NO_REASON_GIVEN\",\"reason\":\"legacy\"}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("REASON_CODE_INVALID"));
+        assertEquals("ACTIVE", shopStatus(shop.shopId()));
+        assertEquals(beforeLogs, count("SELECT COUNT(*) FROM audit_logs WHERE action = 'SHOP_SUSPENDED'"));
+
+        // (ค) every allowlisted suspend code succeeds
+        var allowed = List.of(
+            new String[]{"ADMIN_SUSPEND", "rc-admin@example.com", "0816000132", "1234567890632", "RcAdmin"},
+            new String[]{"POLICY_VIOLATION", "rc-policy@example.com", "0816000133", "1234567890633", "RcPolicy"},
+            new String[]{"FRAUD", "rc-fraud@example.com", "0816000134", "1234567890634", "RcFraud"},
+            new String[]{"ABUSE", "rc-abuse@example.com", "0816000135", "1234567890635", "RcAbuse"},
+            new String[]{"OTHER", "rc-other@example.com", "0816000136", "1234567890636", "RcOther"});
+        for (var row : allowed) {
+            var code = row[0];
+            var s = openShop(row[1], row[2], "ร้าน" + row[4], row[4], row[3], true);
+            call(post("/api/admin/shops/" + s.shopId() + "/suspend"), adminToken(),
+                "{\"reason\":\"รหัสอนุญาต " + code + " ผ่าน\",\"reasonCode\":\"" + code + "\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.shop.suspension.reasonCode").value(code));
+            assertEquals("SUSPENDED", shopStatus(s.shopId()));
+        }
     }
 
     // ======================================================================
@@ -551,11 +1051,21 @@ class PlatformAdminIntegrationTests {
             .andExpect(jsonPath("$.merchant.shops[0].suspendReasonCode").value("MERCHANT_SUSPENDED"));
         call(post("/api/admin/merchants/" + merchantA + "/suspend"), adminToken(), REASON).andExpect(jsonPath("$.changed").value(false));
         assertEquals(1, count("SELECT COUNT(*) FROM audit_logs WHERE action = 'MERCHANT_SUSPENDED'"));
-        call(get("/api/admin/audit-logs?resourceType=OWNER&resourceId=" + merchantA), adminToken())
+        var merchantAudit = call(get("/api/admin/audit-logs?resourceType=OWNER&resourceId=" + merchantA), adminToken())
             .andExpect(jsonPath("$.items[0].action").value("MERCHANT_SUSPENDED"))
             .andExpect(jsonPath("$.items[0].before.status").value("ACTIVE"))
             .andExpect(jsonPath("$.items[0].after.status").value("SUSPENDED"))
-            .andExpect(jsonPath("$.items[0].after.cascadedShopIds[0]").value(a.shopId()));
+            .andExpect(jsonPath("$.items[0].after.cascadedShopIds[0]").value(a.shopId()))
+            .andExpect(jsonPath("$.items[0].after.correlationId").exists())
+            .andExpect(jsonPath("$.items[0].actor.role").exists())
+            .andExpect(jsonPath("$.items[0].target.name").exists())
+            .andReturn().getResponse().getContentAsString();
+        String correlationId = JsonPath.read(merchantAudit, "$.items[0].after.correlationId");
+        call(get("/api/admin/audit-logs?shopId=" + a.shopId() + "&action=SHOP_SUSPENDED&kind=BUSINESS"), adminToken())
+            .andExpect(jsonPath("$.items[0].after.correlationId").value(correlationId))
+            .andExpect(jsonPath("$.items[0].after.parentResourceType").value("OWNER"))
+            .andExpect(jsonPath("$.items[0].after.parentResourceId").value(merchantA))
+            .andExpect(jsonPath("$.items[0].after.cascadeFromMerchantId").value(merchantA));
         // effects: the merchant's shop is frozen and cannot be reactivated / approved on its own
         call(post("/api/merchant/shops/" + a.shopId() + "/shipping-methods"), a.token(), "{\"name\":\"ส่ง\",\"feeType\":\"FLAT\",\"feeAmount\":10}")
             .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("SHOP_SUSPENDED"));
@@ -609,6 +1119,47 @@ class PlatformAdminIntegrationTests {
         Number id = JsonPath.read(page, "$.items[0].id");
         call(get("/api/admin/audit-logs/" + id), adminToken()).andExpect(jsonPath("$.target.shopId").value(shop.shopId()))
             .andExpect(jsonPath("$.before.status").value("PENDING_REVIEW")).andExpect(jsonPath("$.after.status").value("APPROVED"));
+    }
+
+    @Test
+    void statusActionsWriteOneAuditRowEachWithoutPiiAndRejectPathsWriteNone() throws Exception {
+        var shop = openShop("six-a@example.com", "0816000101", "ร้านหกแอกชัน", "SixShop", "1234567890601", true);
+        var userId = userId(shop.token());
+        var merchantId = merchantOf(shop.shopId());
+        var statusActions = "SELECT COUNT(*) FROM audit_logs WHERE action IN ('SHOP_SUSPENDED','SHOP_REACTIVATED','MERCHANT_SUSPENDED','MERCHANT_REACTIVATED','ACCOUNT_SUSPENDED','ACCOUNT_RESTORED')";
+        var beforeStatusActions = count(statusActions);
+
+        // 400 / 404 / 403 must not leave a successful suspend/reactivate business row
+        call(post("/api/admin/shops/" + shop.shopId() + "/suspend"), adminToken(), "{}").andExpect(status().isBadRequest());
+        call(post("/api/admin/shops/999999001/suspend"), adminToken(), REASON).andExpect(status().isNotFound());
+        call(post("/api/admin/shops/" + shop.shopId() + "/suspend"), shop.token(), REASON).andExpect(status().isForbidden());
+        call(post("/api/admin/users/" + UUID.randomUUID() + "/suspend"), adminToken(), "{\"reason\":\"หาย\"}").andExpect(status().isNotFound());
+        assertEquals(beforeStatusActions, count(statusActions));
+
+        call(post("/api/admin/shops/" + shop.shopId() + "/suspend"), adminToken(), REASON).andExpect(status().isOk());
+        call(post("/api/admin/shops/" + shop.shopId() + "/reactivate"), adminToken(), RESTORE).andExpect(status().isOk());
+        call(post("/api/admin/merchants/" + merchantId + "/suspend"), adminToken(), REASON).andExpect(status().isOk());
+        call(post("/api/admin/merchants/" + merchantId + "/reactivate"), adminToken(), RESTORE).andExpect(status().isOk());
+        call(post("/api/admin/users/" + userId + "/suspend"), adminToken(), "{\"reason\":\"ทดสอบระงับผู้ใช้\"}").andExpect(status().isOk());
+        call(post("/api/admin/users/" + userId + "/restore"), adminToken(), "{\"reason\":\"คืนสิทธิ์ทดสอบ\"}").andExpect(status().isOk());
+
+        // direct shop + cascade-from-merchant each write one SHOP_* row
+        assertEquals(2, count("SELECT COUNT(*) FROM audit_logs WHERE action = 'SHOP_SUSPENDED'"));
+        assertEquals(2, count("SELECT COUNT(*) FROM audit_logs WHERE action = 'SHOP_REACTIVATED'"));
+        assertEquals(1, count("SELECT COUNT(*) FROM audit_logs WHERE action = 'MERCHANT_SUSPENDED'"));
+        assertEquals(1, count("SELECT COUNT(*) FROM audit_logs WHERE action = 'MERCHANT_REACTIVATED'"));
+        assertEquals(1, count("SELECT COUNT(*) FROM audit_logs WHERE action = 'ACCOUNT_SUSPENDED' AND resource_id = ?", userId));
+        assertEquals(1, count("SELECT COUNT(*) FROM audit_logs WHERE action = 'ACCOUNT_RESTORED' AND resource_id = ?", userId));
+
+        var suspended = call(get("/api/admin/audit-logs?action=SHOP_SUSPENDED&kind=BUSINESS"), adminToken()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        assertFalse(suspended.toLowerCase(Locale.ROOT).contains("0816000101"), suspended);
+        assertFalse(suspended.toLowerCase(Locale.ROOT).contains("six-a@example.com"), suspended);
+        call(get("/api/admin/audit-logs?action=ACCOUNT_SUSPENDED&resourceId=" + userId), adminToken())
+            .andExpect(jsonPath("$.items[0].before.status").value("ACTIVE"))
+            .andExpect(jsonPath("$.items[0].after.status").value("SUSPENDED"))
+            .andExpect(jsonPath("$.items[0].after.targetName").exists())
+            .andExpect(jsonPath("$.items[0].actor.role").exists());
     }
 
     // ---------------- helpers ----------------

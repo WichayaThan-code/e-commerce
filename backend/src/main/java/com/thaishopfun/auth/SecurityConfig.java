@@ -104,10 +104,18 @@ public class SecurityConfig {
             }
             Object claim = jwt.getClaims().get("pv");
             if (!(claim instanceof Number tokenVersion)) return invalid;
-            return users.findActivePermissionVersion(userId)
-                .filter(current -> current == tokenVersion.intValue())
-                .map(current -> OAuth2TokenValidatorResult.success())
-                .orElse(invalid);
+            try {
+                return users.findActivePermissionVersion(userId)
+                    .filter(current -> current == tokenVersion.intValue())
+                    .map(current -> OAuth2TokenValidatorResult.success())
+                    .orElse(invalid);
+            } catch (org.springframework.dao.DataAccessException exception) {
+                // Only real connectivity failures → 503; SQL/result bugs stay non-503 paths.
+                if (DatabaseConnectivityFailures.isConnectivityFailure(exception)) {
+                    throw new DatabaseUnavailableException(exception);
+                }
+                throw exception;
+            }
         };
     }
 

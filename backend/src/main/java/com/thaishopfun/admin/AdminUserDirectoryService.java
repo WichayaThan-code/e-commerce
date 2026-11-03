@@ -1,6 +1,7 @@
 package com.thaishopfun.admin;
 
 import com.thaishopfun.admin.AdminDirectoryDtos.*;
+import com.thaishopfun.audit.PlatformAuditService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.UserRole;
 import com.thaishopfun.auth.authz.AuthorizationService;
@@ -51,19 +52,23 @@ public class AdminUserDirectoryService {
     private final NamedParameterJdbcTemplate jdbc;
     private final AdminCatalog catalog;
     private final AuthorizationService authorization;
+    private final PlatformAuditService platformAudit;
 
-    public AdminUserDirectoryService(NamedParameterJdbcTemplate jdbc, AdminCatalog catalog, AuthorizationService authorization) {
+    public AdminUserDirectoryService(NamedParameterJdbcTemplate jdbc, AdminCatalog catalog, AuthorizationService authorization,
+                                     PlatformAuditService platformAudit) {
         this.jdbc = jdbc;
         this.catalog = catalog;
         this.authorization = authorization;
+        this.platformAudit = platformAudit;
     }
 
     public record Filter(String q, String role, String status, LocalDate from, LocalDate to) {}
 
     // ------------------------------------------------------------------------------------------------ list
 
-    @Transactional(readOnly = true)
-    public UserPage list(Filter filter, String sort, String direction, int page, int size) {
+    @Transactional
+    public UserPage list(Filter filter, String sort, String direction, int page, int size, UUID actorId) {
+        AdminContactSearch.auditIfNeeded(platformAudit, actorId, filter.q(), "PLATFORM_ACCOUNT_READ", "USER");
         var roles = catalog.roles();
         var params = new MapSqlParameterSource();
         var where = where(filter, roles, params);
@@ -76,8 +81,9 @@ public class AdminUserDirectoryService {
     }
 
     /** UTF-8 CSV (with BOM so Excel shows Thai) of every row matching the filter, newest first, capped at MAX_EXPORT_ROWS. */
-    @Transactional(readOnly = true)
-    public byte[] exportCsv(Filter filter, String sort, String direction) {
+    @Transactional
+    public byte[] exportCsv(Filter filter, String sort, String direction, UUID actorId) {
+        AdminContactSearch.auditIfNeeded(platformAudit, actorId, filter.q(), "PLATFORM_ACCOUNT_READ", "USER");
         var roles = catalog.roles();
         var params = new MapSqlParameterSource();
         var where = where(filter, roles, params);
@@ -105,14 +111,10 @@ public class AdminUserDirectoryService {
         if (!q.isEmpty()) {
             if (q.length() > 100) throw invalid("คำค้นหายาวเกินไป");
             params.addValue("q", "%" + escapeLike(q.toLowerCase(Locale.ROOT)) + "%");
-            var text = new StringBuilder("(LOWER(u.first_name || ' ' || u.last_name) LIKE :q OR LOWER(u.email) LIKE :q OR LOWER(u.phone) LIKE :q")
+            var text = new StringBuilder("(LOWER(u.first_name || ' ' || u.last_name) LIKE :q")
                 .append(" OR EXISTS (SELECT 1 FROM shop_members sm JOIN shops s ON s.id = sm.shop_id WHERE sm.user_id = u.id")
                 .append(" AND sm.status = 'ACTIVE' AND sm.removed_at IS NULL AND (LOWER(s.name) LIKE :q OR LOWER(s.name_en) LIKE :q))");
-            var digits = q.replaceAll("\\D", "");
-            if (digits.length() >= 3) {
-                params.addValue("qDigits", "%" + digits + "%");
-                text.append(" OR REPLACE(REPLACE(u.phone, '-', ''), ' ', '') LIKE :qDigits");
-            }
+            AdminContactSearch.appendMatchers(text, params, q, List.of("u.phone"), List.of("u.email"));
             clauses.add(text.append(")").toString());
         }
         var role = filter.role() == null ? "" : filter.role().trim();
@@ -449,17 +451,54 @@ public class AdminUserDirectoryService {
     List<ActivityEvent> auditEvents(String condition, MapSqlParameterSource params) {
         var events = new ArrayList<ActivityEvent>();
         jdbc.query("""
-            SELECT a.occurred_at, a.action, a.resource_type, a.outcome, a.reason_code, u.first_name, u.last_name
+            SELECT a.occurred_at, a.action, a.resource_type, a.outcome, a.reason, a.reason_code, u.first_name, u.last_name
               FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_id
              WHERE %s
              ORDER BY a.occurred_at DESC LIMIT :limit
             """.formatted(condition), params, rs -> {
             var actor = fullName(rs.getString("first_name"), rs.getString("last_name"));
-            var title = rs.getString("action") + " · " + rs.getString("resource_type")
-                + ("SUCCESS".equals(rs.getString("outcome")) ? "" : " (" + rs.getString("outcome") + ")");
-            add(events, instant(rs, "occurred_at"), "AUDIT_" + rs.getString("action"), title, actor, actor, null, null, null, "audit_logs");
+            var action = rs.getString("action");
+            var title = auditTitleTh(action);
+            var codeLabel = reasonCodeLabelTh(rs.getString("reason_code"));
+            if (codeLabel != null) title = title + " · " + codeLabel;
+            var reason = rs.getString("reason");
+            if (reason != null && !reason.isBlank()) title = title + " · " + reason.trim();
+            if (!"SUCCESS".equals(rs.getString("outcome"))) title = title + " (" + rs.getString("outcome") + ")";
+            add(events, instant(rs, "occurred_at"), "AUDIT_" + action, title, actor, actor, null, null, null, "audit_logs");
         });
         return events;
+    }
+
+    /** Thai label for the six suspend/reactivate actions; other actions keep the raw code. */
+    static String auditTitleTh(String action) {
+        if (action == null) return "—";
+        return switch (action) {
+            case "SHOP_SUSPENDED" -> "ระงับร้านค้า";
+            case "SHOP_REACTIVATED" -> "เปิดใช้งานร้านค้าอีกครั้ง";
+            case "MERCHANT_SUSPENDED" -> "ระงับผู้ขาย";
+            case "MERCHANT_REACTIVATED" -> "เปิดใช้งานผู้ขายอีกครั้ง";
+            case "ACCOUNT_SUSPENDED" -> "ระงับผู้ใช้";
+            case "ACCOUNT_RESTORED" -> "คืนสิทธิ์ผู้ใช้";
+            default -> action;
+        };
+    }
+
+    /**
+     * Labels for reason codes in user history. Legacy {@code ADMIN_STATUS} gets a clear Thai badge;
+     * newer codes match the FE {@code adminPlatform.reason.codes} copy.
+     */
+    static String reasonCodeLabelTh(String reasonCode) {
+        if (reasonCode == null || reasonCode.isBlank()) return null;
+        return switch (reasonCode.trim()) {
+            case "ADMIN_STATUS" -> "เปลี่ยนสถานะโดยแอดมิน";
+            case "ADMIN_SUSPEND" -> "ระงับโดยผู้ดูแล";
+            case "ADMIN_RESTORE" -> "เปิดใช้งานโดยผู้ดูแล";
+            case "POLICY_VIOLATION" -> "ละเมิดนโยบาย";
+            case "FRAUD" -> "ทุจริต / ฉ้อโกง";
+            case "ABUSE" -> "ใช้งานในทางที่ผิด";
+            case "OTHER" -> "อื่น ๆ";
+            default -> reasonCode.trim();
+        };
     }
 
     static List<ActivityEvent> newestFirst(List<ActivityEvent> events, int limit) {

@@ -79,7 +79,15 @@ public class AdminAuditLogService {
             if (shop != null) all.add(cb.or(cb.equal(root.get("shopId"), shop), cb.and(cb.equal(root.get("resourceType"), "SHOP"), cb.equal(root.get("resourceId"), shop))));
             if (notBlank(f.outcome())) all.add(cb.equal(root.get("outcome"), f.outcome().trim().toUpperCase(Locale.ROOT)));
             if (notBlank(f.authContext())) all.add(cb.equal(root.get("authContext"), f.authContext().trim().toUpperCase(Locale.ROOT)));
-            if (notBlank(f.reasonCode())) all.add(cb.equal(root.get("reasonCode"), f.reasonCode().trim()));
+            if (notBlank(f.reasonCode())) {
+                var code = f.reasonCode().trim();
+                // Old user status rows used ADMIN_STATUS; new writes use ADMIN_SUSPEND / ADMIN_RESTORE — treat as one family when filtering.
+                if ("ADMIN_STATUS".equals(code) || "ADMIN_SUSPEND".equals(code) || "ADMIN_RESTORE".equals(code)) {
+                    all.add(root.get("reasonCode").in("ADMIN_STATUS", "ADMIN_SUSPEND", "ADMIN_RESTORE"));
+                } else {
+                    all.add(cb.equal(root.get("reasonCode"), code));
+                }
+            }
             if ("HTTP".equals(kind)) all.add(cb.like(root.get("reasonCode"), "HTTP\\_%", '\\'));
             if ("BUSINESS".equals(kind)) all.add(cb.or(cb.isNull(root.get("reasonCode")), cb.notLike(root.get("reasonCode"), "HTTP\\_%", '\\')));
             if (notBlank(f.q())) {
@@ -94,16 +102,42 @@ public class AdminAuditLogService {
     }
 
     private List<AuditLogView> views(List<PlatformAuditLog> rows) {
-        var users = refs.users(rows.stream().map(PlatformAuditLog::getActorId).filter(Objects::nonNull).toList());
+        var actorIds = rows.stream().map(PlatformAuditLog::getActorId).filter(Objects::nonNull).distinct().toList();
+        var users = refs.users(actorIds);
+        var userTargets = new HashSet<UUID>();
+        var ownerTargets = new HashSet<UUID>();
         var shopIds = new HashSet<UUID>();
         for (var row : rows) {
             if (row.getShopId() != null) shopIds.add(row.getShopId());
             if ("SHOP".equals(row.getResourceType()) && row.getResourceId() != null) shopIds.add(row.getResourceId());
+            if ("USER".equals(row.getResourceType()) && row.getResourceId() != null) userTargets.add(row.getResourceId());
+            if ("OWNER".equals(row.getResourceType()) && row.getResourceId() != null) ownerTargets.add(row.getResourceId());
         }
+        var targetUsers = refs.users(userTargets);
         var shops = new HashMap<UUID, Object[]>();
         if (!shopIds.isEmpty()) {
             jdbc.query("SELECT id, shop_no, name FROM shops WHERE id IN (:ids)", new MapSqlParameterSource("ids", shopIds),
                 rs -> { shops.put(rs.getObject("id", UUID.class), new Object[]{rs.getLong("shop_no"), rs.getString("name")}); });
+        }
+        var owners = new HashMap<UUID, String>();
+        if (!ownerTargets.isEmpty()) {
+            jdbc.query("SELECT id, title, first_name, last_name FROM owners WHERE id IN (:ids)", new MapSqlParameterSource("ids", ownerTargets),
+                rs -> {
+                    var name = (Objects.toString(rs.getString("title"), "") + " " + Objects.toString(rs.getString("first_name"), "")
+                        + " " + Objects.toString(rs.getString("last_name"), "")).trim().replaceAll(" +", " ");
+                    owners.put(rs.getObject("id", UUID.class), name.isEmpty() ? null : name);
+                });
+        }
+        var roles = new HashMap<UUID, String>();
+        if (!actorIds.isEmpty()) {
+            jdbc.query("""
+                SELECT user_id, role FROM platform_roles
+                 WHERE user_id IN (:ids) AND revoked_at IS NULL
+                 ORDER BY granted_at DESC
+                """, new MapSqlParameterSource("ids", actorIds), rs -> {
+                var id = rs.getObject("user_id", UUID.class);
+                roles.putIfAbsent(id, rs.getString("role"));
+            });
         }
         var out = new ArrayList<AuditLogView>();
         for (var row : rows) {
@@ -111,10 +145,22 @@ public class AdminAuditLogService {
             var shopKey = row.getShopId() != null ? row.getShopId() : "SHOP".equals(row.getResourceType()) ? row.getResourceId() : null;
             var shop = shopKey == null ? null : shops.get(shopKey);
             var http = row.getReasonCode() != null && row.getReasonCode().startsWith("HTTP_");
+            String targetName = null;
+            if (shop != null) targetName = (String) shop[1];
+            else if ("OWNER".equals(row.getResourceType()) && row.getResourceId() != null) targetName = owners.get(row.getResourceId());
+            else if ("USER".equals(row.getResourceType()) && row.getResourceId() != null) {
+                targetName = displayNameOnly(targetUsers.get(row.getResourceId()));
+            }
+            if (targetName == null && row.getAfterData() != null) {
+                var fromAfter = row.getAfterData().get("targetName");
+                if (fromAfter instanceof String text && !text.isBlank()) targetName = text;
+            }
             out.add(new AuditLogView(row.getId(), row.getOccurredAt(),
-                new AuditActor(row.getActorId(), row.getActorType(), AdminRefs.name(user), user == null ? null : user.email()),
+                new AuditActor(row.getActorId(), row.getActorType(), AdminRefs.name(user), user == null ? null : user.email(),
+                    row.getActorId() == null ? null : roles.get(row.getActorId())),
                 row.getAction(),
-                new AuditTarget(row.getResourceType(), row.getResourceId(), shop == null ? null : (Long) shop[0], shop == null ? null : (String) shop[1]),
+                new AuditTarget(row.getResourceType(), row.getResourceId(), shop == null ? null : (Long) shop[0],
+                    shop == null ? null : (String) shop[1], targetName),
                 row.getPermission(), row.getOutcome(), row.getReasonCode(), row.getReason(),
                 redact(row.getBeforeData()), redact(row.getAfterData()), row.getIpAddress(), row.getUserAgent(), row.getRequestId(),
                 row.getAuthContext(), row.getPolicyVersion(), http ? "HTTP" : "BUSINESS"));
@@ -136,5 +182,12 @@ public class AdminAuditLogService {
 
     private static boolean notBlank(String value) {
         return value != null && !value.isBlank();
+    }
+
+    /** First + last only — never fall back to email/phone (those must not appear as the target label). */
+    private static String displayNameOnly(AdminPlatformDtos.UserRef user) {
+        if (user == null) return null;
+        var full = (Objects.toString(user.firstName(), "") + " " + Objects.toString(user.lastName(), "")).trim();
+        return full.isEmpty() ? null : full;
     }
 }

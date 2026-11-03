@@ -157,9 +157,10 @@ class AdminDirectoryIntegrationTests {
         jdbc.update("UPDATE users SET created_date_time = ? WHERE id = ?", Timestamp.from(LocalDate.of(2025, 3, 15).atTime(10, 0).atZone(BANGKOK).toInstant()), old.id);
         var as = bearer(admin.token);
 
-        // free text: name, email, phone (with or without dashes) and shop name
+        // free text: name / shop LIKE; contact = exact full email / last-4 or full phone only
         expectEmails(as, "q=สมชาย", "somchai.owner@example.com");
-        expectEmails(as, "q=WICHAI@", "wichai@example.com");
+        expectEmails(as, "q=wichai@example.com", "wichai@example.com");
+        expectEmails(as, "q=WICHAI@example.com", "wichai@example.com");
         expectEmails(as, "q=081-234-5678", "somchai.owner@example.com");
         expectEmails(as, "q=0964447788", "wichai@example.com");
         expectEmails(as, "q=Somchai Shop", "somchai.owner@example.com");
@@ -182,7 +183,7 @@ class AdminDirectoryIntegrationTests {
             .andExpect(jsonPath("$.items[0].shops[0].shopStatus").value("PENDING_REVIEW"));
         mvc.perform(get("/api/admin/users?role=PLATFORM_ADMIN").header("Authorization", as))
             .andExpect(jsonPath("$.items[0].primaryRole.code").value("PLATFORM_ADMIN")).andExpect(jsonPath("$.items[0].superAdmin").value(true));
-        mvc.perform(get("/api/admin/users?q=wichai").header("Authorization", as))
+        mvc.perform(get("/api/admin/users?q=วิชัย").header("Authorization", as))
             .andExpect(jsonPath("$.items[0].primaryRole.code").value("BUYER")).andExpect(jsonPath("$.items[0].shops.length()").value(0));
         // invalid filters are rejected, not silently ignored
         mvc.perform(get("/api/admin/users?role=NOPE").header("Authorization", as)).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_FILTER"));
@@ -191,7 +192,7 @@ class AdminDirectoryIntegrationTests {
         mvc.perform(get("/api/admin/users?from=2026-02-01&to=2026-01-01").header("Authorization", as)).andExpect(status().isBadRequest());
         // soft-deleted accounts never appear
         jdbc.update("UPDATE users SET deleted_at = ? WHERE id = ?", Timestamp.from(Instant.now()), buyer.id);
-        expectEmails(as, "q=wichai", new String[0]);
+        expectEmails(as, "q=wichai@example.com", new String[0]);
         // filter options come from auth_roles with live counts
         mvc.perform(get("/api/admin/users/filter-options").header("Authorization", as))
             .andExpect(jsonPath("$.roles[?(@.value=='STORE_OWNER')].count").value(hasItem(1)))

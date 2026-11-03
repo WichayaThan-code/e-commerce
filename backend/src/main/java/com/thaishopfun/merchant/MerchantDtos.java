@@ -100,6 +100,8 @@ public final class MerchantDtos {
         String reinstatementMessage,
         List<OwnerShopRef> otherShops
     ){}
+    /** Full owner contact for PLATFORM_CONTACT_REVEAL (never written into audit payloads). */
+    public record ContactRevealResponse(String phone, String email) {}
     public record ReinstatementResponse(Long shopId, String status, String message, Instant createdAt) {}
     public record ReinstatementRequestBody(@NotBlank @Size(max = 1000) String message) {}
     public record StoreAccessResponse(boolean approved,boolean hasShop,ShopStatus status,String shopName,String slug,Long shopId){}
@@ -140,7 +142,16 @@ public final class MerchantDtos {
         @Pattern(regexp="^$|^[0-9+ -]{9,20}$") String publicPhone,
         @Email @Size(max=255) String publicEmail
     ) {}
-    public record BulkShopRequest(@NotEmpty List<Long> shopIds){}
+    /**
+     * Bulk shop action. For suspend, {@code reasonCode} is required (validated in the service).
+     * {@code reason} is optional free-text (≤500). Reactivate may omit both.
+     */
+    public record BulkShopRequest(
+        @NotEmpty List<Long> shopIds,
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[A-Z][A-Z0-9_]{1,49}$", message = "reasonCode ต้องเป็นตัวพิมพ์ใหญ่ ตัวเลข หรือ _ (2-50 ตัว)")
+        String reasonCode,
+        @Size(max = 500, message = "เหตุผลยาวเกิน 500 ตัวอักษร") String reason
+    ) {}
     public record BulkShopResponse(int updated,int skipped,List<AdminStoreApplicationResponse> applications){}
     /** Marketplace search shop hit: public card fields only (no contact, address, owner or theme data). */
     public record PublicShopSearchResponse(

@@ -40,7 +40,10 @@ public class ReferenceSeedTestLoader implements ApplicationRunner {
 
     public static synchronized void seed(JdbcTemplate jdbc) {
         var existing = jdbc.queryForObject("SELECT COUNT(*) FROM auth_roles", Integer.class);
-        if (existing != null && existing > 0) return;
+        if (existing != null && existing > 0) {
+            seedPlans(jdbc);
+            return;
+        }
         var catalog = ReferenceSeedSql.load();
         var now = Timestamp.from(Instant.now());
         var roleIds = new HashMap<String, UUID>();
@@ -55,6 +58,21 @@ public class ReferenceSeedTestLoader implements ApplicationRunner {
             batch.add(new Object[]{UUID.randomUUID(), roleId, permissionId, "1.0", now, now});
         }
         jdbc.batchUpdate("INSERT INTO auth_role_permissions (id, role_id, permission_id, policy_version, created_date_time, modified_date_time) VALUES (?, ?, ?, ?, ?, ?)", batch);
+        seedPlans(jdbc);
+    }
+
+    /** V47 plan catalog (same rows as migration seed) — Hibernate create-drop does not run Flyway. */
+    private static void seedPlans(JdbcTemplate jdbc) {
+        var existing = jdbc.queryForObject("SELECT COUNT(*) FROM plans", Integer.class);
+        if (existing != null && existing > 0) return;
+        var now = Timestamp.from(Instant.now());
+        jdbc.update("""
+            INSERT INTO plans (code, name, limit_products, limit_orders_per_month, limit_staff, limit_storage_bytes, active, created_at, updated_at)
+            VALUES
+              ('FREE',  'Free',  50,   100,   2,  104857600,   TRUE, ?, ?),
+              ('BASIC', 'Basic', 500,  1000, 10,  1073741824,  TRUE, ?, ?),
+              ('PRO',   'Pro',   NULL, NULL, 50,  10737418240, TRUE, ?, ?)
+            """, now, now, now, now, now, now);
     }
 
     private static void insert(JdbcTemplate jdbc, String table, ReferenceSeedSql.Table rows, HashMap<String, UUID> ids, Timestamp now) {

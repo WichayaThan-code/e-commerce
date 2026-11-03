@@ -1,0 +1,221 @@
+.sys-status .sys-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  margin: 0 0 14px;
+  border: 1px solid var(--shop-border, #dbe8f5);
+  border-radius: var(--shop-radius, 12px);
+  background: #fff;
+}
+
+.sys-status .sys-status-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: #94a3b8;
+  box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.18);
+}
+
+.sys-status .tone-up .sys-status-dot { background: #16a34a; box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.16); }
+.sys-status .tone-degraded .sys-status-dot { background: #ca8a04; box-shadow: 0 0 0 4px rgba(202, 138, 4, 0.16); }
+.sys-status .tone-down .sys-status-dot,
+.sys-status .tone-offline .sys-status-dot { background: #dc2626; box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.16); }
+
+.sys-status .tone-offline {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.sys-status .sys-status-stale-label { color: #b45309; }
+
+.sys-status .sys-status-spin { animation: sys-status-spin 0.8s linear infinite; }
+
+.sys-status .sys-status-card.tone-stale,
+.sys-status .sys-status-app.is-stale {
+  opacity: 0.72;
+  filter: grayscale(0.35);
+  border-top-color: #94a3b8;
+}
+
+.sys-status .sys-status-grid.is-stale .sys-status-card { border-top-color: #94a3b8; }
+
+.sys-status .sys-status-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #0f2744;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(15, 39, 68, 0.2);
+  font-size: 14px;
+}
+
+@keyframes sys-status-spin {
+  to { transform: rotate(360deg); }
+}
+
+.sys-status .sys-status-banner-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sys-status .sys-status-banner-copy strong {
+  font-size: 18px;
+  color: #0f2744;
+}
+
+.sys-status .sys-status-banner-copy small {
+  color: #64748b;
+}
+
+.sys-status .sys-status-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.sys-status .sys-status-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.sys-status .sys-status-error p {
+  margin: 0;
+  color: #b91c1c;
+}
+
+.sys-status .sys-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.sys-status .sys-status-card {
+  margin: 0;
+  padding: 14px 16px;
+  border-top: 3px solid #94a3b8;
+}
+
+.sys-status .sys-status-card.tone-up { border-top-color: #16a34a; }
+.sys-status .sys-status-card.tone-down { border-top-color: #dc2626; }
+.sys-status .sys-status-card.tone-unknown { border-top-color: #ca8a04; }
+
+.sys-status .sys-status-card header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.sys-status .sys-status-card header span {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #eef5fb;
+  color: #0f2744;
+}
+
+.sys-status .sys-status-card h2 {
+  margin: 0;
+  font-size: 15px;
+  flex: 1;
+  color: #0f2744;
+}
+
+.sys-status .sys-status-card em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.sys-status .sys-status-card p {
+  margin: 0 0 8px;
+  color: #334155;
+  font-size: 14px;
+}
+
+.sys-status .sys-status-card small {
+  color: #64748b;
+}
+
+.sys-status .sys-status-app-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 18px;
+  margin: 0;
+}
+
+.sys-status .sys-status-app-grid div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sys-status .sys-status-app-grid dt {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.sys-status .sys-status-app-grid dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f2744;
+}
+
+.sys-status .sys-status-skeleton {
+  display: block;
+  background: linear-gradient(90deg, #eef3f8 25%, #f7fafc 50%, #eef3f8 75%);
+  background-size: 200% 100%;
+  animation: sys-status-shimmer 1.2s linear infinite;
+  border-radius: 8px;
+}
+
+.sys-status .sys-status-skeleton.banner {
+  width: 100%;
+  height: 42px;
+}
+
+.sys-status .sys-status-skeleton.line {
+  height: 14px;
+  margin-bottom: 10px;
+}
+
+.sys-status .sys-status-skeleton.line.short {
+  width: 55%;
+}
+
+@keyframes sys-status-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (max-width: 1280px) {
+  .sys-status .sys-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sys-status .sys-status-app-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1024px) {
+  .sys-status .sys-status-banner { flex-wrap: wrap; }
+}
+
+@media (max-width: 640px) {
+  .sys-status .sys-status-grid,
+  .sys-status .sys-status-app-grid { grid-template-columns: 1fr; }
+  .sys-status .sys-status-refresh { width: 100%; justify-content: center; }
+}

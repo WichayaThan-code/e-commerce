@@ -33,6 +33,14 @@ public class AdminStoreApplicationController {
         return reviews.list();
     }
 
+    @RequirePermission("PLATFORM_CONTACT_REVEAL")
+    @PostMapping("/{shopId}/contact")
+    public ResponseEntity<MerchantDtos.ContactRevealResponse> revealContact(@PathVariable Long shopId, @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CACHE_CONTROL, "no-store")
+            .body(reviews.revealContact(shopId, RequestUser.id(jwt)));
+    }
+
     @RequirePermission("PLATFORM_APPLICATION_READ")
     @GetMapping("/export")
     public ResponseEntity<byte[]> export() {
@@ -75,13 +83,13 @@ public class AdminStoreApplicationController {
     @RequirePermission("PLATFORM_SHOP_SUSPEND")
     @PostMapping("/bulk/suspend")
     public MerchantDtos.BulkShopResponse suspendMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request, @AuthenticationPrincipal Jwt jwt) {
-        return reviews.suspendMany(request.shopIds(), RequestUser.id(jwt));
+        return reviews.suspendMany(request.shopIds(), RequestUser.id(jwt), request.reasonCode(), request.reason());
     }
 
     @RequirePermission("PLATFORM_SHOP_RESTORE")
     @PostMapping("/bulk/reactivate")
     public MerchantDtos.BulkShopResponse reactivateMany(@Valid @RequestBody MerchantDtos.BulkShopRequest request, @AuthenticationPrincipal Jwt jwt) {
-        return reviews.reactivateMany(request.shopIds(), RequestUser.id(jwt));
+        return reviews.reactivateMany(request.shopIds(), RequestUser.id(jwt), request.reasonCode(), request.reason());
     }
 
     @RequirePermission("PLATFORM_APPLICATION_REVIEW")
@@ -100,13 +108,15 @@ public class AdminStoreApplicationController {
     @PostMapping("/{shopId}/suspend")
     public MerchantDtos.AdminStoreApplicationResponse suspend(@PathVariable Long shopId, @AuthenticationPrincipal Jwt jwt,
                                                               @Valid @RequestBody(required = false) AdminPlatformDtos.OptionalReasonRequest body) {
-        return reviews.suspend(shopId, RequestUser.id(jwt), body == null ? null : body.reason());
+        return reviews.suspend(shopId, RequestUser.id(jwt),
+            body == null ? null : body.reasonCode(), body == null ? null : body.reason());
     }
 
     @RequirePermission("PLATFORM_SHOP_RESTORE")
     @PostMapping("/{shopId}/reactivate")
     public MerchantDtos.AdminStoreApplicationResponse reactivate(@PathVariable Long shopId, @AuthenticationPrincipal Jwt jwt,
                                                                  @Valid @RequestBody(required = false) AdminPlatformDtos.OptionalReasonRequest body) {
-        return reviews.reactivate(shopId, RequestUser.id(jwt), body == null ? null : body.reason());
+        return reviews.reactivate(shopId, RequestUser.id(jwt),
+            body == null ? null : body.reasonCode(), body == null ? null : body.reason());
     }
 }

@@ -90,13 +90,26 @@ public class AdminUserManagementService {
 
     @Transactional
     public UserDetail setStatus(UUID userId, String status, UUID actorId) {
-        return setStatus(userId, status, actorId, null);
+        return setStatus(userId, status, actorId, null, null);
     }
 
     /** reason (optional here for the existing UI) is stored in audit_logs.reason together with before / after status. */
     @Transactional
     public UserDetail setStatus(UUID userId, String status, UUID actorId, String reason) {
+        return setStatus(userId, status, actorId, reason, null);
+    }
+
+    /**
+     * Optional {@code reasonCode}: blank uses defaults ({@link SuspensionReasonCodes#ADMIN_SUSPEND} /
+     * {@link SuspensionReasonCodes#ADMIN_RESTORE}); non-blank must be on the matching allowlist.
+     */
+    @Transactional
+    public UserDetail setStatus(UUID userId, String status, UUID actorId, String reason, String reasonCode) {
         requireMutableTarget(userId, actorId);
+        var suspend = "SUSPENDED".equals(status);
+        var code = suspend
+            ? SuspensionReasonCodes.resolveSuspend(reasonCode, SuspensionReasonCodes.ADMIN_SUSPEND)
+            : SuspensionReasonCodes.resolveRestore(reasonCode, SuspensionReasonCodes.ADMIN_RESTORE);
         var user = requireUser(userId);
         if (user.getStatus().name().equals(status)) return directory.detail(userId);
         var now = Instant.now();
@@ -106,10 +119,16 @@ public class AdminUserManagementService {
             """, new MapSqlParameterSource().addValue("status", status).addValue("now", Timestamp.from(now)).addValue("id", userId));
         refreshTokens.revokeAllActiveForUser(userId, now);
         var before = user.getStatus().name();
-        platformAudit.record(PlatformAuditService.Entry.platform(actorId, status.equals("SUSPENDED") ? "ACCOUNT_SUSPENDED" : "ACCOUNT_RESTORED", "USER", userId)
-            .permission(status.equals("SUSPENDED") ? "PLATFORM_ACCOUNT_SUSPEND" : "PLATFORM_ACCOUNT_RESTORE")
-            .reason("ADMIN_STATUS", reason == null || reason.isBlank() ? null : reason.trim())
-            .change(java.util.Map.of("status", before), java.util.Map.of("status", status, "sessionsRevoked", true)));
+        var display = ((user.getFirstName() == null ? "" : user.getFirstName()) + " "
+            + (user.getLastName() == null ? "" : user.getLastName())).trim();
+        var after = new java.util.LinkedHashMap<String, Object>();
+        after.put("status", status);
+        after.put("sessionsRevoked", true);
+        if (!display.isEmpty()) after.put("targetName", display);
+        platformAudit.record(PlatformAuditService.Entry.platform(actorId, suspend ? "ACCOUNT_SUSPENDED" : "ACCOUNT_RESTORED", "USER", userId)
+            .permission(suspend ? "PLATFORM_ACCOUNT_SUSPEND" : "PLATFORM_ACCOUNT_RESTORE")
+            .reason(code, reason == null || reason.isBlank() ? null : reason.trim())
+            .change(java.util.Map.of("status", before), after));
         return directory.detail(userId);
     }
 

@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react'
 import {
-  ArrowLeft, ArrowRight, Building2, Check, CheckCircle2,
-  Headphones, IdCard, Lightbulb, Mail, Phone, UserRound,
+  ArrowLeft, ArrowRight, Building2, Check, FileText, IdCard, Mail, Phone, UserRound,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
-import MerchantOnboardingSidebar from '../components/merchant/MerchantOnboardingSidebar'
+import MerchantOnboardingLayout from '../components/merchant/MerchantOnboardingLayout'
+import OnboardingAside from '../components/merchant/OnboardingAside'
+import RegisterStepper from '../components/merchant/RegisterStepper'
 import MerchantHeader from '../components/MerchantHeader'
 import SearchableSelect from '../components/SearchableSelect'
 import ThaiAddressFields, { emptyThaiAddress, type ThaiAddressValue } from '../components/ThaiAddressFields'
-import { merchantApi, type DocumentType, type MerchantOwner } from '../services/api'
+import { merchantApi, type MerchantOwner } from '../services/api'
 import { showApiFailure } from '../services/apiErrors'
 import DatePicker from '../components/form/DatePicker'
+import FieldError from '../components/form/FieldError'
 import FormField from '../components/form/FormField'
 import FormGrid from '../components/form/FormGrid'
 import { SHOP_IMAGE_ACCEPT } from '../services/shopImage'
@@ -27,9 +29,19 @@ import {
   ownerPayload,
   validateOwner,
 } from '../services/merchantApplicationValidation'
+import { autofillSyncHandlers, readFormTextValue } from '../hooks/autofillSync'
+import { useDocumentPreview } from '../hooks/useDocumentPreview'
 import i18n from '../i18n'
 import '../styles/owner-info.css'
 import '../styles/form-fields.css'
+import '../styles/form-invalid.css'
+import '../styles/doc-confirm.css'
+
+type OwnerDocType = 'IDENTITY' | 'PORTRAIT'
+
+function docFieldKey(type: OwnerDocType) {
+  return type === 'IDENTITY' ? 'identityDoc' : 'portraitDoc'
+}
 
 function shopAddress(userId?: string | null): ThaiAddressValue {
   const draft = readMerchantDraft(userId)
@@ -62,39 +74,95 @@ function AddressPreview({ userId, emptyLabel }: { userId?: string | null; emptyL
   )
 }
 
-function UploadCard({ title, icon: Icon, type, labels }: { title: string; icon: typeof IdCard; type: DocumentType; labels: { drop: string; types: string; pick: string; change: string; uploading: string; fail: string } }) {
+function UploadCard({
+  title,
+  icon: Icon,
+  type,
+  labels,
+  fileName,
+  uploading,
+  error,
+  onUploading,
+  onUploaded,
+  onError,
+}: {
+  title: string
+  icon: typeof IdCard
+  type: OwnerDocType
+  labels: { drop: string; types: string; pick: string; change: string; uploading: string; fail: string }
+  fileName: string
+  uploading: boolean
+  error?: string
+  onUploading: (type: OwnerDocType, busy: boolean) => void
+  onUploaded: (type: OwnerDocType, name: string) => void
+  onError: (type: OwnerDocType, message: string) => void
+}) {
   const { user } = useAuth()
-  const [file, setFile] = useState(readMerchantDraft(user?.id).documentNames?.[type] || '')
-  const [uploading, setUploading] = useState(false)
+  const field = docFieldKey(type)
+  const [localFile, setLocalFile] = useState<File | null>(null)
+  const preview = useDocumentPreview(type, localFile, fileName)
+  const previewAlt = i18n.t('documents.previewAlt', { ns: 'merchant' })
   const upload = async (selected?: File) => {
     if (!selected) return
     const fileError = documentFileError(selected)
     if (fileError) {
-      setFile(fileError)
+      onError(type, fileError)
       return
     }
-    setUploading(true)
-    setFile(labels.uploading)
+    onUploading(type, true)
+    onError(type, '')
     try {
       await merchantApi.uploadDocument(type, selected)
-      setFile(selected.name)
       rememberDocumentName(user?.id, type, selected.name)
+      setLocalFile(selected)
+      onUploaded(type, selected.name)
     } catch (error) {
-      showApiFailure(error, (message) => setFile(message))
+      showApiFailure(error, (message) => onError(type, message || labels.fail))
     } finally {
-      setUploading(false)
+      onUploading(type, false)
     }
   }
+  const invalid = Boolean(error)
+  const busy = uploading || preview.loading
+  const showLive = Boolean(preview.url) && !preview.failed
   return (
-    <label className="owner-upload">
+    <label className="owner-upload" data-field={field}>
       <span>{title} <em>*</em></span>
-      <div className={file ? 'has-file' : ''}>
-        <Icon />
-        <p>{file && file !== labels.uploading && file !== labels.fail ? file : labels.drop}</p>
-        <small>{labels.types}</small>
-        <b>{uploading ? labels.uploading : file && file !== labels.fail ? labels.change : labels.pick}</b>
-        <input disabled={uploading} type="file" accept={`${SHOP_IMAGE_ACCEPT},application/pdf`} onChange={(e) => void upload(e.target.files?.[0])} />
+      <div
+        className={[fileName ? 'has-file' : '', invalid ? 'is-invalid' : '', showLive ? 'has-preview' : ''].filter(Boolean).join(' ')}
+        aria-invalid={invalid || undefined}
+      >
+        {busy ? (
+          <div className="document-preview-skeleton owner-upload-preview" aria-busy="true" />
+        ) : showLive && preview.isImage ? (
+          <img className="owner-upload-preview-img" src={preview.url} alt={previewAlt} />
+        ) : showLive && preview.isPdf ? (
+          <span className="owner-upload-preview-named" aria-label={previewAlt}>
+            <FileText aria-hidden="true" />
+            <small>PDF</small>
+          </span>
+        ) : preview.failed && fileName ? (
+          <span className="owner-upload-preview-named" aria-label={previewAlt}>
+            <FileText aria-hidden="true" />
+            <small>{i18n.t('documents.uploadedNamed', { ns: 'merchant', name: fileName })}</small>
+          </span>
+        ) : (
+          <>
+            <Icon />
+            <p>{fileName || labels.drop}</p>
+            <small>{labels.types}</small>
+          </>
+        )}
+        <b>{busy ? labels.uploading : fileName ? labels.change : labels.pick}</b>
+        <input
+          disabled={uploading}
+          type="file"
+          accept={`${SHOP_IMAGE_ACCEPT},application/pdf`}
+          aria-invalid={invalid || undefined}
+          onChange={(e) => void upload(e.target.files?.[0])}
+        />
       </div>
+      <FieldError text={error} id={error ? `field-error-${field}` : undefined} />
     </label>
   )
 }
@@ -133,6 +201,24 @@ export default function OwnerInfoPage() {
   const [owners, setOwners] = useState<MerchantOwner[]>([])
   const [adding, setAdding] = useState(false)
   const [picking, setPicking] = useState(false)
+  const savedDocNames = readMerchantDraft(user?.id).documentNames
+  const [identityFile, setIdentityFile] = useState(savedDocNames?.IDENTITY || '')
+  const [portraitFile, setPortraitFile] = useState(savedDocNames?.PORTRAIT || '')
+  const [identityUploading, setIdentityUploading] = useState(false)
+  const [portraitUploading, setPortraitUploading] = useState(false)
+
+  const setDocUploading = (type: OwnerDocType, busy: boolean) => {
+    if (type === 'IDENTITY') setIdentityUploading(busy)
+    else setPortraitUploading(busy)
+  }
+  const onDocUploaded = (type: OwnerDocType, name: string) => {
+    if (type === 'IDENTITY') setIdentityFile(name)
+    else setPortraitFile(name)
+    setFieldErrors((prev) => mergeFieldError(prev, docFieldKey(type)))
+  }
+  const onDocError = (type: OwnerDocType, message: string) => {
+    setFieldErrors((prev) => mergeFieldError(prev, docFieldKey(type), message || undefined))
+  }
 
   useEffect(() => {
     if (!user) return
@@ -178,9 +264,51 @@ export default function OwnerInfoPage() {
     bankAccountNumber, bankAccountName,
   })
 
-  const blurOwner = (field: string) => {
-    setFieldErrors((prev) => mergeFieldError(prev, field, validateOwner(currentOwner())[field]))
+  const blurOwner = (field: string, overrides?: Partial<OwnerDraft>) => {
+    setFieldErrors((prev) => mergeFieldError(prev, field, validateOwner({ ...currentOwner(), ...overrides })[field]))
   }
+
+  const patchThaiAddress = (next: ThaiAddressValue) => {
+    setThaiAddress(next)
+    setFieldErrors((prev) => {
+      const updated = { ...prev }
+      for (const key of ['province', 'district', 'subdistrict', 'postalCode'] as const) {
+        if (next[key]?.trim() || !next[key]) delete updated[key]
+      }
+      return updated
+    })
+  }
+
+  const pickOwnerField = (field: string, setter: (value: string) => void) => (value: string) => {
+    setter(value)
+    setFieldErrors((prev) => mergeFieldError(prev, field))
+  }
+
+  const clearOwnerError = (field: string) => setFieldErrors((prev) => mergeFieldError(prev, field))
+
+  const firstNameHandlers = autofillSyncHandlers({ onValue: setFirstName, onClearError: () => clearOwnerError('firstName') })
+  const lastNameHandlers = autofillSyncHandlers({ onValue: setLastName, onClearError: () => clearOwnerError('lastName') })
+  const citizenIdHandlers = autofillSyncHandlers({
+    onValue: setCitizenId,
+    onClearError: () => clearOwnerError('citizenId'),
+    transform: formatCitizenId,
+  })
+  const phoneHandlers = autofillSyncHandlers({
+    onValue: setPhone,
+    onClearError: () => clearOwnerError('phone'),
+    transform: formatPhoneNumber,
+  })
+  const emailHandlers = autofillSyncHandlers({ onValue: setEmail, onClearError: () => clearOwnerError('email') })
+  const houseNoHandlers = autofillSyncHandlers({ onValue: setHouseNo, onClearError: () => clearOwnerError('houseNo') })
+  const bankAccountNumberHandlers = autofillSyncHandlers({
+    onValue: setBankAccountNumber,
+    onClearError: () => clearOwnerError('bankAccountNumber'),
+    transform: (value) => digitsOnly(value, 20),
+  })
+  const bankAccountNameHandlers = autofillSyncHandlers({
+    onValue: setBankAccountName,
+    onClearError: () => clearOwnerError('bankAccountName'),
+  })
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -189,8 +317,43 @@ export default function OwnerInfoPage() {
       window.location.assign('/login?next=/merchant/owner-info')
       return
     }
-    const owner = currentOwner()
+    const form = event.currentTarget
+    const syncedFirstName = readFormTextValue(form, 'firstName', firstName)
+    const syncedLastName = readFormTextValue(form, 'lastName', lastName)
+    const syncedCitizenId = formatCitizenId(readFormTextValue(form, 'citizenId', citizenId))
+    const syncedPhone = formatPhoneNumber(readFormTextValue(form, 'phone', phone))
+    const syncedEmail = readFormTextValue(form, 'email', email)
+    const syncedHouseNo = readFormTextValue(form, 'houseNo', houseNo)
+    const syncedBankAccountNumber = digitsOnly(readFormTextValue(form, 'bankAccountNumber', bankAccountNumber), 20)
+    const syncedBankAccountName = readFormTextValue(form, 'bankAccountName', bankAccountName)
+    setFirstName(syncedFirstName)
+    setLastName(syncedLastName)
+    setCitizenId(syncedCitizenId)
+    setPhone(syncedPhone)
+    setEmail(syncedEmail)
+    setHouseNo(syncedHouseNo)
+    setBankAccountNumber(syncedBankAccountNumber)
+    setBankAccountName(syncedBankAccountName)
+    const owner: OwnerDraft = {
+      ...currentOwner(),
+      firstName: syncedFirstName,
+      lastName: syncedLastName,
+      citizenId: syncedCitizenId,
+      phone: syncedPhone,
+      email: syncedEmail,
+      houseNo: syncedHouseNo,
+      bankAccountNumber: syncedBankAccountNumber,
+      bankAccountName: syncedBankAccountName,
+    }
     const nextErrors = validateOwner(owner)
+    if (!identityFile) nextErrors.identityDoc = i18n.t('validation.identityDoc', { ns: 'merchant' })
+    if (!portraitFile) nextErrors.portraitDoc = i18n.t('validation.portraitDoc', { ns: 'merchant' })
+    if (identityUploading || portraitUploading) {
+      setFieldErrors(nextErrors)
+      setMessage(i18n.t('validation.uploadWait', { ns: 'merchant' }))
+      if (Object.keys(nextErrors).length > 0) focusFirstInvalid(nextErrors)
+      return
+    }
     setFieldErrors(nextErrors)
     setMessage('')
     if (Object.keys(nextErrors).length > 0) {
@@ -225,14 +388,26 @@ export default function OwnerInfoPage() {
   }
 
   return (
-    <main className="owner-page">
+    <main className="owner-page onboard-page">
       <MerchantHeader />
-      <div className="owner-layout">
-        <MerchantOnboardingSidebar copy={ob} activeStep={1} className="owner-sidebar" />
-
-        <section className="owner-content">
+      <MerchantOnboardingLayout
+        aside={(
+          <OnboardingAside
+            safeSummaryLabel={ob.common.asideSafeSummary}
+            safe={{ title: o.safeTitle, items: [...o.safeBullets] }}
+            tips={{ title: o.tipsTitle, items: [...o.tipsBullets] }}
+            help={{
+              title: ob.common.helpTitle,
+              lead: o.questionLead.replace(/\n/g, ' '),
+              contactLabel: ob.common.contact,
+            }}
+            trustLabel={ob.common.trustSslPdpa}
+          />
+        )}
+      >
           <div className="owner-card">
             <div className="owner-title"><h1>{o.pageTitle}</h1><p>{o.pageLead}</p></div>
+            <RegisterStepper currentStep={2} />
             {owners.length > 0 && !adding ? (
               <div className="owner-choice">
                 <p>{o.reuseHint}</p>
@@ -258,12 +433,12 @@ export default function OwnerInfoPage() {
               <section className="owner-form-section">
                 <h3>{o.personal}</h3>
                 <div className="owner-person-grid">
-                  <SearchableSelect field="title" error={fieldErrors.title} onBlur={() => blurOwner('title')} label={o.title} required options={[...o.titles]} value={title} onChange={setTitle} />
+                  <SearchableSelect field="title" error={fieldErrors.title} onBlur={() => blurOwner('title')} label={o.title} required options={[...o.titles]} value={title} onChange={pickOwnerField('title', setTitle)} />
                   <FormField className="flush" label={<>{o.firstName} <em>*</em></>} icon={UserRound} error={fieldErrors.firstName}>
-                    <input name="firstName" value={firstName} autoComplete="given-name" aria-invalid={Boolean(fieldErrors.firstName)} onChange={(e) => setFirstName(e.target.value)} onBlur={() => blurOwner('firstName')} />
+                    <input name="firstName" value={firstName} autoComplete="given-name" aria-invalid={Boolean(fieldErrors.firstName)} {...firstNameHandlers} onBlur={() => blurOwner('firstName')} />
                   </FormField>
                   <FormField className="flush" label={<>{o.lastName} <em>*</em></>} error={fieldErrors.lastName}>
-                    <input name="lastName" value={lastName} autoComplete="family-name" aria-invalid={Boolean(fieldErrors.lastName)} onChange={(e) => setLastName(e.target.value)} onBlur={() => blurOwner('lastName')} />
+                    <input name="lastName" value={lastName} autoComplete="family-name" aria-invalid={Boolean(fieldErrors.lastName)} {...lastNameHandlers} onBlur={() => blurOwner('lastName')} />
                   </FormField>
                   <FormField className="flush" label={<>{o.citizenId} <em>*</em></>} icon={IdCard} error={fieldErrors.citizenId}>
                     <input
@@ -274,7 +449,7 @@ export default function OwnerInfoPage() {
                       placeholder={o.citizenPh}
                       value={citizenId}
                       aria-invalid={Boolean(fieldErrors.citizenId)}
-                      onChange={(e) => setCitizenId(formatCitizenId(e.target.value))}
+                      {...citizenIdHandlers}
                       onBlur={() => blurOwner('citizenId')}
                     />
                   </FormField>
@@ -288,10 +463,10 @@ export default function OwnerInfoPage() {
                     max={new Date().toISOString().slice(0, 10)}
                     error={fieldErrors.birthDate}
                     placeholder={o.birthDatePh}
-                    onChange={setBirthDate}
+                    onChange={pickOwnerField('birthDate', setBirthDate)}
                     onBlur={() => blurOwner('birthDate')}
                   />
-                  <SearchableSelect field="nationality" error={fieldErrors.nationality} onBlur={() => blurOwner('nationality')} label={o.nationality} required options={[...o.nationalities]} value={nationality} onChange={setNationality} />
+                  <SearchableSelect field="nationality" error={fieldErrors.nationality} onBlur={() => blurOwner('nationality')} label={o.nationality} required options={[...o.nationalities]} value={nationality} onChange={pickOwnerField('nationality', setNationality)} />
                 </div>
                 <FormGrid>
                   <FormField className="flush" label={<>{o.phone} <em>*</em></>} icon={Phone} error={fieldErrors.phone}>
@@ -304,12 +479,12 @@ export default function OwnerInfoPage() {
                       placeholder="0xx-xxx-xxxx"
                       value={phone}
                       aria-invalid={Boolean(fieldErrors.phone)}
-                      onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
+                      {...phoneHandlers}
                       onBlur={() => blurOwner('phone')}
                     />
                   </FormField>
                   <FormField className="flush" label={<>{o.email} <em>*</em></>} icon={Mail} error={fieldErrors.email}>
-                    <input name="email" type="email" autoComplete="email" value={email} aria-invalid={Boolean(fieldErrors.email)} onChange={(e) => setEmail(e.target.value)} onBlur={() => blurOwner('email')} />
+                    <input name="email" type="email" autoComplete="email" value={email} aria-invalid={Boolean(fieldErrors.email)} {...emailHandlers} onBlur={() => blurOwner('email')} />
                   </FormField>
                 </FormGrid>
               </section>
@@ -331,7 +506,7 @@ export default function OwnerInfoPage() {
                 ) : (
                 <div className="owner-address-grid">
                   <FormField className="flush" label={<>{o.houseNo} <em>*</em></>} error={fieldErrors.houseNo}>
-                    <input name="houseNo" placeholder="123/45" value={houseNo} aria-invalid={Boolean(fieldErrors.houseNo)} onChange={(e) => setHouseNo(e.target.value)} onBlur={() => blurOwner('houseNo')} />
+                    <input name="houseNo" placeholder="123/45" value={houseNo} autoComplete="address-line2" aria-invalid={Boolean(fieldErrors.houseNo)} {...houseNoHandlers} onBlur={() => blurOwner('houseNo')} />
                   </FormField>
                   <FormField className="flush" label={o.villageNo}>
                     <input placeholder="5" value={villageNo} onChange={(e) => setVillageNo(e.target.value)} />
@@ -345,14 +520,14 @@ export default function OwnerInfoPage() {
                   <FormField className="flush" label={o.road}>
                     <input placeholder="สุขุมวิท" value={road} onChange={(e) => setRoad(e.target.value)} />
                   </FormField>
-                  <ThaiAddressFields value={thaiAddress} onChange={setThaiAddress} errors={fieldErrors} onBlurField={blurOwner} />
+                  <ThaiAddressFields value={thaiAddress} onChange={patchThaiAddress} errors={fieldErrors} onBlurField={blurOwner} />
                 </div>
                 )}
               </section>
               <section className="owner-form-section">
                 <h3>{o.payout}</h3>
                 <div className="owner-payout-grid">
-                  <SearchableSelect field="bankName" error={fieldErrors.bankName} onBlur={() => blurOwner('bankName')} label={o.bank} required placeholder={o.bankPh} options={[...o.banks]} value={bankName} onChange={setBankName} />
+                  <SearchableSelect field="bankName" error={fieldErrors.bankName} onBlur={() => blurOwner('bankName')} label={o.bank} required placeholder={o.bankPh} options={[...o.banks]} value={bankName} onChange={pickOwnerField('bankName', setBankName)} />
                   <FormField className="flush" label={<>{o.accountNo} <em>*</em></>} error={fieldErrors.bankAccountNumber}>
                     <input
                       name="bankAccountNumber"
@@ -362,12 +537,12 @@ export default function OwnerInfoPage() {
                       placeholder={o.accountNoPh}
                       value={bankAccountNumber}
                       aria-invalid={Boolean(fieldErrors.bankAccountNumber)}
-                      onChange={(e) => setBankAccountNumber(digitsOnly(e.target.value, 20))}
+                      {...bankAccountNumberHandlers}
                       onBlur={() => blurOwner('bankAccountNumber')}
                     />
                   </FormField>
                   <FormField className="flush wide" label={<>{o.accountName} <em>*</em></>} error={fieldErrors.bankAccountName}>
-                    <input name="bankAccountName" placeholder={o.accountNamePh} value={bankAccountName} aria-invalid={Boolean(fieldErrors.bankAccountName)} onChange={(e) => setBankAccountName(e.target.value)} onBlur={() => blurOwner('bankAccountName')} />
+                    <input name="bankAccountName" placeholder={o.accountNamePh} value={bankAccountName} autoComplete="off" aria-invalid={Boolean(fieldErrors.bankAccountName)} {...bankAccountNameHandlers} onBlur={() => blurOwner('bankAccountName')} />
                   </FormField>
                 </div>
               </section>
@@ -375,8 +550,30 @@ export default function OwnerInfoPage() {
                 <h3>{o.docsSection}</h3>
                 <p>{o.docsHint}</p>
                 <div>
-                  <UploadCard type="IDENTITY" title={o.idCard} icon={IdCard} labels={uploadLabels} />
-                  <UploadCard type="PORTRAIT" title={o.portrait} icon={UserRound} labels={uploadLabels} />
+                  <UploadCard
+                    type="IDENTITY"
+                    title={o.idCard}
+                    icon={IdCard}
+                    labels={uploadLabels}
+                    fileName={identityFile}
+                    uploading={identityUploading}
+                    error={fieldErrors.identityDoc}
+                    onUploading={setDocUploading}
+                    onUploaded={onDocUploaded}
+                    onError={onDocError}
+                  />
+                  <UploadCard
+                    type="PORTRAIT"
+                    title={o.portrait}
+                    icon={UserRound}
+                    labels={uploadLabels}
+                    fileName={portraitFile}
+                    uploading={portraitUploading}
+                    error={fieldErrors.portraitDoc}
+                    onUploading={setDocUploading}
+                    onUploaded={onDocUploaded}
+                    onError={onDocError}
+                  />
                 </div>
               </section>
               <div className="owner-form-actions">
@@ -385,15 +582,7 @@ export default function OwnerInfoPage() {
               </div>
             </form>
           </div>
-        </section>
-
-        <aside className="owner-notes">
-          <section className="safe-note"><div><IdCard /><CheckCircle2 /></div><h3>{o.safeTitle}</h3><ul>{o.safeBullets.map((line) => <li key={line}>{line}</li>)}</ul></section>
-          <section className="tips-note"><h3><Lightbulb />{o.tipsTitle}</h3><ul>{o.tipsBullets.map((line) => <li key={line}>{line}</li>)}</ul></section>
-          <section className="question-note"><Headphones /><div><h3>{o.questionTitle}</h3><p>{o.questionLead.split('\n').map((line, i) => <span key={i}>{line}{i === 0 && <br />}</span>)}</p></div><a href="#contact">{ob.common.contact}</a></section>
-          <blockquote>{ob.common.quoteEn.split('\n').map((line, i) => <span key={i}>{line}{i === 0 && <br />}</span>)}<i /></blockquote>
-        </aside>
-      </div>
+      </MerchantOnboardingLayout>
     </main>
   )
 }

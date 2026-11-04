@@ -1,6 +1,7 @@
 import { Facebook, Globe2, Instagram, Link2, MessageCircle } from 'lucide-react'
 import FormField from '../form/FormField'
 import FormGrid from '../form/FormGrid'
+import { autofillSyncHandlers } from '../../hooks/autofillSync'
 import type { MerchantOnboardingCopy } from '../../i18n/merchantOnboardingCopy'
 
 export type ShopSocialDraft = {
@@ -17,6 +18,7 @@ type Props = {
   onChange: (next: ShopSocialDraft) => void
   errors?: Record<string, string>
   onBlur?: (key: keyof ShopSocialDraft) => void
+  onClearError?: (key: keyof ShopSocialDraft) => void
 }
 
 const fields: {
@@ -24,35 +26,51 @@ const fields: {
   icon: typeof Globe2
   labelKey: keyof MerchantOnboardingCopy['social']
   phKey: keyof MerchantOnboardingCopy['social']
+  autoComplete: string
 }[] = [
-  { key: 'website', icon: Globe2, labelKey: 'website', phKey: 'websitePh' },
-  { key: 'lineId', icon: MessageCircle, labelKey: 'line', phKey: 'linePh' },
-  { key: 'facebookUrl', icon: Facebook, labelKey: 'facebook', phKey: 'facebookPh' },
-  { key: 'instagramUrl', icon: Instagram, labelKey: 'instagram', phKey: 'instagramPh' },
-  { key: 'tiktokUrl', icon: Link2, labelKey: 'tiktok', phKey: 'tiktokPh' },
+  { key: 'website', icon: Globe2, labelKey: 'website', phKey: 'websitePh', autoComplete: 'url' },
+  { key: 'lineId', icon: MessageCircle, labelKey: 'line', phKey: 'linePh', autoComplete: 'off' },
+  { key: 'facebookUrl', icon: Facebook, labelKey: 'facebook', phKey: 'facebookPh', autoComplete: 'url' },
+  { key: 'instagramUrl', icon: Instagram, labelKey: 'instagram', phKey: 'instagramPh', autoComplete: 'url' },
+  { key: 'tiktokUrl', icon: Link2, labelKey: 'tiktok', phKey: 'tiktokPh', autoComplete: 'url' },
 ]
 
-export default function MerchantSocialFields({ copy, value, onChange, errors, onBlur }: Props) {
+export default function MerchantSocialFields({ copy, value, onChange, errors, onBlur, onClearError }: Props) {
   return (
     <fieldset className="merchant-social-section">
       <legend>{copy.sectionTitle}</legend>
       <p className="merchant-social-hint">{copy.sectionHint}</p>
       <FormGrid>
-        {fields.map(({ key, icon, labelKey, phKey }) => (
-          <FormField key={key} className="flush" label={copy[labelKey]} icon={icon} error={errors?.[key]}>
-            <input
-              name={key}
-              type="text"
-              inputMode="text"
-              autoComplete="off"
-              placeholder={copy[phKey]}
-              value={value[key]}
-              aria-invalid={Boolean(errors?.[key])}
-              onChange={(event) => onChange({ ...value, [key]: event.target.value })}
-              onBlur={() => onBlur?.(key)}
-            />
-          </FormField>
-        ))}
+        {fields.map(({ key, icon, labelKey, phKey, autoComplete }) => {
+          const errorId = `field-error-${key}`
+          const handlers = autofillSyncHandlers({
+            onValue: (next) => onChange({ ...value, [key]: next }),
+            onClearError: () => onClearError?.(key),
+          })
+          return (
+            <FormField
+              key={key}
+              className="flush"
+              label={copy[labelKey]}
+              icon={icon}
+              error={errors?.[key]}
+              errorId={errorId}
+            >
+              <input
+                name={key}
+                type="text"
+                inputMode="text"
+                autoComplete={autoComplete}
+                placeholder={copy[phKey]}
+                value={value[key]}
+                aria-invalid={Boolean(errors?.[key])}
+                aria-describedby={errors?.[key] ? errorId : undefined}
+                {...handlers}
+                onBlur={() => onBlur?.(key)}
+              />
+            </FormField>
+          )
+        })}
       </FormGrid>
     </fieldset>
   )

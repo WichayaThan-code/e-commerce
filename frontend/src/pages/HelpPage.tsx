@@ -1,429 +1,429 @@
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { ChevronDown, ChevronRight, Search, SearchX, Store, UserRound } from "lucide-react";
+import { Skeleton } from "../components/feedback/Skeleton";
+import HelpContactPanel from "../components/help/HelpContactPanel";
 import {
-  Box,
-  ChevronDown,
-  ChevronRight,
-  CircleUserRound,
-  CreditCard,
-  Headphones,
-  LogOut,
-  Mail,
-  Menu,
-  MessageCircle,
-  PackageCheck,
-  Phone,
-  RotateCcw,
-  Search,
-  Settings,
-  ShieldCheck,
-  ShoppingBag,
-  ShoppingCart,
-  Store,
-  Truck,
-  UserRound,
-} from "lucide-react";
+  HelpError,
+  Lines,
+  TONES,
+  iconFor,
+  sortTopics,
+  splitAnswer,
+  useHelpData,
+} from "../components/help/helpShared";
 import { useAuth } from "../contexts/AuthContext";
+import { useLanguage } from "../contexts/LanguageContext";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { helpApi, type HelpFaq, type HelpGuide, type HelpTopic } from "../services/api";
 import { accountKind } from "../services/permissions";
 import helpReference from "../assets/images/references/help/help.png";
-import "../styles/recommended-products.css";
-import "../styles/best-seller.css";
 import "../styles/help.css";
 
-const topics = [
-  {
-    icon: ShoppingCart,
-    title: "การสั่งซื้อ",
-    text: "วิธีสั่งซื้อ ยกเลิกคำสั่งซื้อ",
-    tone: "coral",
-  },
-  {
-    icon: CreditCard,
-    title: "การชำระเงิน",
-    text: "ช่องทางการชำระเงิน\nออกใบกำกับภาษี",
-    tone: "blue",
-  },
-  {
-    icon: Truck,
-    title: "การจัดส่งสินค้า",
-    text: "ตรวจสอบสถานะ\nระยะเวลาจัดส่ง",
-    tone: "green",
-  },
-  {
-    icon: Box,
-    title: "การคืนสินค้า\nและคืนเงิน",
-    text: "เงื่อนไขการคืนสินค้า",
-    tone: "violet",
-  },
-  {
-    icon: Store,
-    title: "สำหรับร้านค้า",
-    text: "สมัครร้านค้า จัดการสินค้า\nการรับเงิน",
-    tone: "amber",
-  },
-  {
-    icon: UserRound,
-    title: "บัญชีผู้ใช้งาน",
-    text: "สมัครสมาชิก\nจัดการข้อมูลส่วนตัว",
-    tone: "pink",
-  },
-  {
-    icon: ShieldCheck,
-    title: "ความปลอดภัย",
-    text: "ความปลอดภัยของข้อมูล\nและการป้องกันการฉ้อโกง",
-    tone: "mint",
-  },
-  {
-    icon: Settings,
-    title: "ปัญหาการใช้งาน",
-    text: "แจ้งปัญหา\nและข้อเสนอแนะ",
-    tone: "purple",
-  },
-];
+type Audience = "CUSTOMER" | "MERCHANT";
 
-const faqs = [
-  [
-    "วิธีสั่งซื้อสินค้าใน ThaiShopFun ทำอย่างไร?",
-    "เลือกสินค้า กดเพิ่มลงตะกร้า ตรวจสอบที่อยู่ เลือกวิธีชำระเงิน และยืนยันคำสั่งซื้อ",
-  ],
-  [
-    "มีช่องทางการชำระเงินอะไรบ้าง?",
-    "รองรับ QR Payment, บัตรเครดิตหรือเดบิต, โอนเงินผ่านธนาคาร และกระเป๋าเงินดิจิทัล",
-  ],
-  [
-    "ใช้เวลาจัดส่งสินค้ากี่วัน?",
-    "โดยทั่วไปใช้เวลา 1–3 วันทำการ ทั้งนี้ขึ้นอยู่กับร้านค้าและพื้นที่จัดส่ง",
-  ],
-  [
-    "สามารถยกเลิกคำสั่งซื้อได้หรือไม่?",
-    "ยกเลิกได้ก่อนร้านค้าเริ่มจัดเตรียมสินค้า ตรวจสอบสถานะได้จากหน้าคำสั่งซื้อ",
-  ],
-  [
-    "วิธีขอคืนสินค้าและรับเงินคืน",
-    "เปิดคำสั่งซื้อ เลือกขอคืนสินค้า ระบุเหตุผลและแนบรูป ทีมงานจะตรวจสอบตามเงื่อนไข",
-  ],
-  [
-    "วิธีสมัครเป็นร้านค้า",
-    "ไปที่หน้าสมัครเป็นร้านค้า กรอกข้อมูลร้านและเจ้าของร้าน จากนั้นส่งเอกสารเพื่อตรวจสอบ",
-  ],
-  [
-    "ต้องการออกใบกำกับภาษี ทำอย่างไร?",
-    "กรอกข้อมูลสำหรับออกใบกำกับภาษีในขั้นตอนชำระเงิน หรือแจ้งร้านค้าผ่านรายละเอียดคำสั่งซื้อ",
-  ],
-  [
-    "ติดต่อเจ้าหน้าที่ได้ช่องทางไหนบ้าง?",
-    "ติดต่อได้ผ่านแชท LINE Official อีเมล support@thaishopfun.com หรือโทร 02-123-4567",
-  ],
-];
-
-const guides = [
-  {
-    title: "คู่มือการสั่งซื้อสินค้า",
-    text: "ขั้นตอนการสั่งซื้อ ตั้งแต่เลือกสินค้า\nจนถึงชำระเงิน",
-    crop: "guide-one",
-  },
-  {
-    title: "คู่มือสำหรับร้านค้า",
-    text: "วิธีสมัครร้านค้า ลงสินค้า\nและจัดการออเดอร์",
-    crop: "guide-two",
-  },
-  {
-    title: "คู่มือติดตามการจัดส่ง",
-    text: "วิธีตรวจสอบสถานะพัสดุ\nและระยะเวลาการจัดส่ง",
-    crop: "guide-three",
-  },
-];
-
-function Brand() {
-  return (
-    <a className="recommend-brand" href="/" aria-label="ThaiShopFun หน้าแรก">
-      <span className="recommend-mark">
-        <ShoppingBag />
-        <i>✓</i>
-      </span>
-      <span>
-        <b>
-          ThaiShop<span>Fun</span>
-        </b>
-        <small>Shop Local · Support Thai · Smile Together</small>
-      </span>
-    </a>
-  );
-}
+const GUIDE_CROPS = ["guide-one", "guide-two", "guide-three"] as const;
+const GUIDE_PREVIEW = 3;
+const POPULAR_COUNT = 8;
+const SUGGEST_COUNT = 6;
+const SUGGEST_DEBOUNCE_MS = 250;
 
 export default function HelpPage() {
-  const { user, loading, logout } = useAuth();
-  const [query, setQuery] = useState("");
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [activeTopic, setActiveTopic] = useState(0);
-  const [notice, setNotice] = useState("");
-  const [accountOpen, setAccountOpen] = useState(false);
-  const notify = (message: string) => {
-    setNotice(message);
-    window.setTimeout(() => setNotice(""), 2200);
-  };
-  const accountName = user
-    ? `${user.firstName} ${user.lastName}`.trim() || user.email
-    : "";
-  const dashboard =
-    accountKind(user) === "ADMIN"
-      ? "/admin"
-      : accountKind(user) === "MERCHANT"
-        ? "/merchant/dashboard"
-        : "/";
+  const { t } = useTranslation("public");
+  const { locale } = useLanguage();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const listboxId = useId();
+
+  const initialQuery = (searchParams.get("q") ?? "").trim();
+  const [query, setQuery] = useState(initialQuery);
+  const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
+  const [audience, setAudience] = useState<Audience>("CUSTOMER");
+  const audienceTouched = useRef(false);
+  const [openFaq, setOpenFaq] = useState<string | null>(null);
+  const [showAllGuides, setShowAllGuides] = useState(false);
+  const [showAllFaqs, setShowAllFaqs] = useState(false);
+
+  // typeahead
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [suggestions, setSuggestions] = useState<HelpFaq[]>([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const typed = query.trim();
+  const debouncedTyped = useDebouncedValue(typed, SUGGEST_DEBOUNCE_MS);
+  const faqListRef = useRef<HTMLDivElement>(null);
+
+  // default audience follows the signed-in account until the visitor picks one
+  useEffect(() => {
+    if (authLoading || audienceTouched.current) return;
+    setAudience(user && accountKind(user) === "MERCHANT" ? "MERCHANT" : "CUSTOMER");
+  }, [authLoading, user]);
+
+  const topics = useHelpData<HelpTopic[]>(() => helpApi.topics(locale), [], true, [locale]);
+  const guides = useHelpData<HelpGuide[]>(() => helpApi.guides(locale), [], true, [locale]);
+  const faqs = useHelpData<HelpFaq[]>(
+    () => helpApi.faqs({ lang: locale, q: submittedQuery || undefined, audience }),
+    [],
+    !authLoading,
+    [locale, submittedQuery, audience],
+  );
+
+  useEffect(() => {
+    if (debouncedTyped.length < 2 || authLoading) {
+      setSuggestions([]);
+      setSuggestLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSuggestLoading(true);
+    helpApi
+      .faqs({ lang: locale, q: debouncedTyped, audience })
+      .then((rows) => {
+        if (!cancelled) setSuggestions(rows.slice(0, SUGGEST_COUNT));
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSuggestLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedTyped, locale, audience, authLoading]);
+
+  useEffect(() => setActiveIndex(-1), [suggestions]);
+  useEffect(() => setOpenFaq(null), [locale, submittedQuery, audience]);
+
+  const sortedTopics = useMemo(() => sortTopics(topics.data), [topics.data]);
+  const topicTitleBySlug = useMemo(() => new Map(topics.data.map((topic) => [topic.slug, topic.title])), [topics.data]);
+  const searching = submittedQuery.length > 0;
   const visibleFaqs = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    return term
-      ? faqs.filter(([question, answer]) =>
-          `${question} ${answer}`.toLowerCase().includes(term),
-        )
-      : faqs;
-  }, [query]);
-  const submitSearch = (event: React.FormEvent) => {
+    if (searching) return faqs.data;
+    // no popularity signal other than real feedback: most helpful first, server order for ties
+    const ranked = faqs.data
+      .map((faq, index) => ({ faq, index }))
+      .sort((a, b) => b.faq.helpfulYes - a.faq.helpfulYes || a.index - b.index)
+      .map((entry) => entry.faq);
+    return showAllFaqs ? ranked : ranked.slice(0, POPULAR_COUNT);
+  }, [faqs.data, searching, showAllFaqs]);
+  const visibleGuides = showAllGuides ? guides.data : guides.data.slice(0, GUIDE_PREVIEW);
+  const suggestVisible = suggestOpen && typed.length >= 2;
+
+  const applySubmitted = (value: string) => {
+    setSubmittedQuery(value);
+    setShowAllFaqs(false);
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set("q", value);
+    else next.delete("q");
+    setSearchParams(next, { replace: true });
+  };
+
+  const submitSearch = (event: FormEvent) => {
     event.preventDefault();
-    notify(
-      query.trim()
-        ? `พบคำตอบที่เกี่ยวข้อง ${visibleFaqs.length} รายการ`
-        : "กรุณาพิมพ์คำถามที่ต้องการค้นหา",
-    );
+    if (suggestVisible && activeIndex >= 0 && suggestions[activeIndex]) {
+      navigate(`/help/faqs/${suggestions[activeIndex].id}`);
+      return;
+    }
+    setSuggestOpen(false);
+    applySubmitted(typed);
+    window.requestAnimationFrame(() => faqListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   };
-  const signOut = async () => {
-    await logout();
-    setAccountOpen(false);
-    notify("ออกจากระบบแล้ว");
+
+  const clearSearch = () => {
+    setQuery("");
+    applySubmitted("");
   };
+
+  const onSearchKey = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
+      setSuggestOpen(false);
+      setActiveIndex(-1);
+      return;
+    }
+    if (!suggestVisible || suggestions.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((index) => (index + 1) % suggestions.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((index) => (index <= 0 ? suggestions.length - 1 : index - 1));
+    }
+  };
+
+  const chooseAudience = (next: Audience) => {
+    audienceTouched.current = true;
+    setAudience(next);
+  };
+
+  const onAccordionKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    const triggers = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("[data-faq-trigger]"));
+    const current = triggers.findIndex((node) => node === document.activeElement);
+    if (current === -1) return;
+    event.preventDefault();
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? triggers.length - 1
+          : event.key === "ArrowDown"
+            ? (current + 1) % triggers.length
+            : (current - 1 + triggers.length) % triggers.length;
+    triggers[next]?.focus();
+  };
+
+  const optionId = (index: number) => `${listboxId}-opt-${index}`;
 
   return (
-    <main className="help-page best-seller-page recommend-page">
-      <header className="recommend-header">
-        <div className="recommend-top help-head-width">
-          <Brand />
-          <form onSubmit={submitSearch}>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="ค้นหาสินค้า แบรนด์ หรือร้านค้า..."
-              aria-label="ค้นหาเว็บไซต์"
-            />
-            <button aria-label="ค้นหา">
-              <Search />
-            </button>
-          </form>
-          <div className="recommend-account">
-            {loading ? (
-              <span className="recommend-loading" />
-            ) : user ? (
-              <div className="recommend-user">
-                <button onClick={() => setAccountOpen((v) => !v)}>
-                  <CircleUserRound />
-                  <span>
-                    <b>{accountName}</b>
-                    <small>
-                      {accountKind(user) === "CUSTOMER"
-                        ? "ลูกค้า"
-                        : accountKind(user) === "MERCHANT"
-                          ? "เจ้าของร้าน"
-                          : "ผู้ดูแลระบบ"}
-                    </small>
-                  </span>
-                  <ChevronDown />
-                </button>
-                {accountOpen && (
-                  <div>
-                    <a href={dashboard}>บัญชีของฉัน</a>
-                    <button onClick={() => void signOut()}>
-                      <LogOut />
-                      ออกจากระบบ
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <a href="/login">
-                  <CircleUserRound />
-                  เข้าสู่ระบบ
-                </a>
-                <a className="recommend-signup" href="/signup">
-                  สมัครสมาชิก
-                </a>
-              </>
-            )}
-            <button
-              className="recommend-cart"
-              onClick={() => notify("ยังไม่มีสินค้าในตะกร้า")}
-            >
-              <ShoppingCart />
-              <i>0</i>
-            </button>
-          </div>
+    <main className="help-page">
+      <section className="help-hero" data-title={t("helpPage.hero.title")}>
+        <div className="help-hero-plane">
+          <img src={helpReference} alt={t("helpPage.hero.alt")} loading="eager" />
         </div>
-        <nav className="recommend-nav help-head-width">
-          <a href="/">
-            <Menu />
-            หมวดหมู่สินค้า
-          </a>
-          <a href="/deals">ดีลพิเศษ</a>
-          <a href="/recommendations">สินค้าแนะนำ</a>
-          <a href="/best-sellers">สินค้าขายดี</a>
-          <a href="/thai-brands">แบรนด์ไทย</a>
-          <a href="/articles">บทความ</a>
-          <a className="active" href="/help">
-            ช่วยเหลือ
-          </a>
-        </nav>
-      </header>
-
-      <section className="help-hero">
-        <img src={helpReference} alt="ศูนย์ช่วยเหลือ ThaiShopFun" />
-        <form onSubmit={submitSearch}>
+        <form onSubmit={submitSearch} role="search">
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="ค้นหาคำถาม"
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSuggestOpen(true);
+            }}
+            onFocus={() => setSuggestOpen(true)}
+            onBlur={() => setSuggestOpen(false)}
+            onKeyDown={onSearchKey}
+            aria-label={t("helpPage.hero.searchLabel")}
+            role="combobox"
+            aria-expanded={suggestVisible}
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            aria-activedescendant={suggestVisible && activeIndex >= 0 ? optionId(activeIndex) : undefined}
+            autoComplete="off"
+            enterKeyHint="search"
           />
-          <button aria-label="ค้นหาคำถาม" />
+          <button type="submit" aria-label={t("helpPage.hero.searchLabel")} />
+          {suggestVisible && (
+            <ul className="help-typeahead" id={listboxId} role="listbox" aria-label={t("helpPage.hero.suggestions")}>
+              {suggestions.map((faq, index) => (
+                <li
+                  key={faq.id}
+                  id={optionId(index)}
+                  role="option"
+                  aria-selected={index === activeIndex}
+                  className={index === activeIndex ? "active" : ""}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    navigate(`/help/faqs/${faq.id}`);
+                  }}
+                  onMouseEnter={() => setActiveIndex(index)}
+                >
+                  <Search aria-hidden="true" />
+                  <span>
+                    {faq.question}
+                    {topicTitleBySlug.get(faq.topicSlug) && <small>{topicTitleBySlug.get(faq.topicSlug)}</small>}
+                  </span>
+                </li>
+              ))}
+              {suggestions.length === 0 && (
+                <li className="help-typeahead-status" role="presentation">
+                  {suggestLoading || debouncedTyped !== typed ? t("helpPage.hero.searching") : t("helpPage.hero.noSuggestions")}
+                </li>
+              )}
+            </ul>
+          )}
         </form>
       </section>
 
       <section className="help-width help-topics">
-        <h1>เลือกหัวข้อที่ต้องการความช่วยเหลือ</h1>
-        <div>
-          {topics.map(({ icon: Icon, title, text, tone }, i) => (
-            <button
-              className={`${tone} ${activeTopic === i ? "active" : ""}`}
-              key={title}
-              onClick={() => {
-                setActiveTopic(i);
-                notify(`เลือกหัวข้อ ${title.replace("\n", " ")}`);
-              }}
-            >
-              <Icon />
-              <b>
-                {title.split("\n").map((line, j) => (
-                  <span key={j}>{line}</span>
-                ))}
-              </b>
-              <small>
-                {text.split("\n").map((line, j) => (
-                  <span key={j}>{line}</span>
-                ))}
-              </small>
+        <div className="help-topics-head">
+          <h1>{t("helpPage.topics.title")}</h1>
+          <div className="help-audience" role="group" aria-label={t("helpPage.audience.label")}>
+            <button type="button" aria-pressed={audience === "CUSTOMER"} onClick={() => chooseAudience("CUSTOMER")}>
+              <UserRound aria-hidden="true" />
+              {t("helpPage.audience.buyer")}
             </button>
-          ))}
+            <button type="button" aria-pressed={audience === "MERCHANT"} onClick={() => chooseAudience("MERCHANT")}>
+              <Store aria-hidden="true" />
+              {t("helpPage.audience.seller")}
+            </button>
+          </div>
         </div>
+        {topics.loading && topics.data.length === 0 ? (
+          <div className="help-topics-grid" aria-busy="true">
+            {Array.from({ length: 8 }, (_, index) => (
+              <Skeleton key={index} className="help-skeleton help-skeleton-topic" radius={12} />
+            ))}
+          </div>
+        ) : topics.error ? (
+          <HelpError message={t("helpPage.topics.error")} retryLabel={t("helpPage.retry")} onRetry={topics.retry} />
+        ) : topics.data.length === 0 ? (
+          <p className="help-empty">{t("helpPage.topics.empty")}</p>
+        ) : (
+          <div className="help-topics-grid">
+            {sortedTopics.map((topic, index) => {
+              const Icon = iconFor(topic.icon, index);
+              return (
+                <Link className={TONES[index % TONES.length]} key={topic.id} to={`/help/topics/${topic.slug}`}>
+                  <Icon />
+                  <b>
+                    <Lines text={topic.title} />
+                  </b>
+                  {topic.description && (
+                    <small>
+                      <Lines text={topic.description} />
+                    </small>
+                  )}
+                  <em>{t("helpPage.topics.faqCount", { count: topic.faqCount ?? 0 })}</em>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="help-width help-columns">
-        <section className="faq-panel">
-          <div className="help-section-title">
-            <h2>คำถามที่พบบ่อย</h2>
-            <button onClick={() => setQuery("")}>ดูคำถามทั้งหมด →</button>
-          </div>
-          <div className="faq-list">
-            {visibleFaqs.map(([question, answer], i) => (
-              <article key={question}>
-                <button
-                  aria-expanded={openFaq === i}
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                >
-                  <i>{i + 1}</i>
-                  <span>{question}</span>
-                  <ChevronDown />
-                </button>
-                {openFaq === i && <p>{answer}</p>}
-              </article>
-            ))}
-            {visibleFaqs.length === 0 && (
-              <p className="empty-faq">
-                ไม่พบคำตอบ ลองใช้คำค้นอื่นหรือติดต่อทีมงาน
-              </p>
-            )}
-          </div>
-        </section>
-        <section className="guide-panel">
-          <div className="help-section-title">
-            <h2>คู่มือการใช้งาน</h2>
-            <button onClick={() => notify("แสดงคู่มือทั้งหมด")}>
-              ดูคู่มือทั้งหมด →
-            </button>
-          </div>
-          {guides.map((guide, i) => (
-            <button
-              className="guide-item"
-              key={guide.title}
-              onClick={() => notify(`เปิด${guide.title}`)}
-            >
-              <span className={`guide-photo ${guide.crop}`}>
-                <img src={helpReference} alt="" />
-              </span>
-              <span>
-                <b>{guide.title}</b>
-                <small>
-                  {guide.text.split("\n").map((line, j) => (
-                    <span key={j}>{line}</span>
-                  ))}
-                </small>
-              </span>
-              <ChevronRight />
-            </button>
-          ))}
-        </section>
-        <section className="contact-panel">
+        <section className="faq-panel" ref={faqListRef} aria-labelledby="help-faq-title">
           <div className="help-section-title">
             <div>
-              <h2>ติดต่อเรา</h2>
-              <p>หากยังไม่ได้คำตอบ ทีมงานพร้อมช่วยเหลือคุณ</p>
+              <h2 id="help-faq-title">{t("helpPage.faq.title")}</h2>
+              {searching && !faqs.loading && !faqs.error && (
+                <p role="status">{t("helpPage.faq.resultCount", { count: faqs.data.length })}</p>
+              )}
             </div>
-          </div>
-          <div className="contact-grid">
-            <article>
-              <MessageCircle />
-              <div>
-                <b>แชทกับเรา</b>
-                <small>จ.–อา. 08:00 - 22:00</small>
-                <button onClick={() => notify("กำลังเปิดแชท")}>
-                  เริ่มแชทเลย →
+            {searching ? (
+              <button type="button" onClick={clearSearch}>
+                {t("helpPage.faq.viewAll")}
+              </button>
+            ) : (
+              faqs.data.length > POPULAR_COUNT && (
+                <button type="button" onClick={() => setShowAllFaqs((value) => !value)}>
+                  {showAllFaqs ? t("helpPage.guides.showLess") : t("helpPage.faq.viewAll")}
                 </button>
-              </div>
-            </article>
-            <article className="line">
-              <b className="line-logo">LINE</b>
-              <div>
-                <b>LINE Official</b>
-                <small>@thaishopfun</small>
-                <button onClick={() => notify("กำลังเปิด LINE Official")}>
-                  เพิ่มเพื่อน →
-                </button>
-              </div>
-            </article>
-            <article>
-              <Mail />
-              <div>
-                <b>ส่งอีเมล</b>
-                <small>support@thaishopfun.com</small>
-                <a href="mailto:support@thaishopfun.com">ส่งอีเมล →</a>
-              </div>
-            </article>
-            <article>
-              <Phone />
-              <div>
-                <b>โทรสอบถาม</b>
-                <small>
-                  02-123-4567
-                  <br />
-                  จ.–ศ. 08:00 - 18:00
-                </small>
-                <a href="tel:021234567">โทรเลย →</a>
-              </div>
-            </article>
+              )
+            )}
           </div>
+          {faqs.loading && faqs.data.length === 0 ? (
+            <div className="faq-list help-faq-skeleton" aria-busy="true">
+              {Array.from({ length: 6 }, (_, index) => (
+                <Skeleton key={index} className="help-skeleton help-skeleton-faq" radius={0} />
+              ))}
+            </div>
+          ) : faqs.error ? (
+            <HelpError message={t("helpPage.faq.error")} retryLabel={t("helpPage.retry")} onRetry={faqs.retry} />
+          ) : visibleFaqs.length === 0 ? (
+            <div className="help-empty" role="status">
+              <SearchX aria-hidden="true" />
+              <p>{searching ? t("helpPage.faq.emptySearch", { query: submittedQuery }) : t("helpPage.faq.empty")}</p>
+              {searching && (
+                <button type="button" onClick={clearSearch}>
+                  {t("helpPage.faq.clearFilters")}
+                </button>
+              )}
+            </div>
+          ) : (
+            <div
+              className={`faq-list ${faqs.loading ? "is-refetching" : ""}`.trim()}
+              aria-busy={faqs.loading}
+              onKeyDown={onAccordionKey}
+            >
+              {visibleFaqs.map((faq, index) => {
+                const open = openFaq === faq.id;
+                const { lead, rest } = splitAnswer(faq.answer);
+                return (
+                  <article key={faq.id}>
+                    <h3>
+                      <button
+                        type="button"
+                        id={`faq-trigger-${faq.id}`}
+                        data-faq-trigger
+                        aria-expanded={open}
+                        aria-controls={`faq-panel-${faq.id}`}
+                        onClick={() => setOpenFaq(open ? null : faq.id)}
+                      >
+                        <i>{index + 1}</i>
+                        <span>
+                          {faq.question}
+                          {topicTitleBySlug.get(faq.topicSlug) && <small>{topicTitleBySlug.get(faq.topicSlug)}</small>}
+                        </span>
+                        <ChevronDown aria-hidden="true" />
+                      </button>
+                    </h3>
+                    <div
+                      className="faq-panel-body"
+                      id={`faq-panel-${faq.id}`}
+                      role="region"
+                      aria-labelledby={`faq-trigger-${faq.id}`}
+                      hidden={!open}
+                    >
+                      {open && (
+                        <>
+                          <p className="faq-lead">{lead}</p>
+                          {rest && <p>{rest}</p>}
+                          <Link className="faq-more" to={`/help/faqs/${faq.id}`}>
+                            {t("helpPage.faq.viewFull")}
+                            <ChevronRight aria-hidden="true" />
+                          </Link>
+                        </>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </section>
+
+        <section className="guide-panel">
+          <div className="help-section-title">
+            <h2>{t("helpPage.guides.title")}</h2>
+            {guides.data.length > GUIDE_PREVIEW && (
+              <button type="button" onClick={() => setShowAllGuides((value) => !value)}>
+                {showAllGuides ? t("helpPage.guides.showLess") : t("helpPage.guides.viewAll")}
+              </button>
+            )}
+          </div>
+          {guides.loading && guides.data.length === 0 ? (
+            <div aria-busy="true">
+              {Array.from({ length: GUIDE_PREVIEW }, (_, index) => (
+                <Skeleton key={index} className="help-skeleton help-skeleton-guide" radius={8} />
+              ))}
+            </div>
+          ) : guides.error ? (
+            <HelpError message={t("helpPage.guides.error")} retryLabel={t("helpPage.retry")} onRetry={guides.retry} />
+          ) : guides.data.length === 0 ? (
+            <p className="help-empty">{t("helpPage.guides.empty")}</p>
+          ) : (
+            visibleGuides.map((guide, index) => {
+              const external = /^https?:\/\//i.test(guide.url);
+              return (
+                <a
+                  className="guide-item"
+                  key={guide.id}
+                  href={guide.url}
+                  {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                >
+                  <span className={`guide-photo ${GUIDE_CROPS[index % GUIDE_CROPS.length]}`}>
+                    <img src={helpReference} alt="" loading="lazy" />
+                  </span>
+                  <span>
+                    <b>{guide.title}</b>
+                    {guide.summary && (
+                      <small>
+                        <Lines text={guide.summary} />
+                      </small>
+                    )}
+                  </span>
+                  <ChevronRight aria-hidden="true" />
+                </a>
+              );
+            })
+          )}
+        </section>
+
+        <HelpContactPanel />
       </section>
-      {notice && (
-        <div className="recommend-toast" role="status">
-          {notice}
-        </div>
-      )}
     </main>
   );
 }

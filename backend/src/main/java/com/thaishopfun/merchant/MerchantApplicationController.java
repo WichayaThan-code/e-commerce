@@ -2,12 +2,17 @@ package com.thaishopfun.merchant;
 
 import com.thaishopfun.auth.authz.RequirePermission;
 import jakarta.validation.Valid;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 @RestController
@@ -27,7 +32,20 @@ public class MerchantApplicationController {
     @RequirePermission("SHOP_APPLICATION_FILE_UPLOAD")
     @PostMapping(value="/documents/{type}",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
     public MerchantDtos.ApplicationResponse document(@AuthenticationPrincipal Jwt jwt,@PathVariable DocumentType type,@RequestPart("file") MultipartFile file){return service.upload(userId(jwt),type,file);}
+    @RequirePermission("SHOP_APPLICATION_READ")
+    @GetMapping("/documents/{type}")
+    public ResponseEntity<FileSystemResource> downloadDocument(@AuthenticationPrincipal Jwt jwt, @PathVariable DocumentType type) {
+        var file = service.openOwnDocument(userId(jwt), type);
+        var encoded = URLEncoder.encode(file.originalFilename() == null ? "document" : file.originalFilename(), StandardCharsets.UTF_8).replace("+", "%20");
+        var mediaType = MediaType.parseMediaType(blank(file.contentType()) ? MediaType.APPLICATION_OCTET_STREAM_VALUE : file.contentType());
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"document\"; filename*=UTF-8''" + encoded)
+            .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+            .contentType(mediaType)
+            .body(new FileSystemResource(file.path()));
+    }
     @RequirePermission("SHOP_APPLICATION_SUBMIT")
     @PostMapping("/submit") public MerchantDtos.ApplicationResponse submit(@AuthenticationPrincipal Jwt jwt){return service.submit(userId(jwt));}
     private UUID userId(Jwt jwt){return UUID.fromString(jwt.getSubject());}
+    private static boolean blank(String value){return value==null||value.isBlank();}
 }

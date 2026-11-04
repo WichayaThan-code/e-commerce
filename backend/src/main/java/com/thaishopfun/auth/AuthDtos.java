@@ -13,7 +13,7 @@ public final class AuthDtos {
         @NotBlank @Size(max = 100) String lastName,
         @NotBlank @Email @Size(max = 255) String email,
         @NotBlank @Pattern(regexp = "^[0-9+ -]{9,20}$", message = "เบอร์โทรศัพท์ไม่ถูกต้อง") String phone,
-        @NotBlank @Size(min = 8, max = 72) @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$", message = "รหัสผ่านต้องมีตัวอักษรและตัวเลข") String password
+        @NotBlank @Size(min = 8, max = 72) @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)[\\x21-\\x7E]+$", message = "รหัสผ่านต้องมีตัวอักษรภาษาอังกฤษและตัวเลข ใช้เฉพาะอักขระ ASCII ที่พิมพ์ได้ และห้ามมีช่องว่าง") String password
     ) {}
 
     public record LoginRequest(@NotBlank String identity, @NotBlank String password) {}
@@ -22,12 +22,12 @@ public final class AuthDtos {
 
     public record ResetPasswordRequest(
         @NotBlank String token,
-        @NotBlank @Size(min = 8, max = 72) @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$", message = "รหัสผ่านต้องมีตัวอักษรและตัวเลข") String newPassword
+        @NotBlank @Size(min = 8, max = 72) @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)[\\x21-\\x7E]+$", message = "รหัสผ่านต้องมีตัวอักษรภาษาอังกฤษและตัวเลข ใช้เฉพาะอักขระ ASCII ที่พิมพ์ได้ และห้ามมีช่องว่าง") String newPassword
     ) {}
 
     public record ChangePasswordRequest(
         @NotBlank String currentPassword,
-        @NotBlank @Size(min = 8, max = 72) @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d).+$", message = "รหัสผ่านต้องมีตัวอักษรและตัวเลข") String newPassword
+        @NotBlank @Size(min = 8, max = 72) @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)[\\x21-\\x7E]+$", message = "รหัสผ่านต้องมีตัวอักษรภาษาอังกฤษและตัวเลข ใช้เฉพาะอักขระ ASCII ที่พิมพ์ได้ และห้ามมีช่องว่าง") String newPassword
     ) {}
 
     public record SendOtpRequest(
@@ -38,6 +38,11 @@ public final class AuthDtos {
     public record VerifyOtpRequest(
         @NotNull UUID otpId,
         @NotBlank @Pattern(regexp = "^\\d{6}$", message = "รหัส OTP ต้องเป็นตัวเลข 6 หลัก") String code
+    ) {}
+
+    public record VerifyOtpLinkRequest(
+        @NotNull UUID otpId,
+        @NotBlank @Size(min = 16, max = 128) String token
     ) {}
 
     /**

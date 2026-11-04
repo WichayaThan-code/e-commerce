@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Activity, BarChart3, Bell, Building2, CircleDollarSign, ClipboardList, FileCheck2, FileText,
-  Gauge, Headphones, Home, LogOut, Megaphone, ReceiptText, Settings, ShoppingBag, Store, Tags,
+  Gauge, Headphones, Home, LogOut, Megaphone, Newspaper, ReceiptText, Settings, ShoppingBag, Store, Tags,
   TrendingUp, UserCog, UsersRound, WalletCards,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -14,7 +14,7 @@ export function refreshAdminStoreApplications() {
   window.dispatchEvent(new Event(STORE_APPLICATIONS_CHANGED))
 }
 
-export type AdminSection = 'home' | 'stores' | 'applications' | 'categories' | 'promotions' | 'users' | 'roles' | 'role-assignments' | 'orders' | 'audit' | 'merchants' | 'usage' | 'system-status'
+export type AdminSection = 'home' | 'stores' | 'applications' | 'categories' | 'help-center' | 'articles' | 'promotions' | 'users' | 'roles' | 'role-assignments' | 'orders' | 'audit' | 'merchants' | 'usage' | 'system-status'
 
 const links: { key: AdminSection; label: string; href: string; icon: typeof Store }[] = [
   { key: 'stores', label: 'ร้านค้า', href: '/admin/stores', icon: Store },
@@ -23,6 +23,8 @@ const links: { key: AdminSection; label: string; href: string; icon: typeof Stor
   { key: 'orders', label: 'คำสั่งซื้อทั้งหมด', href: '/admin/orders', icon: ShoppingBag },
   { key: 'applications', label: 'ใบสมัครร้านค้า', href: '/admin/store-applications', icon: FileCheck2 },
   { key: 'categories', label: 'หมวดหมู่สินค้า', href: '/admin/categories', icon: Tags },
+  { key: 'help-center', label: 'ศูนย์ช่วยเหลือ', href: '/admin/help-center', icon: Headphones },
+  { key: 'articles', label: 'บทความ', href: '/admin/articles', icon: Newspaper },
   { key: 'promotions', label: 'โปรโมชั่น/แคมเปญ', href: '/admin/promotions', icon: Megaphone },
   { key: 'users', label: 'ผู้ใช้งาน', href: '/admin/users', icon: UsersRound },
   { key: 'roles', label: 'บทบาทและสิทธิ์', href: '/admin/roles', icon: UserCog },
@@ -32,7 +34,7 @@ const links: { key: AdminSection; label: string; href: string; icon: typeof Stor
 ]
 
 const groups: { label: string; keys: AdminSection[] }[] = [
-  { label: 'จัดการร้านค้า', keys: ['stores', 'merchants', 'usage', 'orders', 'applications', 'categories', 'promotions'] },
+  { label: 'จัดการร้านค้า', keys: ['stores', 'merchants', 'usage', 'orders', 'applications', 'categories', 'help-center', 'articles', 'promotions'] },
   { label: 'จัดการผู้ใช้', keys: ['users', 'roles', 'role-assignments'] },
 ]
 
@@ -125,7 +127,7 @@ export default function AdminSidebar({ active, className = '', showHelp = false,
           <a className={active === 'system-status' ? 'active' : ''} href={item('system-status').href}><Activity />{item('system-status').label}</a>
         )}
       </section>
-      {showHelp && <button className="admin-help" type="button" onClick={() => unavailable('ศูนย์ช่วยเหลือ')}><Headphones />ศูนย์ช่วยเหลือ</button>}
+      {showHelp && <a className="admin-help" href="/help"><Headphones />ศูนย์ช่วยเหลือ</a>}
       <button className="admin-logout" type="button" onClick={signOut}><LogOut />ออกจากระบบ</button>
       {notice && <div className="admin-toast" role="status">{notice}</div>}
     </aside>

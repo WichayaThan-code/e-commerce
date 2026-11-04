@@ -1,8 +1,10 @@
 @import "./sale-types.css";
+@import "./form-invalid.css";
 .merchant-social-section{border:0;margin:18px 0 0;padding:0}
 .merchant-social-section legend{font-size:15px;font-weight:800;color:#08245e;margin-bottom:6px}
 .merchant-social-hint{margin:0 0 12px;font-size:13px;color:#5a7394;line-height:1.45}
-.merchant-social-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.merchant-social-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+.merchant-social-grid>*{min-width:0}
 .merchant-social-grid label span{display:block;font-size:13px;font-weight:700;color:#345684;margin-bottom:6px}
 .merchant-social-grid .merchant-icon-input svg{width:18px;height:18px;color:#6b86a8;flex:none}
 @media (max-width:720px){.merchant-social-grid{grid-template-columns:1fr}}
@@ -55,16 +57,10 @@
 .merchant-stats span{font-size:10px;color:#536c8e;margin-top:2px}
 
 .merchant-form-side{padding:20px 2.5% 28px;background:linear-gradient(130deg,#f7fbff,#eff8ff);min-width:0}
-.merchant-card{max-width:650px;margin:0 auto;background:#fff;border-radius:21px;padding:28px 34px 26px;box-shadow:0 15px 45px rgba(21,58,96,.06)}
+.merchant-card{max-width:650px;width:100%;margin:0 auto;background:#fff;border-radius:21px;padding:28px 34px 26px;box-shadow:0 15px 45px rgba(21,58,96,.06);box-sizing:border-box}
 .merchant-card-title h2{font-size:32px;margin:0}
 .merchant-card-title p{font-size:14px;color:#567093;margin:1px 0 15px}
-.merchant-steps{display:grid;grid-template-columns:repeat(4,1fr);margin-bottom:26px}
-.merchant-steps>div{position:relative;text-align:center;color:#627795}
-.merchant-steps>div:not(:last-child):after{content:'';position:absolute;top:21px;left:68%;width:64%;height:1.5px;background:#cfdbe9}
-.merchant-steps span{position:relative;z-index:1;margin:auto;width:43px;height:43px;border:1.5px solid #cbd8e7;border-radius:50%;display:grid;place-items:center;background:#fff;font-size:18px;font-weight:700}
-.merchant-steps small{display:block;font-size:11px;font-weight:700;margin-top:5px;white-space:nowrap}
-.merchant-steps .active{color:#08245e}
-.merchant-steps .active span{background:#0878f5;color:#fff;border-color:#0878f5}
+/* .merchant-steps → register-stepper.css (via RegisterStepper) */
 .merchant-card form h3{font-size:18px;margin:0 0 13px}
 .merchant-card label,.merchant-card legend{font-size:13px;font-weight:700;color:#08245e}
 .merchant-card em{font-style:normal;color:var(--color-danger)}
@@ -74,19 +70,21 @@
 .merchant-card textarea{height:116px;padding-top:12px;resize:none}
 .merchant-card input:focus,.merchant-card select:focus,.merchant-card textarea:focus,.merchant-icon-input:focus-within{border-color:#0878f5;box-shadow:var(--focus-ring)}
 .merchant-card input::placeholder,.merchant-card textarea::placeholder{color:#8495ac}
-.merchant-two{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:14px}
+.merchant-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-bottom:14px}
+.merchant-two>*{min-width:0}
 .merchant-card label{position:relative;display:block}
 .merchant-card label>small{position:absolute;right:2px;bottom:-15px;font-size:10px;color:#557097;font-weight:500}
 .detail-logo{margin-bottom:23px}
-.logo-drop{width:100%;height:116px;margin-top:6px;border:1.5px dashed #bfd0e5;border-radius:7px;background:#fbfdff;color:#3b5d89;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.logo-drop{width:100%;height:148px;margin-top:6px;border:1.5px dashed #bfd0e5;border-radius:7px;background:#fbfdff;color:#3b5d89;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.merchant-card .login-message{margin:0 0 16px}
 .logo-drop svg{width:30px;height:30px}
 .logo-drop span{font-size:11px}
 .logo-drop small{font-size:9px;line-height:1.5}
 .logo-drop img{width:100%;height:100%;object-fit:contain;padding:8px}
 .file-input{display:none!important}
 .merchant-icon-input{display:flex;align-items:center;padding:0 12px}
-.merchant-icon-input svg{width:18px;color:#3c5f8c}
-.merchant-icon-input input{border:0;margin:0;height:100%;box-shadow:none!important}
+.merchant-icon-input>svg{width:18px;height:18px;color:#3c5f8c;flex-shrink:0}
+.merchant-icon-input>input{flex:1;min-width:0;height:100%;margin:0;padding:0 11px;border:0;border-radius:0;outline:none;box-shadow:none;background:transparent}
 .compact-row{margin-bottom:18px}
 .merchant-card fieldset{border:0;padding:0;margin:0 0 17px}
 .merchant-card legend{margin-bottom:8px;font-size:16px}
@@ -143,8 +141,6 @@
   .merchant-form-side{padding:15px 12px 28px}
   .merchant-card{padding:25px 18px;border-radius:15px}
   .merchant-card-title h2{font-size:28px}
-  .merchant-steps small{font-size:8px}
-  .merchant-steps>div:not(:last-child):after{width:50%;left:75%}
   .merchant-two,.sale-types{grid-template-columns:1fr;gap:14px}
   .detail-logo{margin-bottom:18px}
   .merchant-next{width:100%}
@@ -154,14 +150,104 @@
 }
 
 .merchant-card form label{font-weight:600;font-size:13px;margin-bottom:17px;color:#132b50}
-.merchant-card form input,.merchant-card form select,.merchant-card form textarea,.merchant-card .merchant-icon-input,.merchant-card .searchable-select-btn{height:51px;border:1px solid #dce2eb;border-radius:10px;background:#fff;color:#132b50;font-size:14px}
-.merchant-card form textarea{height:116px;padding:12px 14px}
-.merchant-card form input:focus,.merchant-card form select:focus,.merchant-card form textarea:focus,.merchant-card .merchant-icon-input:focus-within,.merchant-card .searchable-select-btn:focus{outline:none;border-color:#1671de;box-shadow:var(--focus-ring)}
-.merchant-card form input[aria-invalid=true],.merchant-card form textarea[aria-invalid=true]{border-color:#e8a477;background:var(--color-warning-bg)}
+.merchant-card form input,.merchant-card form select,.merchant-card form textarea,.merchant-card .merchant-icon-input,.merchant-card .form-control:not(.form-control-area),.merchant-card .searchable-select-btn{height:51px;border:1px solid #dce2eb;border-radius:10px;background:#fff;color:#132b50;font-size:14px}
+.merchant-card .form-control.form-control-area{height:auto;min-height:148px;align-items:stretch;padding:0;border:1px solid #dce2eb;border-radius:10px;background:#fff}
+.merchant-card form textarea,.merchant-card .form-control-area>textarea{height:auto;min-height:148px;padding:12px 14px;resize:vertical}
+.merchant-card form input:focus,.merchant-card form select:focus,.merchant-card form textarea:focus,.merchant-card .merchant-icon-input:focus-within,.merchant-card .form-control:focus-within,.merchant-card .searchable-select-btn:focus{outline:none;border-color:#1671de;box-shadow:var(--focus-ring)}
 .merchant-card form input::placeholder,.merchant-card form textarea::placeholder{color:#8793a3}
+/* Wrapper (.form-control / .merchant-icon-input) owns chrome; beat `.merchant-card form input` + tokens.css focus-visible. */
+.merchant-card .form-control>input,
+.merchant-card .form-control>select,
+.merchant-card .form-control>textarea,
+.merchant-card .merchant-icon-input>input{
+  flex:1;width:100%;min-width:0;height:100%;margin:0;padding:0 11px;border:0;border-radius:0;outline:none;box-shadow:none;background:transparent;
+}
+.merchant-card .form-control-area>textarea{height:auto;min-height:148px;padding:12px 14px;resize:vertical}
+.merchant-card .form-control>input:focus,
+.merchant-card .form-control>input:focus-visible,
+.merchant-card .form-control>select:focus,
+.merchant-card .form-control>select:focus-visible,
+.merchant-card .form-control>textarea:focus,
+.merchant-card .form-control>textarea:focus-visible,
+.merchant-card .merchant-icon-input>input:focus,
+.merchant-card .merchant-icon-input>input:focus-visible{
+  outline:none;box-shadow:none;border:0;
+}
+/* Autofill chrome lives in form-invalid.css */
 .merchant-card .login-submit{width:min(100%,360px);margin:8px auto 0}
-.merchant-count{display:block;margin:-8px 0 14px;color:#69798c;font-size:11px;font-weight:500}
+.merchant-count{display:block;margin:6px 0 14px;color:#69798c;font-size:11px;font-weight:500;line-height:1.4}
+.merchant-card .form-field-meta{margin-bottom:6px}
+.merchant-card .form-field.flush .form-field-meta{margin-bottom:0}
 .merchant-card .form-field em{font-style:normal;color:var(--color-danger);margin-left:3px}
 .merchant-card .searchable-select-btn,.owner-card .searchable-select-btn{height:51px;border:1px solid #dce2eb;border-radius:10px;color:#132b50;font-size:14px}
 .merchant-card .searchable-select-btn:focus,.merchant-card .searchable-select-btn.active{outline:none;border-color:#1671de;box-shadow:var(--focus-ring)}
-.merchant-card .logo-drop{border:1px dashed #dce2eb;border-radius:10px;background:#fff}
+.merchant-card .logo-drop{height:148px;border:1px dashed #dce2eb;border-radius:10px;background:#fff}
+
+/* Invalid chrome must come AFTER the white field rules above (same specificity otherwise loses).
+   Wrapper (.form-control / .logo-drop) owns border+bg; input[aria-invalid] alone cannot paint the chrome. */
+.merchant-card .form-control:has([aria-invalid="true"]),
+.merchant-card .form-control.is-invalid,
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]),
+.merchant-card .merchant-icon-input.is-invalid,
+.merchant-card .searchable-select-btn[aria-invalid="true"],
+.merchant-card .searchable-select-btn.is-invalid {
+  border-color: var(--form-invalid-border) !important;
+  background: var(--form-invalid-bg) !important;
+}
+.merchant-card .form-control:has([aria-invalid="true"]):focus-within,
+.merchant-card .form-control.is-invalid:focus-within,
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]):focus-within,
+.merchant-card .searchable-select-btn[aria-invalid="true"]:focus,
+.merchant-card .searchable-select-btn[aria-invalid="true"].active,
+.merchant-card .searchable-select-btn.is-invalid:focus,
+.merchant-card .searchable-select-btn.is-invalid.active {
+  outline: none;
+  border-color: var(--form-invalid-border) !important;
+  box-shadow: var(--form-invalid-focus-ring) !important;
+}
+.merchant-card .form-control:has([aria-invalid="true"]) > svg,
+.merchant-card .form-control.is-invalid > svg,
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]) > svg {
+  color: var(--form-invalid-icon);
+}
+/* Kill nested second box from `.merchant-card form input` + focus ring on the inner control. */
+.merchant-card .form-control:has([aria-invalid="true"]) > input,
+.merchant-card .form-control:has([aria-invalid="true"]) > input:focus,
+.merchant-card .form-control:has([aria-invalid="true"]) > input:focus-visible,
+.merchant-card .form-control:has([aria-invalid="true"]) > textarea,
+.merchant-card .form-control:has([aria-invalid="true"]) > textarea:focus,
+.merchant-card .form-control:has([aria-invalid="true"]) > textarea:focus-visible,
+.merchant-card .form-control.is-invalid > input,
+.merchant-card .form-control.is-invalid > input:focus,
+.merchant-card .form-control.is-invalid > input:focus-visible,
+.merchant-card .form-control.is-invalid > textarea,
+.merchant-card .form-control.is-invalid > textarea:focus,
+.merchant-card .form-control.is-invalid > textarea:focus-visible,
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]) > input,
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]) > input:focus,
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]) > input:focus-visible {
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.merchant-card .logo-drop[aria-invalid="true"],
+.merchant-card .logo-drop.is-invalid {
+  border-style: dashed !important;
+  border-color: var(--form-invalid-border) !important;
+  background: var(--form-invalid-bg) !important;
+  color: var(--form-invalid-icon);
+}
+.merchant-card .logo-drop[aria-invalid="true"] > svg,
+.merchant-card .logo-drop.is-invalid > svg {
+  color: var(--form-invalid-icon);
+}
+.merchant-card .sale-types[aria-invalid="true"] > button {
+  border-color: var(--form-invalid-border) !important;
+  background: var(--form-invalid-bg) !important;
+}
+.merchant-card .signup-field-error,
+.merchant-card .signup-field-error svg {
+  color: var(--form-invalid-error);
+}

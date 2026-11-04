@@ -1274,5 +1274,172 @@
       "REFUNDED": "已退款",
       "PARTIALLY_REFUNDED": "部分退款"
     }
+  },
+  "helpPage": {
+    "retry": "重试",
+    "hero": {
+      "title": "ThaiShopFun 帮助中心",
+      "alt": "ThaiShopFun 帮助中心",
+      "searchLabel": "搜索问题",
+      "suggestions": "推荐问题",
+      "searching": "搜索中...",
+      "noSuggestions": "没有匹配的问题，按 Enter 搜索全部内容。",
+      "searchPlaceholder": "搜索问题或遇到的困难",
+      "searchAction": "搜索"
+    },
+    "topics": {
+      "title": "请选择需要帮助的主题",
+      "error": "无法加载帮助主题",
+      "empty": "暂无帮助主题",
+      "faqCount": "{{count}} 个问题"
+    },
+    "faq": {
+      "title": "常见问题",
+      "viewAll": "查看全部问题 →",
+      "resultCount": "找到 {{count}} 条相关答案",
+      "error": "无法加载常见问题",
+      "empty": "该主题下暂无问题",
+      "emptySearch": "未找到“{{query}}”的解答，请尝试其他关键词或联系我们。",
+      "clearFilters": "清除筛选",
+      "viewFull": "查看完整解答"
+    },
+    "guides": {
+      "title": "使用指南",
+      "viewAll": "查看全部指南 →",
+      "showLess": "收起",
+      "error": "无法加载指南",
+      "empty": "暂无使用指南"
+    },
+    "contact": {
+      "title": "联系我们",
+      "subtitle": "如果仍未找到答案，我们的团队随时为您服务",
+      "chat": {
+        "title": "在线聊天",
+        "hours": "周一至周日 08:00 - 22:00",
+        "action": "开始聊天 →",
+        "opening": "正在打开聊天…"
+      },
+      "line": {
+        "title": "LINE 官方账号",
+        "action": "添加好友 →",
+        "opening": "正在打开 LINE 官方账号…"
+      },
+      "email": {
+        "title": "发送邮件",
+        "action": "发送邮件 →"
+      },
+      "phone": {
+        "title": "电话咨询",
+        "hours": "周一至周五 08:00 - 18:00",
+        "action": "立即致电 →"
+      }
+    },
+    "breadcrumb": "页面路径",
+    "breadcrumbHome": "帮助中心",
+    "backToHelp": "返回帮助中心",
+    "audience": {
+      "label": "选择用户类型",
+      "buyer": "买家",
+      "seller": "卖家"
+    },
+    "quickLinks": {
+      "title": "快速链接",
+      "track": "查询订单",
+      "orders": "我的订单",
+      "shops": "浏览店铺",
+      "articles": "阅读文章"
+    },
+    "topic": {
+      "crumb": "主题",
+      "faqCount": "{{count}} 个问题",
+      "notFound": "未找到该帮助主题",
+      "empty": "该主题下暂无问题",
+      "error": "主题加载失败",
+      "otherTopics": "其他主题"
+    },
+    "faqDetail": {
+      "crumb": "解答",
+      "lastReviewed": "最近审核：{{date}}",
+      "helpfulTitle": "这个解答对您有帮助吗？",
+      "yes": "有帮助",
+      "no": "没帮助",
+      "thanks": "感谢您的反馈",
+      "alreadyVoted": "您已评价过此解答",
+      "feedbackError": "反馈发送失败，请重试。",
+      "helpfulCount": "{{count}} 人觉得有帮助",
+      "related": "相关问题",
+      "relatedEmpty": "暂无相关问题",
+      "contactTitle": "还没找到答案？",
+      "contactBody": "我们的团队每天都在为您服务",
+      "contactAction": "联系我们",
+      "notFound": "未找到该问题",
+      "error": "解答加载失败"
+    }
+  },
+  "articles": {
+    "metaTitle": "文章",
+    "metaDescription": "ThaiShopFun 为买家和卖家提供的文章、技巧与故事",
+    "heroTitle": "ThaiShopFun 文章",
+    "heroSubtitle": "为买家和卖家精选的创意、技巧与故事",
+    "featured": "精选",
+    "readMore": "阅读文章",
+    "all": "全部",
+    "categoriesLabel": "文章分类",
+    "latestTitle": "最新文章",
+    "listTitle": "全部文章",
+    "resultCount": "共 {{count}} 篇文章",
+    "searchPlaceholder": "搜索文章",
+    "searchLabel": "搜索文章",
+    "clearTag": "清除标签",
+    "clearFilters": "清除筛选",
+    "empty": "暂无文章",
+    "emptyFiltered": "没有符合筛选条件的文章",
+    "error": "文章加载失败",
+    "retry": "重试",
+    "loadMore": "加载更多",
+    "loading": "加载中...",
+    "loadMoreError": "无法加载更多文章",
+    "readingMinutes": "阅读 {{count}} 分钟",
+    "sidebarLabel": "更多",
+    "breadcrumbRoot": "文章",
+    "status": {
+      "DRAFT": "草稿",
+      "PUBLISHED": "已发布",
+      "ARCHIVED": "已归档"
+    },
+    "sidebar": {
+      "latest": "最新文章",
+      "latestEmpty": "暂无文章",
+      "tags": "标签"
+    },
+    "newsletter": {
+      "title": "抢先阅读好文章",
+      "body": "商业创意、销售技巧和励志故事，直接送达您的邮箱",
+      "label": "订阅邮箱",
+      "placeholder": "请输入您的邮箱",
+      "action": "订阅",
+      "invalid": "请输入有效的邮箱",
+      "success": "订阅成功"
+    },
+    "detail": {
+      "breadcrumb": "页面路径",
+      "home": "首页",
+      "toc": "目录",
+      "share": "分享文章",
+      "copyLink": "复制链接",
+      "copied": "链接已复制",
+      "copyFailed": "复制链接失败",
+      "relatedShop": "相关店铺与商品",
+      "visitShop": "前往店铺",
+      "viewProduct": "查看商品",
+      "related": "相关文章",
+      "ctaTitle": "准备好选购泰国商品了吗？",
+      "ctaBody": "浏览来自泰国各地卖家的优质商品和店铺",
+      "ctaAction": "返回购物",
+      "backToList": "返回文章列表",
+      "error": "文章加载失败",
+      "noContent": "这篇文章暂无此语言的内容。",
+      "previewBanner": "预览模式（状态：{{status}}）——发布前访客无法看到此页面"
+    }
   }
 }

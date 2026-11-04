@@ -2,7 +2,12 @@
   "common": {
     "backHome": "返回首页",
     "applyTitle": "申请开店",
+    "applyTitleBefore": "申请",
+    "applyTitleAccent": "开店",
+    "applyTitleAfter": "",
+    "badgeOnboarding": "商家入驻",
     "applyLead": "在 ThaiShopFun 上\n几步即可创建店铺",
+    "applyLeadShort": "在 ThaiShopFun 上几步即可创建店铺",
     "helpTitle": "需要帮助？",
     "helpText": "团队随时为您服务",
     "contact": "联系团队",
@@ -12,24 +17,39 @@
     "back": "返回",
     "required": "*",
     "hasAccount": "已有店铺账号？",
-    "login": "登录"
+    "login": "登录",
+    "stepsNavLabel": "开店申请步骤",
+    "asideSafeSummary": "您的信息是安全的",
+    "progressDone": "已完成 {{done}} / {{total}} 步",
+    "progressEta": "大约需要 5 分钟",
+    "trustSslPdpa": "SSL 加密 • PDPA",
+    "prepareTitle": "需要准备的材料",
+    "prepareSteps": [
+      { "title": "身份证", "hint": "原件清晰、无反光" },
+      { "title": "银行账户本", "hint": "户名需与店主一致" },
+      { "title": "地址证明", "hint": "户口本或水电账单" }
+    ],
+    "communityTitle": "加入我们的商家",
+    "communityLead": "成为 ThaiShopFun 上泰国店铺的一员",
+    "communityMore": "+{{count}} 家",
+    "safeLead": "我们按国际标准保护您的信息"
   },
   "steps": [
     {
       "title": "店铺信息",
-      "text": "店名、品类、联系方式"
+      "text": "店名、品类与地址"
     },
     {
       "title": "店主信息",
-      "text": "个人或公司资料"
+      "text": "姓名、证件号与地址"
     },
     {
       "title": "验证文件",
-      "text": "身份与营业证明"
+      "text": "上传身份验证文件"
     },
     {
       "title": "核对并提交",
-      "text": "提交前请核对"
+      "text": "提交前请核对全部信息"
     }
   ],
   "register": {
@@ -180,14 +200,14 @@
     "uploadChange": "Change file",
     "uploading": "Uploading",
     "uploadFail": "Upload failed",
-    "safeTitle": "Your information stays safe",
+    "safeTitle": "您的信息是安全的",
     "safeBullets": [
       "Encrypted (SSL)",
       "Used only for verification",
       "Not shared publicly",
       "PDPA compliant"
     ],
-    "tipsTitle": "Tips",
+    "tipsTitle": "准备好相关文件",
     "tipsBullets": [
       "Match official documents",
       "Use clear, readable images",
@@ -221,8 +241,24 @@
     "confirmTitle": "Document accuracy",
     "confirmText": "I confirm all documents are genuine and valid",
     "next": "Next",
+    "uploadedTitle": "已上传文件",
+    "uploadedNamed": "已上传：{{name}}",
+    "pdfBadge": "PDF • {{pages}} 页",
+    "previewAlt": "已上传文件预览",
+    "previewOpen": "打开完整文件",
+    "previewClose": "关闭",
     "errSize": "File exceeds 5 MB",
     "errUpload": "Upload failed",
+    "tipsTitle": "上传提示",
+    "tipsBullets": [
+      "使用清晰、不模糊的图片",
+      "完整显示整份文件",
+      "文件不超过 5 MB",
+      "支持 JPG、PNG、PDF",
+      "文件必须在有效期内"
+    ],
+    "helpTitle": "遇到问题？",
+    "helpLead": "我们的团队可在每一步为您提供帮助",
     "rows": [
       {
         "kind": "id",
@@ -283,6 +319,7 @@
     "saleReseller": "Reseller / distributor",
     "confirmTitle": "I confirm all information is true and correct",
     "confirmBody": "I accept ThaiShopFun seller terms, privacy policy, and service conditions, and agree to verification of my data and documents.",
+    "confirmRequired": "请先确认资料正确后再提交申请",
     "submit": "提交开店申请",
     "submitting": "Submitting...",
     "submitted": "Application sent",
@@ -290,32 +327,37 @@
     "loadFail": "Could not load application",
     "success": "申请提交成功",
     "successRedirect": "Redirecting to home",
+    "successRef": "参考号 {{ref}} · 我们将在 1–3 个工作日内回复",
+    "visitShop": "查看店铺 {{path}}",
     "errIncomplete": "Complete shop and owner details before submitting",
     "errSubmit": "Submission failed",
     "errShopExists": "This shop name is already taken",
-    "afterTitle": "After you submit",
+    "errCitizenTaken": "该身份证号已被其他账户使用",
+    "afterTitle": "提交申请之后",
     "afterSteps": [
       {
-        "title": "Team reviews your data",
-        "hint": "(within 1–3 business days)"
+        "title": "团队审核资料",
+        "hint": "（1–3 个工作日）"
       },
       {
-        "title": "Approval result",
-        "hint": "Via email and SMS"
+        "title": "通知审核结果",
+        "hint": "通过邮件和短信"
       },
       {
-        "title": "Start using your shop",
-        "hint": "Right away"
+        "title": "开始使用您的店铺",
+        "hint": "立即开始"
       }
     ],
-    "tipsTitle": "Tips for faster approval",
+    "tipsTitle": "加快审核的小提示",
     "tipsBullets": [
-      "Match official documents",
-      "Clear, not blurry",
-      "Files under 5 MB",
-      "Complete every field",
-      "Working phone and email"
+      "信息与官方文件一致",
+      "文件清晰、不模糊",
+      "文件不超过 5 MB",
+      "填写完整",
+      "电话和邮箱真实可用"
     ],
+    "helpTitle": "有疑问？",
+    "helpLead": "我们的团队可在每一步为您提供帮助",
     "dialogTitle": "Confirm shop application",
     "dialogBody": "Once confirmed, your application is sent and cannot be edited",
     "dialogCancel": "Cancel",
@@ -666,17 +708,27 @@
   },
   "validation": {
     "shopName": "请填写店铺名称，不超过 100 个字符",
+    "shopNameRequired": "请填写店铺名称",
+    "shopNameMax": "店铺名称最多 {{max}} 个字符",
     "shopNameEn": "英文店名不能超过 100 个字符",
+    "shopNameEnMax": "英文店名最多 {{max}} 个字符",
     "description": "店铺简介不能超过 500 个字符",
+    "descriptionMax": "店铺简介最多 {{max}} 个字符",
     "category": "请选择商品分类",
     "address": "请填写店铺地址，不超过 500 个字符",
+    "addressRequired": "请填写店铺地址",
+    "addressMax": "店铺地址最多 {{max}} 个字符",
     "province": "请选择省份",
     "district": "请选择县/区",
     "subdistrict": "请选择乡/镇",
     "postalCode": "邮政编码必须是 5 位数字",
-    "url": "请填写以 http:// 或 https:// 开头的网址",
+    "postalCodeRequired": "请选择邮政编码",
+    "url": "链接必须以 http:// 或 https:// 开头",
+    "urlMax": "链接最多 {{max}} 个字符",
     "lineId": "LINE ID 过长",
+    "lineIdMax": "LINE ID 最多 {{max}} 个字符",
     "logo": "请上传店铺标志",
+    "summary": "请检查 {{count}} 项资料",
     "title": "请选择称谓",
     "firstName": "请填写名字，不超过 100 个字符",
     "lastName": "请填写姓氏，不超过 100 个字符",
@@ -692,8 +744,12 @@
     "fileType": "仅支持 JPG、PNG、WEBP 或 PDF",
     "fileSize": "文件大小不能超过 5 MB",
     "IDENTITY": "请上传身份证复印件",
+    "PORTRAIT": "请上传手持身份证的正面照片",
     "ADDRESS": "请上传地址证明",
     "BUSINESS": "请上传公司证书",
+    "identityDoc": "请上传身份证复印件",
+    "portraitDoc": "请上传手持身份证的正面照片",
+    "uploadWait": "请等待文件上传完成后再继续",
     "stepShop": "店铺资料不完整，请返回修改后再提交",
     "stepOwner": "店主资料不完整，请返回修改后再提交",
     "stepDocuments": "必要文件未齐，请返回上传后再提交",

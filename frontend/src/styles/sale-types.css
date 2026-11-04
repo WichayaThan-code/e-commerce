@@ -1,5 +1,6 @@
-.sale-types{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.sale-types>button{height:67px;border:1.5px solid #cbd9ea;border-radius:8px;background:#fff;color:#08245e;display:flex;align-items:center;text-align:left;padding:9px 12px;gap:9px}
+.sale-types{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.sale-types>button{min-width:0;height:67px;border:1.5px solid #cbd9ea;border-radius:8px;background:#fff;color:#08245e;display:flex;align-items:center;text-align:left;padding:9px 12px;gap:9px;transition:border-color .15s,background .15s,box-shadow .15s}
+.sale-types>button>span{min-width:0;overflow:hidden}
 .sale-types>button.active{border-color:#0878f5;background:#f3f9ff}
 .sale-types>button>i{width:19px;height:19px;border:1.5px solid #9db0ca;border-radius:50%;display:grid;place-items:center;flex:none}
 .sale-types>button.active>i{background:#0878f5;border-color:#0878f5;color:#fff}

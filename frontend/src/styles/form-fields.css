@@ -1,3 +1,5 @@
+@import "./form-invalid.css";
+
 .form-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -17,6 +19,8 @@
   margin: 0 0 8px;
 }
 
+/* Wrapper owns border + focus ring. Inner control must not paint a second box
+   (tokens.css `:is(input…):focus-visible { box-shadow: var(--focus-ring) }` + styles.css outline). */
 .form-control,
 .signup-input {
   display: flex;
@@ -34,14 +38,12 @@
 .form-control > svg,
 .signup-input > svg {
   width: 19px;
+  height: 19px;
   flex-shrink: 0;
   color: #8593a5;
 }
 
-.form-control input,
-.form-control select,
-.form-control textarea,
-.signup-input input,
+/* Bare fields (no icon wrapper) keep their own chrome. */
 .form-field > input,
 .form-field > select,
 .form-field > textarea {
@@ -57,31 +59,104 @@
   font-size: 14px;
 }
 
-.form-control input,
-.form-control select,
-.signup-input input {
-  height: 100%;
-  border: 0;
-  padding: 0 11px;
-  background: transparent;
-}
-
-:is(.merchant-card, .owner-card) .form-control input,
-:is(.merchant-card, .owner-card) .form-control textarea {
+/* Icon / password wrappers: inner control is borderless and fills the row. */
+.form-control > input,
+.form-control > select,
+.form-control > textarea,
+.signup-input > input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
   height: 100%;
   margin: 0;
   border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0 11px;
+  color: #132b50;
+  font-size: 14px;
+}
+
+.form-control > input:focus,
+.form-control > input:focus-visible,
+.form-control > select:focus,
+.form-control > select:focus-visible,
+.form-control > textarea:focus,
+.form-control > textarea:focus-visible,
+.signup-input > input:focus,
+.signup-input > input:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border: 0;
+}
+
+/* Password show/hide: no second frame; keyboard focus stays visible. */
+.signup-input > button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  min-width: 36px;
+  min-height: 42px;
+  margin: 0;
+  padding: 5px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: #7c8b9f;
+}
+
+.signup-input > button svg {
+  width: 19px;
+  height: 19px;
+}
+
+.signup-input > button:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.signup-input > button:focus-visible {
+  outline: 2px solid #1671de;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+:is(.merchant-card, .owner-card) .form-control > input,
+:is(.merchant-card, .owner-card) .form-control > textarea,
+:is(.merchant-card, .owner-card) .form-control > select {
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
   box-shadow: none;
   background: transparent;
 }
 
-:is(.merchant-card, .owner-card) .form-control-area textarea {
+/* Beat page-local `.owner-card input:focus` + tokens.css :focus-visible (cascade order). */
+:is(.merchant-card, .owner-card) .form-control > input:focus,
+:is(.merchant-card, .owner-card) .form-control > input:focus-visible,
+:is(.merchant-card, .owner-card) .form-control > textarea:focus,
+:is(.merchant-card, .owner-card) .form-control > textarea:focus-visible,
+:is(.merchant-card, .owner-card) .form-control > select:focus,
+:is(.merchant-card, .owner-card) .form-control > select:focus-visible {
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+
+:is(.merchant-card, .owner-card) .form-control-area > textarea {
   height: auto;
   min-height: 116px;
   padding: 12px 14px;
 }
 
-.form-control textarea,
+.form-control > textarea,
 .form-field > textarea {
   height: auto;
   min-height: 96px;
@@ -98,16 +173,17 @@
   overflow: visible;
 }
 
-.form-control-area textarea {
+.form-control-area > textarea {
   display: block;
   box-sizing: border-box;
   width: 100%;
   height: auto;
   border: 0;
-  border-radius: 10px;
+  border-radius: 0;
   min-height: 96px;
   padding: 12px 14px;
   background: transparent;
+  box-shadow: none;
   resize: vertical;
   line-height: 1.5;
 }
@@ -126,13 +202,6 @@
   box-shadow: var(--focus-ring);
 }
 
-.form-control input:focus,
-.form-control select:focus,
-.form-control textarea:focus,
-.signup-input input:focus {
-  outline: none;
-}
-
 .form-control input::placeholder,
 .form-control textarea::placeholder,
 .signup-input input::placeholder,
@@ -141,14 +210,7 @@
   color: #8793a3;
 }
 
-.form-control input:is(:-webkit-autofill, :autofill),
-.signup-input input:is(:-webkit-autofill, :autofill),
-.form-field > input:is(:-webkit-autofill, :autofill) {
-  -webkit-box-shadow: 0 0 0 1000px #fff inset;
-  box-shadow: 0 0 0 1000px #fff inset;
-  -webkit-text-fill-color: #132b50;
-  caret-color: #132b50;
-}
+/* Autofill chrome lives in form-invalid.css (shared + invalid peach). */
 
 .form-alert {
   margin: 0 0 12px;
@@ -165,23 +227,22 @@
   font-weight: 700;
 }
 
-.form-field-error,
-.signup-field-error {
+/* Legacy alias — same markup/colors as .signup-field-error (form-invalid.css). */
+.form-field-error {
   display: flex;
   align-items: flex-start;
   gap: 6px;
   margin-top: 8px;
-  color: var(--color-danger);
+  color: var(--form-invalid-error, var(--color-danger));
   font-size: 11px;
   font-weight: 400;
   line-height: 1.7;
 }
 
-.form-field-error svg,
-.signup-field-error svg {
+.form-field-error svg {
   flex-shrink: 0;
   margin-top: 2px;
-  color: var(--color-danger);
+  color: var(--form-invalid-error, var(--color-danger));
 }
 
 .form-field-warn {
@@ -202,15 +263,6 @@
   flex-shrink: 0;
   margin-top: 2px;
   color: var(--color-warning);
-}
-
-.form-control:has([aria-invalid="true"]),
-.signup-input:has(input[aria-invalid="true"]),
-.form-field > input[aria-invalid="true"],
-.form-field > select[aria-invalid="true"],
-.form-field > textarea[aria-invalid="true"] {
-  border-color: #e8a477;
-  background: var(--color-warning-bg);
 }
 
 .login-submit {
@@ -244,9 +296,9 @@
 
 @media (max-width: 760px) {
   .form-grid { grid-template-columns: 1fr; }
-  .form-control input,
+  .form-control > input,
   .form-field > input,
-  .signup-input input { font-size: 16px; }
+  .signup-input > input { font-size: 16px; }
 }
 
 .toggle-switch {
@@ -335,4 +387,31 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+/* Invalid wrapper chrome must win over the white .form-control rules above. */
+.form-control:has([aria-invalid="true"]),
+.form-control.is-invalid,
+.signup-input:has(input[aria-invalid="true"]),
+.signup-input.is-invalid {
+  border-color: var(--form-invalid-border) !important;
+  background: var(--form-invalid-bg) !important;
+}
+.form-control:has([aria-invalid="true"]):focus-within,
+.form-control.is-invalid:focus-within,
+.signup-input:has(input[aria-invalid="true"]):focus-within,
+.signup-input.is-invalid:focus-within {
+  outline: none;
+  border-color: var(--form-invalid-border) !important;
+  box-shadow: var(--form-invalid-focus-ring) !important;
+}
+.form-control:has([aria-invalid="true"]) > svg,
+.form-control.is-invalid > svg,
+.signup-input:has(input[aria-invalid="true"]) > svg,
+.signup-input.is-invalid > svg {
+  color: var(--form-invalid-icon);
+}
+.signup-field-error,
+.signup-field-error svg {
+  color: var(--form-invalid-error);
 }

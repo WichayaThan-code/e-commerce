@@ -316,6 +316,24 @@ class MerchantApplicationIntegrationTests {
           .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(draftId));
     }
 
+    @Test void ownerCanDownloadOwnDraftDocumentAndOthersGet404() throws Exception {
+        String owner = tokenFor("doc-owner@example.com", "0811111101");
+        upload(owner, "IDENTITY", "identity.png");
+        mvc.perform(get("/api/merchant-applications/draft/documents/IDENTITY").header("Authorization", "Bearer " + owner))
+          .andExpect(status().isOk())
+          .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")))
+          .andExpect(header().string(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, org.hamcrest.Matchers.containsString("inline")))
+          .andExpect(content().contentTypeCompatibleWith(MediaType.IMAGE_PNG));
+
+        String other = tokenFor("doc-other@example.com", "0811111102");
+        mvc.perform(get("/api/merchant-applications/draft/documents/IDENTITY").header("Authorization", "Bearer " + other))
+          .andExpect(status().isNotFound())
+          .andExpect(jsonPath("$.code").value("DOCUMENT_NOT_FOUND"));
+
+        mvc.perform(get("/api/merchant-applications/draft/documents/IDENTITY"))
+          .andExpect(status().isUnauthorized());
+    }
+
     @Test void badPathAndQueryParametersReturn400NotServerError() throws Exception {
         String token = tokenFor("params@example.com", "0899999990");
         var file = new MockMultipartFile("file", "x.png", "image/png", new byte[]{(byte)137,80,78,71,13,10,26,10});

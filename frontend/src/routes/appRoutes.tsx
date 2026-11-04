@@ -7,18 +7,22 @@ import MerchantSignupGuard from "../components/MerchantSignupGuard";
 import MerchantStoreGuard from "../components/MerchantStoreGuard";
 import ActiveShopProvider from "../contexts/ActiveShopContext";
 import PermissionRoute from "../components/PermissionRoute";
+import EmailVerifiedGate from "../components/EmailVerifiedGate";
 import { ROUTE_PERMISSIONS } from "../services/permissions";
 
 import MarketplacePage from "../pages/MarketplacePage";
 import LoginPage from "../pages/LoginPage";
 import PasswordResetPages from "../pages/PasswordResetPages";
 import SignupPage from "../pages/SignupPage";
+import VerifyEmailPage from "../pages/VerifyEmailPage";
 import DashboardPage from "../pages/DashboardPage";
 
 import AdminDashboardPage from "../pages/AdminDashboardPage";
 import AdminStoresPage from "../pages/AdminStoresPage";
 import AdminApplicationsPage from "../pages/AdminApplicationsPage";
 import AdminCategoriesPage from "../pages/AdminCategoriesPage";
+import AdminHelpCenterPage from "../pages/AdminHelpCenterPage";
+import AdminArticlesPage from "../pages/AdminArticlesPage";
 import AdminPromotionsPage from "../pages/AdminPromotionsPage";
 import AdminUsersPage from "../pages/AdminUsersPage";
 import AdminRolesPage from "../pages/AdminRolesPage";
@@ -48,7 +52,10 @@ import RecommendedProductsPage from "../pages/RecommendedProductsPage";
 import BestSellerPage from "../pages/BestSellerPage";
 import ThaiBrandsPage from "../pages/ThaiBrandsPage";
 import BlogPage from "../pages/BlogPage";
+import ArticleDetailPage from "../pages/ArticleDetailPage";
 import HelpPage from "../pages/HelpPage";
+import HelpTopicPage from "../pages/HelpTopicPage";
+import HelpFaqPage from "../pages/HelpFaqPage";
 import CartPage from "../pages/CartPage";
 import OrderTrackingPage from "../pages/OrderTrackingPage";
 
@@ -85,6 +92,9 @@ export const routes: RouteObject[] = [
   {
     element: <RouteProgress />,
     children: [
+  {
+    element: <EmailVerifiedGate />,
+    children: [
   // 1. กลุ่มหน้า Public / Customer (ทุกหน้าในกลุ่มนี้จะมี Header & Navbar ครอบให้อัตโนมัติ)
   {
     element: <PublicLayout />,
@@ -95,7 +105,10 @@ export const routes: RouteObject[] = [
       { path: "/best-sellers", element: <BestSellerPage /> },
       { path: "/thai-brands", element: <ThaiBrandsPage /> },
       { path: "/articles", element: <BlogPage /> },
+      { path: "/articles/:slug", element: <ArticleDetailPage /> },
       { path: "/help", element: <HelpPage /> },
+      { path: "/help/topics/:slug", element: <HelpTopicPage /> },
+      { path: "/help/faqs/:id", element: <HelpFaqPage /> },
       { path: "/cart", element: <CartPage /> },
       { path: "/track-order", element: <OrderTrackingPage /> },
       { path: "/checkout", element: <CheckoutPage /> },
@@ -131,6 +144,7 @@ export const routes: RouteObject[] = [
   { path: "/forgot-password", element: <PasswordResetPages /> },
   { path: "/reset-password", element: <PasswordResetPages /> },
   { path: "/signup", element: <SignupPage /> },
+  { path: "/verify-email", element: <VerifyEmailPage /> },
   { path: "/dashboard", element: <DashboardPage /> },
 
   // 3. กลุ่มหน้า Admin
@@ -139,6 +153,8 @@ export const routes: RouteObject[] = [
   { path: "/admin/stores", element: guarded("/admin/stores", <AdminStoresPage />) },
   { path: "/admin/store-applications", element: guarded("/admin/store-applications", <AdminApplicationsPage />) },
   { path: "/admin/categories", element: guarded("/admin/categories", <AdminCategoriesPage />) },
+  { path: "/admin/help-center", element: guarded("/admin/help-center", <AdminHelpCenterPage />) },
+  { path: "/admin/articles", element: guarded("/admin/articles", <AdminArticlesPage />) },
   { path: "/admin/promotions", element: guarded("/admin/promotions", <AdminPromotionsPage />) },
   { path: "/admin/users", element: guarded("/admin/users", <AdminUsersPage />) },
   { path: "/admin/roles", element: guarded("/admin/roles", <AdminRolesPage />) },
@@ -182,6 +198,8 @@ export const routes: RouteObject[] = [
       { path: "/merchant/owner-info", element: <OwnerInfoPage /> },
       { path: "/merchant/documents", element: <DocumentConfirmPage /> },
       { path: "/merchant/review", element: <VerifySendPage /> },
+    ],
+  },
     ],
   },
     ],

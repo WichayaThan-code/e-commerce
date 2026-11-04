@@ -3,6 +3,7 @@ package com.thaishopfun.auth;
 import com.thaishopfun.auth.authz.AuthorizationService;
 import com.thaishopfun.auth.delivery.OtpIssuedEvent;
 import com.thaishopfun.auth.delivery.PasswordResetRequestedEvent;
+import com.thaishopfun.common.notification.NotificationProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -17,6 +18,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -43,16 +45,19 @@ public class AuthService {
     private final AuthenticationManager authentication;
     private final JwtEncoder jwtEncoder;
     private final SecurityProperties properties;
+    private final AuthProperties authProperties;
     private final LoginAttemptService loginAttempts;
     private final ApplicationEventPublisher events;
     private final AuthorizationService authorization;
+    private final NotificationProperties notificationProperties;
     private final SecureRandom random = new SecureRandom();
 
     public AuthService(UserAccountRepository users, RefreshTokenRepository refreshTokens,
                        PasswordResetTokenRepository passwordResetTokens, OtpVerificationRepository otpVerifications,
                        PasswordEncoder passwords, AuthenticationManager authentication, JwtEncoder jwtEncoder,
-                       SecurityProperties properties, LoginAttemptService loginAttempts,
-                       ApplicationEventPublisher events, AuthorizationService authorization) {
+                       SecurityProperties properties, AuthProperties authProperties, LoginAttemptService loginAttempts,
+                       ApplicationEventPublisher events, AuthorizationService authorization,
+                       NotificationProperties notificationProperties) {
         this.users = users;
         this.refreshTokens = refreshTokens;
         this.passwordResetTokens = passwordResetTokens;
@@ -61,9 +66,11 @@ public class AuthService {
         this.authentication = authentication;
         this.jwtEncoder = jwtEncoder;
         this.properties = properties;
+        this.authProperties = authProperties;
         this.loginAttempts = loginAttempts;
         this.events = events;
         this.authorization = authorization;
+        this.notificationProperties = notificationProperties;
     }
 
     @Transactional
@@ -235,14 +242,25 @@ public class AuthService {
         expirePending(destinationHash, purpose);
         var code = String.format("%06d", random.nextInt(1_000_000));
         var expiresAt = Instant.now().plus(Duration.ofMinutes(properties.otpTtlMinutes()));
-        var otp = otpVerifications.save(new OtpVerification(
+        var otp = new OtpVerification(
             userId, channel, maskDestination(channel, normalized), destinationHash, purpose,
             passwords.encode(code), expiresAt, properties.otpMaxAttempts()
-        ));
+        );
+        String verifyLinkUrl = null;
+        if (purpose == OtpPurpose.EMAIL_VERIFY) {
+            var linkToken = randomToken();
+            otp.assignVerifyLinkTokenHash(hash(linkToken));
+            verifyLinkUrl = emailVerifyUrl(otp.getId(), linkToken);
+        }
+        otp = otpVerifications.save(otp);
         log.info("OTP issued id={} purpose={} channel={} destination={}", otp.getId(), purpose, channel, maskDestination(channel, normalized));
+        if (authProperties.devLogOtp()) {
+            log.warn("[DEV-OTP] code={} purpose={} channel={} destination={} id={} expiresAt={}",
+                code, purpose, channel, normalized, otp.getId(), expiresAt);
+        }
         // Delivered (email or SMS) by AuthNotificationListener only after this transaction commits.
         events.publishEvent(new OtpIssuedEvent(
-            otp.getId(), channel, purpose, normalized, recipientName, code, properties.otpTtlMinutes()));
+            otp.getId(), channel, purpose, normalized, recipientName, code, properties.otpTtlMinutes(), verifyLinkUrl));
         return new AuthDtos.SendOtpResponse(
             otp.getId(),
             Duration.ofMinutes(properties.otpTtlMinutes()).toSeconds(),
@@ -250,6 +268,35 @@ public class AuthService {
             channel.name(),
             properties.otpExposeCode() ? code : null
         );
+    }
+
+    @Transactional(noRollbackFor = AuthException.class)
+    public AuthDtos.VerifyOtpResponse verifyOtpLink(AuthDtos.VerifyOtpLinkRequest request) {
+        var otp = otpVerifications.findById(request.otpId()).orElse(null);
+        if (otp == null
+            || otp.getPurpose() != OtpPurpose.EMAIL_VERIFY
+            || otp.getVerifyLinkTokenHash() == null
+            || otp.getVerifyLinkTokenHash().isBlank()) {
+            throw invalidVerifyLink();
+        }
+        if (otp.getStatus() == OtpStatus.VERIFIED || otp.getStatus() == OtpStatus.FAILED || otp.getStatus() == OtpStatus.EXPIRED) {
+            throw invalidVerifyLink();
+        }
+        if (otp.getStatus() != OtpStatus.PENDING) {
+            throw invalidVerifyLink();
+        }
+        if (otp.getExpiresAt().isBefore(Instant.now())) {
+            otp.markExpired();
+            throw invalidVerifyLink();
+        }
+        if (!otp.getVerifyLinkTokenHash().equals(hash(request.token().trim()))) {
+            throw invalidVerifyLink();
+        }
+        otp.markVerified();
+        if (otp.getUserId() != null) {
+            users.findById(otp.getUserId()).ifPresent(user -> applyVerification(user, otp.getPurpose(), otp.getChannel()));
+        }
+        return new AuthDtos.VerifyOtpResponse(true, otp.getPurpose().name(), null);
     }
 
     @Transactional(noRollbackFor = AuthException.class)
@@ -393,8 +440,17 @@ public class AuthService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
+    private String emailVerifyUrl(UUID otpId, String token) {
+        return notificationProperties.frontendBaseUrl() + "/verify-email"
+            + "?otpId=" + URLEncoder.encode(otpId.toString(), StandardCharsets.UTF_8)
+            + "&token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
+    }
+
     private String normalizePhone(String value) { return value.replaceAll("[ -]", ""); }
     private AuthException invalidRefresh() { return new AuthException(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN", "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่"); }
+    private AuthException invalidVerifyLink() {
+        return new AuthException(HttpStatus.BAD_REQUEST, "INVALID_VERIFY_LINK", "ลิงก์ยืนยันอีเมลไม่ถูกต้องหรือหมดอายุ");
+    }
     private String hash(String value) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));

@@ -7,8 +7,8 @@ export type FieldErrors = Record<string, string>
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const URL = /^https?:\/\/\S+$/i
 
-function text(key: string) {
-  return i18n.t(key, { ns: 'merchant' })
+function text(key: string, options?: Record<string, unknown>) {
+  return i18n.t(key, { ns: 'merchant', ...options })
 }
 
 export function focusFirstInvalid(errors: FieldErrors) {
@@ -17,7 +17,9 @@ export function focusFirstInvalid(errors: FieldErrors) {
   const el = document.querySelector<HTMLElement>(`[data-field="${name}"], [name="${name}"]`)
   if (!el) return
   el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  const focusable = el.matches('input,select,textarea,button') ? el : el.querySelector<HTMLElement>('input,select,textarea,button')
+  const focusable = el.matches('input,select,textarea,button,[role="combobox"]')
+    ? el
+    : el.querySelector<HTMLElement>('input,select,textarea,button,[role="combobox"],.searchable-select-btn,.logo-drop')
   focusable?.focus()
 }
 
@@ -84,22 +86,26 @@ export type ShopInput = {
 export function validateShop(input: ShopInput, requireLogo = true): FieldErrors {
   const errors: FieldErrors = {}
   const shopName = input.shopName.trim()
-  if (!shopName) errors.shopName = text('validation.shopName')
-  else if (shopName.length > 100) errors.shopName = text('validation.shopName')
-  if (input.shopNameEnglish.trim().length > 100) errors.shopNameEnglish = text('validation.shopNameEn')
-  if (input.description.trim().length > 500) errors.description = text('validation.description')
+  if (!shopName) errors.shopName = text('validation.shopNameRequired')
+  else if (shopName.length > 100) errors.shopName = text('validation.shopNameMax', { max: 100 })
+  if (input.shopNameEnglish.trim().length > 100) errors.shopNameEnglish = text('validation.shopNameEnMax', { max: 100 })
+  if (input.description.trim().length > 500) errors.description = text('validation.descriptionMax', { max: 500 })
   if (!input.category.trim()) errors.category = text('validation.category')
-  if (!input.address.trim() || input.address.trim().length > 500) errors.address = text('validation.address')
+  const address = input.address.trim()
+  if (!address) errors.address = text('validation.addressRequired')
+  else if (address.length > 500) errors.address = text('validation.addressMax', { max: 500 })
   if (!input.province.trim()) errors.province = text('validation.province')
   if (!input.district.trim()) errors.district = text('validation.district')
   if (!input.subdistrict.trim()) errors.subdistrict = text('validation.subdistrict')
-  if (!/^[0-9]{5}$/.test(input.postalCode.trim())) errors.postalCode = text('validation.postalCode')
+  if (!input.postalCode.trim()) errors.postalCode = text('validation.postalCodeRequired')
+  else if (!/^[0-9]{5}$/.test(input.postalCode.trim())) errors.postalCode = text('validation.postalCode')
   for (const key of ['website', 'facebookUrl', 'instagramUrl', 'tiktokUrl'] as const) {
     const value = input[key].trim()
     if (!value) continue
-    if (value.length > 500 || !URL.test(value)) errors[key] = text('validation.url')
+    if (value.length > 500) errors[key] = text('validation.urlMax', { max: 500 })
+    else if (!URL.test(value)) errors[key] = text('validation.url')
   }
-  if (input.lineId.trim().length > 500) errors.lineId = text('validation.lineId')
+  if (input.lineId.trim().length > 500) errors.lineId = text('validation.lineIdMax', { max: 500 })
   if (requireLogo && !input.logoBase64) errors.logo = text('validation.logo')
   return errors
 }
@@ -166,6 +172,7 @@ export function documentFileError(file: File) {
 export function validateDocuments(ownerType: OwnerDraft['ownerType'] | undefined, uploaded: string[]): FieldErrors {
   const errors: FieldErrors = {}
   if (!uploaded.includes('IDENTITY')) errors.IDENTITY = text('validation.IDENTITY')
+  if (!uploaded.includes('PORTRAIT')) errors.PORTRAIT = text('validation.PORTRAIT')
   if (!uploaded.includes('ADDRESS')) errors.ADDRESS = text('validation.ADDRESS')
   if (ownerType === 'company' && !uploaded.includes('BUSINESS')) errors.BUSINESS = text('validation.BUSINESS')
   return errors
@@ -196,6 +203,7 @@ export function reviewGap(draft: MerchantDraft, uploaded: string[]): ReviewGap |
     if (!draft.owner || Object.keys(validateOwner(draft.owner)).length > 0) return { href: '/merchant/owner-info', message: text('validation.stepOwner') }
   }
   const docs = validateDocuments(draft.owner?.ownerType, uploaded)
+  if (docs.PORTRAIT) return { href: '/merchant/owner-info', message: text('validation.stepDocuments') }
   if (Object.keys(docs).length > 0) return { href: '/merchant/documents', message: text('validation.stepDocuments') }
   return null
 }

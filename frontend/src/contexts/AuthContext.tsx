@@ -6,7 +6,7 @@ type AuthContextValue = {
   user: AuthUser | null
   loading: boolean
   login(identity:string, password:string): Promise<AuthUser>
-  register(payload:RegisterPayload): Promise<void>
+  register(payload:RegisterPayload): Promise<AuthUser>
   logout(): Promise<void>
   reload(): Promise<AuthUser>
 }
@@ -55,7 +55,7 @@ export function AuthProvider({children}:{children:React.ReactNode}) {
   const value:AuthContextValue = {
     user, loading,
     login: async (identity,password) => { const authenticated=await authApi.login(identity,password); setUser(authenticated); return authenticated },
-    register: async payload => setUser(await authApi.register(payload)),
+    register: async payload => { const next = await authApi.register(payload); setUser(next); return next },
     logout: async () => { await authApi.logout(); setUser(null) },
     reload,
   }

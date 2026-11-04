@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
@@ -87,6 +88,26 @@ public class MerchantApplicationService {
         return response(application);
     }
 
+    /**
+     * Opens the caller's own draft document of the given type. Missing or foreign documents both look like 404.
+     * File bytes are resolved through {@link MerchantStorageService#openStoredFile(String)} (same as admin download).
+     */
+    @Transactional(readOnly = true)
+    public OwnDocumentFile openOwnDocument(UUID userId, DocumentType type) {
+        var application = findDraft(userId);
+        if (application == null || application.getUser() == null || !userId.equals(application.getUser().getId())) {
+            throw documentNotFound();
+        }
+        var document = documents.findByApplication_IdAndType(application.getId(), type).orElseThrow(this::documentNotFound);
+        if (document.getApplication() == null || !application.getId().equals(document.getApplication().getId())) {
+            throw documentNotFound();
+        }
+        var path = storage.openStoredFile(document.getStoragePath()).orElseThrow(this::documentNotFound);
+        return new OwnDocumentFile(path, document.getContentType(), document.getOriginalFilename());
+    }
+
+    public record OwnDocumentFile(Path path, String contentType, String originalFilename) {}
+
     @Transactional
     public MerchantDtos.ApplicationResponse get(UUID userId) { return response(getOrCreate(userId)); }
 
@@ -165,5 +186,6 @@ public class MerchantApplicationService {
 
     private void editable(MerchantApplication a){try{a.ensureEditable();}catch(IllegalStateException e){throw new AuthException(HttpStatus.CONFLICT,"APPLICATION_ALREADY_SUBMITTED",e.getMessage());}}
     private void incomplete(String message){throw new AuthException(HttpStatus.BAD_REQUEST,"APPLICATION_INCOMPLETE",message);}
+    private AuthException documentNotFound(){return new AuthException(HttpStatus.NOT_FOUND,"DOCUMENT_NOT_FOUND","ไม่พบเอกสาร");}
     private static boolean blank(String value){return value==null||value.isBlank();}
 }

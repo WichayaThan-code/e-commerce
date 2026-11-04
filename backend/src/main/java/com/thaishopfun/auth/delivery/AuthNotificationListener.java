@@ -36,7 +36,8 @@ public class AuthNotificationListener {
     public void onOtpIssued(OtpIssuedEvent event) {
         try {
             if (event.channel() == OtpChannel.EMAIL) {
-                emailSender.send(templates.otpEmail(event.destination(), event.recipientName(), event.purpose(), event.code(), event.ttlMinutes()));
+                emailSender.send(templates.otpEmail(
+                    event.destination(), event.recipientName(), event.purpose(), event.code(), event.ttlMinutes(), event.verifyLinkUrl()));
                 log.info("OTP delivered id={} purpose={} channel=EMAIL provider={} to={}",
                     event.otpId(), event.purpose(), emailSender.provider(), Masking.email(event.destination()));
             } else {

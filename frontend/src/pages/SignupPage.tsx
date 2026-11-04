@@ -7,12 +7,18 @@ import { useTranslation } from 'react-i18next'
 import '../styles/login.css'
 import '../styles/signup.css'
 import '../styles/form-fields.css'
+import '../styles/form-invalid.css'
+import { AsciiPasswordInput, PasswordInputHints } from '../components/form/AsciiPasswordInput'
+import FieldError from '../components/form/FieldError'
 import FormField from '../components/form/FormField'
 import FormGrid from '../components/form/FormGrid'
 import SignupAgreement, { type AgreementStep } from '../components/SignupAgreement'
 import { useAuth } from '../contexts/AuthContext'
 import LanguageSwitcher from '../components/LanguageSwitcher'
-import { ApiError, authApi } from '../services/api'
+import { AUTOFILL_ANIMATION, autofillSyncHandlers } from '../hooks/autofillSync'
+import { useAsciiPasswordInput } from '../hooks/useAsciiPasswordInput'
+import { formatPhoneNumber } from '../services/merchantApplicationValidation'
+import { isPasswordValid, passwordRules } from '../utils/passwordRules'
 
 const fieldNames = ['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'] as const
 type FieldName = (typeof fieldNames)[number]
@@ -28,12 +34,11 @@ function SignupBrand({ ariaLabel, tagline }: { ariaLabel: string; tagline: strin
   )
 }
 
-const passwordRules = (value: string) => ({ length: value.length >= 8, number: /\d/.test(value), letter: /[A-Za-z]/.test(value) })
-
 export default function SignupPage() {
   const { t } = useTranslation('auth')
   const p = (key: string, options?: Record<string, unknown>) => t(`signupPage.${key}`, options)
   const label = (name: FieldName) => t(`signupPage.fieldLabels.${name}`)
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -46,12 +51,8 @@ export default function SignupPage() {
   const registrationPending = useRef(false)
   const [agreement, setAgreement] = useState<AgreementStep | null>(null)
   const [agreementError, setAgreementError] = useState('')
-  const [verificationEmail, setVerificationEmail] = useState('')
-  const [otpId, setOtpId] = useState<string | null>(null)
-  const [otpCode, setOtpCode] = useState('')
-  const [otpAttempts, setOtpAttempts] = useState(0)
-  const [resendAvailable, setResendAvailable] = useState(false)
-  const [otpStep, setOtpStep] = useState(false)
+  const passwordField = useAsciiPasswordInput({ value: password, onValueChange: setPassword })
+  const confirmField = useAsciiPasswordInput({ value: confirm, onValueChange: setConfirm })
   const { register } = useAuth()
   const rules = useMemo(() => passwordRules(password), [password])
 
@@ -64,15 +65,35 @@ export default function SignupPage() {
     }
     if (!next.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(data.get('email')).trim())) next.email = p('form.errorEmailInvalid')
     if (!next.phone && !/^0\d{8,9}$/.test(String(data.get('phone')).replace(/[\s-]/g, ''))) next.phone = p('form.errorPhoneInvalid')
-    if (!next.password && !Object.values(passwordRules(password)).every(Boolean)) next.password = p('form.errorPasswordRules')
+    if (!next.password && !isPasswordValid(password)) next.password = p('form.errorPasswordRules')
     if (!next.confirmPassword && password !== confirm) next.confirmPassword = p('form.errorPasswordMismatch')
     return next
   }
 
   const createAccount = async (agreementAccepted: boolean) => {
     if (registrationPending.current || !formRef.current) return
-    const data = new FormData(formRef.current)
+    const form = formRef.current
+    const data = new FormData(form)
+    // Autofill may fill the DOM without React onChange — sync controlled fields first.
+    const syncedPhone = formatPhoneNumber(String(data.get('phone') ?? phone))
+    const passwordInput = form.elements.namedItem('password') as HTMLInputElement | null
+    const confirmInput = form.elements.namedItem('confirmPassword') as HTMLInputElement | null
+    const syncedPassword = passwordInput?.value ?? password
+    const syncedConfirm = confirmInput?.value ?? confirm
+    setPhone(syncedPhone)
+    setPassword(syncedPassword)
+    setConfirm(syncedConfirm)
+    data.set('phone', syncedPhone)
+    data.set('password', syncedPassword)
+    data.set('confirmPassword', syncedConfirm)
     const nextErrors = validate(data)
+    // validate() reads password/confirm from React state — override with DOM-synced values after autofill
+    delete nextErrors.password
+    delete nextErrors.confirmPassword
+    if (!syncedPassword.trim()) nextErrors.password = p('form.fieldRequired', { label: label('password') })
+    else if (!isPasswordValid(syncedPassword)) nextErrors.password = p('form.errorPasswordRules')
+    if (!syncedConfirm.trim()) nextErrors.confirmPassword = p('form.fieldRequired', { label: label('confirmPassword') })
+    else if (syncedPassword !== syncedConfirm) nextErrors.confirmPassword = p('form.errorPasswordMismatch')
     setErrors(nextErrors)
     setMessage('')
     setAgreementError('')
@@ -92,31 +113,17 @@ export default function SignupPage() {
       firstName: String(data.get('firstName')).trim(),
       lastName: String(data.get('lastName')).trim(),
       email: String(data.get('email')).trim(),
-      phone: String(data.get('phone')).replace(/[\s-]/g, ''),
-      password,
+      phone: syncedPhone.replace(/[\s-]/g, ''),
+      password: syncedPassword,
     }
     try {
       await register(payload)
-      setVerificationEmail(payload.email)
-      setOtpStep(true)
       setAgreement(null)
-      setOtpCode('')
-      setOtpAttempts(0)
-      try {
-        const response = await authApi.sendOtp(payload.email, 'EMAIL_VERIFY')
-        setOtpId(response.otpId)
-        setResendAvailable(false)
-        setMessage('')
-      } catch (error) {
-        setOtpId(null)
-        setResendAvailable(true)
-        setMessage(error instanceof Error ? error.message : p('otp.sendFailed'))
-      }
+      window.location.replace('/verify-email')
     } catch (error) {
       const reason = error instanceof Error ? error.message : p('form.errorFailed')
       setAgreementError(reason)
       setMessage(reason)
-    } finally {
       registrationPending.current = false
       setSubmitting(false)
     }
@@ -135,59 +142,33 @@ export default function SignupPage() {
     requestAnimationFrame(() => submitRef.current?.focus())
   }
 
-  const verifyEmailCode = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (registrationPending.current || !otpId) return
-    registrationPending.current = true
-    setSubmitting(true)
-    setMessage('')
-    try {
-      const response = await authApi.verifyOtp(otpId, otpCode)
-      if (!response.verified) throw new ApiError('OTP_NOT_VERIFIED', p('otp.verifyFailed'), 400)
-      window.location.replace('/dashboard')
-    } catch (error) {
-      if (error instanceof ApiError && error.code === 'INVALID_OTP') {
-        const next = otpAttempts + 1
-        setOtpAttempts(next)
-        if (next >= 5) setResendAvailable(true)
-      } else if (error instanceof ApiError && (error.code === 'OTP_LOCKED' || error.code === 'OTP_EXPIRED')) {
-        setOtpAttempts(5)
-        setResendAvailable(true)
-      }
-      setMessage(error instanceof Error ? error.message : p('otp.verifyFailed'))
-    } finally {
-      registrationPending.current = false
-      setSubmitting(false)
-    }
-  }
-
-  const resendEmailCode = async () => {
-    if (registrationPending.current || !verificationEmail) return
-    registrationPending.current = true
-    setSubmitting(true)
-    setMessage('')
-    try {
-      const response = await authApi.sendOtp(verificationEmail, 'EMAIL_VERIFY')
-      setOtpId(response.otpId)
-      setOtpCode('')
-      setOtpAttempts(0)
-      setResendAvailable(false)
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : p('otp.sendFailed'))
-    } finally {
-      registrationPending.current = false
-      setSubmitting(false)
-    }
-  }
-
   const fieldProps = (name: FieldName) => ({
     'aria-invalid': Boolean(errors[name]),
     'aria-describedby': [name === 'password' ? 'signup-password-rules' : '', errors[name] ? `signup-error-${name}` : ''].filter(Boolean).join(' ') || undefined,
   })
-  const fieldError = (name: FieldName) =>
-    errors[name] ? (
-      <span className="signup-field-error" id={`signup-error-${name}`}><CircleAlert size={14} aria-hidden="true" />{errors[name]}</span>
-    ) : null
+  const fieldError = (name: FieldName) => (
+    <FieldError text={errors[name]} id={`signup-error-${name}`} />
+  )
+  const clearField = (name: string) => {
+    if (!(fieldNames as readonly string[]).includes(name)) return
+    setErrors((previous) => {
+      const next = { ...previous }
+      delete next[name as FieldName]
+      if (name === 'password') delete next.confirmPassword
+      return next
+    })
+    setMessage('')
+  }
+  const phoneHandlers = autofillSyncHandlers({
+    onValue: setPhone,
+    onClearError: () => clearField('phone'),
+    transform: formatPhoneNumber,
+  })
+  const syncAutofillField = (input: HTMLInputElement) => {
+    const name = input.name
+    clearField(name)
+    if (name === 'phone') setPhone(formatPhoneNumber(input.value))
+  }
 
   return (
     <main className="login-page signup-page">
@@ -225,25 +206,27 @@ export default function SignupPage() {
         <div className="login-card signup-card">
           <div className="login-title">
             <span className="login-welcome-icon"><ShoppingBag size={25} /></span>
-            <span className="login-kicker">{p(otpStep ? 'otp.kicker' : 'form.kicker')}</span>
-            <h2 id={otpStep ? 'signup-otp-label' : undefined}>{p(otpStep ? 'otp.title' : 'form.title')}</h2>
-            <p>{p(otpStep ? 'otp.subtitle' : 'form.subtitle', { email: verificationEmail })}</p>
+            <span className="login-kicker">{p('form.kicker')}</span>
+            <h2>{p('form.title')}</h2>
+            <p>{p('form.subtitle')}</p>
           </div>
-          {!otpStep ? <form
+          <form
             ref={formRef}
             onSubmit={submit}
             noValidate
             aria-busy={submitting}
             onChange={(event) => {
               if (!(event.target instanceof HTMLInputElement)) return
-              const name = event.target.name as FieldName
-              setErrors((previous) => {
-                const next = { ...previous }
-                delete next[name]
-                if (name === 'password') delete next.confirmPassword
-                return next
-              })
-              setMessage('')
+              syncAutofillField(event.target)
+            }}
+            onInput={(event) => {
+              if (!(event.target instanceof HTMLInputElement)) return
+              syncAutofillField(event.target)
+            }}
+            onAnimationStart={(event) => {
+              if (!(event.target instanceof HTMLInputElement)) return
+              if (event.animationName !== AUTOFILL_ANIMATION) return
+              syncAutofillField(event.target)
             }}
           >
             <FormGrid>
@@ -258,7 +241,18 @@ export default function SignupPage() {
               <input name="email" {...fieldProps('email')} required type="email" placeholder={p('form.emailPlaceholder')} autoComplete="email" />
             </FormField>
             <FormField label={p('form.phoneLabel')} icon={Phone} error={errors.phone} errorId="signup-error-phone">
-              <input name="phone" {...fieldProps('phone')} required type="tel" inputMode="tel" placeholder={p('form.phonePlaceholder')} autoComplete="tel" />
+              <input
+                name="phone"
+                {...fieldProps('phone')}
+                required
+                type="tel"
+                inputMode="tel"
+                maxLength={12}
+                value={phone}
+                {...phoneHandlers}
+                placeholder={p('form.phonePlaceholder')}
+                autoComplete="tel"
+              />
             </FormField>
             <label>
               {p('form.passwordLabel')}{' '}
@@ -269,18 +263,36 @@ export default function SignupPage() {
               </span>
               <div className="signup-input">
                 <LockKeyhole />
-                <input name="password" {...fieldProps('password')} required value={password} onChange={(e) => setPassword(e.target.value)} type={showPassword ? 'text' : 'password'} placeholder={p('form.passwordPlaceholder')} autoComplete="new-password" />
+                <AsciiPasswordInput
+                  field={passwordField}
+                  name="password"
+                  {...fieldProps('password')}
+                  required
+                  visible={showPassword}
+                  placeholder={p('form.passwordPlaceholder')}
+                  autoComplete="new-password"
+                />
                 <button type="button" onClick={() => setShowPassword((v) => !v)} aria-pressed={showPassword} aria-label={showPassword ? p('form.hidePassword') : p('form.showPassword')}>{showPassword ? <EyeOff /> : <Eye />}</button>
               </div>
+              <PasswordInputHints asciiWarning={passwordField.asciiWarning} capsLockOn={passwordField.capsLockOn} />
               {fieldError('password')}
             </label>
             <label>
               {p('form.confirmPasswordLabel')}
               <div className="signup-input">
                 <LockKeyhole />
-                <input name="confirmPassword" {...fieldProps('confirmPassword')} required value={confirm} onChange={(e) => setConfirm(e.target.value)} type={showConfirm ? 'text' : 'password'} placeholder={p('form.confirmPasswordPlaceholder')} autoComplete="new-password" />
+                <AsciiPasswordInput
+                  field={confirmField}
+                  name="confirmPassword"
+                  {...fieldProps('confirmPassword')}
+                  required
+                  visible={showConfirm}
+                  placeholder={p('form.confirmPasswordPlaceholder')}
+                  autoComplete="new-password"
+                />
                 <button type="button" onClick={() => setShowConfirm((v) => !v)} aria-pressed={showConfirm} aria-label={showConfirm ? p('form.hideConfirmPassword') : p('form.showConfirmPassword')}>{showConfirm ? <EyeOff /> : <Eye />}</button>
               </div>
+              <PasswordInputHints asciiWarning={confirmField.asciiWarning} capsLockOn={confirmField.capsLockOn} />
               {fieldError('confirmPassword')}
             </label>
             <p className="signup-agreement-note"><ShieldCheck size={17} aria-hidden="true" /><span>{p('form.agreementNote')}</span></p>
@@ -288,37 +300,8 @@ export default function SignupPage() {
               {submitting ? <><LoaderCircle className="login-spinner" size={19} /> {p('form.submitting')}</> : <>{p('form.submit')} <ArrowRight size={19} /></>}
             </button>
             {message && <p className="login-message" role="alert"><CircleAlert size={18} /><span>{message}</span></p>}
-          </form> : <section className="signup-otp" aria-labelledby="signup-otp-label">
-            <form onSubmit={verifyEmailCode} aria-busy={submitting}>
-              <label htmlFor="signup-otp-code">{p('otp.codeLabel')}</label>
-              <input
-                id="signup-otp-code"
-                name="otpCode"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                required
-                value={otpCode}
-                onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                aria-describedby="signup-otp-help"
-                aria-label={p('otp.codeLabel')}
-                disabled={submitting || !otpId || resendAvailable}
-                autoFocus
-              />
-              <p id="signup-otp-help">{p('otp.helpText')}</p>
-              {otpAttempts > 0 && <p className="signup-otp-attempts" role="status">{p('otp.attempts', { count: otpAttempts })}</p>}
-              <button className="login-submit signup-submit" type="submit" disabled={submitting || !otpId || resendAvailable || otpCode.length !== 6}>
-                {submitting ? <><LoaderCircle className="login-spinner" size={19} /> {p('otp.verifying')}</> : <>{p('otp.verify')} <ArrowRight size={19} /></>}
-              </button>
-            </form>
-            {resendAvailable && <button className="signup-otp-resend" type="button" onClick={() => void resendEmailCode()} disabled={submitting}>
-              {submitting ? <LoaderCircle className="login-spinner" size={16} /> : null}{p('otp.resend')}
-            </button>}
-            {message && <p className="login-message" role="alert"><CircleAlert size={18} /><span>{message}</span></p>}
-          </section>}
-          {!otpStep && <><div className="login-divider"><span />{p('dividerSocial')}<span /></div>
+          </form>
+          <div className="login-divider"><span />{p('dividerSocial')}<span /></div>
           <div className="social-logins">
             {[p('socialGoogle'), p('socialFacebook'), p('socialApple')].map((provider) => (
               <button key={provider} type="button" disabled={submitting} onClick={() => setMessage(p('form.socialUnavailable', { provider }))}>
@@ -330,7 +313,6 @@ export default function SignupPage() {
             ))}
           </div>
           <p className="signup-line">{p('hasAccountPrompt')} <a href="/login">{p('loginLink')}</a></p>
-          </>}
         </div>
         <div className="login-merchant">
           <Store size={20} />

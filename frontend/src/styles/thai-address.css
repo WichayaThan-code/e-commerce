@@ -1,14 +1,20 @@
 .address-grid {
   display: grid;
-  grid-template-columns: 1.15fr 1.15fr 1.15fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 25px;
+}
+
+.address-grid > * {
+  min-width: 0;
 }
 
 .searchable-select-wrap {
   position: relative;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  width: 100%;
 }
 
 .searchable-select-wrap .select-label {
@@ -24,6 +30,7 @@
 
 .searchable-select-btn {
   width: 100%;
+  min-width: 0;
   height: 51px;
   margin-top: 8px;
   border: 1px solid #dce2eb;
@@ -34,13 +41,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   cursor: pointer;
   user-select: none;
   transition: all 0.2s ease;
   font-size: 13px;
+  box-sizing: border-box;
 }
 
 .searchable-select-btn > span {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -66,7 +78,7 @@
 .searchable-select-wrap.compact .searchable-select-btn {
   height: 39px;
   margin-top: 0;
-  min-width: 128px;
+  min-width: 0;
   border-radius: 8px;
   border-color: #d6e1ef;
   font-weight: 700;
@@ -84,6 +96,10 @@
   top: 100%;
   left: 0;
   right: 0;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   z-index: 100;
   margin-top: 4px;
   background: #ffffff;
@@ -92,6 +108,12 @@
   box-shadow: 0 10px 25px rgba(8, 36, 94, 0.15);
   overflow: hidden;
   animation: fadeInDown 0.15s ease-out;
+}
+
+/* Right-column fields: keep panel flush to the trigger's right edge. */
+.address-grid > :nth-child(2n) .searchable-dropdown {
+  left: auto;
+  right: 0;
 }
 
 @keyframes fadeInDown {
@@ -112,6 +134,7 @@
   padding: 8px 10px;
   background: #f7fbff;
   border-bottom: 1px solid #e1ebf5;
+  min-width: 0;
 }
 
 .dropdown-search-box svg {
@@ -131,6 +154,7 @@
   font-size: 12px !important;
   color: #08245e !important;
   width: 100%;
+  min-width: 0;
 }
 
 .dropdown-search-box .clear-btn {
@@ -143,6 +167,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .dropdown-search-box .clear-btn:hover {
@@ -169,7 +194,8 @@
   text-overflow: ellipsis;
 }
 
-.dropdown-options-list li:hover {
+.dropdown-options-list li:hover,
+.dropdown-options-list li.highlight {
   background-color: #edf5ff;
   color: #0878f5;
 }
@@ -205,21 +231,20 @@
   background: #9db0ca;
 }
 
-@media (max-width: 1050px) {
-  .address-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-}
-
 .owner-address-grid .address-grid {
   grid-column: 1 / -1;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
   margin-bottom: 0;
 }
 
 .searchable-select-wrap .select-label{font-weight:600;font-size:13px;margin-bottom:8px;color:#132b50}
 .searchable-select-btn{height:51px;margin-top:0;border:1px solid #dce2eb;border-radius:10px;background:#fff;color:#132b50;font-size:14px}
 .searchable-select-btn:focus,.searchable-select-wrap.open .searchable-select-btn{outline:none;border-color:#1671de;box-shadow:var(--focus-ring)}
-@media(max-width:760px){.address-grid,.owner-address-grid .address-grid{grid-template-columns:1fr}}
+
+@media (max-width: 480px) {
+  .address-grid,
+  .owner-address-grid .address-grid {
+    grid-template-columns: 1fr;
+  }
+}

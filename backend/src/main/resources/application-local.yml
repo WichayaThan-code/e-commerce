@@ -1,0 +1,4 @@
+# Activated with --spring.profiles.active=local (optional; run-local.ps1 can also use DEV_LOG_OTP=true).
+app:
+  auth:
+    dev-log-otp: true

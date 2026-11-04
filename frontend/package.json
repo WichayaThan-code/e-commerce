@@ -19,6 +19,7 @@
     "i18next": "^26.4.2",
     "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^0.468.0",
+    "pdfjs-dist": "^6.5.438",
     "qrcode.react": "^4.2.0",
     "react": "latest",
     "react-dom": "latest",

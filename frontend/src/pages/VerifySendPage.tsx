@@ -4,30 +4,30 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
-  Clock3,
   FileCheck2,
-  Headphones,
-  Lightbulb,
   Landmark,
   MapPin,
   LoaderCircle,
   Send,
-  ShieldCheck,
   Store,
   UserRound,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
-import MerchantOnboardingSidebar from "../components/merchant/MerchantOnboardingSidebar";
+import MerchantOnboardingLayout from "../components/merchant/MerchantOnboardingLayout";
+import OnboardingAside from "../components/merchant/OnboardingAside";
+import RegisterStepper from "../components/merchant/RegisterStepper";
 import MerchantHeader from "../components/MerchantHeader";
 import { ApiError, merchantApi, type MerchantApplication, type MerchantOwnerPayload, type MerchantShopPayload } from "../services/api";
 import { showApiFailure } from "../services/apiErrors";
 import { clearMerchantDraft, readMerchantDraft } from "../services/merchantDraft";
 import { reviewGap } from "../services/merchantApplicationValidation";
+import FieldError from "../components/form/FieldError";
 import i18n from "../i18n";
 import "../styles/doc-confirm.css";
 import "../styles/verify-send.css";
 import "../styles/form-fields.css";
+import "../styles/form-invalid.css";
 
 function ReviewSection({
   icon: Icon,
@@ -77,7 +77,8 @@ export default function VerifySendPage() {
   const [application, setApplication] = useState<MerchantApplication | null>(
     null,
   );
-  const [confirmed, setConfirmed] = useState(true);
+  const [confirmed, setConfirmed] = useState(false);
+  const [confirmError, setConfirmError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [applyResult, setApplyResult] = useState<"success" | "error" | null>(null);
@@ -105,9 +106,24 @@ export default function VerifySendPage() {
       : localDraft.saleType === "owner"
         ? "OWNER"
         : undefined);
+  const uploadedTypes = [
+    ...Object.keys(localDraft.documentNames || {}),
+    ...(application?.documents.map((document) => document.type) || []),
+  ];
+  const docsGap = application
+    ? reviewGap({ ...localDraft, ownerId: localDraft.ownerId || application.ownerId || undefined }, uploadedTypes)
+    : null;
+  useEffect(() => {
+    if (!application || !docsGap) return;
+    setMessage(docsGap.message);
+    setStepHref(docsGap.href);
+  }, [application, docsGap?.href, docsGap?.message]);
   const submit = async () => {
     if (submittingRef.current || submitted) return;
-    if (!confirmed) return;
+    if (!confirmed) {
+      setConfirmError(true);
+      return;
+    }
     submittingRef.current = true;
     setApplyResult(null);
     setSubmitting(true);
@@ -205,16 +221,29 @@ export default function VerifySendPage() {
   const hasDoc = (type: string) =>
     application?.documents.some((document) => document.type === type);
   return (
-    <main className="doc-page verify-page">
+    <main className="doc-page verify-page onboard-page">
       <MerchantHeader />
-      <div className="doc-layout verify-layout">
-        <MerchantOnboardingSidebar copy={ob} activeStep={3} />
-        <section className="doc-center">
+      <MerchantOnboardingLayout
+        aside={(
+          <OnboardingAside
+            safeSummaryLabel={ob.common.asideSafeSummary}
+            safe={{ title: ob.owner.safeTitle, items: [...ob.owner.safeBullets] }}
+            tips={{ title: rv.tipsTitle, items: [...rv.tipsBullets] }}
+            help={{
+              title: rv.helpTitle,
+              lead: rv.helpLead,
+              contactLabel: ob.common.contact,
+            }}
+            trustLabel={ob.common.trustSslPdpa}
+          />
+        )}
+      >
           <div className="verify-card">
             <header>
               <h1>{rv.pageTitle}</h1>
               <p>{rv.pageLead}</p>
             </header>
+            <RegisterStepper currentStep={4} />
             <ReviewSection
               icon={Store}
               title={rv.sectionShop}
@@ -326,14 +355,29 @@ export default function VerifySendPage() {
                 <dd>{shown(application?.bankAccountName, owner?.bankAccountName)}</dd>
               </dl>
             </ReviewSection>
-            <label className="verify-confirm">
-              <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-              <span><Check /></span>
+            <label className={`verify-confirm${confirmed ? " is-checked" : ""}${confirmError ? " is-invalid" : ""}`}>
+              <input
+                id="verify-confirm-check"
+                type="checkbox"
+                checked={confirmed}
+                aria-invalid={confirmError || undefined}
+                aria-describedby={`verify-confirm-body${confirmError ? " field-error-verify-confirm" : ""}`}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setConfirmed(next);
+                  if (next) setConfirmError(false);
+                }}
+              />
+              <span aria-hidden="true">{confirmed ? <Check /> : null}</span>
               <div>
                 <b>{rv.confirmTitle}</b>
-                <p>{rv.confirmBody}</p>
+                <p id="verify-confirm-body">{rv.confirmBody}</p>
               </div>
             </label>
+            <FieldError
+              text={confirmError ? i18n.t("review.confirmRequired", { ns: "merchant" }) : undefined}
+              id="field-error-verify-confirm"
+            />
             {message && (
               <p className={stepHref || applyResult === "error" ? "form-alert" : "doc-message"} role={stepHref || applyResult === "error" ? "alert" : "status"}>
                 {message}
@@ -349,6 +393,10 @@ export default function VerifySendPage() {
                 className="login-submit"
                 type="button"
                 onClick={() => {
+                  if (!confirmed) {
+                    setConfirmError(true);
+                    return;
+                  }
                   if (!user) {
                     window.location.assign("/login?next=/merchant/review");
                     return;
@@ -368,7 +416,7 @@ export default function VerifySendPage() {
                   setMessage("");
                   setConfirmOpen(true);
                 }}
-                disabled={!confirmed || submitted || submitting || !application}
+                disabled={!confirmed || submitted || submitting || !application || Boolean(docsGap)}
               >
                 {submitting ? <LoaderCircle className="login-spinner" size={18} /> : <Send />}
                 {submitted ? rv.submitted : submitting ? rv.submitting : rv.submit}
@@ -392,68 +440,7 @@ export default function VerifySendPage() {
               </div>
             )}
           </div>
-        </section>
-        <aside className="doc-notes verify-notes">
-          <section className="after-submit">
-            <div>
-              <ShieldCheck />
-              <CheckCircle2 />
-            </div>
-            <h3>หลังจากส่งใบสมัคร</h3>
-            <ol>
-              <li>
-                <span>1</span>
-                <b>
-                  ทีมงานตรวจสอบข้อมูล<small>(ภายใน 1–3 วันทำการ)</small>
-                </b>
-              </li>
-              <li>
-                <span>2</span>
-                <b>
-                  แจ้งผลการอนุมัติ<small>ทางอีเมลและ SMS</small>
-                </b>
-              </li>
-              <li>
-                <span>3</span>
-                <b>
-                  เริ่มใช้งานร้านค้าของคุณ<small>ได้ทันที</small>
-                </b>
-              </li>
-            </ol>
-          </section>
-          <section className="approval-tips">
-            <h3>
-              <Clock3 />
-              เคล็ดลับให้อនុมัติไวขึ้น
-            </h3>
-            <ul>
-              <li>ข้อมูลตรงกับเอกสารราชการ</li>
-              <li>เอกสารชัดเจน ไม่เบลอ</li>
-              <li>ไฟล์ไม่เกิน 5 MB</li>
-              <li>ครบถ้วนทุกข้อมูล</li>
-              <li>เบอร์โทรและอีเมลใช้งานได้จริง</li>
-            </ul>
-          </section>
-          <section className="doc-question">
-            <Headphones />
-            <div>
-              <h3>มีคำถาม?</h3>
-              <p>
-                ทีมงานพร้อมช่วยเหลือคุณ
-                <br />
-                ทุกขั้นตอน
-              </p>
-            </div>
-            <a href="#contact">ติดต่อทีมงาน</a>
-          </section>
-          <div className="verify-handwrite">
-            Good Shops
-            <br />
-            Brighter Thailand
-            <i />
-          </div>
-        </aside>
-      </div>
+      </MerchantOnboardingLayout>
       {confirmOpen && (
         <div className="confirm-dialog-backdrop" onClick={() => { if (!submitting && applyResult !== "success") { setConfirmOpen(false); setApplyResult(null); } }}>
           <div

@@ -532,3 +532,62 @@ title, info, openStorefront, status, createdAt, merchant, owner, phone, email, p
 ### ผลตรวจ
 - `.\mvnw test` ผ่านทั้งหมด (314 tests, 0 fail)
 - `npx tsc -b --noEmit` ผ่าน
+## AB3 — Password ASCII-only inputs (signup / reset / login)
+
+วันที่: 2026-11-04
+
+### สรุป
+กันพิมพ์ภาษาไทยและอักษรนอก ASCII ในช่องรหัสผ่านทุกช่องฝั่ง frontend และล็อก pattern ฝั่ง backend สำหรับ register / reset / change-password
+
+### Backend
+- `AuthDtos.java`: `@Pattern` ของ password / newPassword (3 จุด) เป็น `^(?=.*[A-Za-z])(?=.*\\d)[\\x21-\\x7E]+$` พร้อม message ภาษาไทย UTF-8
+- `LoginRequest.password` ไม่ใส่ pattern นี้ — บัญชีเดิม login ได้ตามปกติ
+- `AuthIntegrationTests.registerRejectsInvalidPasswordsAndAcceptsAsciiPassword`: ปฏิเสธไทยปน / มีช่องว่าง / ไม่มีตัวเลข / ไม่มีตัวอักษร / สั้นกว่า 8 ตัว (400, ไม่สร้าง user); รับ `Password1` และ `P@ssw0rd!`
+
+### Frontend
+- `utils/passwordRules.ts`: `ALLOWED`, `sanitizePassword`, `passwordRules`, `isPasswordValid`
+- `hooks/useAsciiPasswordInput.ts` + `components/form/AsciiPasswordInput.tsx` (+ `PasswordInputHints`): กรอง onChange/onPaste/onCompositionEnd, Caps Lock, inputMode/lang/autoCapitalize/autoCorrect/spellCheck
+- ใช้ที่: `SignupPage` (password + confirm), `PasswordResetPages` (new + confirm), `LoginPage` (password — ไม่เช็กความแข็งแรง)
+- ไม่พบช่อง password ที่ `/merchant/register` หรือหน้า change-password ใน frontend ตอนนี้
+- i18n th/en/zh: `passwordField.asciiOnly`, `passwordField.capsLock`
+
+### ผลตรวจ
+- `.\mvnw test` ผ่านทั้งหมด (319 tests, 0 fail)
+- `npx tsc -b --noEmit` ผ่าน
+## AB3 — Email verification gate + OTP verify link (2026-11-04)
+
+วันที่: 2026-11-04
+
+### สรุป
+บัญชีที่ยังไม่ยืนยันอีเมล login/register/refresh ได้ตามเดิม แต่ถูกบังคับไปหน้า `/verify-email` ก่อนใช้ API อื่น และอีเมล OTP แบบ EMAIL_VERIFY มีทั้งรหัสและลิงก์ยืนยันครั้งเดียว
+
+### Backend
+- `EmailNotVerifiedInterceptor` + ลงทะเบียนใน `AuthorizationWebConfig` — ถ้า `app.auth.require-email-verification=true` (ค่าเริ่มต้น) และ JWT ของผู้ใช้ที่ `email_verified_at` ว่าง จะตอบ 403 `EMAIL_NOT_VERIFIED`
+- endpoint ที่ยกเว้น (ยังใช้ได้ก่อนยืนยัน): `GET /api/auth/me`, `POST /api/auth/logout`, `POST /api/auth/refresh`, `POST /api/auth/otp/send`, `POST /api/auth/otp/verify`, `POST /api/auth/otp/verify-link`
+- endpoint สาธารณะที่ไม่ต้อง login ทำงานตามเดิม; login/register/refresh ยังออก session ได้ และ `UserResponse.emailVerified` มีอยู่แล้ว
+- API ใหม่: `POST /api/auth/otp/verify-link` body `{ otpId, token }` — ไม่ต้อง login; สำเร็จแล้ว markVerified + markEmailVerified เหมือน verify OTP; ผิด/หมดอายุ/ใช้ซ้ำ/ถูกแทนที่ = `INVALID_VERIFY_LINK` (ข้อความเดียวกัน)
+- ตอนส่ง OTP `EMAIL_VERIFY`: สร้าง token 32 bytes base64url เก็บเฉพาะ SHA-256 ใน `otp_verifications.verify_link_token_hash` อายุเท่า OTP (5 นาที) ใช้ครั้งเดียว; ขอ OTP ใหม่จะ expire แถว PENDING เดิม
+- ลิงก์ในอีเมล: `{APP_FRONTEND_URL}/verify-email?otpId=<id>&token=<token>` (yml: `app.notification.frontend-url` ← `APP_FRONTEND_URL` หรือ `FRONTEND_URL`)
+- `AuthMessageTemplates.otpEmail`: ปุ่ม "ยืนยันอีเมล" + คงรหัส OTP; ข้อความไทยในไฟล์เป็น UTF-8 ถูกต้องแล้ว
+- Flyway `V49__email_verify_link_and_grandfather.sql`: เพิ่มคอลัมน์ `verify_link_token_hash` และตั้ง `email_verified_at` ให้บัญชีเดิมที่ยังว่าง (รวม seed/แอดมิน) เพื่อไม่โดนเกต
+- เทสต์ปิดเกตด้วย `app.auth.require-email-verification=false` ใน `application-test.yml`; `EmailVerificationIntegrationTests` เปิดเกตเฉพาะคลาสนี้
+- แฟล็ก: `AuthProperties.requireEmailVerification` / env `REQUIRE_EMAIL_VERIFICATION` (ค่าเริ่มต้น true)
+
+### Frontend
+- หน้า `/verify-email`: ถ้ามี `otpId`+`token` เรียก verify-link ครั้งเดียว (กัน StrictMode); สำเร็จแล้ว reload user แล้วไป `next` (หรือ `/`); ถ้าไม่มีพารามิเตอร์และ login แล้วยังไม่ยืนยัน จะส่ง OTP อัตโนมัติ 1 ครั้ง + ฟอร์ม OTP/นับเวลา/ส่งใหม่ผ่าน `useOtpTimer`
+- `EmailOtpPanel` แชร์กับ Signup (Signup หลังสมัครพาไป `/verify-email`); มีปุ่มออกจากระบบ
+- `EmailVerifiedGate`: user ที่ `emailVerified === false` ถูกพาไป `/verify-email?next=...` ยกเว้นหน้าสาธารณะ + `/verify-email` + `/logout` + auth pages; `safeInternalPath` กัน open redirect
+- Login สำเร็จถ้ายังไม่ยืนยัน → `/verify-email` ทันที; API client เจอ 403 `EMAIL_NOT_VERIFIED` → `/verify-email`
+- i18n th/en/zh: `verifyEmailPage.*`
+
+### เทสต์
+- `EmailVerificationIntegrationTests`: login ได้แต่ API อื่น 403; ส่ง/verify OTP แล้วปลดล็อก; ลิงก์ใช้ได้ครั้งเดียว / ผิด / หมดอายุ / ถูกแทนที่ด้วย OTP ใหม่ใช้ไม่ได้; บัญชีที่ยืนยันแล้วใช้งานปกติ
+
+### Env (ไม่ได้แก้ backend/.env)
+- มี `FRONTEND_URL` อยู่แล้วก็พอ (yml อ่านเป็น fallback ของ `APP_FRONTEND_URL`)
+- ถ้าต้องการตั้งชัด: เพิ่ม `APP_FRONTEND_URL=http://localhost:5173` (หรือ URL จริงของ frontend)
+- ปิดเกตชั่วคราวได้ด้วย `REQUIRE_EMAIL_VERIFICATION=false`
+
+### ผลตรวจ
+- `.\mvnw test` ผ่านทั้งหมด (323 tests, 0 fail)
+- `npx tsc -b --noEmit` ผ่าน

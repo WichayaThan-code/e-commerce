@@ -8,9 +8,11 @@ type Props = {
   copy: MerchantOnboardingCopy
   activeStep: number
   className?: string
+  /** When false, hide the vertical step list (card uses RegisterStepper instead). */
+  showFlow?: boolean
 }
 
-export default function MerchantOnboardingSidebar({ copy, activeStep, className = 'doc-sidebar' }: Props) {
+export default function MerchantOnboardingSidebar({ copy, activeStep, className = 'doc-sidebar', showFlow = true }: Props) {
   const c = copy.common
   return (
     <aside className={className}>
@@ -27,21 +29,23 @@ export default function MerchantOnboardingSidebar({ copy, activeStep, className 
           </span>
         ))}
       </p>
-      <div className="doc-flow">
-        {copy.steps.map((step, index) => {
-          const state: StepState = index < activeStep ? 'done' : index === activeStep ? 'active' : ''
-          const number = state === 'done' ? '✓' : String(index + 1)
-          return (
-            <div className={state} key={step.title}>
-              <span>{number}</span>
-              <p>
-                <b>{step.title}</b>
-                <small>{step.text}</small>
-              </p>
-            </div>
-          )
-        })}
-      </div>
+      {showFlow ? (
+        <div className="doc-flow">
+          {copy.steps.map((step, index) => {
+            const state: StepState = index < activeStep ? 'done' : index === activeStep ? 'active' : ''
+            const number = state === 'done' ? '✓' : String(index + 1)
+            return (
+              <div className={state} key={step.title}>
+                <span>{number}</span>
+                <p>
+                  <b>{step.title}</b>
+                  <small>{step.text}</small>
+                </p>
+              </div>
+            )
+          })}
+        </div>
+      ) : null}
       <div className="doc-help">
         <Headphones />
         <p>

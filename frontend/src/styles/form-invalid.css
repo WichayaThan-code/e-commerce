@@ -1,0 +1,297 @@
+/* Shared invalid-field chrome.
+   Field surface uses signup warm peach/orange; error text under fields uses danger red. */
+:root {
+  --form-invalid-border: #e8a477;
+  --form-invalid-bg: var(--color-warning-bg);
+  --form-invalid-focus-ring: 0 0 0 3px #ed9b511c;
+  --form-invalid-icon: var(--color-warning);
+  --form-invalid-error: var(--color-danger);
+  --form-field-bg: #fff;
+  --form-field-fg: #132b50;
+}
+
+/* Detect Chrome/Edge autofill so JS can sync controlled inputs (animationstart). */
+@keyframes onAutoFillStart {
+  from { opacity: 0.99; }
+  to { opacity: 1; }
+}
+
+@keyframes onAutoFillCancel {
+  from { opacity: 0.99; }
+  to { opacity: 1; }
+}
+
+.signup-field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  min-width: 0;
+  color: var(--form-invalid-error);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.7;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+
+.signup-field-error svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--form-invalid-error);
+}
+
+/* Error + character count on one row (count stays right; error can wrap). */
+.form-field-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  min-width: 0;
+}
+
+.form-field-meta .signup-field-error {
+  margin-top: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.form-field-meta .merchant-count,
+.form-field-meta .field-meta-aside {
+  flex: 0 0 auto;
+  margin: 0;
+  color: #69798c;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+
+/* Peach surface + orange border — chrome lives on the wrapper / bare field only.
+   Never paint `.merchant-card form input[aria-invalid]` (that nests a second box inside .form-control). */
+.signup-page .signup-card label > input[aria-invalid="true"]:not([type="checkbox"]),
+.signup-page .signup-card .form-control:has([aria-invalid="true"]),
+.signup-page .signup-card .form-control.is-invalid,
+.signup-page .signup-input:has(input[aria-invalid="true"]),
+.signup-page .signup-input.is-invalid,
+.form-control:has([aria-invalid="true"]),
+.form-control.is-invalid,
+.signup-input:has(input[aria-invalid="true"]),
+.signup-input.is-invalid,
+.form-field > input[aria-invalid="true"],
+.form-field > select[aria-invalid="true"],
+.form-field > textarea[aria-invalid="true"],
+.merchant-card .form-control:has([aria-invalid="true"]),
+.merchant-card .form-control.is-invalid,
+.merchant-card .form-control:not(.form-control-area):has([aria-invalid="true"]),
+.merchant-card .form-control.form-control-area:has([aria-invalid="true"]),
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]),
+.merchant-card .merchant-icon-input.is-invalid,
+.merchant-card .searchable-select-btn[aria-invalid="true"],
+.merchant-card .searchable-select-btn.is-invalid,
+.owner-card .form-control:has([aria-invalid="true"]),
+.owner-card .form-control.is-invalid,
+.owner-card .owner-icon-field:has(input[aria-invalid="true"]),
+.owner-card .owner-field input[aria-invalid="true"],
+.owner-card .searchable-select-btn[aria-invalid="true"],
+.owner-card .searchable-select-btn.is-invalid,
+.searchable-select-btn[aria-invalid="true"],
+.searchable-select-btn.is-invalid,
+.logo-drop[aria-invalid="true"],
+.logo-drop.is-invalid,
+.sale-types[aria-invalid="true"] > button {
+  border-color: var(--form-invalid-border) !important;
+  background: var(--form-invalid-bg) !important;
+}
+
+.logo-drop[aria-invalid="true"],
+.logo-drop.is-invalid,
+.merchant-card .logo-drop[aria-invalid="true"],
+.merchant-card .logo-drop.is-invalid,
+.owner-card .owner-upload > div[aria-invalid="true"],
+.owner-card .owner-upload > div.is-invalid {
+  border-style: dashed !important;
+  border-color: var(--form-invalid-border) !important;
+  background: var(--form-invalid-bg) !important;
+  color: var(--form-invalid-icon);
+}
+
+/* Warm focus ring on the chrome owner only (wrapper / bare field — not nested input). */
+.signup-page .signup-card label > input[aria-invalid="true"]:focus,
+.signup-page .signup-card .form-control:has([aria-invalid="true"]):focus-within,
+.signup-page .signup-card .form-control.is-invalid:focus-within,
+.signup-page .signup-input:has(input[aria-invalid="true"]):focus-within,
+.form-control:has([aria-invalid="true"]):focus-within,
+.form-control.is-invalid:focus-within,
+.signup-input:has(input[aria-invalid="true"]):focus-within,
+.form-field > input[aria-invalid="true"]:focus,
+.form-field > input[aria-invalid="true"]:focus-visible,
+.form-field > select[aria-invalid="true"]:focus,
+.form-field > select[aria-invalid="true"]:focus-visible,
+.form-field > textarea[aria-invalid="true"]:focus,
+.form-field > textarea[aria-invalid="true"]:focus-visible,
+.merchant-card .form-control:has([aria-invalid="true"]):focus-within,
+.merchant-card .form-control.is-invalid:focus-within,
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]):focus-within,
+.merchant-card .searchable-select-btn[aria-invalid="true"]:focus,
+.merchant-card .searchable-select-btn[aria-invalid="true"].active,
+.merchant-card .searchable-select-btn.is-invalid:focus,
+.merchant-card .searchable-select-btn.is-invalid.active,
+.owner-card .form-control:has([aria-invalid="true"]):focus-within,
+.owner-card .form-control.is-invalid:focus-within,
+.owner-card .owner-icon-field:has(input[aria-invalid="true"]):focus-within,
+.owner-card .searchable-select-btn[aria-invalid="true"]:focus,
+.owner-card .searchable-select-btn[aria-invalid="true"].active,
+.searchable-select-btn[aria-invalid="true"]:focus,
+.searchable-select-btn[aria-invalid="true"].active,
+.logo-drop[aria-invalid="true"]:focus,
+.logo-drop.is-invalid:focus {
+  outline: none;
+  border-color: var(--form-invalid-border) !important;
+  box-shadow: var(--form-invalid-focus-ring) !important;
+}
+
+/* Leading icons / camera inside invalid controls → orange (not the error text). */
+.signup-page .signup-card .form-control:has([aria-invalid="true"]) > svg,
+.signup-page .signup-card .form-control.is-invalid > svg,
+.signup-page .signup-card .signup-input:has(input[aria-invalid="true"]) > svg,
+.form-control:has([aria-invalid="true"]) > svg,
+.form-control.is-invalid > svg,
+.signup-input:has(input[aria-invalid="true"]) > svg,
+.merchant-card .form-control:has([aria-invalid="true"]) > svg,
+.merchant-card .form-control.is-invalid > svg,
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]) > svg,
+.owner-card .form-control:has([aria-invalid="true"]) > svg,
+.owner-card .form-control.is-invalid > svg,
+.owner-card .owner-icon-field:has(input[aria-invalid="true"]) > svg,
+.searchable-select-btn[aria-invalid="true"] > svg,
+.searchable-select-btn.is-invalid > svg,
+.logo-drop[aria-invalid="true"] > svg,
+.logo-drop.is-invalid > svg,
+.owner-card .owner-upload > div[aria-invalid="true"] > svg,
+.owner-card .owner-upload > div.is-invalid > svg {
+  color: var(--form-invalid-icon);
+}
+
+/*
+  Autofill: paint inset shadow in the wrapper's fill color so Chrome's blue
+  rectangle does not sit inside the peach/white chrome. Also fire onAutoFillStart.
+*/
+:is(.form-control, .signup-input, .login-field, .merchant-icon-input, .owner-icon-field) > input:-webkit-autofill,
+:is(.form-control, .signup-input, .login-field, .merchant-icon-input, .owner-icon-field) > input:-webkit-autofill:hover,
+:is(.form-control, .signup-input, .login-field, .merchant-icon-input, .owner-icon-field) > input:-webkit-autofill:focus,
+:is(.form-control, .signup-input, .login-field, .merchant-icon-input, .owner-icon-field) > input:-webkit-autofill:focus-visible,
+:is(.form-control, .signup-input, .login-field, .merchant-icon-input, .owner-icon-field) > input:is(:-webkit-autofill, :autofill),
+:is(.form-control, .signup-input, .login-field, .merchant-icon-input, .owner-icon-field) > input:is(:-webkit-autofill, :autofill):hover,
+:is(.form-control, .signup-input, .login-field, .merchant-icon-input, .owner-icon-field) > input:is(:-webkit-autofill, :autofill):focus,
+:is(.form-control, .signup-input, .login-field, .merchant-icon-input, .owner-icon-field) > input:is(:-webkit-autofill, :autofill):focus-visible,
+.form-field > input:-webkit-autofill,
+.form-field > input:-webkit-autofill:hover,
+.form-field > input:-webkit-autofill:focus,
+.form-field > input:is(:-webkit-autofill, :autofill),
+.signup-page .signup-card label > input:-webkit-autofill,
+.signup-page .signup-card label > input:is(:-webkit-autofill, :autofill) {
+  -webkit-box-shadow: 0 0 0 1000px var(--form-field-bg) inset !important;
+  box-shadow: 0 0 0 1000px var(--form-field-bg) inset !important;
+  -webkit-text-fill-color: var(--form-field-fg) !important;
+  caret-color: var(--form-field-fg);
+  border: 0 !important;
+  border-radius: 0 !important;
+  transition: background-color 9999s ease-out 0s;
+  animation-name: onAutoFillStart;
+  animation-duration: 0.001s;
+}
+
+:is(.form-control, .signup-input, .login-field, .merchant-icon-input, .owner-icon-field) > input:not(:-webkit-autofill) {
+  animation-name: onAutoFillCancel;
+  animation-duration: 0.001s;
+}
+
+/* Invalid + autofill → same peach as the wrapper. */
+.form-control:has([aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill),
+.form-control:has([aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill):hover,
+.form-control:has([aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill):focus,
+.form-control:has([aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill):focus-visible,
+.form-control.is-invalid > input:is(:-webkit-autofill, :autofill),
+.form-control.is-invalid > input:is(:-webkit-autofill, :autofill):hover,
+.form-control.is-invalid > input:is(:-webkit-autofill, :autofill):focus,
+.form-control.is-invalid > input:is(:-webkit-autofill, :autofill):focus-visible,
+.signup-input:has(input[aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill),
+.signup-input:has(input[aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill):focus,
+.signup-input.is-invalid > input:is(:-webkit-autofill, :autofill),
+.signup-input.is-invalid > input:is(:-webkit-autofill, :autofill):focus,
+.merchant-card .form-control:has([aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill),
+.merchant-card .form-control:has([aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill):focus,
+.merchant-card .form-control.is-invalid > input:is(:-webkit-autofill, :autofill),
+.merchant-card .form-control.is-invalid > input:is(:-webkit-autofill, :autofill):focus,
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill),
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill):focus,
+.owner-card .form-control:has([aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill),
+.owner-card .form-control:has([aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill):focus,
+.owner-card .form-control.is-invalid > input:is(:-webkit-autofill, :autofill),
+.owner-card .form-control.is-invalid > input:is(:-webkit-autofill, :autofill):focus,
+.owner-card .owner-icon-field:has(input[aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill),
+.owner-card .owner-icon-field:has(input[aria-invalid="true"]) > input:is(:-webkit-autofill, :autofill):focus,
+.signup-page .signup-card label > input[aria-invalid="true"]:is(:-webkit-autofill, :autofill),
+.signup-page .signup-card label > input[aria-invalid="true"]:is(:-webkit-autofill, :autofill):focus,
+.form-field > input[aria-invalid="true"]:is(:-webkit-autofill, :autofill),
+.form-field > input[aria-invalid="true"]:is(:-webkit-autofill, :autofill):focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--form-invalid-bg) inset !important;
+  box-shadow: 0 0 0 1000px var(--form-invalid-bg) inset !important;
+  -webkit-text-fill-color: var(--form-field-fg) !important;
+  caret-color: var(--form-field-fg);
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* Icon wrappers: inner control stays chrome-less (incl. :focus — tokens focus-visible otherwise double-rings). */
+.form-control:has([aria-invalid="true"]) > input,
+.form-control:has([aria-invalid="true"]) > input:focus,
+.form-control:has([aria-invalid="true"]) > input:focus-visible,
+.form-control:has([aria-invalid="true"]) > textarea,
+.form-control:has([aria-invalid="true"]) > textarea:focus,
+.form-control:has([aria-invalid="true"]) > textarea:focus-visible,
+.form-control.is-invalid > input,
+.form-control.is-invalid > input:focus,
+.form-control.is-invalid > input:focus-visible,
+.form-control.is-invalid > textarea,
+.form-control.is-invalid > textarea:focus,
+.form-control.is-invalid > textarea:focus-visible,
+.signup-input:has(input[aria-invalid="true"]) > input,
+.signup-input:has(input[aria-invalid="true"]) > input:focus,
+.signup-input:has(input[aria-invalid="true"]) > input:focus-visible,
+.signup-input.is-invalid > input,
+.signup-input.is-invalid > input:focus,
+.signup-input.is-invalid > input:focus-visible,
+.merchant-card .form-control:has([aria-invalid="true"]) > input,
+.merchant-card .form-control:has([aria-invalid="true"]) > input:focus,
+.merchant-card .form-control:has([aria-invalid="true"]) > input:focus-visible,
+.merchant-card .form-control:has([aria-invalid="true"]) > textarea,
+.merchant-card .form-control:has([aria-invalid="true"]) > textarea:focus,
+.merchant-card .form-control:has([aria-invalid="true"]) > textarea:focus-visible,
+.merchant-card .form-control.is-invalid > input,
+.merchant-card .form-control.is-invalid > input:focus,
+.merchant-card .form-control.is-invalid > input:focus-visible,
+.merchant-card .form-control.is-invalid > textarea,
+.merchant-card .form-control.is-invalid > textarea:focus,
+.merchant-card .form-control.is-invalid > textarea:focus-visible,
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]) > input,
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]) > input:focus,
+.merchant-card .merchant-icon-input:has(input[aria-invalid="true"]) > input:focus-visible,
+.owner-card .form-control:has([aria-invalid="true"]) > input,
+.owner-card .form-control:has([aria-invalid="true"]) > input:focus,
+.owner-card .form-control:has([aria-invalid="true"]) > input:focus-visible,
+.owner-card .form-control.is-invalid > input,
+.owner-card .form-control.is-invalid > input:focus,
+.owner-card .form-control.is-invalid > input:focus-visible,
+.owner-card .owner-icon-field:has(input[aria-invalid="true"]) > input,
+.owner-card .owner-icon-field:has(input[aria-invalid="true"]) > input:focus,
+.owner-card .owner-icon-field:has(input[aria-invalid="true"]) > input:focus-visible {
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}

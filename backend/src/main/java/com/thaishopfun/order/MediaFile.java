@@ -53,4 +53,7 @@ public class MediaFile extends AuditedEntity {
     public String getContentType() { return contentType; }
     public long getFileSize() { return fileSize; }
     public String getSha256() { return sha256; }
+    public String getVisibility() { return visibility; }
+    /** Publicly viewable by anyone with the link (article covers); everything else stays PRIVATE. */
+    public void makePublic() { this.visibility = "PUBLIC"; }
 }

@@ -2,7 +2,12 @@
   "common": {
     "backHome": "Back to home",
     "applyTitle": "Apply to open a shop",
+    "applyTitleBefore": "Apply to open a ",
+    "applyTitleAccent": "shop",
+    "applyTitleAfter": "",
+    "badgeOnboarding": "Merchant Onboarding",
     "applyLead": "Create your shop on ThaiShopFun\nin just a few steps",
+    "applyLeadShort": "Create your shop on ThaiShopFun in a few steps",
     "helpTitle": "Need help?",
     "helpText": "Our team is here for you",
     "contact": "Contact support",
@@ -12,20 +17,35 @@
     "back": "Back",
     "required": "*",
     "hasAccount": "Already have a shop account?",
-    "login": "Log in"
+    "login": "Log in",
+    "stepsNavLabel": "Shop application steps",
+    "asideSafeSummary": "Your data stays safe",
+    "progressDone": "{{done}} of {{total}} steps complete",
+    "progressEta": "Takes about 5 minutes",
+    "trustSslPdpa": "SSL encrypted • PDPA",
+    "prepareTitle": "What to prepare",
+    "prepareSteps": [
+      { "title": "National ID card", "hint": "Original, clear, no glare" },
+      { "title": "Bank account book", "hint": "Name must match the shop owner" },
+      { "title": "Address proof", "hint": "House registration or utility bill" }
+    ],
+    "communityTitle": "Merchants joining with us",
+    "communityLead": "Be part of Thai shops on ThaiShopFun",
+    "communityMore": "+{{count}} more",
+    "safeLead": "We protect your data to international standards"
   },
   "steps": [
     {
       "title": "Shop details",
-      "text": "Name, category, contact"
+      "text": "Name, category, and address"
     },
     {
       "title": "Owner details",
-      "text": "Personal or company info"
+      "text": "Name, ID number, and address"
     },
     {
       "title": "Verification docs",
-      "text": "Identity and business papers"
+      "text": "Upload identity documents"
     },
     {
       "title": "Review & submit",
@@ -187,7 +207,7 @@
       "Not shared publicly",
       "PDPA compliant"
     ],
-    "tipsTitle": "Tips",
+    "tipsTitle": "Prepare your documents",
     "tipsBullets": [
       "Match official documents",
       "Use clear, readable images",
@@ -221,8 +241,24 @@
     "confirmTitle": "Document accuracy",
     "confirmText": "I confirm all documents are genuine and valid",
     "next": "Next",
+    "uploadedTitle": "Uploaded file",
+    "uploadedNamed": "Uploaded: {{name}}",
+    "pdfBadge": "PDF • {{pages}} pages",
+    "previewAlt": "Preview of uploaded document",
+    "previewOpen": "Open full file",
+    "previewClose": "Close",
     "errSize": "File exceeds 5 MB",
     "errUpload": "Upload failed",
+    "tipsTitle": "Upload tips",
+    "tipsBullets": [
+      "Use clear, sharp images",
+      "Show the full document",
+      "Files under 5 MB",
+      "JPG, PNG, PDF supported",
+      "Documents must not be expired"
+    ],
+    "helpTitle": "Having trouble?",
+    "helpLead": "Our team can help you at every step",
     "rows": [
       {
         "kind": "id",
@@ -283,6 +319,7 @@
     "saleReseller": "Reseller / distributor",
     "confirmTitle": "I confirm all information is true and correct",
     "confirmBody": "I accept ThaiShopFun seller terms, privacy policy, and service conditions, and agree to verification of my data and documents.",
+    "confirmRequired": "Please confirm your details are correct before submitting",
     "submit": "Submit application",
     "submitting": "Submitting...",
     "submitted": "Application sent",
@@ -290,9 +327,12 @@
     "loadFail": "Could not load application",
     "success": "Application submitted",
     "successRedirect": "Redirecting to home",
+    "successRef": "Reference {{ref}} · We will respond within 1–3 business days",
+    "visitShop": "Visit shop {{path}}",
     "errIncomplete": "Complete shop and owner details before submitting",
     "errSubmit": "Submission failed",
     "errShopExists": "This shop name is already taken",
+    "errCitizenTaken": "This national ID is already used by another account",
     "afterTitle": "After you submit",
     "afterSteps": [
       {
@@ -316,6 +356,8 @@
       "Complete every field",
       "Working phone and email"
     ],
+    "helpTitle": "Questions?",
+    "helpLead": "Our team can help you at every step",
     "dialogTitle": "Confirm shop application",
     "dialogBody": "Once confirmed, your application is sent and cannot be edited",
     "dialogCancel": "Cancel",
@@ -666,17 +708,27 @@
   },
   "validation": {
     "shopName": "Enter a shop name up to 100 characters",
+    "shopNameRequired": "Please enter a shop name",
+    "shopNameMax": "Shop name can be at most {{max}} characters",
     "shopNameEn": "The English shop name must be 100 characters or fewer",
+    "shopNameEnMax": "English shop name can be at most {{max}} characters",
     "description": "The description must be 500 characters or fewer",
-    "category": "Select a category",
+    "descriptionMax": "Description can be at most {{max}} characters",
+    "category": "Please select a category",
     "address": "Enter a shop address up to 500 characters",
-    "province": "Select a province",
-    "district": "Select a district",
-    "subdistrict": "Select a subdistrict",
+    "addressRequired": "Please enter the shop address",
+    "addressMax": "Shop address can be at most {{max}} characters",
+    "province": "Please select a province",
+    "district": "Please select a district",
+    "subdistrict": "Please select a subdistrict",
     "postalCode": "Postal code must be 5 digits",
-    "url": "Enter a URL starting with http:// or https://",
+    "postalCodeRequired": "Please select a postal code",
+    "url": "Link must start with http:// or https://",
+    "urlMax": "Link can be at most {{max}} characters",
     "lineId": "LINE ID is too long",
-    "logo": "Upload a shop logo",
+    "lineIdMax": "LINE ID can be at most {{max}} characters",
+    "logo": "Please upload a shop logo",
+    "summary": "Please review {{count}} fields",
     "title": "Select a title",
     "firstName": "Enter a first name up to 100 characters",
     "lastName": "Enter a last name up to 100 characters",
@@ -692,8 +744,12 @@
     "fileType": "Use a JPG, PNG, WEBP, or PDF file",
     "fileSize": "The file must be 5 MB or smaller",
     "IDENTITY": "Upload a national ID copy",
+    "PORTRAIT": "Upload a face photo holding your national ID",
     "ADDRESS": "Upload proof of address",
     "BUSINESS": "Upload the company certificate",
+    "identityDoc": "Please upload a copy of your national ID",
+    "portraitDoc": "Please upload a face photo holding your national ID",
+    "uploadWait": "Please wait until the document upload finishes",
     "stepShop": "Shop details are incomplete. Go back and fix them before submitting",
     "stepOwner": "Owner details are incomplete. Go back and fix them before submitting",
     "stepDocuments": "Required documents are missing. Go back and upload them before submitting",

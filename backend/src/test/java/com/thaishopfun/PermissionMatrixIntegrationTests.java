@@ -426,7 +426,7 @@ class PermissionMatrixIntegrationTests {
             }
             matrix.invalidate();
         }
-        assertEquals(19, matrix.permissionsOf("PLATFORM_ADMIN").size());
+        assertEquals(23, matrix.permissionsOf("PLATFORM_ADMIN").size());
     }
 
     // ---------------------------------------------------------------- helpers

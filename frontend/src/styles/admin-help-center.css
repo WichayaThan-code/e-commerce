@@ -1,0 +1,307 @@
+/* Admin Help Center (/admin/help-center): layered on category-shell + admin-platform styles. */
+.category-shell .hc-content {
+  padding: 91px 28px 28px 244px;
+  min-width: 0;
+  max-width: none;
+}
+.hc-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.hc-preview {
+  height: 43px;
+  padding: 0 16px;
+  border: 1px solid #cddff2;
+  border-radius: 7px;
+  background: #fff;
+  color: #0a4394;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 14px var(--font-sans), sans-serif;
+  text-decoration: none;
+}
+.hc-preview svg {
+  width: 17px;
+  height: 17px;
+}
+.hc-preview:hover {
+  background: #f3f9ff;
+}
+.add-category:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.hc-count {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #e8f1fb;
+  color: #3a5f93;
+  font-size: 11px;
+}
+.ap-tabs button.active .hc-count {
+  background: #d9ebff;
+  color: #0a64c8;
+}
+.hc-muted {
+  color: #6681aa;
+  font-size: 12px;
+  font-weight: 500;
+}
+.hc-table-card {
+  margin-top: 0;
+}
+.hc-table .hc-col-order {
+  width: 112px;
+}
+.hc-order {
+  display: inline-block;
+  min-width: 22px;
+  margin-right: 6px;
+  font-weight: 700;
+  color: #0a3d8b;
+}
+.hc-move,
+.hc-row-actions {
+  display: inline-flex;
+  gap: 4px;
+  vertical-align: middle;
+}
+.hc-move button,
+.hc-row-actions button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #cddff2;
+  border-radius: 6px;
+  background: #fff;
+  color: #0a4394;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.hc-move button svg,
+.hc-row-actions button svg {
+  width: 15px;
+  height: 15px;
+}
+.hc-move button:hover:not(:disabled),
+.hc-row-actions button:hover:not(:disabled) {
+  background: #eef6ff;
+  border-color: #9cc6f4;
+}
+.hc-move button:disabled {
+  color: #b2c4da;
+  cursor: not-allowed;
+}
+.hc-row-actions button.danger {
+  color: #d01f4a;
+  border-color: #ffd0da;
+}
+.hc-row-actions button.danger:hover {
+  background: #fff0f3;
+  border-color: #f4a3b6;
+}
+.hc-table tr.is-busy {
+  opacity: 0.6;
+}
+.hc-name {
+  max-width: 420px;
+}
+.hc-name b {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.hc-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: #5b6f89;
+  font: 600 12px var(--font-sans), sans-serif;
+}
+.hc-switch > span {
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: #c4d3e5;
+  position: relative;
+  transition: background 0.15s;
+  flex: none;
+}
+.hc-switch > span::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px #08245d40;
+  transition: transform 0.15s;
+}
+.hc-switch.on > span {
+  background: #12b886;
+}
+.hc-switch.on > span::after {
+  transform: translateX(14px);
+}
+.hc-switch.on {
+  color: #037a55;
+}
+.hc-switch em {
+  font-style: normal;
+}
+.hc-switch:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+.hc-switch:focus-visible {
+  outline: 2px solid #087bf5;
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+.hc-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 36px 16px;
+  text-align: center;
+}
+.hc-state svg {
+  width: 30px;
+  height: 30px;
+}
+.hc-state p {
+  margin: 0;
+}
+.hc-state-error {
+  color: #a3243b;
+}
+.hc-state .ap-primary {
+  height: 36px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 7px;
+  background: #087bf5;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ap-empty .ap-link {
+  border: 0;
+  background: none;
+  color: #087bf5;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---- drawer form (portaled to <body>, so not scoped by .admin-shell) ---- */
+.hc-drawer {
+  width: min(520px, 100vw);
+}
+.hc-form {
+  display: block;
+}
+.hc-form .form-field {
+  margin-bottom: 14px;
+}
+.hc-form .form-control,
+.hc-form .form-field > input,
+.hc-form .form-field > select {
+  height: 44px;
+}
+.hc-form .form-control-area {
+  height: auto;
+  align-items: stretch;
+  padding: 0;
+}
+.hc-form .form-control-area textarea {
+  padding: 10px 14px;
+  resize: vertical;
+  line-height: 1.5;
+  height: auto;
+}
+.hc-required {
+  color: #d01f4a;
+  font-style: normal;
+}
+.hc-hint {
+  margin: 0 0 10px;
+  color: #6681aa;
+  font-size: 12px;
+}
+.hc-form-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #ffd0da;
+  border-radius: 8px;
+  background: #fff0f3;
+  color: #a3243b;
+  font-size: 13px;
+  font-weight: 600;
+}
+.hc-form-error svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 2px;
+}
+.hc-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #132b50;
+  cursor: pointer;
+}
+.hc-check input {
+  width: 16px;
+  height: 16px;
+}
+.hc-lang-fields {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.hc-delete-warning {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff6e0;
+  color: #8a5300;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 800px) {
+  .category-shell .hc-content {
+    padding: 78px 12px 18px 76px;
+  }
+  .hc-heading-actions .add-category {
+    min-width: 0;
+    width: auto;
+    font-size: 13px;
+    padding: 0 12px;
+  }
+}
+
+.hc-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}

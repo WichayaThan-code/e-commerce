@@ -671,5 +671,364 @@
         "storage": "Storage"
       }
     }
+  },
+  "helpCenter": {
+    "title": "Help Center",
+    "subtitle": "Manage the topics, FAQs and guides shown on the Help Center page",
+    "readOnly": "You have read-only access and cannot edit content.",
+    "checkingAccess": "Checking admin permissions...",
+    "preview": "Preview page",
+    "loadFailed": "Could not load Help Center data",
+    "retry": "Try again",
+    "reset": "Reset",
+    "count": "{{count}} items",
+    "reorderDisabled": "Clear the filters to reorder items",
+    "emptyFiltered": "No items match the filters",
+    "empty": {
+      "topics": "No topics yet",
+      "faqs": "No FAQs yet",
+      "guides": "No guides yet"
+    },
+    "add": {
+      "topics": "Add topic",
+      "faqs": "Add FAQ",
+      "guides": "Add guide"
+    },
+    "tabs": {
+      "topics": "Topics",
+      "faqs": "FAQs",
+      "guides": "Guides"
+    },
+    "list": {
+      "topics": "Topic list",
+      "faqs": "FAQ list",
+      "guides": "Guide list"
+    },
+    "search": {
+      "label": "Search",
+      "placeholder": {
+        "topics": "Search topics (name, slug...)",
+        "faqs": "Search questions or answers...",
+        "guides": "Search guides (name, slug...)"
+      }
+    },
+    "status": {
+      "label": "Status",
+      "all": "All",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
+    "audience": {
+      "ALL": "Everyone",
+      "CUSTOMER": "Customers",
+      "MERCHANT": "Merchants"
+    },
+    "columns": {
+      "order": "Order",
+      "name": {
+        "topics": "Topic name (TH)",
+        "faqs": "Question (TH)",
+        "guides": "Guide title (TH)"
+      },
+      "topic": "Topic",
+      "audience": "Audience",
+      "status": "Status",
+      "updatedAt": "Last updated",
+      "actions": "Actions",
+      "helpfulYes": "Helpful",
+      "helpfulNo": "Not helpful",
+      "lastReviewed": "Last reviewed"
+    },
+    "actions": {
+      "edit": "Edit",
+      "delete": "Delete",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "markReviewed": "Mark as reviewed"
+    },
+    "icons": {
+      "shopping-cart": "Shopping cart (Orders)",
+      "credit-card": "Credit card (Payments)",
+      "truck": "Truck (Shipping)",
+      "box": "Box (Returns)",
+      "store": "Store",
+      "user-round": "User (Account)",
+      "shield-check": "Shield (Security)",
+      "settings": "Settings (Troubleshooting)"
+    },
+    "form": {
+      "title": {
+        "create": {
+          "topics": "Add topic",
+          "faqs": "Add FAQ",
+          "guides": "Add guide"
+        },
+        "edit": {
+          "topics": "Edit topic",
+          "faqs": "Edit FAQ",
+          "guides": "Edit guide"
+        }
+      },
+      "fields": {
+        "slug": "Slug (lowercase letters, numbers and hyphens)",
+        "icon": "Icon",
+        "topic": "Topic",
+        "audience": "Audience that sees this FAQ",
+        "url": "Guide link (URL)",
+        "active": "Show on the Help Center page",
+        "title": "Title",
+        "description": "Description",
+        "question": "Question",
+        "answer": "Answer",
+        "summary": "Summary"
+      },
+      "lang": {
+        "th": "Thai",
+        "en": "English",
+        "zh": "Chinese"
+      },
+      "languages": "Content by language",
+      "fallbackHint": "If left blank, the Thai content is shown instead.",
+      "topicPlaceholder": "Select a topic",
+      "noTopics": "Create at least one topic before adding FAQs",
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel"
+    },
+    "errors": {
+      "required": "This field is required",
+      "slugInvalid": "Use only a-z, 0-9 and hyphens (e.g. order-help)",
+      "urlInvalid": "The link must start with http://, https:// or /",
+      "topicRequired": "Please select a topic",
+      "invalid": "Invalid value"
+    },
+    "delete": {
+      "title": {
+        "topics": "Delete topic",
+        "faqs": "Delete FAQ",
+        "guides": "Delete guide"
+      },
+      "body": "Delete “{{name}}”? This cannot be undone.",
+      "topicWarning": "This topic has {{count}} related FAQs that may be deleted or may block deletion.",
+      "confirm": "Delete",
+      "deleting": "Deleting..."
+    },
+    "toast": {
+      "created": "Item added",
+      "updated": "Changes saved",
+      "deleted": "Item deleted",
+      "activated": "Activated",
+      "deactivated": "Deactivated",
+      "reordered": "Order updated",
+      "actionFailed": "Action failed. Please try again.",
+      "reviewed": "Review recorded"
+    },
+    "neverReviewed": "Never reviewed"
+  },
+  "articlesCms": {
+    "title": "Articles",
+    "subtitle": "Manage the articles and categories shown on /articles",
+    "readOnly": "You have view-only access and cannot edit content.",
+    "checkingAccess": "Checking admin access...",
+    "loadFailed": "Could not load articles",
+    "retry": "Try again",
+    "reset": "Reset",
+    "count": "{{count}} items",
+    "openPublic": "Open articles page",
+    "tabs": {
+      "articles": "Articles",
+      "categories": "Categories"
+    },
+    "add": {
+      "articles": "Add article",
+      "categories": "Add category"
+    },
+    "list": {
+      "articles": "Articles",
+      "categories": "Categories"
+    },
+    "search": {
+      "label": "Search",
+      "placeholder": {
+        "articles": "Search by title or content..."
+      }
+    },
+    "filters": {
+      "status": "Status",
+      "category": "Category",
+      "allStatuses": "All statuses",
+      "allCategories": "All categories"
+    },
+    "status": {
+      "DRAFT": "Draft",
+      "PUBLISHED": "Published",
+      "ARCHIVED": "Archived",
+      "SCHEDULED": "Scheduled"
+    },
+    "audience": {
+      "ALL": "Everyone",
+      "CUSTOMER": "Customers",
+      "MERCHANT": "Merchants"
+    },
+    "columns": {
+      "cover": "Cover",
+      "title": "Title (TH)",
+      "category": "Category",
+      "status": "Status",
+      "featured": "Featured",
+      "publishedAt": "Published",
+      "updatedAt": "Last updated",
+      "actions": "Actions",
+      "order": "Order",
+      "name": "Category name (TH)",
+      "articleCount": "Articles",
+      "active": "Status"
+    },
+    "actions": {
+      "edit": "Edit",
+      "view": "View",
+      "delete": "Delete",
+      "moveUp": "Move up",
+      "moveDown": "Move down"
+    },
+    "featured": {
+      "on": "Featured",
+      "off": "Normal"
+    },
+    "active": {
+      "on": "Active",
+      "off": "Inactive"
+    },
+    "empty": {
+      "articles": "No articles yet",
+      "categories": "No categories yet"
+    },
+    "emptyFiltered": "No articles match the filters",
+    "pager": {
+      "label": "Pagination",
+      "prev": "Previous page",
+      "next": "Next page",
+      "page": "Page {{page}} / {{pages}}",
+      "total": "{{count}} items in total"
+    },
+    "editor": {
+      "title": {
+        "create": "Add article",
+        "edit": "Edit article",
+        "view": "Article details"
+      },
+      "tabs": {
+        "settings": "Settings / SEO"
+      },
+      "lang": {
+        "th": "Thai",
+        "en": "English",
+        "zh": "Chinese"
+      },
+      "fields": {
+        "title": "Title",
+        "excerpt": "Excerpt",
+        "body": "Body (Markdown)",
+        "slug": "Slug (a-z, 0-9 and - only)",
+        "category": "Category",
+        "categoryNone": "No category",
+        "audience": "Audience",
+        "tags": "Tags (comma separated)",
+        "tagsHint": "{{count}} / {{max}} tags",
+        "readingMinutes": "Reading time (minutes)",
+        "readingAuto": "Auto-calculated from the TH body",
+        "readingManual": "Custom",
+        "featured": "Mark as featured",
+        "metaTitle": "Meta title",
+        "metaDescription": "Meta description",
+        "relatedShopId": "Related shop (shop ID)",
+        "relatedProductIds": "Related products (one UUID per line)",
+        "publishAt": "Schedule publish time",
+        "publishAtHint": "Empty = publish now",
+        "cover": "Cover image",
+        "categoryName": "Category name",
+        "categoryDescription": "Description",
+        "categoryActive": "Show on the articles page"
+      },
+      "write": "Write",
+      "previewTab": "Preview",
+      "previewEmpty": "Nothing to preview yet",
+      "fallbackHint": "If left empty, the Thai content is shown instead",
+      "seo": "SEO",
+      "related": "Related shop & products",
+      "relatedHint": "Enter the shop ID and product UUIDs to show under the article (up to 10 products)",
+      "counter": "{{count}} / {{max}} characters",
+      "cover": {
+        "none": "No cover image",
+        "choose": "Choose cover",
+        "replace": "Replace cover",
+        "remove": "Remove cover",
+        "hint": "JPG, PNG or WEBP up to 5 MB (16:9 recommended)",
+        "pending": "The cover is uploaded when you save"
+      },
+      "buttons": {
+        "close": "Close",
+        "saveDraft": "Save draft",
+        "save": "Save",
+        "saving": "Saving...",
+        "publish": "Publish",
+        "republish": "Save & publish",
+        "publishing": "Publishing...",
+        "archive": "Archive",
+        "restore": "Restore as draft",
+        "preview": "Preview",
+        "previewHint": "Open the saved article in a new tab (authorized users only)"
+      }
+    },
+    "categoryEditor": {
+      "title": {
+        "create": "Add article category",
+        "edit": "Edit article category"
+      }
+    },
+    "unsaved": {
+      "title": "Unsaved changes",
+      "body": "You have unsaved changes. Close and discard them?",
+      "discard": "Discard changes",
+      "keep": "Keep editing"
+    },
+    "errors": {
+      "required": "This field is required",
+      "slugInvalid": "Only a-z, 0-9 and - are allowed (e.g. my-article)",
+      "tooLong": "Maximum {{max}} characters",
+      "tagsTooMany": "At most {{max}} tags",
+      "tagTooLong": "Each tag must be at most {{max}} characters",
+      "minutesInvalid": "Must be a whole number from 1 to {{max}}",
+      "shopInvalid": "Shop ID must be a number",
+      "productInvalid": "Product IDs must be valid UUIDs",
+      "productsTooMany": "At most {{max}} products",
+      "invalid": "Invalid value",
+      "coverType": "Only JPG, PNG and WEBP are supported",
+      "coverSize": "The file must be 5 MB or smaller"
+    },
+    "delete": {
+      "title": {
+        "articles": "Delete article",
+        "categories": "Delete category"
+      },
+      "body": "Delete “{{name}}”? This cannot be undone.",
+      "confirm": "Delete",
+      "deleting": "Deleting...",
+      "categoryInUse": "Cannot delete: articles still use this category"
+    },
+    "toast": {
+      "created": "Item added",
+      "updated": "Changes saved",
+      "published": "Article published",
+      "archived": "Article archived",
+      "restored": "Article restored as draft",
+      "deleted": "Item deleted",
+      "featured": "Marked as featured",
+      "unfeatured": "Removed from featured",
+      "activated": "Activated",
+      "deactivated": "Deactivated",
+      "reordered": "Order updated",
+      "actionFailed": "Action failed. Please try again."
+    }
   }
 }

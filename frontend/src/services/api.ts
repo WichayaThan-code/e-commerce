@@ -8,7 +8,7 @@ export type ShopPermissionGrant = { shopId:number; role:string; permissions:stri
  * `shopPermissions` are the effective permissions resolved from the database on every login/refresh/me call;
  * `superAdmin` (active PLATFORM_ADMIN) means every permission in every shop.
  */
-export type AuthUser = { id:string; firstName:string; lastName:string; email:string; phone:string; role:UserRole; roleCodes?:string[]; permissions?:string[]; shopPermissions?:ShopPermissionGrant[]; superAdmin?:boolean }
+export type AuthUser = { id:string; firstName:string; lastName:string; email:string; phone:string; role:UserRole; emailVerified?:boolean; phoneVerified?:boolean; roleCodes?:string[]; permissions?:string[]; shopPermissions?:ShopPermissionGrant[]; superAdmin?:boolean }
 type AuthResponse = { accessToken:string; expiresIn:number; user:AuthUser }
 export type RegisterPayload = { firstName:string; lastName:string; email:string; phone:string; password:string }
 export type OtpPurpose = 'SIGNUP'|'LOGIN'|'PHONE_VERIFY'|'EMAIL_VERIFY'|'PASSWORD_RESET'|'STEP_UP'
@@ -77,6 +77,10 @@ export async function request<T>(path:string, init:RequestInit = {}, authenticat
       window.dispatchEvent(new Event(PERMISSIONS_STALE_EVENT))
     }
     const apiError = new ApiError(error.code || (response.status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_FAILED'), error.message || 'เกิดข้อผิดพลาด กรุณาลองใหม่', response.status, error.jobId, error.fieldErrors, error as Record<string, unknown>)
+    if (response.status === 403 && error.code === 'EMAIL_NOT_VERIFIED' && !window.location.pathname.startsWith('/verify-email')) {
+      const next = `${window.location.pathname}${window.location.search}`
+      window.location.assign(`/verify-email?next=${encodeURIComponent(next)}`)
+    }
     if (response.status === 401 && authenticate && redirectOn401 && !window.location.pathname.startsWith('/login')) {
       const next = `${window.location.pathname}${window.location.search}`
       window.location.assign(`/login?next=${encodeURIComponent(next)}`)
@@ -95,8 +99,9 @@ function refreshSession() {
 export const authApi = {
   login: (identity:string, password:string) => request<AuthResponse>('/api/auth/login', {method:'POST', body:JSON.stringify({identity,password})}).then(remember),
   register: (payload:RegisterPayload) => request<AuthResponse>('/api/auth/register', {method:'POST', body:JSON.stringify(payload)}).then(remember),
-  sendOtp: (destination:string, purpose:OtpPurpose) => request<SendOtpResponse>('/api/auth/otp/send', {method:'POST', body:JSON.stringify({destination,purpose})}),
+  sendOtp: (destination:string, purpose:OtpPurpose, authenticate = false) => request<SendOtpResponse>('/api/auth/otp/send', {method:'POST', body:JSON.stringify({destination,purpose})}, authenticate),
   verifyOtp: (otpId:string, code:string) => request<VerifyOtpResponse>('/api/auth/otp/verify', {method:'POST', body:JSON.stringify({otpId,code})}),
+  verifyOtpLink: (otpId:string, token:string) => request<VerifyOtpResponse>('/api/auth/otp/verify-link', {method:'POST', body:JSON.stringify({otpId,token})}),
   forgotPassword: (email:string) => request<ForgotPasswordResponse>('/api/auth/forgot-password', {method:'POST', body:JSON.stringify({email})}),
   resetPassword: (token:string, newPassword:string) => request<{message:string}>('/api/auth/reset-password', {method:'POST', body:JSON.stringify({token,newPassword})}),
   refresh: () => refreshSession().then(response=>response.user),
@@ -218,6 +223,7 @@ export const merchantApi = {
   updateOwner: (id:string, payload:MerchantOwnerPayload) => request<MerchantOwner>(`/api/merchant/owners/${id}`, {method:'PUT', body:JSON.stringify(payload)}, true),
   attachOwner: (ownerId:string) => request<MerchantApplication>(`/api/merchant-applications/draft/owner/${ownerId}`, {method:'POST'}, true),
   uploadDocument: (type:DocumentType,file:File) => {const body=new FormData();body.append('file',file);return request<MerchantApplication>(`/api/merchant-applications/draft/documents/${type}`,{method:'POST',body},true)},
+  documentBlob: (type: DocumentType) => authorizedBlob(`/api/merchant-applications/draft/documents/${type}`),
   submit: () => request<MerchantApplication>('/api/merchant-applications/draft/submit',{method:'POST'},true),
   shops: () => request<MerchantShopOption[]>('/api/merchant/shops', {}, true),
   storeAccess: (shopId?:number|null) => request<StoreAccess>(withShop('/api/merchant/store-access', shopId), {}, true),
@@ -1637,4 +1643,177 @@ export const favoritesApi = {
   list: (shopSlug?: string) => request<FavoriteItem[]>(`/api/me/favorites${shopSlug ? `?shopSlug=${encodeURIComponent(shopSlug)}` : ''}`, { cache: 'no-store' }, true),
   add: (productId: string) => request<FavoriteToggle>('/api/me/favorites', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId }) }, true),
   remove: (productId: string) => request<void>(`/api/me/favorites/${encodeURIComponent(productId)}`, { method: 'DELETE' }, true),
+}
+
+/* ---------------------------------------------------------------- Help Center (public + admin) */
+export type HelpTopic = { id: string; slug: string; icon: string; title: string; description: string; faqCount: number }
+export type HelpFaq = {
+  id: string; topicSlug: string; audience: string; question: string; answer: string
+  helpfulYes: number; helpfulNo: number; lastReviewedAt: string | null
+}
+export type HelpTopicDetail = HelpTopic & { faqs: HelpFaq[] }
+export type HelpGuide = { id: string; slug: string; title: string; summary: string; url: string }
+export type HelpAudience = 'ALL' | 'CUSTOMER' | 'MERCHANT'
+export type HelpFaqParams = { lang: string; topic?: string; q?: string; audience?: string }
+export type HelpFeedbackResult = { faqId: string; counted: boolean; helpfulYes: number; helpfulNo: number }
+
+export const helpApi = {
+  topics: (lang: string) => request<HelpTopic[]>(`/api/help/topics${queryOf({ lang })}`, { cache: 'no-store' }),
+  topicBySlug: (slug: string, lang: string) => request<HelpTopicDetail>(`/api/help/topics/${encodeURIComponent(slug)}${queryOf({ lang })}`, { cache: 'no-store' }),
+  faqs: (params: HelpFaqParams) => request<HelpFaq[]>(`/api/help/faqs${queryOf(params)}`, { cache: 'no-store' }),
+  faqById: (id: string, lang: string) => request<HelpFaq>(`/api/help/faqs/${encodeURIComponent(id)}${queryOf({ lang })}`, { cache: 'no-store' }),
+  /** Anonymous callers pass a stable sessionKey; a signed-in token (sent when available) takes precedence server-side. */
+  submitFeedback: (id: string, helpful: boolean, sessionKey?: string, signedIn = false) =>
+    request<HelpFeedbackResult>(`/api/help/faqs/${encodeURIComponent(id)}/feedback`, json('POST', { helpful, sessionKey }), signedIn, true, { redirectOn401: false }),
+  guides: (lang: string) => request<HelpGuide[]>(`/api/help/guides${queryOf({ lang })}`, { cache: 'no-store' }),
+}
+
+export type AdminHelpTopic = {
+  id: string; slug: string; icon: string; sortOrder: number; active: boolean
+  titleTh: string; titleEn?: string | null; titleZh?: string | null
+  descriptionTh?: string | null; descriptionEn?: string | null; descriptionZh?: string | null
+  faqCount: number; createdAt: string; updatedAt: string; updatedBy?: string | null
+}
+export type AdminHelpFaq = {
+  id: string; topicId: string; topicSlug: string; sortOrder: number; active: boolean; audience: string
+  questionTh: string; questionEn?: string | null; questionZh?: string | null
+  answerTh: string; answerEn?: string | null; answerZh?: string | null
+  helpfulYes: number; helpfulNo: number; lastReviewedAt: string | null
+  createdAt: string; updatedAt: string; updatedBy?: string | null
+}
+export type AdminHelpGuide = {
+  id: string; slug: string; sortOrder: number; active: boolean
+  titleTh: string; titleEn?: string | null; titleZh?: string | null
+  summaryTh?: string | null; summaryEn?: string | null; summaryZh?: string | null
+  url: string; createdAt: string; updatedAt: string; updatedBy?: string | null
+}
+export type HelpTopicRequest = {
+  slug: string; icon?: string; sortOrder?: number; active?: boolean
+  titleTh: string; titleEn?: string; titleZh?: string
+  descriptionTh?: string; descriptionEn?: string; descriptionZh?: string
+}
+export type HelpFaqRequest = {
+  topicId: string; sortOrder?: number; active?: boolean; audience: string
+  questionTh: string; questionEn?: string; questionZh?: string
+  answerTh: string; answerEn?: string; answerZh?: string
+}
+export type HelpGuideRequest = {
+  slug: string; sortOrder?: number; active?: boolean
+  titleTh: string; titleEn?: string; titleZh?: string
+  summaryTh?: string; summaryEn?: string; summaryZh?: string; url: string
+}
+
+const helpAdmin = (path: string) => adminPath(`/help${path}`)
+export const helpAdminApi = {
+  topics: () => request<AdminHelpTopic[]>(helpAdmin('/topics'), { cache: 'no-store' }, true),
+  createTopic: (body: HelpTopicRequest) => request<AdminHelpTopic>(helpAdmin('/topics'), json('POST', body), true),
+  updateTopic: (id: string, body: HelpTopicRequest) => request<AdminHelpTopic>(helpAdmin(`/topics/${id}`), json('PUT', body), true),
+  deleteTopic: (id: string) => request<void>(helpAdmin(`/topics/${id}`), json('DELETE'), true),
+  setTopicActive: (id: string, active: boolean) => request<AdminHelpTopic>(helpAdmin(`/topics/${id}/active`), json('PATCH', { active }), true),
+  reorderTopics: (ids: string[]) => request<AdminHelpTopic[]>(helpAdmin('/topics/reorder'), json('PUT', { ids }), true),
+
+  faqs: () => request<AdminHelpFaq[]>(helpAdmin('/faqs'), { cache: 'no-store' }, true),
+  createFaq: (body: HelpFaqRequest) => request<AdminHelpFaq>(helpAdmin('/faqs'), json('POST', body), true),
+  updateFaq: (id: string, body: HelpFaqRequest) => request<AdminHelpFaq>(helpAdmin(`/faqs/${id}`), json('PUT', body), true),
+  deleteFaq: (id: string) => request<void>(helpAdmin(`/faqs/${id}`), json('DELETE'), true),
+  setFaqActive: (id: string, active: boolean) => request<AdminHelpFaq>(helpAdmin(`/faqs/${id}/active`), json('PATCH', { active }), true),
+  markFaqReviewed: (id: string) => request<AdminHelpFaq>(helpAdmin(`/faqs/${id}/reviewed`), json('PATCH'), true),
+  reorderFaqs: (ids: string[]) => request<AdminHelpFaq[]>(helpAdmin('/faqs/reorder'), json('PUT', { ids }), true),
+
+  guides: () => request<AdminHelpGuide[]>(helpAdmin('/guides'), { cache: 'no-store' }, true),
+  createGuide: (body: HelpGuideRequest) => request<AdminHelpGuide>(helpAdmin('/guides'), json('POST', body), true),
+  updateGuide: (id: string, body: HelpGuideRequest) => request<AdminHelpGuide>(helpAdmin(`/guides/${id}`), json('PUT', body), true),
+  deleteGuide: (id: string) => request<void>(helpAdmin(`/guides/${id}`), json('DELETE'), true),
+  setGuideActive: (id: string, active: boolean) => request<AdminHelpGuide>(helpAdmin(`/guides/${id}/active`), json('PATCH', { active }), true),
+  reorderGuides: (ids: string[]) => request<AdminHelpGuide[]>(helpAdmin('/guides/reorder'), json('PUT', { ids }), true),
+}
+
+/* ---------------------------------------------------------------- Articles CMS (public + admin) */
+export type ArticlePage<T> = { items: T[]; page: number; size: number; totalElements: number; totalPages: number }
+export type ArticleCategoryRef = { id: string; slug: string; name: string }
+export type ArticleCategoryView = { id: string; slug: string; name: string; description: string | null; articleCount: number }
+export type ArticleCard = {
+  id: string; slug: string; title: string; excerpt: string | null; category: ArticleCategoryRef | null; coverUrl: string | null
+  readingMinutes: number; tags: string[]; audience: string; featured: boolean; publishedAt: string | null
+}
+export type ArticleRelatedShop = { id: number; slug: string; name: string }
+export type ArticleRelatedProduct = { id: string; slug: string; name: string; shopSlug: string }
+export type ArticleDetail = {
+  id: string; slug: string; title: string; excerpt: string | null; bodyMd: string; category: ArticleCategoryRef | null
+  coverUrl: string | null; readingMinutes: number; tags: string[]; audience: string; featured: boolean
+  publishedAt: string | null; author: string | null; metaTitle: string | null; metaDescription: string | null
+  related: ArticleCard[]; relatedShop: ArticleRelatedShop | null; relatedProducts: ArticleRelatedProduct[]
+}
+export type ArticleListParams = { lang: string; category?: string; q?: string; tag?: string; audience?: string; page?: number; size?: number }
+
+export const articleApi = {
+  list: (params: ArticleListParams) => request<ArticlePage<ArticleCard>>(`/api/articles${queryOf(params)}`, { cache: 'no-store' }),
+  featured: (lang: string) => request<ArticleCard[]>(`/api/articles/featured${queryOf({ lang })}`, { cache: 'no-store' }),
+  bySlug: (slug: string, lang: string) => request<ArticleDetail>(`/api/articles/${encodeURIComponent(slug)}${queryOf({ lang })}`, { cache: 'no-store' }),
+  categories: (lang: string) => request<ArticleCategoryView[]>(`/api/article-categories${queryOf({ lang })}`, { cache: 'no-store' }),
+}
+
+export type ArticleStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+export type ArticleAudience = 'ALL' | 'CUSTOMER' | 'MERCHANT'
+export type AdminArticleSummary = {
+  id: string; slug: string; status: ArticleStatus; audience: string; featured: boolean
+  categoryId: string | null; categorySlug: string | null; titleTh: string; titleEn: string | null; titleZh: string | null
+  coverUrl: string | null; readingMinutes: number; tags: string[]
+  publishedAt: string | null; createdAt: string; updatedAt: string
+}
+export type AdminArticle = {
+  id: string; slug: string; status: ArticleStatus; audience: string; featured: boolean
+  categoryId: string | null; categorySlug: string | null
+  titleTh: string; titleEn: string | null; titleZh: string | null
+  excerptTh: string | null; excerptEn: string | null; excerptZh: string | null
+  bodyMdTh: string | null; bodyMdEn: string | null; bodyMdZh: string | null
+  coverUrl: string | null; readingMinutes: number; tags: string[]
+  metaTitle: string | null; metaDescription: string | null
+  relatedShopId: number | null; relatedProductIds: string[]
+  authorId: string | null; authorName: string | null
+  publishedAt: string | null; createdAt: string; updatedAt: string
+}
+export type AdminArticleCategory = {
+  id: string; slug: string; sortOrder: number; active: boolean
+  nameTh: string; nameEn: string | null; nameZh: string | null
+  descriptionTh: string | null; descriptionEn: string | null; descriptionZh: string | null
+  articleCount: number; createdAt: string; updatedAt: string
+}
+export type ArticleRequest = {
+  slug?: string; categoryId?: string | null; audience?: string; featured?: boolean; readingMinutes?: number
+  titleTh: string; titleEn?: string; titleZh?: string
+  excerptTh?: string; excerptEn?: string; excerptZh?: string
+  bodyMdTh?: string; bodyMdEn?: string; bodyMdZh?: string
+  tags?: string[]; metaTitle?: string; metaDescription?: string
+  relatedShopId?: number | null; relatedProductIds?: string[]
+}
+export type ArticleCategoryRequest = {
+  slug: string; sortOrder?: number; active?: boolean
+  nameTh: string; nameEn?: string; nameZh?: string
+  descriptionTh?: string; descriptionEn?: string; descriptionZh?: string
+}
+export type AdminArticleListParams = { status?: string; category?: string; q?: string; page?: number; size?: number }
+
+export const articleAdminApi = {
+  list: (params: AdminArticleListParams) => request<ArticlePage<AdminArticleSummary>>(adminPath(`/articles${queryOf(params)}`), { cache: 'no-store' }, true),
+  get: (id: string) => request<AdminArticle>(adminPath(`/articles/${id}`), { cache: 'no-store' }, true),
+  create: (body: ArticleRequest) => request<AdminArticle>(adminPath('/articles'), json('POST', body), true),
+  update: (id: string, body: ArticleRequest) => request<AdminArticle>(adminPath(`/articles/${id}`), json('PUT', body), true),
+  remove: (id: string) => request<void>(adminPath(`/articles/${id}`), json('DELETE'), true),
+  setStatus: (id: string, status: ArticleStatus, publishedAt?: string | null) =>
+    request<AdminArticle>(adminPath(`/articles/${id}/status`), json('PATCH', { status, publishedAt: publishedAt ?? undefined }), true),
+  setFeatured: (id: string, featured: boolean) => request<AdminArticle>(adminPath(`/articles/${id}/featured`), json('PATCH', { featured }), true),
+  uploadCover: (id: string, file: File, onProgress?: (ratio: number) => void) => {
+    const body = new FormData()
+    body.append('file', file)
+    return uploadForm<AdminArticle>(adminPath(`/articles/${id}/cover`), body, onProgress)
+  },
+  removeCover: (id: string) => request<AdminArticle>(adminPath(`/articles/${id}/cover`), json('DELETE'), true),
+
+  categories: () => request<AdminArticleCategory[]>(adminPath('/article-categories'), { cache: 'no-store' }, true),
+  createCategory: (body: ArticleCategoryRequest) => request<AdminArticleCategory>(adminPath('/article-categories'), json('POST', body), true),
+  updateCategory: (id: string, body: ArticleCategoryRequest) => request<AdminArticleCategory>(adminPath(`/article-categories/${id}`), json('PUT', body), true),
+  setCategoryActive: (id: string, active: boolean) => request<AdminArticleCategory>(adminPath(`/article-categories/${id}/active`), json('PATCH', { active }), true),
+  reorderCategories: (ids: string[]) => request<AdminArticleCategory[]>(adminPath('/article-categories/reorder'), json('PUT', { ids }), true),
+  deleteCategory: (id: string) => request<void>(adminPath(`/article-categories/${id}`), json('DELETE'), true),
 }

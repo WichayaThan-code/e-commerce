@@ -671,5 +671,364 @@
         "storage": "存储空间"
       }
     }
+  },
+  "helpCenter": {
+    "title": "帮助中心",
+    "subtitle": "管理帮助中心页面显示的主题、常见问题和使用指南",
+    "readOnly": "您只有只读权限，无法编辑内容。",
+    "checkingAccess": "正在检查管理员权限...",
+    "preview": "预览页面",
+    "loadFailed": "无法加载帮助中心数据",
+    "retry": "重试",
+    "reset": "重置",
+    "count": "{{count}} 项",
+    "reorderDisabled": "请先清除筛选条件再调整顺序",
+    "emptyFiltered": "没有符合筛选条件的项目",
+    "empty": {
+      "topics": "暂无主题",
+      "faqs": "暂无常见问题",
+      "guides": "暂无指南"
+    },
+    "add": {
+      "topics": "添加主题",
+      "faqs": "添加问题",
+      "guides": "添加指南"
+    },
+    "tabs": {
+      "topics": "主题",
+      "faqs": "常见问题",
+      "guides": "指南"
+    },
+    "list": {
+      "topics": "主题列表",
+      "faqs": "常见问题列表",
+      "guides": "指南列表"
+    },
+    "search": {
+      "label": "搜索",
+      "placeholder": {
+        "topics": "搜索主题（名称、slug…）",
+        "faqs": "搜索问题或答案…",
+        "guides": "搜索指南（名称、slug…）"
+      }
+    },
+    "status": {
+      "label": "状态",
+      "all": "全部",
+      "active": "已启用",
+      "inactive": "已停用"
+    },
+    "audience": {
+      "ALL": "所有人",
+      "CUSTOMER": "买家",
+      "MERCHANT": "商家"
+    },
+    "columns": {
+      "order": "顺序",
+      "name": {
+        "topics": "主题名称（泰文）",
+        "faqs": "问题（泰文）",
+        "guides": "指南标题（泰文）"
+      },
+      "topic": "主题",
+      "audience": "适用对象",
+      "status": "状态",
+      "updatedAt": "最近更新",
+      "actions": "操作",
+      "helpfulYes": "有帮助",
+      "helpfulNo": "没帮助",
+      "lastReviewed": "最近审核"
+    },
+    "actions": {
+      "edit": "编辑",
+      "delete": "删除",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "markReviewed": "标记为已审核"
+    },
+    "icons": {
+      "shopping-cart": "购物车（订单）",
+      "credit-card": "信用卡（支付）",
+      "truck": "卡车（配送）",
+      "box": "包裹（退货）",
+      "store": "店铺",
+      "user-round": "用户（账户）",
+      "shield-check": "盾牌（安全）",
+      "settings": "设置（使用问题）"
+    },
+    "form": {
+      "title": {
+        "create": {
+          "topics": "添加主题",
+          "faqs": "添加常见问题",
+          "guides": "添加指南"
+        },
+        "edit": {
+          "topics": "编辑主题",
+          "faqs": "编辑常见问题",
+          "guides": "编辑指南"
+        }
+      },
+      "fields": {
+        "slug": "Slug（小写字母、数字和连字符）",
+        "icon": "图标",
+        "topic": "主题",
+        "audience": "可见此问题的对象",
+        "url": "指南链接（URL）",
+        "active": "在帮助中心页面显示",
+        "title": "标题",
+        "description": "描述",
+        "question": "问题",
+        "answer": "答案",
+        "summary": "摘要"
+      },
+      "lang": {
+        "th": "泰文",
+        "en": "英文",
+        "zh": "中文"
+      },
+      "languages": "按语言填写内容",
+      "fallbackHint": "留空时将显示泰文内容。",
+      "topicPlaceholder": "选择主题",
+      "noTopics": "请先创建至少一个主题，再添加常见问题",
+      "save": "保存",
+      "saving": "正在保存...",
+      "cancel": "取消"
+    },
+    "errors": {
+      "required": "此项为必填",
+      "slugInvalid": "仅可使用 a-z、0-9 和连字符（例如 order-help）",
+      "urlInvalid": "链接必须以 http://、https:// 或 / 开头",
+      "topicRequired": "请选择主题",
+      "invalid": "输入无效"
+    },
+    "delete": {
+      "title": {
+        "topics": "删除主题",
+        "faqs": "删除常见问题",
+        "guides": "删除指南"
+      },
+      "body": "确定要删除“{{name}}”吗？此操作无法撤销。",
+      "topicWarning": "该主题下有 {{count}} 条相关常见问题，它们可能被一并删除或导致无法删除。",
+      "confirm": "删除",
+      "deleting": "正在删除..."
+    },
+    "toast": {
+      "created": "已添加",
+      "updated": "已保存更改",
+      "deleted": "已删除",
+      "activated": "已启用",
+      "deactivated": "已停用",
+      "reordered": "顺序已更新",
+      "actionFailed": "操作失败，请重试",
+      "reviewed": "已记录审核"
+    },
+    "neverReviewed": "从未审核"
+  },
+  "articlesCms": {
+    "title": "文章",
+    "subtitle": "管理显示在 /articles 的文章和分类",
+    "readOnly": "您只有查看权限，无法编辑内容。",
+    "checkingAccess": "正在检查管理员权限...",
+    "loadFailed": "文章加载失败",
+    "retry": "重试",
+    "reset": "重置",
+    "count": "{{count}} 项",
+    "openPublic": "打开文章页面",
+    "tabs": {
+      "articles": "文章",
+      "categories": "分类"
+    },
+    "add": {
+      "articles": "添加文章",
+      "categories": "添加分类"
+    },
+    "list": {
+      "articles": "文章列表",
+      "categories": "分类列表"
+    },
+    "search": {
+      "label": "搜索",
+      "placeholder": {
+        "articles": "按标题或内容搜索..."
+      }
+    },
+    "filters": {
+      "status": "状态",
+      "category": "分类",
+      "allStatuses": "全部状态",
+      "allCategories": "全部分类"
+    },
+    "status": {
+      "DRAFT": "草稿",
+      "PUBLISHED": "已发布",
+      "ARCHIVED": "已归档",
+      "SCHEDULED": "定时发布"
+    },
+    "audience": {
+      "ALL": "所有人",
+      "CUSTOMER": "客户",
+      "MERCHANT": "商家"
+    },
+    "columns": {
+      "cover": "封面",
+      "title": "标题 (TH)",
+      "category": "分类",
+      "status": "状态",
+      "featured": "精选",
+      "publishedAt": "发布时间",
+      "updatedAt": "最近更新",
+      "actions": "操作",
+      "order": "排序",
+      "name": "分类名称 (TH)",
+      "articleCount": "文章数",
+      "active": "状态"
+    },
+    "actions": {
+      "edit": "编辑",
+      "view": "查看",
+      "delete": "删除",
+      "moveUp": "上移",
+      "moveDown": "下移"
+    },
+    "featured": {
+      "on": "精选",
+      "off": "普通"
+    },
+    "active": {
+      "on": "已启用",
+      "off": "已停用"
+    },
+    "empty": {
+      "articles": "暂无文章",
+      "categories": "暂无分类"
+    },
+    "emptyFiltered": "没有符合筛选条件的文章",
+    "pager": {
+      "label": "分页",
+      "prev": "上一页",
+      "next": "下一页",
+      "page": "第 {{page}} / {{pages}} 页",
+      "total": "共 {{count}} 项"
+    },
+    "editor": {
+      "title": {
+        "create": "添加文章",
+        "edit": "编辑文章",
+        "view": "文章详情"
+      },
+      "tabs": {
+        "settings": "设置 / SEO"
+      },
+      "lang": {
+        "th": "泰语",
+        "en": "英语",
+        "zh": "中文"
+      },
+      "fields": {
+        "title": "标题",
+        "excerpt": "摘要",
+        "body": "正文 (Markdown)",
+        "slug": "Slug（仅限 a-z、0-9 和 -）",
+        "category": "分类",
+        "categoryNone": "无分类",
+        "audience": "读者群体",
+        "tags": "标签（用逗号分隔）",
+        "tagsHint": "{{count}} / {{max}} 个标签",
+        "readingMinutes": "阅读时间（分钟）",
+        "readingAuto": "根据泰语正文自动计算",
+        "readingManual": "自定义",
+        "featured": "设为精选文章",
+        "metaTitle": "Meta 标题",
+        "metaDescription": "Meta 描述",
+        "relatedShopId": "相关店铺（店铺 ID）",
+        "relatedProductIds": "相关商品（每行一个 UUID）",
+        "publishAt": "定时发布时间",
+        "publishAtHint": "留空 = 立即发布",
+        "cover": "封面图片",
+        "categoryName": "分类名称",
+        "categoryDescription": "描述",
+        "categoryActive": "在文章页面显示"
+      },
+      "write": "编辑",
+      "previewTab": "预览",
+      "previewEmpty": "暂无可预览的内容",
+      "fallbackHint": "留空时将显示泰语内容",
+      "seo": "SEO",
+      "related": "相关店铺与商品",
+      "relatedHint": "填写要显示在文章底部的店铺 ID 和商品 UUID（最多 10 个商品）",
+      "counter": "{{count}} / {{max}} 个字符",
+      "cover": {
+        "none": "暂无封面图片",
+        "choose": "选择封面",
+        "replace": "更换封面",
+        "remove": "移除封面",
+        "hint": "JPG、PNG 或 WEBP，最大 5 MB（建议 16:9）",
+        "pending": "保存时将上传封面"
+      },
+      "buttons": {
+        "close": "关闭",
+        "saveDraft": "保存草稿",
+        "save": "保存",
+        "saving": "保存中...",
+        "publish": "发布",
+        "republish": "保存并发布",
+        "publishing": "发布中...",
+        "archive": "归档",
+        "restore": "恢复为草稿",
+        "preview": "预览",
+        "previewHint": "在新标签页打开已保存的文章（仅限有权限的用户）"
+      }
+    },
+    "categoryEditor": {
+      "title": {
+        "create": "添加文章分类",
+        "edit": "编辑文章分类"
+      }
+    },
+    "unsaved": {
+      "title": "尚未保存",
+      "body": "您有未保存的修改，要关闭并放弃吗？",
+      "discard": "放弃修改",
+      "keep": "继续编辑"
+    },
+    "errors": {
+      "required": "此项为必填",
+      "slugInvalid": "仅允许 a-z、0-9 和 -（例如 my-article）",
+      "tooLong": "最多 {{max}} 个字符",
+      "tagsTooMany": "最多 {{max}} 个标签",
+      "tagTooLong": "每个标签最多 {{max}} 个字符",
+      "minutesInvalid": "必须是 1 到 {{max}} 的整数",
+      "shopInvalid": "店铺 ID 必须是数字",
+      "productInvalid": "商品 ID 必须是有效的 UUID",
+      "productsTooMany": "最多 {{max}} 个商品",
+      "invalid": "无效的值",
+      "coverType": "仅支持 JPG、PNG 和 WEBP",
+      "coverSize": "文件不能超过 5 MB"
+    },
+    "delete": {
+      "title": {
+        "articles": "删除文章",
+        "categories": "删除分类"
+      },
+      "body": "确定要删除“{{name}}”吗？此操作无法撤销。",
+      "confirm": "删除",
+      "deleting": "删除中...",
+      "categoryInUse": "无法删除：仍有文章使用此分类"
+    },
+    "toast": {
+      "created": "已添加",
+      "updated": "修改已保存",
+      "published": "文章已发布",
+      "archived": "文章已归档",
+      "restored": "文章已恢复为草稿",
+      "deleted": "已删除",
+      "featured": "已设为精选",
+      "unfeatured": "已取消精选",
+      "activated": "已启用",
+      "deactivated": "已停用",
+      "reordered": "排序已更新",
+      "actionFailed": "操作失败，请重试。"
+    }
   }
 }

@@ -14,6 +14,8 @@ public class OtpVerification {
     @Column(name = "destination_hash", nullable = false, length = 64) private String destinationHash;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 30) private OtpPurpose purpose;
     @Column(name = "code_hash", nullable = false) private String codeHash;
+    /** SHA-256 of one-time email verify-link token (EMAIL_VERIFY only). */
+    @Column(name = "verify_link_token_hash", length = 64) private String verifyLinkTokenHash;
     @Column(nullable = false) private int attempts;
     @Column(name = "max_attempts", nullable = false) private int maxAttempts;
     @Column(name = "expires_at", nullable = false) private Instant expiresAt;
@@ -50,6 +52,11 @@ public class OtpVerification {
     public String getDestinationHash() { return destinationHash; }
     public OtpPurpose getPurpose() { return purpose; }
     public String getCodeHash() { return codeHash; }
+    public String getVerifyLinkTokenHash() { return verifyLinkTokenHash; }
+    public void assignVerifyLinkTokenHash(String verifyLinkTokenHash) {
+        this.verifyLinkTokenHash = verifyLinkTokenHash;
+        touch();
+    }
     public int getAttempts() { return attempts; }
     public int getMaxAttempts() { return maxAttempts; }
     public Instant getExpiresAt() { return expiresAt; }

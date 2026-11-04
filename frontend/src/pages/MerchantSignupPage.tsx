@@ -4,6 +4,7 @@ import {
   BarChart3,
   Camera,
   Check,
+  CircleAlert,
   FileCheck2,
   Globe2,
   Headphones,
@@ -19,21 +20,26 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import MerchantSocialFields, { type ShopSocialDraft } from "../components/merchant/MerchantSocialFields";
+import RegisterStepper from "../components/merchant/RegisterStepper";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import MerchantHeader from "../components/MerchantHeader";
 import SearchableSelect from "../components/SearchableSelect";
 import ThaiAddressFields, { type ThaiAddressValue } from "../components/ThaiAddressFields";
-import FormField, { FieldError } from "../components/form/FormField";
+import FieldError from "../components/form/FieldError";
+import FormField from "../components/form/FormField";
 import FormGrid from "../components/form/FormGrid";
 import "../styles/form-fields.css";
+import "../styles/login.css";
 import { readMerchantDraft, writeMerchantDraft } from "../services/merchantDraft";
+import { autofillSyncHandlers, readFormTextValue } from "../hooks/autofillSync";
 import { focusFirstInvalid, MAX_LOGO_BYTES, mergeFieldError, validateShop, type ShopInput } from "../services/merchantApplicationValidation";
 import { isShopImage, SHOP_IMAGE_ACCEPT } from "../services/shopImage";
 import i18n from "../i18n";
 import { catalogApi, merchantApi, type ProductCategory } from "../services/api";
 import { labelForCategory } from "../services/categories";
 import "../styles/merchant-signup.css";
+import "../styles/form-invalid.css";
 
 const benefitIcons = [Store, BarChart3, Megaphone, Headphones, TrendingUp];
 const benefitTones = ["green", "orange", "blue", "red", "purple"];
@@ -157,8 +163,44 @@ export default function MerchantSignupPage() {
     logoBase64,
   });
 
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => mergeFieldError(prev, field));
+    setMessage("");
+  };
+
   const blurShop = (field: string) => {
     setFieldErrors((prev) => mergeFieldError(prev, field, validateShop(shopInput())[field]));
+  };
+
+  const shopNameHandlers = autofillSyncHandlers({
+    onValue: setShopName,
+    onClearError: () => clearFieldError("shopName"),
+  });
+  const shopNameEnglishHandlers = autofillSyncHandlers({
+    onValue: setShopNameEnglish,
+    onClearError: () => clearFieldError("shopNameEnglish"),
+  });
+  const descriptionHandlers = autofillSyncHandlers({
+    onValue: setDescription,
+    onClearError: () => clearFieldError("description"),
+  });
+  const addressHandlers = autofillSyncHandlers({
+    onValue: setAddress,
+    onClearError: () => clearFieldError("address"),
+  });
+
+
+  const patchThaiAddress = (next: ThaiAddressValue) => {
+    setThaiAddress(next);
+    setFieldErrors((prev) => {
+      const updated = { ...prev };
+      for (const key of ["province", "district", "subdistrict", "postalCode"] as const) {
+        // Clear stale errors on select / cascade reset (same-commit select must not flash error).
+        delete updated[key];
+      }
+      return updated;
+    });
+    setMessage("");
   };
 
   const chooseLogo = async (file?: File) => {
@@ -189,23 +231,47 @@ export default function MerchantSignupPage() {
       window.location.assign("/login?next=/merchant/register");
       return;
     }
-    const nextErrors = validateShop(shopInput());
+    const form = event.currentTarget;
+    // Autofill may fill the DOM without React onChange — sync before validate/draft.
+    const syncedSocial: ShopSocialDraft = {
+      website: readFormTextValue(form, "website", social.website),
+      lineId: readFormTextValue(form, "lineId", social.lineId),
+      facebookUrl: readFormTextValue(form, "facebookUrl", social.facebookUrl),
+      instagramUrl: readFormTextValue(form, "instagramUrl", social.instagramUrl),
+      tiktokUrl: readFormTextValue(form, "tiktokUrl", social.tiktokUrl),
+    };
+    const synced: ShopInput = {
+      ...shopInput(),
+      shopName: readFormTextValue(form, "shopName", shopName),
+      shopNameEnglish: readFormTextValue(form, "shopNameEnglish", shopNameEnglish),
+      description: readFormTextValue(form, "description", description),
+      address: readFormTextValue(form, "address", address),
+      ...syncedSocial,
+    };
+    setShopName(synced.shopName);
+    setShopNameEnglish(synced.shopNameEnglish);
+    setDescription(synced.description);
+    setAddress(synced.address);
+    setSocial(syncedSocial);
+    const nextErrors = validateShop(synced);
     setFieldErrors(nextErrors);
-    setMessage("");
-    if (Object.keys(nextErrors).length > 0) {
+    const errorCount = Object.keys(nextErrors).length;
+    if (errorCount > 0) {
+      setMessage(i18n.t("validation.summary", { ns: "merchant", count: errorCount }));
       focusFirstInvalid(nextErrors);
       return;
     }
+    setMessage("");
     setSubmitting(true);
     writeMerchantDraft(user?.id, {
       ...readMerchantDraft(user?.id),
-      shopName,
-      shopNameEnglish,
-      description,
+      shopName: synced.shopName,
+      shopNameEnglish: synced.shopNameEnglish,
+      description: synced.description,
       category: selectedCategory,
       saleType,
-      ...social,
-      address,
+      ...syncedSocial,
+      address: synced.address,
       province: thaiAddress.province,
       district: thaiAddress.district,
       subdistrict: thaiAddress.subdistrict,
@@ -295,17 +361,15 @@ export default function MerchantSignupPage() {
               <p>{r.cardLead}</p>
               {reuseOwner && <p className="merchant-reuse-note">{r.reuseNote}</p>}
             </div>
-            <div className="merchant-steps">
-              {ob.steps.map((step, index) => (
-                <div className={index === 0 ? "active" : ""} key={step.title}>
-                  <span>{index + 1}</span>
-                  <small>{step.title}</small>
-                </div>
-              ))}
-            </div>
+            <RegisterStepper currentStep={1} />
 
             <form onSubmit={submit} noValidate>
-              {message && <p className="form-alert" role="alert">{message}</p>}
+              {message && (
+                <p className="login-message" role="alert">
+                  <CircleAlert size={18} />
+                  <span>{message}</span>
+                </p>
+              )}
               <h3>{r.sectionShop}</h3>
 
               <FormGrid>
@@ -314,53 +378,72 @@ export default function MerchantSignupPage() {
                   label={<>{r.shopName} <em>{ob.common.required}</em></>}
                   icon={Store}
                   error={fieldErrors.shopName}
-                  errorId="shop-name-error"
+                  errorId="field-error-shopName"
+                  aside={`${shopName.length}/100`}
                 >
                   <input
                     name="shopName"
                     maxLength={100}
                     placeholder={r.shopNamePh}
                     value={shopName}
+                    autoComplete="organization"
                     aria-invalid={Boolean(fieldErrors.shopName)}
-                    aria-describedby={fieldErrors.shopName ? "shop-name-error" : undefined}
-                    onChange={(e) => setShopName(e.target.value)}
+                    aria-describedby={fieldErrors.shopName ? "field-error-shopName" : undefined}
+                    {...shopNameHandlers}
                     onBlur={() => blurShop("shopName")}
                   />
                 </FormField>
-                <FormField className="flush" label={r.shopNameEn} icon={Type} error={fieldErrors.shopNameEnglish}>
+                <FormField
+                  className="flush"
+                  label={r.shopNameEn}
+                  icon={Type}
+                  error={fieldErrors.shopNameEnglish}
+                  errorId="field-error-shopNameEnglish"
+                >
                   <input
                     name="shopNameEnglish"
                     maxLength={100}
                     placeholder={r.shopNameEnPh}
                     value={shopNameEnglish}
+                    autoComplete="off"
                     aria-invalid={Boolean(fieldErrors.shopNameEnglish)}
-                    onChange={(e) => setShopNameEnglish(e.target.value)}
+                    aria-describedby={fieldErrors.shopNameEnglish ? "field-error-shopNameEnglish" : undefined}
+                    {...shopNameEnglishHandlers}
                     onBlur={() => blurShop("shopNameEnglish")}
                   />
                 </FormField>
               </FormGrid>
-              <small className="merchant-count">{shopName.length}/100</small>
 
               <div className="merchant-two detail-logo">
                 <div>
-                  <FormField className="flush" label={r.description} multiline error={fieldErrors.description}>
+                  <FormField
+                    className="flush"
+                    label={r.description}
+                    multiline
+                    error={fieldErrors.description}
+                    errorId="field-error-description"
+                    aside={`${description.length}/500`}
+                  >
                     <textarea
                       name="description"
                       maxLength={500}
                       placeholder={r.descriptionPh}
                       value={description}
+                      autoComplete="off"
                       aria-invalid={Boolean(fieldErrors.description)}
-                      onChange={(e) => setDescription(e.target.value)}
+                      aria-describedby={fieldErrors.description ? "field-error-description" : undefined}
+                      {...descriptionHandlers}
                       onBlur={() => blurShop("description")}
                     />
                   </FormField>
-                  <small className="merchant-count">{description.length}/500</small>
                 </div>
                 <label data-field="logo">
                   {r.logo} <em>{ob.common.required}</em>
                   <button
-                    className="logo-drop"
+                    className={`logo-drop${fieldErrors.logo ? " is-invalid" : ""}`}
                     type="button"
+                    aria-invalid={Boolean(fieldErrors.logo)}
+                    aria-describedby={fieldErrors.logo ? "field-error-logo" : undefined}
                     onClick={() => fileRef.current?.click()}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
@@ -394,7 +477,7 @@ export default function MerchantSignupPage() {
                       if (e.target.files?.[0]) void chooseLogo(e.target.files[0]);
                     }}
                   />
-                  <FieldError text={fieldErrors.logo} />
+                  <FieldError text={fieldErrors.logo} id="field-error-logo" />
                 </label>
               </div>
 
@@ -411,21 +494,39 @@ export default function MerchantSignupPage() {
                   onChange={(label) => {
                     const match = categoryChoices.find((option) => option.label === label);
                     setSelectedCategory(match?.value || "");
+                    clearFieldError("category");
                   }}
                 />
               </div>
 
-              <MerchantSocialFields copy={ob.social} value={social} onChange={setSocial} errors={fieldErrors} onBlur={blurShop} />
+              <MerchantSocialFields
+                copy={ob.social}
+                value={social}
+                onChange={setSocial}
+                errors={fieldErrors}
+                onBlur={blurShop}
+                onClearError={clearFieldError}
+              />
 
-              <fieldset>
+              <fieldset data-field="saleType">
                 <legend>
                   {r.saleType} <em>{ob.common.required}</em>
                 </legend>
-                <div className="sale-types">
+                <div
+                  className="sale-types"
+                  role="radiogroup"
+                  aria-label={r.saleType}
+                  aria-invalid={Boolean(fieldErrors.saleType)}
+                  aria-describedby={fieldErrors.saleType ? "field-error-saleType" : undefined}
+                >
                   <button
                     type="button"
                     className={saleType === "owner" ? "active" : ""}
-                    onClick={() => setSaleType("owner")}
+                    aria-pressed={saleType === "owner"}
+                    onClick={() => {
+                      clearFieldError("saleType");
+                      setSaleType("owner");
+                    }}
                   >
                     <i>{saleType === "owner" ? <Check /> : null}</i>
                     <PackageCheck />
@@ -437,7 +538,11 @@ export default function MerchantSignupPage() {
                   <button
                     type="button"
                     className={saleType === "reseller" ? "active" : ""}
-                    onClick={() => setSaleType("reseller")}
+                    aria-pressed={saleType === "reseller"}
+                    onClick={() => {
+                      clearFieldError("saleType");
+                      setSaleType("reseller");
+                    }}
                   >
                     <i>{saleType === "reseller" ? <Check /> : null}</i>
                     <UsersRound />
@@ -447,22 +552,30 @@ export default function MerchantSignupPage() {
                     </span>
                   </button>
                 </div>
+                <FieldError text={fieldErrors.saleType} id="field-error-saleType" />
               </fieldset>
 
-              <FormField label={r.address} icon={MapPin} error={fieldErrors.address}>
+              <FormField
+                label={<>{r.address} <em>{ob.common.required}</em></>}
+                icon={MapPin}
+                error={fieldErrors.address}
+                errorId="field-error-address"
+              >
                 <input
                   name="address"
                   placeholder={r.addressPh}
                   value={address}
+                  autoComplete="street-address"
                   aria-invalid={Boolean(fieldErrors.address)}
-                  onChange={(e) => setAddress(e.target.value)}
+                  aria-describedby={fieldErrors.address ? "field-error-address" : undefined}
+                  {...addressHandlers}
                   onBlur={() => blurShop("address")}
                 />
               </FormField>
 
               <ThaiAddressFields
                 value={thaiAddress}
-                onChange={setThaiAddress}
+                onChange={patchThaiAddress}
                 errors={fieldErrors}
                 onBlurField={blurShop}
               />
@@ -470,12 +583,6 @@ export default function MerchantSignupPage() {
               <button className="login-submit merchant-next" type="submit" disabled={submitting}>
                 {submitting ? i18n.t("validation.checking", { ns: "merchant" }) : ob.common.next} <ArrowRight />
               </button>
-
-              {message && (
-                <p className="merchant-message" role="status">
-                  {message}
-                </p>
-              )}
 
               <p className="merchant-login">
                 {ob.common.hasAccount} <a href="/login">{ob.common.login}</a>

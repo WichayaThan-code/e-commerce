@@ -26,6 +26,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -75,6 +76,44 @@ class AuthIntegrationTests {
         mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + accessToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.email").value("somchai@example.com"));
+    }
+
+    @Test void registerRejectsInvalidPasswordsAndAcceptsAsciiPassword() throws Exception {
+        long before = users.count();
+        registerWithPassword("thai-mix@example.com", "0817000001", "Passไทย1")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        assertEquals(before, users.count());
+
+        registerWithPassword("has-space@example.com", "0817000006", "Pass word1")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        assertEquals(before, users.count());
+
+        registerWithPassword("no-digit@example.com", "0817000002", "Password")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        assertEquals(before, users.count());
+
+        registerWithPassword("no-letter@example.com", "0817000003", "12345678")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        assertEquals(before, users.count());
+
+        registerWithPassword("too-short@example.com", "0817000004", "Pass1")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        assertEquals(before, users.count());
+
+        registerWithPassword("ok-password@example.com", "0817000005", "Password1")
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.user.email").value("ok-password@example.com"));
+        assertEquals(before + 1, users.count());
+
+        registerWithPassword("ok-symbols@example.com", "0817000007", "P@ssw0rd!")
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.user.email").value("ok-symbols@example.com"));
+        assertEquals(before + 2, users.count());
     }
 
     @Test void loginSupportsEmailAndNormalizedPhone() throws Exception {
@@ -319,9 +358,13 @@ class AuthIntegrationTests {
     }
 
     private ResultActions register(String email, String phone) throws Exception {
+        return registerWithPassword(email, phone, "Password1");
+    }
+
+    private ResultActions registerWithPassword(String email, String phone, String password) throws Exception {
         return mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content("""
-            {"firstName":"สมชาย","lastName":"ใจดี","email":"%s","phone":"%s","password":"Password1"}
-            """.formatted(email, phone)));
+            {"firstName":"สมชาย","lastName":"ใจดี","email":"%s","phone":"%s","password":"%s"}
+            """.formatted(email, phone, password)));
     }
 
     private ResultActions login(String identity, String password) throws Exception {

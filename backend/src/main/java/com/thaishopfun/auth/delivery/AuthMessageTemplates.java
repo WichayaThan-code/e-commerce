@@ -21,6 +21,10 @@ public class AuthMessageTemplates {
     }
 
     public EmailMessage otpEmail(String to, String name, OtpPurpose purpose, String code, long ttlMinutes) {
+        return otpEmail(to, name, purpose, code, ttlMinutes, null);
+    }
+
+    public EmailMessage otpEmail(String to, String name, OtpPurpose purpose, String code, long ttlMinutes, String verifyLinkUrl) {
         var action = switch (purpose) {
             case EMAIL_VERIFY -> "ยืนยันอีเมล";
             case SIGNUP -> "สมัครสมาชิก";
@@ -30,7 +34,22 @@ public class AuthMessageTemplates {
         };
         var subject = "[" + BRAND + "] รหัส OTP สำหรับ" + action;
         var greeting = greeting(name);
-        var text = """
+        var hasLink = purpose == OtpPurpose.EMAIL_VERIFY && verifyLinkUrl != null && !verifyLinkUrl.isBlank();
+        var text = hasLink
+            ? """
+            %s
+
+            กดลิงก์ด้านล่างเพื่อยืนยันอีเมลของคุณ (ใช้ได้ครั้งเดียวและหมดอายุภายใน %d นาที):
+            %s
+
+            หรือกรอกรหัส OTP: %s
+
+            กรุณาอย่าเปิดเผยรหัสนี้กับผู้อื่น เจ้าหน้าที่ %s จะไม่ขอรหัส OTP จากคุณ
+            หากคุณไม่ได้ทำรายการนี้ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
+
+            ทีมงาน %s
+            """.formatted(greeting, ttlMinutes, verifyLinkUrl, code, BRAND, BRAND)
+            : """
             %s
 
             รหัส OTP สำหรับ%sของคุณคือ: %s
@@ -41,15 +60,26 @@ public class AuthMessageTemplates {
 
             ทีมงาน %s
             """.formatted(greeting, action, code, ttlMinutes, BRAND, BRAND);
-        var html = layout(subject, """
+        var htmlBody = hasLink
+            ? """
+            <p style="margin:0 0 16px">%s</p>
+            <p style="margin:0 0 16px">กดปุ่มด้านล่างเพื่อยืนยันอีเมลของคุณ</p>
+            <p style="margin:0 0 20px"><a href="%s" style="display:inline-block;padding:12px 24px;background:#1268d7;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600">ยืนยันอีเมล</a></p>
+            <p style="margin:0 0 8px">ลิงก์ใช้ได้ครั้งเดียวและจะหมดอายุภายใน <strong>%d นาที</strong></p>
+            <p style="margin:0 0 8px">หรือกรอกรหัส OTP:</p>
+            <p style="margin:0 0 16px;font-size:32px;font-weight:700;letter-spacing:8px;color:#1268d7">%s</p>
+            <p style="margin:0 0 8px;color:#666">กรุณาอย่าเปิดเผยรหัสนี้กับผู้อื่น เจ้าหน้าที่ %s จะไม่ขอรหัส OTP จากคุณ</p>
+            <p style="margin:0;color:#666">หากคุณไม่ได้ทำรายการนี้ กรุณาเพิกเฉยต่ออีเมลฉบับนี้</p>
+            """.formatted(escape(greeting), escape(verifyLinkUrl), ttlMinutes, escape(code), BRAND)
+            : """
             <p style="margin:0 0 16px">%s</p>
             <p style="margin:0 0 8px">รหัส OTP สำหรับ%sของคุณคือ</p>
             <p style="margin:0 0 16px;font-size:32px;font-weight:700;letter-spacing:8px;color:#1268d7">%s</p>
             <p style="margin:0 0 8px">รหัสนี้ใช้ได้ครั้งเดียวและจะหมดอายุภายใน <strong>%d นาที</strong></p>
             <p style="margin:0 0 8px;color:#666">กรุณาอย่าเปิดเผยรหัสนี้กับผู้อื่น เจ้าหน้าที่ %s จะไม่ขอรหัส OTP จากคุณ</p>
             <p style="margin:0;color:#666">หากคุณไม่ได้ทำรายการนี้ กรุณาเพิกเฉยต่ออีเมลฉบับนี้</p>
-            """.formatted(escape(greeting), escape(action), escape(code), ttlMinutes, BRAND));
-        return new EmailMessage(to, name, subject, text, html);
+            """.formatted(escape(greeting), escape(action), escape(code), ttlMinutes, BRAND);
+        return new EmailMessage(to, name, subject, text, layout(subject, htmlBody));
     }
 
     public SmsMessage otpSms(String to, OtpPurpose purpose, String code, long ttlMinutes) {

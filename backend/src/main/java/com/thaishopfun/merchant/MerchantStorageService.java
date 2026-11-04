@@ -166,6 +166,30 @@ public class MerchantStorageService {
         }
     }
 
+    /**
+     * Platform-owned image (e.g. article cover): content-sniffed JPG / PNG / WEBP up to 5 MB, written to
+     * {@code {root}/{folder}/} with a generated name. {@code folder} must be a plain directory name.
+     */
+    public StoredFile storePlatformImage(String folder, byte[] bytes, String kind) {
+        if (folder == null || !folder.matches("[a-z0-9-]{1,40}")) throw bad("ตำแหน่งจัดเก็บไฟล์ไม่ถูกต้อง");
+        if (bytes == null || bytes.length == 0) throw bad("กรุณาเลือกไฟล์");
+        if (bytes.length > MAX_BYTES) throw new AuthException(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "ไฟล์ต้องมีขนาดไม่เกิน 5 MB");
+        var contentType = sniffedImageType(bytes);
+        if (contentType == null) throw bad("รองรับเฉพาะไฟล์ JPG, PNG หรือ WEBP");
+        var directory = root.resolve(folder).normalize();
+        if (!directory.startsWith(root)) throw bad("ตำแหน่งจัดเก็บไฟล์ไม่ถูกต้อง");
+        try {
+            Files.createDirectories(directory);
+            var digest = MessageDigest.getInstance("SHA-256");
+            digest.update(bytes);
+            var stored = writeUnique(directory, kind, EXTENSIONS.get(contentType), bytes);
+            return new StoredFile("image" + EXTENSIONS.get(contentType), stored, directory.resolve(stored).normalize().toString(),
+                contentType, bytes.length, HexFormat.of().formatHex(digest.digest()));
+        } catch (Exception exception) {
+            throw new AuthException(HttpStatus.INTERNAL_SERVER_ERROR, "FILE_STORAGE_ERROR", "ไม่สามารถจัดเก็บไฟล์ได้");
+        }
+    }
+
     public StoredFile copyInto(UUID applicationId, Path source, String kind, String contentType) {
         var extension = EXTENSIONS.getOrDefault(contentType, "");
         if (extension.isBlank()) throw bad("ไม่สามารถคัดลอกเอกสารเดิมได้");

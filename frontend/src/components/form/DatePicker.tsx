@@ -48,12 +48,19 @@ export default function DatePicker({
   const isThai = locale === 'th'
   const containerRef = useRef<HTMLDivElement>(null)
   const yearListRef = useRef<HTMLDivElement>(null)
+  const validateAfterChangeRef = useRef(false)
   const [open, setOpen] = useState(false)
   const [menu, setMenu] = useState<MenuMode>('none')
   const selected = parseIso(value)
   const minDate = min ? parseIso(min) : null
   const maxDate = max ? parseIso(max) : null
   const [view, setView] = useState(() => selected || maxDate || new Date())
+
+  useEffect(() => {
+    if (!validateAfterChangeRef.current) return
+    validateAfterChangeRef.current = false
+    onBlur?.()
+  }, [value, onBlur])
 
   useEffect(() => {
     if (!open) {
@@ -125,12 +132,20 @@ export default function DatePicker({
     setView((current) => new Date(current.getFullYear(), current.getMonth() + delta, 1))
   }
 
-  const pick = (date: Date) => {
-    if (isDisabled(date)) return
-    onChange(toIso(date))
+  const commitValue = (next: string) => {
+    validateAfterChangeRef.current = true
+    onChange(next)
     setOpen(false)
     setMenu('none')
-    onBlur?.()
+    if (next === value) {
+      validateAfterChangeRef.current = false
+      queueMicrotask(() => onBlur?.())
+    }
+  }
+
+  const pick = (date: Date) => {
+    if (isDisabled(date)) return
+    commitValue(toIso(date))
   }
 
   const today = startOfDay(new Date())
@@ -144,7 +159,9 @@ export default function DatePicker({
       ref={containerRef}
       data-field={field || name}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onBlur?.()
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+        if (open) return
+        onBlur?.()
       }}
     >
       <span className="date-picker-label">
@@ -271,10 +288,7 @@ export default function DatePicker({
               type="button"
               className="date-picker-clear"
               onClick={() => {
-                onChange('')
-                setOpen(false)
-                setMenu('none')
-                onBlur?.()
+                commitValue('')
               }}
             >
               {isThai ? 'ล้าง' : 'Clear'}

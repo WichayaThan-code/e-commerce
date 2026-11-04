@@ -1,0 +1,4 @@
+# Activated with --spring.profiles.active=dev.
+app:
+  auth:
+    dev-log-otp: true

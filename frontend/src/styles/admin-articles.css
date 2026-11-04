@@ -1,0 +1,244 @@
+/* Admin Articles (/admin/articles): mirrors admin-help-center.css (hc-* classes are reused for table, switch, drawer form). */
+.ar-thumb {
+  width: 72px;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #e8f1fb;
+  display: grid;
+  place-items: center;
+  color: #8fb2da;
+}
+.ar-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ar-thumb svg {
+  width: 20px;
+  height: 20px;
+}
+.ar-title {
+  max-width: 420px;
+}
+.ar-title b {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.ar-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.ar-tags i {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #eef3f9;
+  color: #4a6590;
+  font-size: 10px;
+  font-style: normal;
+}
+.ar-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-top: 1px solid var(--shop-border, #e3edf6);
+  color: #5b79a5;
+  font-size: 13px;
+}
+.ar-pager nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ar-pager button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #cddff2;
+  border-radius: 6px;
+  background: #fff;
+  color: #0a4394;
+  cursor: pointer;
+}
+.ar-pager button:disabled {
+  color: #b2c4da;
+  cursor: not-allowed;
+}
+.ar-pager button svg {
+  width: 16px;
+  height: 16px;
+}
+.ar-readonly-note {
+  margin: 0 0 12px;
+  color: #6681aa;
+  font-size: 12px;
+}
+
+/* ---- editor drawer (portaled to <body>) ---- */
+.ar-drawer {
+  width: min(940px, 100vw);
+}
+.ar-form {
+  display: block;
+}
+.ar-form .form-field {
+  margin-bottom: 14px;
+}
+.ar-form .form-control,
+.ar-form .form-field > input,
+.ar-form .form-field > select {
+  height: 44px;
+}
+.ar-form .form-control-area {
+  height: auto;
+  align-items: stretch;
+  padding: 0;
+}
+.ar-form .form-control-area textarea {
+  padding: 10px 14px;
+  resize: vertical;
+  line-height: 1.5;
+  height: auto;
+}
+.ar-form .form-control-area textarea.ar-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  min-height: 320px;
+}
+.ar-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+}
+.ar-form-grid .span-2 {
+  grid-column: 1 / -1;
+}
+.ar-section {
+  margin: 8px 0 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e3edf6;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0b3270;
+}
+.ar-body-tabs {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 3px;
+  border: 1px solid #cddff2;
+  border-radius: 8px;
+  background: #f3f9ff;
+}
+.ar-body-tabs button {
+  height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #0a4394;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ar-body-tabs button[aria-pressed="true"] {
+  background: #087bf5;
+  color: #fff;
+}
+.ar-preview.blog-page {
+  min-height: 0;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  border: 1px solid #cddff2;
+  border-radius: 8px;
+  background: #fff;
+  max-height: 520px;
+  overflow-y: auto;
+}
+.ar-preview .article-markdown {
+  font-size: 15px;
+}
+.ar-preview-empty {
+  margin: 0;
+  color: #6681aa;
+  font-size: 13px;
+}
+.ar-counter {
+  font-size: 11px;
+  color: #6681aa;
+}
+.ar-counter.over {
+  color: var(--color-warning);
+  font-weight: 700;
+}
+.ar-cover-box {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+.ar-cover-preview {
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px dashed #b9cfe8;
+  background: #f3f9ff;
+  display: grid;
+  place-items: center;
+  color: #8fb2da;
+  font-size: 12px;
+  text-align: center;
+}
+.ar-cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ar-cover-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ar-cover-actions .asp-secondary {
+  height: 36px;
+}
+.ar-cover-actions input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.ar-footer-spacer {
+  flex: 1;
+}
+.ar-draft-note {
+  margin: 0 0 12px;
+  color: #6681aa;
+  font-size: 12px;
+}
+.ar-status-pill {
+  margin-left: 8px;
+}
+.ar-drawer .asp-primary.ar-publish {
+  background: #12b886;
+  border-color: #12b886;
+}
+
+@media (max-width: 800px) {
+  .ar-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .ar-cover-box {
+    grid-template-columns: 1fr;
+  }
+}

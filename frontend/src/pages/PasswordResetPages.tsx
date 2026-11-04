@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight, CheckCircle2, CircleAlert, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShoppingBag } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { AsciiPasswordInput, PasswordInputHints } from '../components/form/AsciiPasswordInput'
 import LanguageSwitcher from '../components/LanguageSwitcher'
+import { useAsciiPasswordInput } from '../hooks/useAsciiPasswordInput'
 import { ApiError, authApi } from '../services/api'
+import { isPasswordValid } from '../utils/passwordRules'
 import '../styles/login.css'
 import '../styles/password-reset.css'
 
@@ -34,7 +37,9 @@ export default function PasswordResetPages() {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-  const passwordValid = password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password)
+  const passwordField = useAsciiPasswordInput({ value: password, onValueChange: setPassword })
+  const confirmField = useAsciiPasswordInput({ value: confirmPassword, onValueChange: setConfirmPassword })
+  const passwordValid = useMemo(() => isPasswordValid(password), [password])
 
   const submitEmail = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -122,20 +127,38 @@ export default function PasswordResetPages() {
             <label className="field-label" htmlFor="new-password">{p('newPasswordLabel')}</label>
             <div className="login-field">
               <LockKeyhole />
-              <input id="new-password" name="newPassword" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder={p('newPasswordPlaceholder')} />
+              <AsciiPasswordInput
+                field={passwordField}
+                id="new-password"
+                name="newPassword"
+                autoComplete="new-password"
+                required
+                visible={showPassword}
+                placeholder={p('newPasswordPlaceholder')}
+              />
               <button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-pressed={showPassword} aria-label={showPassword ? p('hidePassword') : p('showPassword')}>
                 {showPassword ? <EyeOff /> : <Eye />}
               </button>
             </div>
+            <PasswordInputHints asciiWarning={passwordField.asciiWarning} capsLockOn={passwordField.capsLockOn} className="password-field-hint" />
             <p className={`password-reset-rules${passwordValid ? ' is-valid' : ''}`}>{p('passwordRules')}</p>
             <label className="field-label" htmlFor="confirm-password">{p('confirmPasswordLabel')}</label>
             <div className="login-field">
               <LockKeyhole />
-              <input id="confirm-password" name="confirmPassword" type={showConfirmPassword ? 'text' : 'password'} autoComplete="new-password" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder={p('confirmPasswordPlaceholder')} />
+              <AsciiPasswordInput
+                field={confirmField}
+                id="confirm-password"
+                name="confirmPassword"
+                autoComplete="new-password"
+                required
+                visible={showConfirmPassword}
+                placeholder={p('confirmPasswordPlaceholder')}
+              />
               <button type="button" onClick={() => setShowConfirmPassword((visible) => !visible)} aria-pressed={showConfirmPassword} aria-label={showConfirmPassword ? p('hidePassword') : p('showPassword')}>
                 {showConfirmPassword ? <EyeOff /> : <Eye />}
               </button>
             </div>
+            <PasswordInputHints asciiWarning={confirmField.asciiWarning} capsLockOn={confirmField.capsLockOn} className="password-field-hint" />
             <button className="login-submit" type="submit" disabled={submitting || !password || !confirmPassword}>
               {submitting ? <><LoaderCircle className="login-spinner" size={19} /> {p('resetting')}</> : <>{p('resetPassword')} <ArrowRight size={19} /></>}
             </button>

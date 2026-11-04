@@ -99,6 +99,12 @@ public class AuthController {
         return auth.verifyOtp(request);
     }
 
+    @PublicEndpoint
+    @PostMapping("/otp/verify-link")
+    AuthDtos.VerifyOtpResponse verifyOtpLink(@Valid @RequestBody AuthDtos.VerifyOtpLinkRequest request) {
+        return auth.verifyOtpLink(request);
+    }
+
     private ResponseEntity<AuthDtos.AuthResponse> session(AuthService.Session session, HttpStatus status) {
         return ResponseEntity.status(status)
             .header(HttpHeaders.SET_COOKIE, refreshCookie(session.refreshToken()).toString())

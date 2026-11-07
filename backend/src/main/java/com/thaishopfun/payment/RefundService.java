@@ -1,8 +1,10 @@
 package com.thaishopfun.payment;
 
+import com.thaishopfun.admin.notification.AdminNotificationService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.common.FieldViolation;
 import com.thaishopfun.common.ValidationException;
+import com.thaishopfun.merchant.ShopRepository;
 import com.thaishopfun.order.*;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
@@ -43,11 +45,16 @@ public class RefundService {
     private final OrderQueryService queries;
     private final OrderPaymentService paymentsService;
     private final PaymentFileService files;
+    private final ShopRepository shops;
+    private final AdminNotificationService adminNotifications;
 
     public RefundService(OrderRepository orders, RefundRepository refunds, RefundStatusHistoryRepository refundHistory, OrderMoneyLedger ledger,
-                         OrderTransitionService transitions, OrderQueryService queries, OrderPaymentService paymentsService, PaymentFileService files) {
+                         OrderTransitionService transitions, OrderQueryService queries, OrderPaymentService paymentsService, PaymentFileService files,
+                         ShopRepository shops, AdminNotificationService adminNotifications) {
         this.orders = orders;
         this.refunds = refunds;
+        this.shops = shops;
+        this.adminNotifications = adminNotifications;
         this.refundHistory = refundHistory;
         this.ledger = ledger;
         this.transitions = transitions;
@@ -191,6 +198,13 @@ public class RefundService {
         refund.stamp(buyer.userId());
         ledger.refundHistory(refund, RefundStatus.PROOF_UPLOADED, RefundStatus.DISPUTED, "REFUND_DISPUTED", buyer, note, Map.of());
         ledger.orderEvent(order, buyer, "REFUND_DISPUTED", note, Map.of("refundId", refund.getId()));
+        var shop = shops.findById(order.getShopId()).orElse(null);
+        adminNotifications.publishRefundDisputed(
+            order.getId(),
+            refund.getId(),
+            shop == null ? null : shop.getId(),
+            shop == null ? null : shop.getName()
+        );
         return response(true, buyer, order, refund, fileBase);
     }
 

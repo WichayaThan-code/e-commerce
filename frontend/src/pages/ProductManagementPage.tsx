@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { SkeletonTable, SkeletonBusy, LoadError } from "../components/feedback/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { Link, useSearchParams } from "react-router-dom";
-import { Archive, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Download, Ellipsis, ExternalLink, Eye, Link2, LoaderCircle, Pencil, Plus, QrCode, RotateCcw, Search, Upload } from "lucide-react";
+import { Archive, Download, Ellipsis, ExternalLink, Eye, Link2, LoaderCircle, Pencil, Plus, QrCode, RotateCcw, Search, Upload } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useImportActivity } from "../contexts/ImportActivityContext";
 import ConfirmDialog from "../components/form/ConfirmDialog";
 import MerchantShell from "../components/merchant/MerchantShell";
+import MerchantPagination from "../components/merchant/MerchantPagination";
 import AuthImage from "../components/merchant/AuthImage";
 import SearchableSelect from "../components/SearchableSelect";
 import ProductQrModal from "../components/shop/ProductQrModal";
@@ -341,8 +342,6 @@ export default function ProductManagementPage() {
   };
 
   const pages = Math.max(1, Math.ceil(total / size));
-  const from = total === 0 ? 0 : page * size + 1;
-  const to = Math.min(total, (page + 1) * size);
   const filtered = Boolean(q || categoryId || brand || stock || status);
   const lang = locale.startsWith("en") ? "en" : locale.startsWith("zh") ? "zh" : "th";
   const categoryName = (id?: number | null) => {
@@ -569,28 +568,14 @@ export default function ProductManagementPage() {
             </div>
           </SkeletonBusy>
         )}
-        <div className="pm-pagination">
-          <span>{t("catalog.showing", { from, to, total })}</span>
-          <div className="pm-page-size">
-            <span>{t("catalog.perPage")}</span>
-            <SearchableSelect compact label={t("catalog.perPage")} options={["10", "20", "50"]} value={String(size)} onChange={(picked) => patch({ size: picked, page: "1" })} />
-          </div>
-          <nav>
-            <button type="button" aria-label={t("catalog.first")} disabled={page <= 0} onClick={() => patch({ page: "1" })}><ChevronFirst /></button>
-            <button type="button" aria-label={t("catalog.prev")} disabled={page <= 0} onClick={() => patch({ page: String(page) })}><ChevronLeft /></button>
-            {Array.from({ length: Math.min(5, pages) }, (_, index) => {
-              const start = Math.max(0, Math.min(page - 2, pages - Math.min(5, pages)));
-              const number = start + index;
-              return (
-                <button key={number} type="button" className={number === page ? "active" : ""} aria-current={number === page ? "page" : undefined} onClick={() => patch({ page: String(number + 1) })}>
-                  {number + 1}
-                </button>
-              );
-            })}
-            <button type="button" aria-label={t("catalog.next")} disabled={page + 1 >= pages} onClick={() => patch({ page: String(page + 2) })}><ChevronRight /></button>
-            <button type="button" aria-label={t("catalog.last")} disabled={page + 1 >= pages} onClick={() => patch({ page: String(pages) })}><ChevronLast /></button>
-          </nav>
-        </div>
+        <MerchantPagination
+          page={page}
+          pageCount={pages}
+          size={size}
+          total={total}
+          onPageChange={(next) => patch({ page: String(next + 1) })}
+          onSizeChange={(next) => patch({ size: String(next), page: "1" })}
+        />
       </section>
       {importOpen && importJob && (
         <ConfirmDialog

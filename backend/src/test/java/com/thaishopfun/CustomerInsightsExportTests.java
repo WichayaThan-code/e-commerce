@@ -113,9 +113,10 @@ class CustomerInsightsExportTests {
             .andExpect(status().isOk())
             .andReturn().getResponse().getContentAsByteArray();
         try (var book = new XSSFWorkbook(new ByteArrayInputStream(xlsx))) {
-            var sheet = book.getSheetAt(0);
+            var sheet = book.getSheet("customers");
             assertEquals(1, sheet.getLastRowNum()); // header + 1 VIP
             assertEquals("ลูกค้า VIP ส่งออก", sheet.getRow(1).getCell(0).getStringCellValue());
+            assertFalse(sheet.getTables().isEmpty());
             assertFalse(containsUuidOrKey(sheet));
         }
 
@@ -125,9 +126,10 @@ class CustomerInsightsExportTests {
             .andExpect(status().isOk())
             .andReturn().getResponse().getContentAsByteArray();
         try (var book = new XSSFWorkbook(new ByteArrayInputStream(masked))) {
-            var name = book.getSheetAt(0).getRow(1).getCell(0).getStringCellValue();
+            var sheet = book.getSheet("customers");
+            var name = sheet.getRow(1).getCell(0).getStringCellValue();
             assertTrue(name.startsWith("ล***"), name);
-            assertFalse(containsUuidOrKey(book.getSheetAt(0)));
+            assertFalse(containsUuidOrKey(sheet));
         }
 
         jdbc.update("""

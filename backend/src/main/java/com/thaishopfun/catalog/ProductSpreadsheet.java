@@ -80,6 +80,48 @@ public final class ProductSpreadsheet {
         return write(rows, null);
     }
 
+    /** Merchant catalog export: Excel Table + meta sheet (import template still uses {@link #write}/{@link #template}). */
+    public static byte[] writeExport(List<SheetRow> rows, String shopName) {
+        try (var book = new com.thaishopfun.common.excel.MerchantExcelWorkbook()) {
+            var meta = new java.util.LinkedHashMap<String, String>();
+            meta.put("Shop", shopName == null ? "" : shopName);
+            meta.put("Timezone", "Asia/Bangkok");
+            meta.put("Generated at", java.time.Instant.now().toString());
+            meta.put("Rows", String.valueOf(rows == null ? 0 : rows.size()));
+            book.addMetaSheet("Meta", meta);
+            var columns = new java.util.ArrayList<com.thaishopfun.common.excel.MerchantExcelWorkbook.Column>();
+            for (String h : HEADERS) {
+                columns.add(switch (h) {
+                    case "price", "compareAtPrice" -> com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.money(h);
+                    case "weightGrams", "stock" -> com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.integer(h);
+                    default -> com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(h);
+                });
+            }
+            var data = new java.util.ArrayList<java.util.List<Object>>();
+            if (rows != null) {
+                for (var source : rows) {
+                    var row = new java.util.ArrayList<Object>(HEADERS.length);
+                    row.add(nz(source.nameTh())); row.add(nz(source.nameEn())); row.add(nz(source.nameZh()));
+                    row.add(nz(source.descriptionTh())); row.add(nz(source.descriptionEn())); row.add(nz(source.descriptionZh()));
+                    row.add(nz(source.category())); row.add(nz(source.brand())); row.add(nz(source.skuCode())); row.add(nz(source.barcode()));
+                    row.add(nz(source.optionLabel())); row.add(source.price()); row.add(source.compareAtPrice());
+                    row.add(source.weightGrams()); row.add(source.stock());
+                    row.add(nz(source.image())); row.add(nz(source.productKey())); row.add(nz(source.productType()));
+                    row.add(nz(source.option1Name())); row.add(nz(source.option1Value()));
+                    row.add(nz(source.option2Name())); row.add(nz(source.option2Value()));
+                    row.add(nz(source.option3Name())); row.add(nz(source.option3Value()));
+                    data.add(row);
+                }
+            }
+            book.addTableSheet("products", "Products", columns, data);
+            return book.toBytes();
+        }
+    }
+
+    private static String nz(String value) {
+        return value == null ? "" : value;
+    }
+
     public static byte[] write(List<SheetRow> rows, String readme) {
         try (var book = new XSSFWorkbook(); var out = new ByteArrayOutputStream()) {
             var sheet = book.createSheet("products");

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  AlertTriangle, CalendarDays, Check, ChevronLeft, ChevronRight, Download, KeyRound, Mail,
+  AlertTriangle, CalendarDays, Check, Download, KeyRound, Mail,
   MoreVertical, Plus, Search, Settings, ShieldCheck, Store, Trash2, UserRound, UsersRound, X,
 } from 'lucide-react'
+import { Pager } from '../components/admin/PlatformBits'
 import { SkeletonForm, SkeletonTable, SkeletonText, SkeletonBusy, LoadError } from '../components/feedback/Skeleton'
 import ConfirmDialog from '../components/form/ConfirmDialog'
 import { useDelayedLoading } from '../hooks/useDelayedLoading'
@@ -44,15 +45,6 @@ const shopsLabel = (row: AdminUserRow) => {
   return names.length === 0 ? '-' : names.length === 1 ? names[0] : `${names[0]} +${names.length - 1}`
 }
 const errorText = (error: unknown) => error instanceof ApiError ? error.message : 'โหลดข้อมูลไม่สำเร็จ'
-
-function pageWindow(current: number, total: number): (number | '…')[] {
-  if (total <= 7) return Array.from({ length: total }, (_, index) => index)
-  const pages = new Set([0, total - 1, current - 1, current, current + 1].filter(page => page >= 0 && page < total))
-  const sorted = [...pages].sort((a, b) => a - b)
-  const result: (number | '…')[] = []
-  sorted.forEach((page, index) => { if (index > 0 && page - sorted[index - 1] > 1) result.push('…'); result.push(page) })
-  return result
-}
 
 export default function AdminUsersPage() {
   const { t } = useTranslation('admin')
@@ -286,8 +278,6 @@ export default function AdminUsersPage() {
     const change = formatChange(metric)
     return <>{stats ? formatNumber(metric?.value) : statsError ? '-' : '…'} <em className={change.tone}>{stats ? change.text : ''}</em></>
   }
-  const start = totalItems === 0 ? 0 : page * size + 1
-  const end = Math.min(totalItems, page * size + items.length)
   const head = detail ?? null
   const headName = head ? fullName(head) : selectedRow ? fullName(selectedRow) : ''
   const headStatus = head?.status ?? selectedRow?.status
@@ -346,9 +336,17 @@ export default function AdminUsersPage() {
           {!listLoading && listError && <LoadError message={listError} onRetry={() => setReloadKey(key => key + 1)} />}
           {!listLoading && !listError && items.length === 0 && <div className="users-empty">{totalItems === 0 && !Object.values(filters).some(Boolean) ? 'ยังไม่มีผู้ใช้งานในระบบ' : 'ไม่พบผู้ใช้งานที่ตรงกับตัวกรอง'}</div>}
         </div></div>
-        <footer><div>แสดง <AdminSelect compact className="adm-page-size" label="จำนวนรายการต่อหน้า" value={String(size)} onChange={value => { setSize(Number(value)); setPage(0) }} options={PAGE_SIZES.map(value => ({ value: String(value), label: String(value) }))}/> รายการต่อหน้า</div><span>{formatNumber(start)} - {formatNumber(end)} จาก {formatNumber(totalItems)} รายการ</span>
-          <nav aria-label="แบ่งหน้า"><button disabled={page === 0 || listLoading} onClick={() => setPage(page - 1)} aria-label="หน้าก่อนหน้า"><ChevronLeft/></button>{pageWindow(page, totalPages).map((value, index) => value === '…' ? <button key={`gap-${index}`} disabled>…</button> : <button key={value} className={value === page ? 'current' : ''} onClick={() => setPage(value)} disabled={listLoading}>{value + 1}</button>)}<button disabled={page >= totalPages - 1 || listLoading} onClick={() => setPage(page + 1)} aria-label="หน้าถัดไป"><ChevronRight/></button></nav>
-        </footer>
+        <Pager
+          page={page}
+          size={size}
+          totalItems={totalItems}
+          totalPages={totalPages}
+          itemCount={items.length}
+          loading={listLoading}
+          sizeOptions={PAGE_SIZES}
+          onPage={setPage}
+          onSize={next => { setSize(next); setPage(0) }}
+        />
       </section>
     </div>
     <AdminSidePanel

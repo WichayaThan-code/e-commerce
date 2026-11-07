@@ -24,7 +24,6 @@ import { useAuth } from "../contexts/AuthContext";
 import { accountKind } from "../services/permissions";
 import "../styles/deals.css";
 import "../styles/deal-hero-fix.css";
-
 const tabs = [
   [Flame, "ดีลวันนี้"],
   [ShoppingBag, "ดีลทุกสัปดาห์"],
@@ -81,23 +80,6 @@ const recommended = [
   ["🍲", "หม้อสเตนเลสพร้อมฝา", "-32%"],
   ["🪴", "ต้นไม้ฟอกอากาศ", "-27%"],
 ];
-
-function DealBrand() {
-  return (
-    <a className="deal-brand" href="/">
-      <span className="deal-mark">
-        <ShoppingBag />
-        <i>✓</i>
-      </span>
-      <span>
-        <b>
-          ThaiShop<span>Fun</span>
-        </b>
-        <small>Shop Local · Support Thai · Smile Together</small>
-      </span>
-    </a>
-  );
-}
 
 export default function DealsPage() {
   const { user, loading, logout } = useAuth();

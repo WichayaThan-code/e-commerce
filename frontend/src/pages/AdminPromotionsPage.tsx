@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  BookOpen, Check, ChevronLeft, ChevronRight, CirclePause, Gift, Grid2X2,
+  BookOpen, Check, CirclePause, Gift, Grid2X2,
   Megaphone, MoreHorizontal, MoreVertical, Plus, Search, ShoppingBag, Tags,
   TicketPercent, Truck, UserRound, Zap,
 } from 'lucide-react'
@@ -9,6 +9,7 @@ import AdminSidebar from '../components/AdminSidebar'
 import AdminSidePanel from '../components/admin/AdminSidePanel'
 import AdminSelect from '../components/admin/AdminSelect'
 import AdminDateRange from '../components/admin/AdminDateRange'
+import { Pager } from '../components/admin/PlatformBits'
 import { useAuth } from '../contexts/AuthContext'
 import { hasPlatformAccess } from '../services/permissions'
 import '../styles/admin-dashboard.css'
@@ -59,6 +60,7 @@ export default function AdminPromotionsPage(){
   const [dateTo,setDateTo]=useState('')
   const [activeType,setActiveType]=useState('ทั้งหมด (24)')
   const [selected,setSelected]=useState<number[]>([])
+  const [page,setPage]=useState(0)
   const [pageSize,setPageSize]=useState(10)
   const [notice,setNotice]=useState('')
   const filtered=useMemo(()=>promos.filter(item=>{
@@ -69,13 +71,17 @@ export default function AdminPromotionsPage(){
     if(!activeType.startsWith('ทั้งหมด')&&item.type!==activeType.split(' (')[0]) return false
     return true
   }),[query,status,type,activeType])
+  const pageCount=Math.max(1, Math.ceil(filtered.length / pageSize) || 1)
+  const safePage=Math.min(page, pageCount - 1)
+  useEffect(() => { setPage(0) }, [query, status, type, activeType, pageSize])
+  useEffect(() => { if (page > pageCount - 1) setPage(Math.max(0, pageCount - 1)) }, [page, pageCount])
   if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</main>
   if(!user){window.location.replace('/login');return null}
   if(!hasPlatformAccess(user)){window.location.replace('/dashboard');return null}
   const notify=(message:string)=>{setNotice(message);window.setTimeout(()=>setNotice(''),1900)}
-  const reset=()=>{setQuery('');setStatus('');setType('');setDateFrom('');setDateTo('');setActiveType('ทั้งหมด (24)')}
+  const reset=()=>{setQuery('');setStatus('');setType('');setDateFrom('');setDateTo('');setActiveType('ทั้งหมด (24)');setPage(0)}
   const toggle=(id:number)=>setSelected(rows=>rows.includes(id)?rows.filter(row=>row!==id):[...rows,id])
-  const visible=filtered.slice(0, pageSize)
+  const visible=filtered.slice(safePage * pageSize, (safePage + 1) * pageSize)
 
   return <main className="admin-shell promotions-shell">
     <AdminHeader user={user} />
@@ -99,7 +105,7 @@ export default function AdminPromotionsPage(){
         </div>
       </form>
       <div className="admin-split admin-split--with-aside">
-        <section className="promotion-table-card"><header><h2>รายการโปรโมชั่น (24 รายการ)</h2></header><div className="promotion-table-scroll"><div className="promotion-table"><div className="promotion-tr promotion-th"><input type="checkbox" aria-label="เลือกทั้งหมด" checked={visible.length>0&&selected.length===visible.length} onChange={()=>setSelected(selected.length===visible.length?[]:visible.map(item=>item.id))}/><b>#</b><b>ชื่อโปรโมชั่น</b><b>ประเภท</b><b>ร้านค้า</b><b>ช่วงเวลา</b><b>ส่วนลด/สิทธิพิเศษ</b><b>สถานะ</b><b>เข้าร่วม</b><b>จัดการ</b><span/></div>{visible.map(item=><div className="promotion-tr" key={item.id}><input type="checkbox" aria-label={`เลือก ${item.name}`} checked={selected.includes(item.id)} onChange={()=>toggle(item.id)}/><span>{item.id}</span><div className="promotion-name"><i className={item.artTone}>{item.art}</i><span><b>{item.name}</b><small>{item.code}</small></span></div><i className={`promo-type ${item.type.replace(' ','-')}`}>{item.type}</i><div className="promotion-shop"><i>{item.shopArt}</i><span>{item.shop}</span></div><p>{item.from}<span>{item.to}</span></p><p className="promotion-benefit"><b>{item.benefit}</b>{item.detail&&<span>{item.detail}</span>}</p><span><i className={`promo-status ${item.status==='กำลังใช้งาน'?'running':item.status==='รอเริ่ม'?'waiting':'ended'}`}><small/>{item.status}</i></span><span>{item.joined} ร้าน</span><button className="promo-manage" onClick={()=>notify(`จัดการโปรโมชั่น ${item.name}`)}>จัดการ</button><button className="promo-more" aria-label={`เมนู ${item.name}`} onClick={()=>notify(`เมนูเพิ่มเติม: ${item.name}`)}><MoreVertical/></button></div>)}{filtered.length===0&&<div className="promotion-empty">ไม่พบโปรโมชั่นที่ตรงกับตัวกรอง</div>}</div></div><footer><div>แสดง <AdminSelect compact className="adm-page-size" label="จำนวนรายการต่อหน้า" value={String(pageSize)} onChange={value => setPageSize(Number(value))} options={[{ value: '10', label: '10' }, { value: '25', label: '25' }]} /> รายการต่อหน้า</div><span>1 - {Math.min(visible.length, filtered.length)} จาก {filtered.length} รายการ</span><nav aria-label="แบ่งหน้า"><button disabled><ChevronLeft/></button><button className="current">1</button><button onClick={()=>notify('เปิดหน้าที่ 2')}>2</button><button onClick={()=>notify('เปิดหน้าที่ 3')}>3</button><button onClick={()=>notify('เปิดหน้าถัดไป')}><ChevronRight/></button></nav></footer></section>
+        <section className="promotion-table-card"><header><h2>รายการโปรโมชั่น (24 รายการ)</h2></header><div className="promotion-table-scroll"><div className="promotion-table"><div className="promotion-tr promotion-th"><input type="checkbox" aria-label="เลือกทั้งหมด" checked={visible.length>0&&selected.length===visible.length} onChange={()=>setSelected(selected.length===visible.length?[]:visible.map(item=>item.id))}/><b>#</b><b>ชื่อโปรโมชั่น</b><b>ประเภท</b><b>ร้านค้า</b><b>ช่วงเวลา</b><b>ส่วนลด/สิทธิพิเศษ</b><b>สถานะ</b><b>เข้าร่วม</b><b>จัดการ</b><span/></div>{visible.map(item=><div className="promotion-tr" key={item.id}><input type="checkbox" aria-label={`เลือก ${item.name}`} checked={selected.includes(item.id)} onChange={()=>toggle(item.id)}/><span>{item.id}</span><div className="promotion-name"><i className={item.artTone}>{item.art}</i><span><b>{item.name}</b><small>{item.code}</small></span></div><i className={`promo-type ${item.type.replace(' ','-')}`}>{item.type}</i><div className="promotion-shop"><i>{item.shopArt}</i><span>{item.shop}</span></div><p>{item.from}<span>{item.to}</span></p><p className="promotion-benefit"><b>{item.benefit}</b>{item.detail&&<span>{item.detail}</span>}</p><span><i className={`promo-status ${item.status==='กำลังใช้งาน'?'running':item.status==='รอเริ่ม'?'waiting':'ended'}`}><small/>{item.status}</i></span><span>{item.joined} ร้าน</span><button className="promo-manage" onClick={()=>notify(`จัดการโปรโมชั่น ${item.name}`)}>จัดการ</button><button className="promo-more" aria-label={`เมนู ${item.name}`} onClick={()=>notify(`เมนูเพิ่มเติม: ${item.name}`)}><MoreVertical/></button></div>)}{filtered.length===0&&<div className="promotion-empty">ไม่พบโปรโมชั่นที่ตรงกับตัวกรอง</div>}</div></div><Pager page={safePage} size={pageSize} totalItems={filtered.length} totalPages={pageCount} itemCount={visible.length} sizeOptions={[10, 25]} onPage={setPage} onSize={next => { setPageSize(next); setPage(0) }} /></section>
         <AdminSidePanel variant="aside" bare className="promotion-rail">
           <section className="promo-how"><h2>สร้างโปรโมชั่นอย่างไร?</h2>{[['1','เลือกประเภทโปรโมชั่น','ส่วนลด, คูปอง, ส่งฟรี, ของแถม ฯลฯ'],['2','ตั้งค่าเงื่อนไขและช่วงเวลา','กำหนดรายละเอียดและร้านค้าที่เข้าร่วม'],['3','ตรวจสอบและเผยแพร่','โปรโมชั่นร้านค้าเริ่มใช้งานได้ทันที']].map(([number,title,detail])=><div key={number}><i>{number}</i><span><b>{title}</b><small>{detail}</small></span></div>)}<button type="button" onClick={()=>notify('เปิดคู่มือการใช้งาน')}><BookOpen/>คู่มือการใช้งาน</button></section>
           <section className="popular-promos"><header><h2>โปรโมชั่นยอดนิยม</h2><button type="button" onClick={()=>notify('แสดงโปรโมชั่นทั้งหมด')}>ดูทั้งหมด →</button></header>{[[Truck,'ส่งฟรีทั่วไทย','เข้าร่วม 96 ร้าน'],[Tags,'ลดแรงกลางเดือน','เข้าร่วม 128 ร้าน'],[Gift,'ซื้อครบรับของแถม','เข้าร่วม 54 ร้าน'],[TicketPercent,'คูปองส่วนลดท้ายเดือน','เข้าร่วม 63 ร้าน'],[UserRound,'รับส่วนลดสมาชิกใหม่','เข้าร่วม 110 ร้าน']].map(([Icon,title,detail],index)=><div className="popular-promo" key={title as string}><b>{index+1}</b><i><Icon/></i><span><strong>{title as string}</strong><small>{detail as string}</small></span></div>)}</section>

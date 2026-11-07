@@ -23,6 +23,11 @@ textarea {
   font-family: var(--font-sans);
 }
 
+/* Description / multi-line fields stay fixed height — no drag-to-resize handle. */
+textarea {
+  resize: none !important;
+}
+
 .num,
 .mono,
 code {

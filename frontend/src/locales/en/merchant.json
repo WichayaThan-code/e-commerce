@@ -25,9 +25,18 @@
     "trustSslPdpa": "SSL encrypted • PDPA",
     "prepareTitle": "What to prepare",
     "prepareSteps": [
-      { "title": "National ID card", "hint": "Original, clear, no glare" },
-      { "title": "Bank account book", "hint": "Name must match the shop owner" },
-      { "title": "Address proof", "hint": "House registration or utility bill" }
+      {
+        "title": "National ID card",
+        "hint": "Original, clear, no glare"
+      },
+      {
+        "title": "Bank account book",
+        "hint": "Name must match the shop owner"
+      },
+      {
+        "title": "Address proof",
+        "hint": "House registration or utility bill"
+      }
     ],
     "communityTitle": "Merchants joining with us",
     "communityLead": "Be part of Thai shops on ThaiShopFun",
@@ -478,6 +487,8 @@
       "imageN": "Image {{n}}",
       "localImage": "New image {{n}}",
       "noImage": "No image",
+      "pickImage": "Choose variant image",
+      "imageEmptyHint": "No product images yet — upload images in the gallery section below first",
       "restore": "Restore",
       "confirmStockTitle": "This variant still has stock",
       "confirmStockBody": "Removing variants or switching to a simple product drops SKUs that still have stock or reservations. Confirm to continue.",
@@ -1434,6 +1445,346 @@
       "codOffConfirm": "Disable COD"
     }
   },
+  "reports": {
+    "title": "Reports",
+    "subtitle": "See how your business is doing, analyze sales and track growth.",
+    "tabsLabel": "Report type",
+    "tabs": {
+      "overview": "Overview",
+      "sales": "Sales",
+      "products": "Products",
+      "orders": "Orders",
+      "customers": "Customers",
+      "promotions": "Promotions / Coupons",
+      "fees": "Fees",
+      "shipping": "Shipping"
+    },
+    "range": {
+      "label": "Period",
+      "today": "Today",
+      "d7": "7 days",
+      "d30": "30 days",
+      "y1": "1 year",
+      "custom": "Custom",
+      "todayFull": "Today",
+      "d7Full": "Last 7 days",
+      "d30Full": "Last 30 days",
+      "y1Full": "Last year",
+      "customFull": "Selected period",
+      "thaiTime": "Thailand time",
+      "pickDates": "Select a date range to see the report",
+      "invalidRange": "Invalid date range: start must not be after end"
+    },
+    "growthNone": "—",
+    "vsPrevious": "vs previous period",
+    "estimated": "estimated",
+    "kpi": {
+      "gmv": "Total sales (GMV)",
+      "gmvNote": "Paid · refunds not deducted",
+      "income": "Your income (estimated)",
+      "incomeNote": "After 5% fee (estimated)",
+      "fee": "Fee 5% (estimated)",
+      "feeNote": "Of total sales",
+      "orders": "Orders",
+      "ordersNote": "Paid · {{count}} in total",
+      "customers": "Customers",
+      "customersNote": "{{count}} new customers"
+    },
+    "chart": {
+      "title": "Sales & income",
+      "legendGmv": "Sales (GMV)",
+      "legendIncome": "Income after fee (estimated)",
+      "legendFee": "Fee 5% (estimated)",
+      "tipGmv": "Sales",
+      "tipIncome": "Income (estimated)",
+      "tipFee": "Fee 5% (estimated)",
+      "tipOrders": "{{count}} orders",
+      "noSales": "No paid sales in this period yet",
+      "emptyHint": "When paid orders come in, sales and income charts will appear here"
+    },
+    "categories": {
+      "title": "Sales share by product category",
+      "centerLabel": "Item sales",
+      "uncategorized": "Uncategorized",
+      "other": "Other",
+      "empty": "No item sales in this period yet",
+      "emptyHint": "When products sell, category share will appear here"
+    },
+    "channels": {
+      "title": "Sales by channel",
+      "empty": "No sales in this period yet",
+      "emptyHint": "When channels generate sales, their share will appear here",
+      "names": {
+        "STOREFRONT": "Shop website",
+        "LINE_OA": "LINE OA",
+        "SHOPEE": "Shopee",
+        "TIKTOK": "TikTok Shop",
+        "LAZADA": "Lazada",
+        "MANUAL": "Manual entry",
+        "OMS_IMPORT": "OMS import",
+        "UNKNOWN": "Other"
+      }
+    },
+    "products": {
+      "title": "Best sellers (Top 5)",
+      "rank": "#",
+      "product": "Product",
+      "quantity": "Units sold",
+      "sales": "Sales",
+      "empty": "No products sold in this period yet",
+      "emptyHint": "When paid orders come in, best sellers will appear here"
+    },
+    "customersPanel": {
+      "title": "Customer summary",
+      "total": "Total customers",
+      "fresh": "New customers",
+      "returning": "Returning customers",
+      "ordersPerCustomer": "Avg. orders / customer",
+      "aov": "Avg. order value",
+      "empty": "No customers bought in this period yet",
+      "emptyHint": "When customers place paid orders, the summary will appear here",
+      "note": "Counted from paid orders · guests are grouped by recipient name"
+    },
+    "fee": {
+      "title": "Fee summary",
+      "total": "Total fees (estimated)",
+      "rateTitle": "Share (estimated)",
+      "rateOf": "of total sales",
+      "note": "Estimated from total sales. Not profit and not a settled payout"
+    },
+    "advice": {
+      "title": "Tips",
+      "open": "Open promotions",
+      "openDenied": "You don't have permission to open promotions",
+      "openShipping": "Open shipping",
+      "openShippingDenied": "You don't have permission to open shipping",
+      "loading": "Preparing tips…",
+      "unavailable": "No tips because the data could not be loaded",
+      "NO_SALES": "No paid sales in this period yet",
+      "NO_SALES_TIP": "Try another period, or create a promotion to boost sales",
+      "NO_BASELINE": "The previous period had no sales, so growth can't be compared yet",
+      "GMV_UP": "Sales are up {{pct}}% from the previous period",
+      "GMV_DOWN": "Sales are down {{pct}}% from the previous period. Review your best sellers and promotions",
+      "GMV_FLAT": "Sales are the same as the previous period",
+      "NO_NEW_CUSTOMERS": "No new customers in this period. Try a promotion for new customers",
+      "NEW_CUSTOMERS_DOWN": "New customers are down from the previous period. Try a promotion for new customers",
+      "REFUNDS_PRESENT": "{{amount}} was refunded in this period (reported separately from total sales)"
+    },
+    "promoPanel": {
+      "title": "Promotion / coupon summary",
+      "redemptions": "Redemptions",
+      "discount": "Discount given",
+      "couponOrders": "Paid orders with coupon",
+      "attachRate": "Coupon attach rate",
+      "empty": "No promotions were used in this period",
+      "emptyHint": "When customers use coupons, attach rate and discount totals will appear here",
+      "note": "Redemptions by coupon use date · attach rate by paid order date · no view-to-checkout conversion funnel"
+    },
+    "promoTypes": {
+      "title": "Discount by promotion type",
+      "centerLabel": "Discount total",
+      "empty": "No promotion discounts in this period",
+      "emptyHint": "When coupons are used, discount share by type will appear here",
+      "names": {
+        "PERCENT": "Percent",
+        "FIXED_AMOUNT": "Fixed amount",
+        "FREE_SHIPPING": "Free shipping"
+      }
+    },
+    "promoTop": {
+      "title": "Top coupons (Top 5)",
+      "code": "Coupon code",
+      "uses": "Uses",
+      "discount": "Discount",
+      "empty": "No coupons were used in this period",
+      "emptyHint": "When customers use coupons, top codes will appear here"
+    },
+    "shipPanel": {
+      "title": "Shipping fee summary",
+      "feeCollected": "Shipping fee collected",
+      "freeOrders": "Free-shipping orders",
+      "avgFee": "Average shipping fee",
+      "empty": "No paid orders in this period",
+      "emptyHint": "When paid orders come in, shipping totals will appear here",
+      "note": "Based on paid order placement date"
+    },
+    "carriers": {
+      "title": "Shipping fee by carrier",
+      "empty": "No carrier data in this period",
+      "emptyHint": "When shipments are created, carrier share will appear here"
+    },
+    "shipOps": {
+      "title": "Shipment activity",
+      "dispatched": "Dispatched",
+      "delivered": "Delivered",
+      "failed": "Delivery failed",
+      "returned": "Returned",
+      "empty": "No shipment events in this period",
+      "emptyHint": "When shipment statuses update, activity stats will appear here",
+      "note": "Counted by dispatch / deliver / fail / return timestamps — not order placement date"
+    },
+    "viewAll": "View all →",
+    "viewAllDenied": "You don't have permission to open this page",
+    "loading": "Loading…",
+    "loadingHint": "Fetching report data for the selected period",
+    "noShop": "No shop selected",
+    "noPermission": "You don't have permission to view reports",
+    "noPermissionHint": "Ask the shop owner for REPORT_READ access",
+    "error": {
+      "title": "Could not load the report",
+      "hint": "Try again, or pick a different date range",
+      "generic": "The report data could not be loaded. Please try again.",
+      "retry": "Retry"
+    },
+    "export": {
+      "button": "Download report",
+      "busy": "Downloading…",
+      "done": "Excel report downloaded",
+      "failed": "Could not download the report. Please try again.",
+      "needRange": "Select a valid date range before downloading",
+      "xlsxNote": "Real Excel (.xlsx) from live report data; no PII; fees are estimates",
+      "stale": "Export finished, but shop or date range changed while waiting — verify the file before use"
+    },
+    "placeholderProduct": "No product image"
+  },
+  "finance": {
+    "title": "Finance",
+    "subtitle": "Review sales, income, fees, and payouts",
+    "authLoading": "Checking shop access…",
+    "tabsLabel": "Finance menu",
+    "tabs": {
+      "overview": "Overview",
+      "ledger": "Income & expenses",
+      "fees": "Fees",
+      "transfers": "Payouts",
+      "invoices": "Invoices / tax invoices"
+    },
+    "range": {
+      "label": "Period",
+      "today": "Today",
+      "d7": "7 days",
+      "d30": "30 days",
+      "y1": "1 year",
+      "custom": "Custom",
+      "todayFull": "Today",
+      "d7Full": "Last 7 days",
+      "d30Full": "Last 30 days",
+      "y1Full": "Last 1 year",
+      "customFull": "Selected range",
+      "thaiTime": "Thailand time",
+      "pickDates": "Pick a date range to view finance",
+      "invalidRange": "Invalid range: start must not be after end"
+    },
+    "growthNone": "—",
+    "kpi": {
+      "gmv": "Total sales (GMV)",
+      "gmvNote": "Paid · refunds not subtracted",
+      "income": "Income after fee (estimated)",
+      "incomeNote": "After 5% fee (estimated)",
+      "fee": "Fee 5% (estimated)",
+      "feeNote": "From total sales · not a settled payout",
+      "refunds": "Completed refunds",
+      "refundsNote": "Reported separately from GMV"
+    },
+    "chart": {
+      "title": "Sales and income (estimated)",
+      "legendGmv": "Sales (GMV)",
+      "legendIncome": "Income after fee (estimated)",
+      "legendFee": "Fee 5% (estimated)",
+      "openReports": "Open reports →",
+      "empty": "No paid sales in this period",
+      "emptyHint": "When paid orders come in, sales and income charts will appear here"
+    },
+    "balance": {
+      "title": "Estimated income summary",
+      "estimatedNet": "Estimated net income",
+      "estimatedNetNote": "After 5% fee · not a shop payout",
+      "payoutPending": "Pending payout",
+      "payoutPendingNote": "Shop payouts are not available yet",
+      "payoutUnavailable": "Payouts not available"
+    },
+    "feeDetail": {
+      "title": "Fee summary",
+      "total": "Total fee (estimated)",
+      "rate": "5% of total sales",
+      "net": "Income after fee (estimated)",
+      "netNote": "Not profit and not a settled payout",
+      "disclaimer": "Fees follow the reports estimate and are not stored per order"
+    },
+    "ledger": {
+      "title": "Recent finance entries",
+      "titleFull": "Income & expenses",
+      "date": "Date",
+      "item": "Entry",
+      "order": "Order",
+      "sales": "Sales (฿)",
+      "fee": "Fee est. (฿)",
+      "net": "Net est. (฿)",
+      "status": "Status",
+      "proof": "Details",
+      "empty": "No paid orders in this period",
+      "emptyHint": "When paid orders come in, finance entries will appear here",
+      "noPermission": "You don't have permission to view orders",
+      "noPermissionHint": "Ask the shop owner for ORDER_READ access",
+      "payment": "Payment ({{method}})",
+      "paymentFallback": "Payment method",
+      "refund": "Refund",
+      "statusPaid": "Paid",
+      "statusRefunded": "Refunded",
+      "openOrder": "Open order {{number}}",
+      "showing": "Showing {{from}} - {{to}} of {{total}}",
+      "feeNote": "Fees in this table are a 5% estimate of the order total, not a stored per-order fee",
+      "methods": {
+        "PROMPTPAY": "QR / PromptPay",
+        "BANK_TRANSFER": "Bank transfer",
+        "COD": "Cash on delivery",
+        "OMISE": "Card (Omise)",
+        "2C2P": "Card / 2C2P"
+      }
+    },
+    "transfers": {
+      "title": "Payout summary"
+    },
+    "rail": {
+      "soonTitle": "Coming soon",
+      "soonBadge": "Soon"
+    },
+    "documents": {
+      "title": "Finance documents",
+      "invoice": "Invoice",
+      "tax": "Tax invoice"
+    },
+    "unavailable": {
+      "title": "No data yet",
+      "transfers": "Shop payouts and transfer history are not available yet, so this tab can't show payout reports",
+      "transfersShort": "Shop payouts are not available yet",
+      "invoices": "Invoices and tax invoices are not issued yet, so these documents can't be downloaded",
+      "invoicesShort": "Invoices / tax invoices are not issued yet"
+    },
+    "viewAll": "View all →",
+    "viewAllDenied": "You don't have permission to open this page",
+    "loading": "Loading…",
+    "loadingHint": "Fetching finance data for the selected period",
+    "noShop": "No shop selected",
+    "noPermission": "You don't have permission to view finance",
+    "noPermissionHint": "Ask the shop owner for REPORT_READ access",
+    "error": {
+      "title": "Could not load data",
+      "hint": "Try again, or pick a different date range",
+      "generic": "Finance data could not be loaded. Please try again.",
+      "ledger": "Could not load order entries",
+      "retry": "Retry"
+    },
+    "export": {
+      "button": "Download report",
+      "busy": "Downloading…",
+      "done": "Excel report downloaded",
+      "failed": "Could not download the report. Please try again.",
+      "needRange": "Select a valid date range before downloading",
+      "xlsxNote": "Real Excel (.xlsx) from live report data; no PII; fees are estimates",
+      "stale": "Export finished, but shop or date range changed while waiting — verify the file before use"
+    }
+  },
   "orderManagement": {
     "title": "Orders",
     "subtitle": "Track and manage all orders of your shop",
@@ -1608,7 +1959,18 @@
       "title": "Order details",
       "close": "Close",
       "cancel": "Cancel",
+      "actions": "Order actions",
+      "shipRequiresPacked": "Finish packing before you can ship",
+      "workTabs": "Order detail tools",
+      "tabDetail": "Details",
+      "tabHistory": "History",
+      "noTimeline": "No order history yet",
       "placedAt": "Placed",
+      "channel": "Channel",
+      "orderStatus": "Order status",
+      "paymentStatus": "Payment status",
+      "fulfillmentStatus": "Fulfillment status",
+      "customer": "Customer & recipient",
       "acceptedAt": "Accepted by shop",
       "termsAcceptedAt": "Terms accepted by buyer",
       "paidAt": "Paid",
@@ -1636,7 +1998,32 @@
       "packedAt": "Packed",
       "dispatchedAt": "Dispatched",
       "deliveredAt": "Delivered",
-      "shippedAt": "Shipped at",
+      "shippedAt": "Ship date & time",
+      "shippedAtHint": "Use a quick pick or set the date and time yourself (Thailand time)",
+      "shippedAtPresets": "Quick time picks",
+      "shippedAtNow": "Now",
+      "shippedAtDate": "Date",
+      "shippedAtTime": "Time",
+      "shippedAtHour": "Hour",
+      "shippedAtMinute": "Minute",
+      "shippedAtApply": "Use this time",
+      "shippedAtPeriod": {
+        "night": "Night",
+        "morning": "Morning",
+        "afternoon": "Afternoon",
+        "evening": "Evening"
+      },
+      "shippedAtDatePlaceholder": "Select ship date",
+      "shippedAtSelected": "Will save as",
+      "shippedAtPreset": {
+        "0900": "09:00",
+        "1200": "12:00",
+        "1500": "15:00",
+        "1800": "18:00"
+      },
+      "trackingPlaceholder": "e.g. NINJA0123456789",
+      "trackingHintGeneric": "Tracking uses A–Z, 0–9 or - and must be 4–40 characters",
+      "trackingHintThaipost": "Thailand Post format example: EX123456789TH",
       "chooseCarrier": "Choose a carrier",
       "reason": "Reason",
       "paymentReference": "Payment reference (optional)",
@@ -1692,7 +2079,37 @@
       "NETWORK_ERROR": "Cannot reach the server. Please try again.",
       "INTERNAL_ERROR": "Something went wrong. Please try again later.",
       "REQUEST_FAILED": "Something went wrong. Please try again.",
-      "CUSTOMER_KEY_INVALID": "Invalid customer key. The filter was cleared."
+      "CUSTOMER_KEY_INVALID": "Invalid customer key. The filter was cleared.",
+      "VALIDATION_ERROR": "Some fields are invalid. Please check and try again.",
+      "VALIDATION_FAILED": "Some fields are invalid. Please check and try again.",
+      "TRACKING_NUMBER_DUPLICATE": "This tracking number is already used on another shipment",
+      "CARRIER_NOT_ENABLED": "This carrier is not enabled for the shop",
+      "CARRIER_NOT_FOUND": "Carrier not found",
+      "CARRIER_INACTIVE": "This carrier is disabled by the platform",
+      "REQUIRED": "This field is required",
+      "INVALID": "Invalid value",
+      "INVALID_FORMAT": "Invalid format",
+      "MAX_LENGTH": "Value is too long",
+      "FUTURE": "Time cannot be in the future",
+      "BEFORE_ORDER": "Time cannot be before the order was placed",
+      "fields": {
+        "carrierCode": {
+          "REQUIRED": "Please select a carrier",
+          "INVALID": "Unknown carrier",
+          "CARRIER_NOT_ENABLED": "This carrier is not enabled for the shop",
+          "MAX_LENGTH": "Carrier code is too long"
+        },
+        "trackingNumber": {
+          "REQUIRED": "Please enter a tracking number",
+          "INVALID_FORMAT": "Tracking number does not match the selected carrier format",
+          "MAX_LENGTH": "Tracking number is too long"
+        },
+        "shippedAt": {
+          "INVALID": "Ship date/time is invalid",
+          "FUTURE": "Ship date/time cannot be in the future",
+          "BEFORE_ORDER": "Ship date/time cannot be before the order was placed"
+        }
+      }
     },
     "timelineEvents": {},
     "payment": {
@@ -1820,7 +2237,11 @@
         "rejected": "Refund rejected",
         "proofUploaded": "Refund slip uploaded"
       }
-    }
+    },
+    "exporting": "Exporting…",
+    "exportDone": "Orders exported to Excel",
+    "exportStale": "Export finished, but shop or date range changed while waiting — verify the file before use",
+    "exportHint": "Export all rows matching current filters as Excel"
   },
   "shippingPage": {
     "title": "Shipping",
@@ -1886,7 +2307,8 @@
       "connect": "Not connected",
       "saved": "Carrier saved",
       "loadFailed": "Could not load carriers",
-      "unrestricted": "No carrier chosen yet, so every active carrier can be used"
+      "unrestricted": "No carrier chosen yet, so every active carrier can be used",
+      "unassigned": "Not set"
     },
     "tools": {
       "title": "Shipping tools",
@@ -1901,6 +2323,7 @@
       "body": "Contact the team or read the carrier connection guide"
     },
     "actions": {
+      "DISPATCH": "Mark as shipped",
       "IN_TRANSIT": "In transit",
       "OUT_FOR_DELIVERY": "Out for delivery",
       "DELIVERED": "Delivered",
@@ -1922,6 +2345,8 @@
       "carrier": "Carrier",
       "tracking": "Tracking no.",
       "openTracking": "Open tracking page",
+      "copyTracking": "Copy tracking number",
+      "copied": "Tracking number copied",
       "packedAt": "Packed",
       "shippedAt": "Shipped",
       "pickedUpAt": "Picked up by carrier",
@@ -1929,15 +2354,32 @@
       "failedAt": "Delivery failed at",
       "failureReason": "Reason",
       "returnedAt": "Returned",
-      "editTracking": "Edit carrier / tracking number",
+      "moreDates": "More timestamps",
+      "workTabs": "Shipment tools",
+      "tabUpdate": "Update",
+      "tabHistory": "History",
+      "nextSteps": "Next steps",
+      "exceptionSteps": "Exceptions",
+      "noMoreActions": "No further status changes available",
+      "shipHint": "Enter carrier and tracking number before shipping",
+      "editTracking": "Carrier & tracking",
+      "editTrackingHint": "Update the carrier and tracking number for this shipment",
+      "trackingPlaceholder": "e.g. KEX123456789TH",
+      "trackingLocked": "Tracking can no longer be edited in this status",
       "saveTracking": "Save tracking",
-      "addEvent": "Add tracking note",
+      "addEvent": "Optional note",
+      "addEventHint": "Add a location or note for the next handoff",
       "location": "Location",
+      "locationPlaceholder": "e.g. Bangkok sorting hub",
       "note": "Note",
+      "notePlaceholder": "Extra detail for your team",
       "addEventButton": "Add note",
       "timeline": "Tracking history",
+      "timelineHint": "Newest events appear first",
+      "noEvents": "No tracking events yet",
       "toast": {
         "done": "Shipment updated",
+        "shipped": "Shipment marked as shipped",
         "noteAdded": "Note added",
         "trackingSaved": "Tracking saved"
       }
@@ -1988,6 +2430,7 @@
       "all": "All",
       "clear": "Clear",
       "apply": "Apply",
+      "search": "Search",
       "presets": {
         "d7": "7 days",
         "d30": "30 days",
@@ -2023,6 +2466,8 @@
       "perPageSuffix": "per page"
     },
     "detail": {
+      "title": "Customer details",
+      "close": "Close customer details",
       "orders": "Orders",
       "spent": "Total spent",
       "avg": "Avg. per order",
@@ -2045,14 +2490,28 @@
     "readAll": "Mark all read",
     "empty": "No notifications yet",
     "loadMore": "Load more",
+    "loadError": "Could not load notifications",
+    "retry": "Try again",
     "importing": "Import in progress",
     "types": {
       "ORDER_NEW": "New order {{orderNo}} · ฿{{amount}}",
       "ORDER_PAID": "Paid {{orderNo}} · ฿{{amount}}",
       "ORDER_CANCELLED": "Cancelled {{orderNo}}",
       "REFUND_REQUESTED": "Refund requested {{orderNo}} · ฿{{amount}}",
+      "REFUND_DISPUTED": "Refund disputed {{orderNo}} · ฿{{amount}}",
+      "REFUND_COMPLETED": "Refund completed {{orderNo}} · ฿{{amount}}",
+      "PAYMENT_SLIP_PENDING": "Payment slip awaiting review {{orderNo}}",
       "CUSTOMER_NEW": "New customer {{customerName}}",
-      "LOW_STOCK": "Low stock {{productName}} ({{skuCode}}) · {{available}} left"
+      "LOW_STOCK": "Low stock {{productName}} ({{skuCode}}) · {{available}} left",
+      "PRODUCT_REVIEW_NEW": "New review {{productName}} · {{rating}} stars",
+      "SHIPMENT_EXCEPTION": "Shipment issue {{orderNo}} ({{shipmentStatus}})",
+      "SHOP_APPROVED": "Your shop has been approved",
+      "SHOP_REJECTED": "Your shop application was not approved",
+      "SHOP_SUSPENDED": "Your shop has been suspended",
+      "SHOP_RESTORED": "Your shop is available again",
+      "SHOP_PLAN_CHANGED": "Shop plan changed to {{planCode}}",
+      "SHOP_MEMBER_ROLE_CHANGED": "A staff role was set to {{role}}",
+      "SHOP_MEMBER_REMOVED": "A staff member was removed from the shop"
     }
   },
   "collections": {
@@ -2155,5 +2614,45 @@
       "CONFIGURATOR_SCHEMA_INVALID": "Invalid value",
       "CONFIGURATOR_MEDIA_INVALID": "Invalid image or not from this shop"
     }
+  },
+  "signupGate": {
+    "checking": "Checking your sign-in…",
+    "title": "Start your online shop with ThaiShopFun",
+    "description": "Sign in or create an account to begin filling in your details and open your shop.",
+    "login": "Sign in",
+    "signup": "Sign up",
+    "home": "Back to home",
+    "stepsAria": "Steps to open a shop",
+    "stepLogin": "Sign in",
+    "stepShop": "Enter shop details",
+    "stepSubmit": "Submit request"
+  },
+  "suspendedGate": {
+    "badge": "Shop access is limited",
+    "title": "Shop suspended",
+    "descriptionWithName": "{{shopName}} is suspended, so merchant menus stay locked until reinstatement. You can submit a reinstatement request for the admin team to review.",
+    "descriptionFallback": "Your shop is suspended, so merchant menus stay locked until reinstatement. You can submit a reinstatement request for the admin team to review.",
+    "appeal": "Request reinstatement",
+    "home": "Back to home"
+  },
+  "reinstatementGate": {
+    "badge": "Reinstatement request",
+    "title": "Request reinstatement",
+    "descriptionWithName": "{{shopName}} is suspended. Send your reason for the admin team to review restoring access.",
+    "descriptionFallback": "Your shop is suspended. Send your reason for the admin team to review restoring access.",
+    "loading": "Loading request…",
+    "pendingNote": "Your request was submitted and is awaiting admin review. You cannot submit again.",
+    "pendingHint": "Awaiting review",
+    "rejectedNote": "The previous request was not approved. You can submit a new one.",
+    "reasonLabel": "Reason for reinstatement",
+    "reasonPlaceholder": "Explain what you fixed and why the shop should be restored",
+    "minHint": "At least 10 characters",
+    "submit": "Submit request",
+    "submitting": "Submitting…",
+    "home": "Back to home",
+    "minLength": "Please write at least 10 characters",
+    "submitted": "Request submitted. Waiting for admin review. You cannot submit again.",
+    "loadError": "Could not load the request",
+    "submitError": "Could not submit the request"
   }
 }

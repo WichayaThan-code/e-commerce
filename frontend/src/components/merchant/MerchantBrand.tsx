@@ -1,19 +1,11 @@
-import { ShoppingBag } from "lucide-react";
+import BrandLogo from "../BrandLogo";
 
-/** Shared merchant topbar brand (same markup as OrderManagementPage). */
+/** Merchant topbar brand: logo-with-name PNG only; symbol-only when the bar collapses. */
 export default function MerchantBrand() {
   return (
-    <a className="merchant-brand" href="/">
-      <span>
-        <ShoppingBag />
-        <i>✓</i>
-      </span>
-      <div>
-        <b>
-          ThaiShop<span>Fun</span>
-        </b>
-        <small>Shop Local · Support Thai · Smile Together</small>
-      </div>
+    <a className="merchant-brand" href="/" aria-label="ThaiShopFun">
+      <BrandLogo variant="withName" className="merchant-brand-logo" alt="" />
+      <BrandLogo variant="symbol" className="merchant-brand-mark" alt="" />
     </a>
   );
 }

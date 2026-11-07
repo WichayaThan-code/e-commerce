@@ -6,7 +6,6 @@ import {
   Headphones,
   LogOut,
   Search,
-  ShoppingBag,
   ShoppingCart,
   Store,
   UserRound,
@@ -16,24 +15,8 @@ import { useAuth } from "../contexts/AuthContext";
 import { accountKind } from "../services/permissions";
 import { useLanguage } from "../contexts/LanguageContext";
 import LanguageSwitcher from "./LanguageSwitcher";
+import SiteBrand from "./SiteBrand";
 import "../styles/merchant-signup.css";
-
-function MerchantBrand() {
-  return (
-    <Link className="brand" to="/" aria-label="ThaiShopFun หน้าแรก">
-      <span className="brand-mark">
-        <ShoppingBag size={24} />
-        <i>✓</i>
-      </span>
-      <span>
-        <b>
-          ThaiShop<span>Fun</span>
-        </b>
-        <small>Shop Local · Support Thai · Smile Together</small>
-      </span>
-    </Link>
-  );
-}
 
 export default function MerchantHeader() {
   const { user, loading, logout } = useAuth();
@@ -77,7 +60,7 @@ export default function MerchantHeader() {
 
   return (
     <header className="merchant-header">
-      <MerchantBrand />
+      <SiteBrand homeAria="ThaiShopFun หน้าแรก" className="merchant-brand" />
       <nav>
         <a href="/">{t('merchant.home')}</a>
         <a href="/#recommended">{t('merchant.products')}</a>

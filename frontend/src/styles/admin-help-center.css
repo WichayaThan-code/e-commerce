@@ -227,7 +227,7 @@
 }
 .hc-form .form-control-area textarea {
   padding: 10px 14px;
-  resize: vertical;
+  resize:none;
   line-height: 1.5;
   height: auto;
 }

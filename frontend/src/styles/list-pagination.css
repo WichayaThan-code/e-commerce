@@ -1,0 +1,130 @@
+/* Shared list pagination chrome — matches /merchant/orders (MerchantPagination / .pm-pagination). */
+
+.pm-pagination {
+  --pm-blue: #087bf5;
+  min-height: 78px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  gap: 26px;
+  color: #3e6494;
+  font-size: 13px;
+  box-sizing: border-box;
+  border-top: 1px solid #e3edf6;
+  background: #fff;
+}
+
+.pm-pagination > span:first-child {
+  flex: 0 1 auto;
+}
+
+/* Optional extras (sort, etc.) must never stretch to a full-width “panel” row */
+.pm-pagination > .searchable-select-wrap {
+  position: relative;
+  width: auto;
+  min-width: 148px;
+  max-width: 220px;
+  flex: 0 0 auto;
+}
+
+.pm-pagination > .searchable-select-wrap .searchable-dropdown {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 4px;
+  z-index: 50;
+  min-width: 100%;
+  animation: none;
+}
+
+.pm-page-size {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  z-index: 5;
+}
+
+.pm-page-size .searchable-select-wrap {
+  position: relative;
+  width: 110px;
+  flex: none;
+}
+
+.pm-page-size .searchable-select-btn {
+  height: 51px;
+  border: 1px solid #dce2eb;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #132b50;
+}
+
+/*
+ * Page-size menus sit in table-card footers with overflow:hidden.
+ * Open upward so the panel is not clipped off the bottom of the card / viewport
+ * (same approach as /merchant/orders .om-page-size).
+ */
+.pm-pagination .pm-page-size .searchable-dropdown,
+.pm-pagination .om-page-size .searchable-dropdown {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 4px;
+  z-index: 50;
+  min-width: 120px;
+  animation: none;
+}
+
+.pm-pagination nav {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pm-pagination nav button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #d7e2ee;
+  border-radius: 8px;
+  background: #fff;
+  color: #6d84a3;
+  font: 600 14px var(--font-sans), sans-serif;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pm-pagination nav button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pm-pagination nav button.active {
+  background: var(--pm-blue);
+  border-color: var(--pm-blue);
+  color: #fff;
+}
+
+.pm-pagination nav button:disabled {
+  color: #c5d2e2;
+  cursor: default;
+}
+
+.pm-pagination nav button:focus-visible {
+  outline: 3px solid #ffb346;
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  .pm-pagination {
+    gap: 12px 16px;
+    padding: 12px;
+  }
+
+  .pm-pagination nav {
+    margin-left: 0;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}

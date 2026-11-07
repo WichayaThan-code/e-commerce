@@ -3,7 +3,8 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { hasMerchantAccess } from "../services/permissions";
 import { useActiveShop } from "../contexts/ActiveShopContext";
-import MerchantShopMenu from "./MerchantShopMenu";
+import MerchantGateTopbar from "./merchant/MerchantGateTopbar";
+import MerchantSuspendedStatus from "./MerchantSuspendedStatus";
 import { merchantApi, type StoreAccess } from "../services/api";
 
 const SETTINGS_PATH = "/merchant/settings";
@@ -38,8 +39,11 @@ export default function MerchantStoreGuard() {
         setGate("no-shop");
         return;
       }
-      const canAppeal = appealRoute && result.status === "SUSPENDED";
-      if (!result.approved && !profileRoute && !canAppeal) {
+      // Suspended shops may only open the reinstatement form — no other merchant menus.
+      const suspended = result.status === "SUSPENDED";
+      const canAppeal = appealRoute && suspended;
+      const canProfileWhileLocked = profileRoute && !suspended;
+      if (!result.approved && !canProfileWhileLocked && !canAppeal) {
         setGate("locked");
         return;
       }
@@ -77,24 +81,24 @@ export default function MerchantStoreGuard() {
   }
   if (gate === "locked") {
     const suspended = access?.status === "SUSPENDED";
+    if (suspended) {
+      return <MerchantSuspendedStatus shopName={access?.shopName} />;
+    }
     const rejected = access?.status === "REJECTED";
     const shopLabel = access?.shopName ? `ร้าน ${access.shopName} ` : "ร้านค้าของคุณ ";
     return (
-      <main className="merchant-auth-gate has-shop-menu">
-        <div className="merchant-gate-bar"><MerchantShopMenu /></div>
+      <main className="merchant-auth-gate merchant-auth-gate--topbar">
+        <MerchantGateTopbar />
         <section role="alert">
-          <h1>{suspended ? "ร้านค้าถูกระงับ" : rejected ? "ร้านค้าไม่ได้รับการอนุมัติ" : "ร้านค้ายังไม่ได้รับการอนุมัติ"}</h1>
+          <h1>{rejected ? "ร้านค้าไม่ได้รับการอนุมัติ" : "ร้านค้ายังไม่ได้รับการอนุมัติ"}</h1>
           <p>
             {shopLabel}
-            {suspended
-              ? "ถูกระงับอยู่ จึงยังจัดการสินค้า คำสั่งซื้อ ลูกค้า โปรโมชั่น และรายงานไม่ได้"
-              : rejected
-                ? "ไม่สามารถใช้งานเมนูจัดการร้านได้ แต่ยังแก้ไขข้อมูลร้านและเวลาทำการได้"
-                : "ยังไม่สามารถใช้งานเมนูจัดการร้านได้ จนกว่าผู้ดูแลระบบจะอนุมัติ แต่ยังแก้ไขข้อมูลร้านและเวลาทำการได้"}
+            {rejected
+              ? "ไม่สามารถใช้งานเมนูจัดการร้านได้ แต่ยังแก้ไขข้อมูลร้านและเวลาทำการได้"
+              : "ยังไม่สามารถใช้งานเมนูจัดการร้านได้ จนกว่าผู้ดูแลระบบจะอนุมัติ แต่ยังแก้ไขข้อมูลร้านและเวลาทำการได้"}
           </p>
           <div>
-            {suspended && <Link className="primary" to={APPEAL_PATH}>ยื่นคำร้องปลดระงับ</Link>}
-            <Link className={suspended ? "quiet" : "primary"} to={STORE_PATH}>แก้ไขข้อมูลร้าน</Link>
+            <Link className="primary" to={STORE_PATH}>แก้ไขข้อมูลร้าน</Link>
             <Link className="quiet" to={SETTINGS_PATH}>ตั้งค่าเวลาทำการ</Link>
           </div>
         </section>

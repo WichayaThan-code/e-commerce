@@ -2,13 +2,32 @@
   "search": "Search shops, owners, email, or phone",
   "searchAction": "Search",
   "searchLabel": "Search the admin console",
-  "notify": "Shops waiting for approval",
+  "notify": "Notifications",
   "notifyList": "Notifications",
   "pendingTitle": "Shops awaiting approval",
   "shopCount": "shops",
   "empty": "No shops are waiting",
   "waiting": "Awaiting approval",
   "unknownOwner": "Owner not set",
+  "notifications": {
+    "bell": "Admin notifications",
+    "list": "Admin notification list",
+    "title": "Notifications",
+    "unread": "{{count}} unread",
+    "markAll": "Mark all read",
+    "loading": "Loading…",
+    "loadMore": "Load more",
+    "empty": "No notifications yet",
+    "loadError": "Could not load notifications",
+    "retry": "Try again",
+    "unknownShop": "Shop",
+    "types": {
+      "SHOP_APPLICATION_SUBMITTED": "New shop application",
+      "SHOP_REINSTATEMENT_REQUESTED": "Shop requested reinstatement",
+      "REFUND_DISPUTED": "Refund needs admin review",
+      "UNKNOWN": "Notification"
+    }
+  },
   "confirm": {
     "cancel": "Cancel",
     "confirm": "Confirm",
@@ -67,7 +86,10 @@
         "d7": "7 days",
         "d30": "30 days",
         "month": "This month"
-      }
+      },
+      "showing": "Showing {{start}}–{{end}} of {{total}}",
+      "first": "First page",
+      "last": "Last page"
     },
     "reason": {
       "label": "Reason",
@@ -520,6 +542,10 @@
     "stores": {
       "detail": {
         "title": "Shop details",
+        "reinstatementTitle": "Reinstatement request",
+        "reinstatementSection": "Message from the shop",
+        "appealPending": "Awaiting review",
+        "shopStatus": "Shop status",
         "info": "Shop info",
         "openStorefront": "Open storefront",
         "status": "Status",

@@ -15,15 +15,166 @@
 /* KPI rows wrap instead of forcing fixed columns */
 .merchant-shell .pm-kpis,.merchant-shell .shipping-kpis{grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr))}
 .merchant-shell .pm-kpis>*,.merchant-shell .shipping-kpis>*{min-width:0}
-@media(max-width:1100px) and (min-width:721px){.merchant-shell .merchant-kpis{grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr))}}
 .merchant-shell .merchant-kpis>*{min-width:0}
 /* pagination, tabs, filter and toolbar rows wrap */
 .merchant-shell .pm-pagination,.merchant-shell .cm-pagination,.merchant-shell .pm-pagination nav,.merchant-shell .cm-pagination nav,
 .merchant-shell .pm-content [class*="tabs"],.merchant-shell .pm-content [class*="filter"],.merchant-shell .pm-content [class*="toolbar"]{flex-wrap:wrap;max-width:100%;min-width:0}
 .merchant-shell .pm-content button{max-width:100%}
-/* dashboard top grid (570px + 330px) stacks once the content area is narrow */
-@media(max-width:1100px){.merchant-shell .merchant-grid.top{grid-template-columns:minmax(0,1fr)}}
 .merchant-shell .merchant-grid>*{min-width:0}
+
+/* =====================================================================
+   Dashboard cards — structured breakpoints (content-width aware).
+   Prefer shrinking chrome / clear column counts over messy auto-fit.
+   ===================================================================== */
+.merchant-shell .merchant-content{
+  container-type:inline-size;
+  container-name:mdash;
+  min-width:0!important;
+  max-width:100%;
+}
+
+/* Soft overflow guards — keep the desktop 5 / 2 / 3 composition */
+.merchant-shell .merchant-kpis{
+  grid-template-columns:repeat(5,minmax(0,1fr));
+}
+.merchant-shell .merchant-kpis article{
+  min-width:0;
+  overflow:hidden;
+}
+.merchant-shell .merchant-kpis article > div{min-width:0;overflow:hidden}
+.merchant-shell .merchant-kpis small,
+.merchant-shell .merchant-kpis em{
+  display:block;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.merchant-shell .merchant-kpis b{
+  min-width:0;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+/* Drop fixed 570/330 mins that force overflow; payment card stays content-height */
+.merchant-shell .merchant-grid.top{
+  grid-template-columns:minmax(0,2.05fr) minmax(0,1fr);
+  align-items:start;
+}
+.merchant-shell .merchant-grid.bottom{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+.merchant-shell .merchant-grid.top > .merchant-panel,
+.merchant-shell .merchant-grid.bottom > .merchant-panel{min-width:0}
+.merchant-shell .merchant-channel{height:auto;min-height:200px}
+/* Empty payment panel: short & centered — not stretched to chart height */
+.merchant-shell .merchant-grid.top > .merchant-panel:last-child .merchant-empty-note{
+  min-height:180px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-sizing:border-box;
+}
+
+/* Titles truncate; action stays on one clean row (no overlapping wrap) */
+.merchant-shell .merchant-panel > header{
+  height:48px;
+  gap:10px;
+  overflow:hidden;
+}
+.merchant-shell .merchant-panel > header h2{
+  flex:1 1 auto;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:16px;
+}
+.merchant-shell .merchant-panel > header a,
+.merchant-shell .merchant-panel > header > button{flex:0 0 auto;max-width:46%}
+.merchant-shell .merchant-panel > header button{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:11px;
+}
+
+/* Content ~tablet: keep 5 KPIs but shrink; bottom becomes 2+1 */
+@container mdash (max-width:1100px){
+  .merchant-kpis article{height:auto;min-height:108px;padding:12px 10px;gap:10px}
+  .merchant-kpis article > span{flex:0 0 40px;width:40px;height:40px}
+  .merchant-kpis article > span svg{width:22px;height:22px}
+  .merchant-kpis small{font-size:11px;white-space:normal;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-overflow:ellipsis}
+  .merchant-kpis b{font-size:18px}
+  .merchant-kpis em{font-size:10px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .merchant-grid.bottom{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .merchant-grid.bottom .merchant-panel:last-child{grid-column:1/-1}
+  .merchant-panel > header h2{font-size:15px}
+}
+
+/* Content narrow (sidebar + laptop / small tablet): 3+2 KPIs, stack chart/payment */
+@container mdash (max-width:860px){
+  .merchant-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .merchant-grid.top{grid-template-columns:minmax(0,1fr)}
+  .merchant-panel > header{
+    height:auto;
+    min-height:48px;
+    padding:10px 14px;
+    flex-wrap:wrap;
+  }
+  .merchant-panel > header h2{flex:1 1 100%;white-space:normal}
+  .merchant-panel > header a,
+  .merchant-panel > header > button{max-width:100%;margin-left:0}
+}
+
+/* Phones / very narrow content */
+@container mdash (max-width:560px){
+  .merchant-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .merchant-kpis article{flex-direction:column;padding:12px 10px;gap:8px}
+  .merchant-kpis article > span{flex:0 0 auto;width:38px;height:38px}
+  .merchant-kpis article > span svg{width:22px;height:22px}
+  .merchant-kpis b{font-size:19px;white-space:normal}
+  .merchant-grid.bottom{grid-template-columns:minmax(0,1fr)}
+  .merchant-grid.bottom .merchant-panel:last-child{grid-column:auto}
+}
+
+/* Viewport fallbacks (browsers without relying only on container) */
+@media(max-width:1100px){
+  .merchant-shell .merchant-grid.top{grid-template-columns:minmax(0,2.05fr) minmax(0,1fr);align-items:start}
+}
+@media(max-width:900px){
+  .merchant-shell .merchant-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .merchant-shell .merchant-kpis article{height:auto;min-height:108px}
+  .merchant-shell .merchant-kpis small,
+  .merchant-shell .merchant-kpis em{white-space:normal}
+  .merchant-shell .merchant-grid.top{grid-template-columns:minmax(0,1fr)}
+  .merchant-shell .merchant-grid.bottom{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .merchant-shell .merchant-grid.bottom .merchant-panel:last-child{grid-column:1/-1}
+}
+@media(max-width:720px){
+  .merchant-shell .merchant-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .merchant-shell .merchant-kpis article{flex-direction:column;padding:12px 10px;gap:8px}
+  .merchant-shell .merchant-kpis article > span{flex:0 0 auto;width:38px;height:38px}
+  .merchant-shell .merchant-kpis article > span svg{width:22px;height:22px}
+  .merchant-shell .merchant-kpis b{font-size:19px;white-space:normal}
+  .merchant-shell .merchant-grid.top,
+  .merchant-shell .merchant-grid.bottom{display:grid;grid-template-columns:minmax(0,1fr)}
+  .merchant-shell .merchant-grid.bottom .merchant-panel:last-child{grid-column:auto}
+  .merchant-shell .merchant-panel > header{
+    height:auto;
+    min-height:48px;
+    padding:10px 14px;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:4px;
+  }
+  .merchant-shell .merchant-panel > header h2{white-space:normal;font-size:15px}
+  .merchant-shell .merchant-panel > header a,
+  .merchant-shell .merchant-panel > header > button{max-width:100%}
+}
 /* fixed-min-width header buttons may shrink on phones */
 @media(max-width:720px){.merchant-shell .pm-heading button{min-width:0;white-space:normal}}
 /* sub-pixel overflow guard */
@@ -40,7 +191,10 @@
   .merchant-shell .merchant-topbar .merchant-brand b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .merchant-shell .merchant-topbar .merchant-topbar-actions{min-width:0}
 }
-@media(max-width:400px){.merchant-shell .merchant-topbar .merchant-brand div{display:none}}
+@media(max-width:400px){
+  .merchant-shell .merchant-topbar .merchant-brand .merchant-brand-logo{display:none}
+  .merchant-shell .merchant-topbar .merchant-brand .merchant-brand-mark{display:block}
+}
 
 
 /* =====================================================================

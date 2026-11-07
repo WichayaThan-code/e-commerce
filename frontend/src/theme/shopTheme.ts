@@ -7,6 +7,8 @@ import {
 
 export const SHOP_THEME_TEMPLATES = ['GENERAL', 'FASHION', 'FOOD_BEVERAGE', 'CUSTOM'] as const
 export type ShopThemeTemplateKey = (typeof SHOP_THEME_TEMPLATES)[number]
+/** Templates shown in /merchant/store/theme picker (CUSTOM is retired from the UI). */
+export const SHOP_THEME_PICKER_TEMPLATES = ['GENERAL', 'FASHION', 'FOOD_BEVERAGE'] as const satisfies ReadonlyArray<ShopThemeTemplateKey>
 
 export const SHOP_THEME_FONTS = ['NOTO_SANS_THAI', 'NOTO_SERIF_THAI', 'PROMPT', 'MITR', 'IBM_PLEX_SANS_THAI'] as const
 export type ShopThemeFontKey = (typeof SHOP_THEME_FONTS)[number]

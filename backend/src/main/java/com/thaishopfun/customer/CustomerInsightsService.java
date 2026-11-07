@@ -98,50 +98,44 @@ public class CustomerInsightsService {
         }
         var rows = prepared.filtered();
         String[] headers = exportHeaders(locale);
-        Workbook book = null;
-        try {
-            book = rows.size() > SXSSF_THRESHOLD ? new SXSSFWorkbook(100) : new XSSFWorkbook();
-            Sheet sheet = book.createSheet("customers");
-            Row header = sheet.createRow(0);
-            for (int i = 0; i < headers.length; i++) header.createCell(i).setCellValue(headers[i]);
-            sheet.createFreezePane(0, 1);
-            CellStyle moneyStyle = book.createCellStyle();
-            moneyStyle.setDataFormat(book.createDataFormat().getFormat("#,##0.00"));
-            CellStyle dateStyle = book.createCellStyle();
-            dateStyle.setDataFormat(book.createDataFormat().getFormat("yyyy-mm-dd hh:mm"));
-            int r = 1;
+        try (var book = new com.thaishopfun.common.excel.MerchantExcelWorkbook()) {
+            var meta = new java.util.LinkedHashMap<String, String>();
+            meta.put("Shop", shop.getName() != null ? shop.getName() : String.valueOf(shopNo));
+            meta.put("Timezone", "Asia/Bangkok");
+            meta.put("Generated at", java.time.Instant.now().toString());
+            meta.put("PII", pii ? "full" : "masked");
+            meta.put("Rows", String.valueOf(rows.size()));
+            book.addMetaSheet("Meta", meta);
+            var columns = java.util.List.of(
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(headers[0]),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(headers[1]),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(headers[2]),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(headers[3]),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(headers[4]),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(headers[5]),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.integer(headers[6]),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.money(headers[7]),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.datetime(headers[8]),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.datetime(headers[9])
+            );
+            var data = new java.util.ArrayList<java.util.List<Object>>(rows.size());
             for (var pack : rows) {
                 var insight = pack.insight();
-                Row row = sheet.createRow(r++);
-                writeExportText(row, 0, insight.displayName());
-                writeExportText(row, 1, insight.phone());
-                writeExportText(row, 2, insight.email());
-                writeExportText(row, 3, insight.channel());
-                writeExportText(row, 4, insight.status());
-                writeExportText(row, 5, insight.segment());
-                row.createCell(6).setCellValue(insight.orderCount());
-                var spent = insight.totalSpent() == null ? BigDecimal.ZERO : insight.totalSpent();
-                var moneyCell = row.createCell(7);
-                moneyCell.setCellValue(spent.doubleValue());
-                moneyCell.setCellStyle(moneyStyle);
-                writeExportDate(row, 8, insight.lastOrderAt(), dateStyle);
-                writeExportDate(row, 9, insight.joinedAt(), dateStyle);
+                var row = new java.util.ArrayList<Object>(10);
+                row.add(nullToEmpty(insight.displayName()));
+                row.add(nullToEmpty(insight.phone()));
+                row.add(nullToEmpty(insight.email()));
+                row.add(nullToEmpty(insight.channel()));
+                row.add(nullToEmpty(insight.status()));
+                row.add(nullToEmpty(insight.segment()));
+                row.add(insight.orderCount());
+                row.add(insight.totalSpent() == null ? BigDecimal.ZERO : insight.totalSpent());
+                row.add(insight.lastOrderAt());
+                row.add(insight.joinedAt());
+                data.add(row);
             }
-            if (!(book instanceof SXSSFWorkbook)) {
-                for (int i = 0; i < headers.length; i++) sheet.autoSizeColumn(i);
-            }
-            var out = new ByteArrayOutputStream();
-            book.write(out);
-            return out.toByteArray();
-        } catch (java.io.IOException e) {
-            throw new IllegalStateException("เขียนไฟล์ Excel ไม่สำเร็จ", e);
-        } finally {
-            if (book instanceof SXSSFWorkbook sxssf) {
-                sxssf.dispose();
-            }
-            if (book != null) {
-                try { book.close(); } catch (java.io.IOException ignored) {}
-            }
+            book.addTableSheet("customers", "Customers", columns, data);
+            return book.toBytes();
         }
     }
 

@@ -7,12 +7,18 @@ import com.thaishopfun.merchant.Shop;
 import com.thaishopfun.merchant.ShopReinstatementService;
 import com.thaishopfun.merchant.ShopRepository;
 import com.thaishopfun.merchant.ShopSuspensionService;
+import com.thaishopfun.merchant.notification.MerchantLifecycleNotificationWriter;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -30,10 +36,11 @@ public class AdminShopService {
     private final AdminShopUsageService usage;
     private final AdminRefs refs;
     private final PlatformAuditService platformAudit;
+    private final MerchantLifecycleNotificationWriter merchantNotifications;
 
     public AdminShopService(NamedParameterJdbcTemplate jdbc, ShopRepository shops, ShopSuspensionService suspensions,
                             ShopReinstatementService reinstatements, AdminShopUsageService usage, AdminRefs refs,
-                            PlatformAuditService platformAudit) {
+                            PlatformAuditService platformAudit, MerchantLifecycleNotificationWriter merchantNotifications) {
         this.jdbc = jdbc;
         this.shops = shops;
         this.suspensions = suspensions;
@@ -41,6 +48,7 @@ public class AdminShopService {
         this.usage = usage;
         this.refs = refs;
         this.platformAudit = platformAudit;
+        this.merchantNotifications = merchantNotifications;
     }
 
     public record Filter(String q, String status, UUID merchantId, UUID ownerUserId, String category, String province,
@@ -57,14 +65,18 @@ public class AdminShopService {
         var total = Optional.ofNullable(jdbc.queryForObject(
             "SELECT COUNT(*) FROM shops s LEFT JOIN owners o ON o.id = s.owner_id LEFT JOIN users u ON u.id = s.owner_user_id WHERE " + where, p, Long.class)).orElse(0L);
         var order = SORTS.getOrDefault(sort == null ? "createdAt" : sort, "s.created_date_time") + " " + AdminRefs.direction(dir) + ", s.shop_no DESC";
-        p.addValue("limit", safeSize).addValue("offset", (long) safePage * safeSize);
+        p.addValue("limit", safeSize).addValue("offset", (long) safePage * safeSize)
+            .addValue("since", Timestamp.from(Instant.now().minus(Duration.ofDays(30))));
         var rows = jdbc.query("""
             SELECT s.id, s.shop_no, s.name, s.name_en, s.slug, s.status, s.category, s.province, s.created_date_time,
                    s.published_at, s.suspended_at, o.id AS merchant_id, o.title, o.first_name AS o_first, o.last_name AS o_last,
                    o.status AS merchant_status, u.id AS user_id, u.first_name, u.last_name, u.email, u.phone, u.status AS user_status,
                    (SELECT COUNT(*) FROM shop_members m WHERE m.shop_id = s.id AND m.status = 'ACTIVE' AND m.removed_at IS NULL) AS members,
                    (SELECT COUNT(*) FROM products pr WHERE pr.shop_id = s.id AND pr.deleted_at IS NULL) AS products,
-                   (SELECT COUNT(*) FROM orders x WHERE x.shop_id = s.id) AS orders
+                   (SELECT COUNT(*) FROM orders x WHERE x.shop_id = s.id) AS orders,
+                   (SELECT COALESCE(SUM(x.grand_total), 0) FROM orders x
+                     WHERE x.shop_id = s.id AND x.placed_at >= :since
+                       AND x.payment_status = 'PAID' AND x.status NOT IN ('CANCELLED','REFUNDED')) AS sales_last_30
               FROM shops s LEFT JOIN owners o ON o.id = s.owner_id LEFT JOIN users u ON u.id = s.owner_user_id
              WHERE %s ORDER BY %s LIMIT :limit OFFSET :offset
             """.formatted(where, order), p, (rs, i) -> new ShopRow(
@@ -75,8 +87,13 @@ public class AdminShopService {
             rs.getObject("user_id", UUID.class) == null ? null : new UserRef(rs.getObject("user_id", UUID.class), rs.getString("first_name"),
                 rs.getString("last_name"), AdminContactMask.email(rs.getString("email")), AdminContactMask.phone(rs.getString("phone")), rs.getString("user_status")),
             rs.getLong("members"), rs.getLong("products"), rs.getLong("orders"),
+            money(rs.getBigDecimal("sales_last_30")),
             AdminRefs.instant(rs, "created_date_time"), AdminRefs.instant(rs, "published_at"), AdminRefs.instant(rs, "suspended_at")));
         return AdminRefs.page(rows, safePage, safeSize, total);
+    }
+
+    private static BigDecimal money(BigDecimal value) {
+        return (value == null ? BigDecimal.ZERO : value).setScale(2, RoundingMode.HALF_UP);
     }
 
     private void auditContactSearchIfNeeded(String q, UUID actorId) {
@@ -225,10 +242,12 @@ public class AdminShopService {
         if (changed) {
             shop.assignPlanCode(next);
             shops.save(shop);
+            var at = Instant.now();
             platformAudit.record(PlatformAuditService.Entry.platform(actorId, "SHOP_PLAN_CHANGED", "SHOP", shop.getUuid())
                 .shop(shop.getUuid())
                 .permission("PLATFORM_SHOP_SUSPEND")
                 .change(Map.of("planCode", before == null ? "" : before), Map.of("planCode", next == null ? "" : next)));
+            merchantNotifications.publishShopPlanChanged(shop, next, at);
         }
         return new ShopActionResponse(changed, detail(shop));
     }

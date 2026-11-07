@@ -14,7 +14,7 @@
 .store-address-edit{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
 .store-address-edit textarea{grid-column:1 / -1}
 .store-address-edit input,.store-address-edit textarea{width:100%;border:1px solid #d5e3f2;border-radius:6px;padding:7px 8px;font:500 12px var(--font-sans);color:#12366e;background:#fff}
-.store-address-edit textarea{min-height:58px;resize:vertical}
+.store-address-edit textarea{min-height:58px;resize:none}
 .store-lower aside>header a{border:0;background:transparent;color:#087bf5;font:700 11px var(--font-sans)}
 .mini-map{height:auto;min-height:0;margin:8px 0 12px;padding:0;background:none;display:block}
 .mini-map>svg{display:none}
@@ -97,7 +97,7 @@
   border:0;
   border-radius:10px;
   background:transparent;
-  resize:vertical;
+  resize:none;
   line-height:1.5;
   font:500 14px var(--font-sans),sans-serif;
   color:#132b50;
@@ -188,6 +188,25 @@
 .tc-preview.store-theme-preview{margin:0;padding:20px;border:0;border-radius:0;box-shadow:none;background:transparent;overflow:auto;min-width:0;display:flex;flex-direction:column}
 .tc-preview .theme-preview-stage{flex:1;max-height:none;margin:0;background:transparent;padding:0}
 .tc-preview .tc-device{margin:0 auto;background:#fff;box-shadow:0 6px 24px rgba(8,36,93,.12);border-radius:10px;overflow:hidden}
+/* Mobile/tablet preview: device frame scrolls body; .tsf-tabbar stays pinned (same as live mobile viewport). */
+.tc-preview .tc-device[data-device="mobile"],
+.tc-preview .tc-device[data-device="tablet"]{
+  display:flex;flex-direction:column;max-height:min(860px,calc(100vh - 180px));
+}
+.tc-preview .tc-device[data-device="mobile"] .shop-preview-frame.tsf-store,
+.tc-preview .tc-device[data-device="tablet"] .shop-preview-frame.tsf-store{
+  display:flex;flex-direction:column;flex:1 1 auto;min-height:0;max-height:100%;overflow:hidden;
+}
+.tc-preview .tc-device[data-device="mobile"] .shop-preview-scroll,
+.tc-preview .tc-device[data-device="tablet"] .shop-preview-scroll{
+  flex:1 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+}
+.tc-preview .tc-device[data-device="mobile"] .tsf-tabbar,
+.tc-preview .tc-device[data-device="tablet"] .tsf-tabbar{
+  flex:none;position:relative;bottom:auto;z-index:4;
+}
+/* Desktop preview: no pin; let the whole storefront grow normally. */
+.tc-preview .tc-device[data-device="desktop"] .shop-preview-scroll{display:contents}
 @media (max-width:860px){
   .tc-shell{height:auto}
   .tc-body{grid-template-columns:1fr}

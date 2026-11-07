@@ -26,8 +26,8 @@ public class MerchantNotificationService {
     private static final int DEFAULT_SIZE = 20;
     private static final int MAX_SIZE = 50;
     private static final int UNREAD_CAP = 99;
-    private static final int LOOKBACK_DAYS = 30;
-    private static final int LOW_STOCK_DAYS = 7;
+    /** Rolling retention for the merchant bell (matches {@link MerchantLifecycleNotificationWriter#RETENTION_HOURS}). */
+    private static final int LOOKBACK_HOURS = MerchantLifecycleNotificationWriter.RETENTION_HOURS;
     private static final Pattern ITEM_KEY = Pattern.compile("^[A-Z_]{3,40}:.{1,80}$");
 
     private final ShopRepository shops;
@@ -120,15 +120,18 @@ public class MerchantNotificationService {
     private Ctx open(UUID userId, Long shopNo) {
         var shop = shops.findByShopId(shopNo)
             .orElseThrow(() -> new AuthException(HttpStatus.NOT_FOUND, "SHOP_NOT_FOUND", "ไม่พบร้านค้านี้"));
+        boolean shopRead = granted(userId, shopNo, "SHOP_READ");
         boolean order = granted(userId, shopNo, "ORDER_READ");
         boolean customer = granted(userId, shopNo, "CUSTOMER_READ");
         boolean product = granted(userId, shopNo, "PRODUCT_READ");
-        if (!order && !customer && !product) {
+        boolean shipment = granted(userId, shopNo, "SHIPMENT_READ");
+        boolean userRoleUpdate = granted(userId, shopNo, "USER_ROLE_UPDATE");
+        if (!shopRead && !order && !customer && !product && !shipment && !userRoleUpdate) {
             throw new AuthException(HttpStatus.FORBIDDEN, "PERMISSION_DENIED",
-                "คุณไม่มีสิทธิ์ทำรายการนี้ (ต้องมีสิทธิ์ ORDER_READ / CUSTOMER_READ / PRODUCT_READ)");
+                "คุณไม่มีสิทธิ์ทำรายการนี้ (ต้องมีสิทธิ์ SHOP_READ / ORDER_READ / CUSTOMER_READ / PRODUCT_READ / SHIPMENT_READ / USER_ROLE_UPDATE)");
         }
         boolean pii = granted(userId, shopNo, "CUSTOMER_PII_READ");
-        return new Ctx(shop, order, customer, product, pii);
+        return new Ctx(shop, shopRead, order, customer, product, shipment, userRoleUpdate, pii);
     }
 
     private boolean granted(UUID userId, Long shopNo, String permission) {
@@ -136,14 +139,33 @@ public class MerchantNotificationService {
     }
 
     private List<FeedRow> loadFeed(Ctx ctx, CursorPoint after, int limit) {
-        Instant since = Instant.now().minus(LOOKBACK_DAYS, ChronoUnit.DAYS);
-        Instant lowStockSince = Instant.now().minus(LOW_STOCK_DAYS, ChronoUnit.DAYS);
+        Instant since = Instant.now().minus(LOOKBACK_HOURS, ChronoUnit.HOURS);
         var parts = new ArrayList<String>();
         var params = new MapSqlParameterSource()
             .addValue("shopId", ctx.shopUuid())
             .addValue("since", Timestamp.from(since))
-            .addValue("lowStockSince", Timestamp.from(lowStockSince))
             .addValue("limit", limit);
+
+        // Durable lifecycle / membership / plan events — filtered by required_permission.
+        var lifecyclePerms = new ArrayList<String>();
+        if (ctx.shopRead()) lifecyclePerms.add("SHOP_READ");
+        if (ctx.userRoleUpdate()) lifecyclePerms.add("USER_ROLE_UPDATE");
+        if (!lifecyclePerms.isEmpty()) {
+            params.addValue("lifecyclePerms", lifecyclePerms);
+            parts.add("""
+                SELECT n.type || ':' || n.id::text AS item_key, n.type AS item_type,
+                       NULL::text AS order_no, NULL::numeric AS amount, n.created_at AS created_at,
+                       NULL::uuid AS shop_customer_id, NULL::uuid AS buyer_user_id, NULL::text AS customer_name,
+                       NULL::text AS sku_code,
+                       CASE WHEN n.type IN ('SHOP_PLAN_CHANGED', 'SHOP_MEMBER_ROLE_CHANGED')
+                            THEN NULLIF(n.entity_id, '_') ELSE NULL END AS product_name,
+                       NULL::int AS available_qty
+                  FROM merchant_notifications n
+                 WHERE n.shop_id = :shopId
+                   AND n.created_at >= :since
+                   AND n.required_permission IN (:lifecyclePerms)
+                """);
+        }
 
         if (ctx.order()) {
             parts.add("""
@@ -201,6 +223,37 @@ public class MerchantNotificationService {
                    AND r.status = 'REQUESTED'
                    AND r.created_date_time >= :since
                 """);
+            parts.add("""
+                SELECT 'REFUND_DISPUTED:' || r.id::text, 'REFUND_DISPUTED',
+                       o.order_number, r.amount, COALESCE(r.modified_date_time, r.created_date_time),
+                       NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
+                  FROM refunds r
+                  JOIN orders o ON o.id = r.order_id
+                 WHERE r.shop_id = :shopId
+                   AND r.status = 'DISPUTED'
+                   AND COALESCE(r.modified_date_time, r.created_date_time) >= :since
+                """);
+            parts.add("""
+                SELECT 'REFUND_COMPLETED:' || r.id::text, 'REFUND_COMPLETED',
+                       o.order_number, r.amount, COALESCE(r.modified_date_time, r.created_date_time),
+                       NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
+                  FROM refunds r
+                  JOIN orders o ON o.id = r.order_id
+                 WHERE r.shop_id = :shopId
+                   AND r.status = 'COMPLETED'
+                   AND COALESCE(r.modified_date_time, r.created_date_time) >= :since
+                """);
+            parts.add("""
+                SELECT 'PAYMENT_SLIP_PENDING:' || pp.id::text, 'PAYMENT_SLIP_PENDING',
+                       o.order_number, COALESCE(pp.amount_declared, o.grand_total), pp.created_date_time,
+                       NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
+                  FROM payment_proofs pp
+                  JOIN orders o ON o.id = pp.order_id
+                 WHERE pp.shop_id = :shopId
+                   AND pp.status = 'PENDING_REVIEW'
+                   AND pp.proof_type = 'SLIP'
+                   AND pp.created_date_time >= :since
+                """);
         }
         if (ctx.customer()) {
             parts.add("""
@@ -242,30 +295,59 @@ public class MerchantNotificationService {
                   JOIN products p ON p.id = s.product_id
                  WHERE l.shop_id = :shopId
                    AND l.available <= COALESCE(l.low_stock_threshold, 5)
-                   AND l.modified_date_time >= :lowStockSince
+                   AND l.modified_date_time >= :since
+                """);
+            parts.add("""
+                SELECT 'PRODUCT_REVIEW_NEW:' || r.id::text, 'PRODUCT_REVIEW_NEW',
+                       NULL::text, NULL::numeric, r.created_date_time,
+                       NULL::uuid, NULL::uuid, NULL::text, NULL::text,
+                       COALESCE(NULLIF(p.name_th, ''), p.slug), CAST(r.rating AS int)
+                  FROM product_reviews r
+                  JOIN products p ON p.id = r.product_id
+                 WHERE r.shop_id = :shopId
+                   AND r.status = 'PUBLISHED'
+                   AND r.deleted_at IS NULL
+                   AND r.created_date_time >= :since
+                """);
+        }
+        if (ctx.shipment()) {
+            parts.add("""
+                SELECT 'SHIPMENT_EXCEPTION:' || s.id::text, 'SHIPMENT_EXCEPTION',
+                       o.order_number, o.grand_total, COALESCE(s.last_tracking_event_at, s.modified_date_time),
+                       NULL::uuid, NULL::uuid, NULL::text, s.status, NULL::text, NULL::int
+                  FROM shipments s
+                  JOIN orders o ON o.id = s.order_id
+                 WHERE s.shop_id = :shopId
+                   AND s.status IN ('DELIVERY_FAILED', 'RETURNED')
+                   AND COALESCE(s.last_tracking_event_at, s.modified_date_time) >= :since
                 """);
         }
         if (parts.isEmpty()) return List.of();
 
         String union = String.join(" UNION ALL ", parts);
-        String cursorSql = "";
-        if (after != null) {
-            cursorSql = """
-                 AND (created_at < :cursorAt
-                      OR (created_at = :cursorAt AND item_key < :cursorKey))
-                """;
+        // First page: no cursor predicate. Next page: non-null Instant/key only (avoid PG 42P18 on typed-null IS NULL).
+        String sql;
+        if (after == null) {
+            sql = """
+                SELECT * FROM (
+                  %s
+                ) feed
+                ORDER BY created_at DESC, item_key DESC
+                LIMIT :limit
+                """.formatted(union);
+        } else {
             params.addValue("cursorAt", Timestamp.from(after.createdAt()));
             params.addValue("cursorKey", after.key());
+            sql = """
+                SELECT * FROM (
+                  %s
+                ) feed
+                WHERE created_at < :cursorAt
+                   OR (created_at = :cursorAt AND item_key < :cursorKey)
+                ORDER BY created_at DESC, item_key DESC
+                LIMIT :limit
+                """.formatted(union);
         }
-        String sql = """
-            SELECT * FROM (
-              %s
-            ) feed
-            WHERE 1=1
-            %s
-            ORDER BY created_at DESC, item_key DESC
-            LIMIT :limit
-            """.formatted(union, cursorSql);
 
         return jdbc.query(sql, params, (rs, i) -> new FeedRow(
             rs.getString("item_key"),
@@ -297,9 +379,23 @@ public class MerchantNotificationService {
         }
         if (row.orderNo() != null) params.put("orderNo", row.orderNo());
         if (row.amount() != null) params.put("amount", row.amount());
-        if (row.skuCode() != null) params.put("skuCode", row.skuCode());
-        if (row.productName() != null) params.put("productName", row.productName());
-        if (row.availableQty() != null) params.put("available", row.availableQty());
+        if (row.skuCode() != null) {
+            if ("SHIPMENT_EXCEPTION".equals(row.type())) params.put("shipmentStatus", row.skuCode());
+            else params.put("skuCode", row.skuCode());
+        }
+        if (row.productName() != null) {
+            if ("SHOP_PLAN_CHANGED".equals(row.type())) {
+                params.put("planCode", row.productName() == null || row.productName().isBlank() ? "—" : row.productName());
+            } else if ("SHOP_MEMBER_ROLE_CHANGED".equals(row.type())) {
+                params.put("role", row.productName() == null || row.productName().isBlank() ? "—" : row.productName());
+            } else {
+                params.put("productName", row.productName());
+            }
+        }
+        if (row.availableQty() != null) {
+            if ("PRODUCT_REVIEW_NEW".equals(row.type())) params.put("rating", row.availableQty());
+            else params.put("available", row.availableQty());
+        }
         return new MerchantNotificationDtos.Item(
             row.key(),
             row.type(),
@@ -342,17 +438,32 @@ public class MerchantNotificationService {
         try {
             String raw = new String(Base64.getUrlDecoder().decode(cursor.trim()), StandardCharsets.UTF_8);
             int sep = raw.indexOf('|');
-            if (sep <= 0) return null;
+            if (sep <= 0) {
+                throw new AuthException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "cursor ไม่ถูกต้อง", "cursor");
+            }
             long millis = Long.parseLong(raw.substring(0, sep));
             String key = raw.substring(sep + 1);
-            if (key.isBlank()) return null;
+            if (key.isBlank()) {
+                throw new AuthException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "cursor ไม่ถูกต้อง", "cursor");
+            }
             return new CursorPoint(Instant.ofEpochMilli(millis), key);
+        } catch (AuthException ex) {
+            throw ex;
         } catch (RuntimeException ignored) {
-            throw new AuthException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "cursor ไม่ถูกต้อง");
+            throw new AuthException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "cursor ไม่ถูกต้อง", "cursor");
         }
     }
 
-    private record Ctx(Shop shop, boolean order, boolean customer, boolean product, boolean pii) {
+    private record Ctx(
+        Shop shop,
+        boolean shopRead,
+        boolean order,
+        boolean customer,
+        boolean product,
+        boolean shipment,
+        boolean userRoleUpdate,
+        boolean pii
+    ) {
         UUID shopUuid() { return shop.getUuid(); }
     }
 

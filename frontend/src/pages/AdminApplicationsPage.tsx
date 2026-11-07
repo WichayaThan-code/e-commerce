@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import {
-  Building2, Check, ChevronLeft,
-  ChevronRight, CircleX, Clock3, Download, Facebook, FileCheck2,
+  Building2, Check, CircleX, Clock3, Download, Facebook, FileCheck2,
   FileText, Home, Instagram, LockKeyhole, Mail, MapPin,
   MessageCircle, MoreVertical, Phone, Plus, Search,
   UsersRound,
@@ -13,6 +12,7 @@ import AdminSidebar, { refreshAdminStoreApplications } from '../components/Admin
 import AdminSidePanel from '../components/admin/AdminSidePanel'
 import AdminSelect from '../components/admin/AdminSelect'
 import AdminDateRange from '../components/admin/AdminDateRange'
+import { Pager } from '../components/admin/PlatformBits'
 import { useAuth } from '../contexts/AuthContext'
 import { hasPlatformAccess } from '../services/permissions'
 import { usePermissions } from '../hooks/usePermissions'
@@ -115,12 +115,6 @@ function statusPillClass(status: ApplicationStatus) {
   if (status === 'PENDING_REVIEW') return 'waiting'
   if (status === 'SUSPENDED') return 'blocked'
   return 'rejected'
-}
-
-function pageNumbers(current: number, count: number) {
-  if (count <= 7) return Array.from({ length: count }, (_, index) => index + 1)
-  const start = Math.max(1, Math.min(current, count - 4))
-  return Array.from({ length: 5 }, (_, index) => start + index)
 }
 
 function ShopMark({ item }: { item: ApplicationRecord }) {
@@ -302,9 +296,6 @@ export default function AdminApplicationsPage() {
       setBusy(false)
     }
   }
-  const from = filtered.length ? ((safePage - 1) * pageSize) + 1 : 0
-  const to = Math.min(safePage * pageSize, filtered.length)
-  const pages = pageNumbers(safePage, pageCount)
   const statusText = (code: ApplicationStatus) => tp(`status.${code}`)
 
   return <main className="admin-shell applications-shell">
@@ -391,19 +382,16 @@ export default function AdminApplicationsPage() {
             {filtered.length === 0 && <div className="applications-empty">{tp('emptyFiltered')}</div>}
           </div>
         </div>
-        <footer>
-          <div>
-            {tp('show')}{' '}
-            <AdminSelect compact className="adm-page-size" label={tp('pageSizeLabel')} value={String(pageSize)} onChange={value => { setPageSize(Number(value)); setPage(1) }} options={[{ value: '10', label: '10' }, { value: '25', label: '25' }]} />
-            {' '}{tp('perPage')}
-          </div>
-          <span>{tp('range', { from, to, total: filtered.length })}</span>
-          <nav aria-label={tp('paginationAria')}>
-            <button disabled={safePage <= 1} onClick={() => setPage(value => Math.max(1, value - 1))}><ChevronLeft /></button>
-            {pages.map(number => <button className={safePage === number ? 'current' : ''} key={number} onClick={() => setPage(number)}>{number}</button>)}
-            <button disabled={safePage >= pageCount} onClick={() => setPage(value => Math.min(pageCount, value + 1))}><ChevronRight /></button>
-          </nav>
-        </footer>
+        <Pager
+          page={safePage - 1}
+          size={pageSize}
+          totalItems={filtered.length}
+          totalPages={pageCount}
+          itemCount={visible.length}
+          sizeOptions={[10, 25]}
+          onPage={next => setPage(next + 1)}
+          onSize={next => { setPageSize(next); setPage(1) }}
+        />
       </section>
     </div>
 

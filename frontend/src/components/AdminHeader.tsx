@@ -1,10 +1,11 @@
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, ChevronDown, Search, ShoppingBag, Store } from 'lucide-react'
-import { STORE_APPLICATIONS_CHANGED } from './AdminSidebar'
+import { ChevronDown, Search } from 'lucide-react'
+import BrandLogo from './BrandLogo'
+import AdminNotifyBell from './admin/AdminNotifyBell'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useLanguage } from '../contexts/LanguageContext'
-import { adminApplicationApi, type AdminStoreApplication, type AuthUser } from '../services/api'
+import type { AuthUser } from '../services/api'
 import { primaryRoleLabelTh } from '../utils/roleLabels'
 
 type AdminHeaderProps = {
@@ -13,53 +14,15 @@ type AdminHeaderProps = {
   onSearch?: (value: string) => void
 }
 
-function appliedLabel(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(date)
-}
-
 export default function AdminHeader({ user, query = '', onSearch }: AdminHeaderProps) {
   const navigate = useNavigate()
   const { t } = useLanguage()
   const [text, setText] = useState(query)
-  const [open, setOpen] = useState(false)
-  const [pending, setPending] = useState<AdminStoreApplication[]>([])
-  const notifyRef = useRef<HTMLDivElement>(null)
   const displayName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
   const initial = (user.firstName || user.email || 'A').charAt(0).toUpperCase()
   const roleLabel = primaryRoleLabelTh(user)
 
   useEffect(() => { setText(query) }, [query])
-
-  useEffect(() => {
-    let active = true
-    const load = () => {
-      adminApplicationApi.list()
-        .then(rows => { if (active) setPending(rows.filter(row => row.status === 'PENDING_REVIEW')) })
-        .catch(() => { if (active) setPending([]) })
-    }
-    load()
-    window.addEventListener(STORE_APPLICATIONS_CHANGED, load)
-    return () => {
-      active = false
-      window.removeEventListener(STORE_APPLICATIONS_CHANGED, load)
-    }
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
-    const onPointer = (event: MouseEvent) => {
-      if (!notifyRef.current?.contains(event.target as Node)) setOpen(false)
-    }
-    window.addEventListener('keydown', onKey)
-    document.addEventListener('mousedown', onPointer)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.removeEventListener('mousedown', onPointer)
-    }
-  }, [open])
 
   const search = (event: FormEvent) => {
     event.preventDefault()
@@ -71,16 +34,10 @@ export default function AdminHeader({ user, query = '', onSearch }: AdminHeaderP
     navigate(`/admin/store-applications?q=${encodeURIComponent(value)}`)
   }
 
-  const openShop = (shopId: number) => {
-    setOpen(false)
-    navigate(`/admin/store-applications?shop=${shopId}`)
-  }
-
   return (
     <header className="admin-topbar">
-      <a className="admin-brand" href="/">
-        <span><ShoppingBag /><i>✓</i></span>
-        <div><b>ThaiShop<span>Fun</span></b><small>Shop Local · Support Thai · Smile Together</small></div>
+      <a className="admin-brand" href="/" aria-label="ThaiShopFun">
+        <BrandLogo variant="withName" className="admin-brand-logo" alt="" />
       </a>
       <form onSubmit={search}>
         <button aria-label={t('admin.searchAction')} type="submit"><Search /></button>
@@ -88,35 +45,7 @@ export default function AdminHeader({ user, query = '', onSearch }: AdminHeaderP
       </form>
       <div className="admin-topbar-actions">
         <LanguageSwitcher />
-        <div className="admin-notify" ref={notifyRef}>
-          <button className="admin-bell" type="button" aria-label={t('admin.notify')} aria-expanded={open} onClick={() => setOpen(value => !value)}>
-            <Bell />
-            {pending.length > 0 && <i>{pending.length}</i>}
-          </button>
-          {open && (
-            <section className="admin-notify-panel" role="dialog" aria-label={t('admin.notifyList')}>
-              <header>
-                <b>{t('admin.pendingTitle')}</b>
-                <small>{pending.length} {t('admin.shopCount')}</small>
-              </header>
-              {pending.length === 0 ? <p className="admin-notify-empty">{t('admin.empty')}</p> : (
-                <ul>
-                  {pending.map(shop => (
-                    <li key={shop.shopId}>
-                      <button type="button" onClick={() => openShop(shop.shopId)}>
-                        <Store />
-                        <span>
-                          <b>{shop.shopName}</b>
-                          <small>{t('admin.waiting')} · {shop.ownerName || t('admin.unknownOwner')}{shop.appliedAt ? ` · ${appliedLabel(shop.appliedAt)}` : ''}</small>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-        </div>
+        <AdminNotifyBell />
         <div className="admin-user-chip" title={user.email}>
           <span className="admin-user-avatar" aria-hidden="true">{initial}</span>
           <span className="admin-user-copy">

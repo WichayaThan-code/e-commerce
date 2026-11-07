@@ -31,6 +31,7 @@ import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/settings.css";
 import MerchantSidebar from "../components/merchant/MerchantSidebar";
+import MerchantBrand from "../components/merchant/MerchantBrand";
 
 
 /** /merchant/settings = operational settings. Shop profile/appearance/hours live in /merchant/store. */
@@ -53,8 +54,6 @@ const TAB_ALIASES: Record<string, SettingsTabKey> = { policy: "policies", users:
 const MOVED_TO_STORE: Record<string, string> = { hours: "hours", info: "info", theme: "theme" };
 
 type PendingLeave = { kind: "tab"; tab: SettingsTabKey } | { kind: "href"; href: string } | null;
-function Brand(){return <a className="merchant-brand" href="/"><span><ShoppingBag/><i>✓</i></span><div><b>ThaiShop<span>Fun</span></b><small>Shop Local · Support Thai · Smile Together</small></div></a>}
-
 function resolveTab(raw: string | null): SettingsTabKey {
   if (!raw) return DEFAULT_TAB;
   if (SETTINGS_TABS.some((tab) => tab.key === raw)) return raw as SettingsTabKey;
@@ -120,7 +119,7 @@ export default function SettingsPage(){
   const CurrentIcon=current.icon;
 
   return <main className="merchant-shell pm-shell settings-shell">
-    <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><MerchantTopbarActions /></header>
+    <header className="merchant-topbar"><MerchantBrand /><MerchantTopbarSearch /><MerchantTopbarActions /></header>
     <MerchantSidebar active="settings" onNavigate={guardHref}/>
     <section className="pm-content settings-content">
       <header className="pm-heading settings-heading"><div><h1><Settings/>ตั้งค่า</h1><p>นโยบายร้าน การชำระเงิน การจัดส่ง และบัญชีผู้ใช้ · ข้อมูลร้าน ธีม และเวลาทำการ อยู่ที่ <a href="/merchant/store" onClick={e=>guardHref(e,"/merchant/store")}>ร้านของฉัน</a></p></div></header>

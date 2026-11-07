@@ -1,18 +1,10 @@
 import type { ReactNode } from 'react'
-import { ArrowLeft, ArrowRight, Heart, ShieldCheck, ShoppingBag, Store, Truck } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Heart, ShieldCheck, Store, Truck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import LanguageSwitcher from '../LanguageSwitcher'
+import SiteBrand from '../SiteBrand'
 import '../../styles/login.css'
 import '../../styles/form-invalid.css'
-
-function LoginBrand({ ariaLabel, tagline }: { ariaLabel: string; tagline: string }) {
-  return (
-    <a className="brand login-brand" href="/" aria-label={ariaLabel}>
-      <span className="brand-mark"><ShoppingBag size={24} /><i>✓</i></span>
-      <span><b>ThaiShop<span>Fun</span></b><small>{tagline}</small></span>
-    </a>
-  )
-}
 
 const benefitKeys = ['variety', 'payment', 'support'] as const
 const benefitIcons = { variety: Truck, payment: ShieldCheck, support: Heart }
@@ -32,7 +24,7 @@ export default function AuthSplitLayout({ navAriaLabel, children }: AuthSplitLay
       <section className="login-story">
         <div className="login-story-image" />
         <div className="login-story-content">
-          <LoginBrand ariaLabel={p('brandAriaHome')} tagline={p('brandTagline')} />
+          <SiteBrand homeAria={p('brandAriaHome')} className="login-brand" href="/" />
           <div className="story-copy">
             <span className="login-eyebrow"><span /> {p('story.eyebrow')}</span>
             <h1>{p('story.titleLine1')}<br /><em>{p('story.titleEmphasis')}</em></h1>

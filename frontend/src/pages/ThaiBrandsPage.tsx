@@ -14,7 +14,6 @@ import {
   Menu,
   Search,
   Shirt,
-  ShoppingBag,
   ShoppingCart,
   Sofa,
   Sparkles,
@@ -28,7 +27,6 @@ import thaiBrandReference from "../assets/images/references/storefront/thai-bran
 import "../styles/recommended-products.css";
 import "../styles/best-seller.css";
 import "../styles/thai-brands.css";
-
 const popularBrands = [
   "ชาตรามือ",
   "ดอยคำ",
@@ -134,23 +132,6 @@ const products = [
     "red",
   ],
 ] as const;
-
-function Brand() {
-  return (
-    <a className="recommend-brand" href="/" aria-label="ThaiShopFun หน้าแรก">
-      <span className="recommend-mark">
-        <ShoppingBag />
-        <i>✓</i>
-      </span>
-      <span>
-        <b>
-          ThaiShop<span>Fun</span>
-        </b>
-        <small>Shop Local · Support Thai · Smile Together</small>
-      </span>
-    </a>
-  );
-}
 
 export default function ThaiBrandsPage() {
   const { user, loading, logout } = useAuth();

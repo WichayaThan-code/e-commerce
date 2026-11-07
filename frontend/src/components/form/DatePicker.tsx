@@ -28,6 +28,8 @@ type DatePickerProps = {
   min?: string
   max?: string
   className?: string
+  /** Shorter trigger text (e.g. 8 พ.ย. 2569) for tight layouts. */
+  compact?: boolean
 }
 
 export default function DatePicker({
@@ -43,6 +45,7 @@ export default function DatePicker({
   min,
   max,
   className,
+  compact = false,
 }: DatePickerProps) {
   const { locale, localeTag: tag } = useLanguage()
   const isThai = locale === 'th'
@@ -103,8 +106,12 @@ export default function DatePicker({
 
   const displayValue = useMemo(() => {
     if (!selected) return ''
-    return selected.toLocaleDateString(tag, { day: 'numeric', month: 'long', year: 'numeric' })
-  }, [selected, tag])
+    return selected.toLocaleDateString(tag, {
+      day: 'numeric',
+      month: compact ? 'short' : 'long',
+      year: 'numeric',
+    })
+  }, [selected, tag, compact])
 
   const weekdays = isThai ? WEEKDAYS_TH : WEEKDAYS_EN
   const months = isThai ? MONTHS_TH : MONTHS_EN
@@ -155,7 +162,7 @@ export default function DatePicker({
 
   return (
     <div
-      className={['date-picker', className].filter(Boolean).join(' ')}
+      className={['date-picker', compact ? 'compact' : '', className].filter(Boolean).join(' ')}
       ref={containerRef}
       data-field={field || name}
       onBlur={(event) => {

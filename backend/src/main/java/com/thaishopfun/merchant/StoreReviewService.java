@@ -4,6 +4,7 @@ import com.thaishopfun.admin.SuspensionReasonCodes;
 import com.thaishopfun.audit.PlatformAuditService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.authz.AuthorizationService;
+import com.thaishopfun.merchant.notification.MerchantLifecycleNotificationWriter;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,9 +25,18 @@ public class StoreReviewService {
     private final AuthorizationService authorization;
     private final ShopSuspensionService suspensions;
     private final PlatformAuditService platformAudit;
+    private final MerchantLifecycleNotificationWriter merchantNotifications;
 
-    public StoreReviewService(ShopRepository shops, MerchantDocumentRepository documents, MerchantStorageService storage, ShopReinstatementService reinstatements, AuthorizationService authorization,
-                              ShopSuspensionService suspensions, PlatformAuditService platformAudit) {
+    public StoreReviewService(
+        ShopRepository shops,
+        MerchantDocumentRepository documents,
+        MerchantStorageService storage,
+        ShopReinstatementService reinstatements,
+        AuthorizationService authorization,
+        ShopSuspensionService suspensions,
+        PlatformAuditService platformAudit,
+        MerchantLifecycleNotificationWriter merchantNotifications
+    ) {
         this.shops = shops;
         this.documents = documents;
         this.storage = storage;
@@ -34,6 +44,7 @@ public class StoreReviewService {
         this.authorization = authorization;
         this.suspensions = suspensions;
         this.platformAudit = platformAudit;
+        this.merchantNotifications = merchantNotifications;
     }
 
     @Transactional(readOnly = true)
@@ -103,6 +114,7 @@ public class StoreReviewService {
         var before = shop.getStatus();
         shop.approve(); // the owner's STORE_OWNER membership (shop_members) already exists; it is the source of truth
         suspensions.recordReview(actorId, "SHOP_APPROVED", shop, before);
+        merchantNotifications.publishShopApproved(shop);
         return toAdmin(shop);
     }
 
@@ -126,6 +138,7 @@ public class StoreReviewService {
             if (suspensions.merchantSuspended(shop)) return false;
             shop.approve();
             suspensions.recordReview(actorId, "SHOP_APPROVED", shop, ShopStatus.PENDING_REVIEW);
+            merchantNotifications.publishShopApproved(shop);
             return true;
         });
     }
@@ -140,6 +153,7 @@ public class StoreReviewService {
         return applyMany(shopIds, ShopStatus.PENDING_REVIEW, shop -> {
             shop.reject();
             suspensions.recordReview(actorId, "SHOP_REJECTED", shop, ShopStatus.PENDING_REVIEW);
+            merchantNotifications.publishShopRejected(shop);
             return true;
         });
     }
@@ -194,6 +208,7 @@ public class StoreReviewService {
             var before = shop.getStatus();
             shop.reject();
             suspensions.recordReview(actorId, "SHOP_REJECTED", shop, before);
+            merchantNotifications.publishShopRejected(shop);
         }
         return toAdmin(shop);
     }

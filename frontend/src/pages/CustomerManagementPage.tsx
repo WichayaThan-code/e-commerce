@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Crown,
   Download,
@@ -24,9 +24,11 @@ import {
   UserPlus,
   UsersRound,
   Wallet,
+  X,
 } from "lucide-react";
 import MerchantBrand from "../components/merchant/MerchantBrand";
 import MerchantOrderDrawer from "../components/merchant/MerchantOrderDrawer";
+import MerchantPagination from "../components/merchant/MerchantPagination";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
 import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
 import DateRangePicker from "../components/form/DateRangePicker";
@@ -55,7 +57,7 @@ import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/customer-management.css";
 import "../styles/form-fields.css";
-import "../styles/order-management.css";
+import "../styles/order-management.css";
 import MerchantSidebar from "../components/merchant/MerchantSidebar";
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -144,7 +146,7 @@ export default function CustomerManagementPage() {
   const sort = params.get("sort") || "lastOrderAt";
   const direction = params.get("direction") || "desc";
   const page = Math.max(0, Number(params.get("page") || "0") || 0);
-  const size = [8, 16, 24].includes(Number(params.get("size"))) ? Number(params.get("size")) : 8;
+  const size = [10, 20, 50].includes(Number(params.get("size"))) ? Number(params.get("size")) : 10;
   const selectedKey = params.get("selected") || "";
 
   const [queryDraft, setQueryDraft] = useState(qParam);
@@ -194,6 +196,28 @@ export default function CustomerManagementPage() {
   }, [debouncedQuery]);
 
   useEffect(() => {
+    if (!selectedKey) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !openOrderId) patch({ selected: null });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedKey, openOrderId]);
+
+  /* Drawer must live on document.body — .cm-shell overflow traps position:fixed and clips content. */
+  useEffect(() => {
+    if (!selectedKey) return;
+    const { overflow, paddingRight } = document.body.style;
+    const scrollbar = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = "hidden";
+    if (scrollbar > 0) document.body.style.paddingRight = `${scrollbar}px`;
+    return () => {
+      document.body.style.overflow = overflow;
+      document.body.style.paddingRight = paddingRight;
+    };
+  }, [selectedKey]);
+
+  useEffect(() => {
     if (shopId == null) return;
     let alive = true;
     setChannelsLoading(true);
@@ -228,13 +252,6 @@ export default function CustomerManagementPage() {
         setStats(result.stats);
         setTotal(result.total);
         setTotalPages(result.totalPages);
-        if (selectedKey && result.items.length === 0) {
-          patch({ selected: null });
-        } else if (!selectedKey && result.items[0]) {
-          patch({ selected: result.items[0].key });
-        } else if (selectedKey && !result.items.some((row) => row.key === selectedKey) && result.items[0]) {
-          patch({ selected: result.items[0].key });
-        }
       })
       .catch((caught) => {
         if (controller.signal.aborted || listReq.current !== req) return;
@@ -360,8 +377,6 @@ export default function CustomerManagementPage() {
     );
   };
 
-  const fromIdx = total === 0 ? 0 : page * size + 1;
-  const toIdx = Math.min((page + 1) * size, total);
   const empty = !fetching && !error && items.length === 0;
   const filteredEmpty = empty && Boolean(qParam || channel || status || segment || joinedFrom || joinedTo);
   const generalCount = Math.max(0, (stats?.totalCustomers ?? 0) - (stats?.repeatCustomers ?? 0));
@@ -494,75 +509,94 @@ export default function CustomerManagementPage() {
               ))}
             </div>
             <form
-              className="cm-filters"
+              className="om-filters"
               onSubmit={(e) => {
                 e.preventDefault();
                 patch({ q: queryDraft.trim() || null, page: "0" });
               }}
             >
-              <label className="cm-search">
-                <Search />
-                <input
-                  aria-label={t("customers.searchLabel")}
-                  value={queryDraft}
-                  onChange={(e) => setQueryDraft(e.target.value)}
-                  placeholder={t("customers.searchPlaceholder")}
+              <div className="om-filters-main">
+                <div className="om-filter-search">
+                  <span className="form-label">{t("customers.searchLabel")}</span>
+                  <label className="om-search">
+                    <Search aria-hidden />
+                    <input
+                      aria-label={t("customers.searchLabel")}
+                      value={queryDraft}
+                      onChange={(e) => setQueryDraft(e.target.value)}
+                      placeholder={t("customers.searchPlaceholder")}
+                    />
+                  </label>
+                </div>
+                <DateRangePicker
+                  className="om-filter-range"
+                  label={t("customers.filters.joinedRange")}
+                  from={joinedFrom}
+                  to={joinedTo}
+                  clearLabel={t("customers.filters.clear")}
+                  applyLabel={t("customers.filters.apply")}
+                  presetsLabel={{
+                    d7: t("customers.filters.presets.d7"),
+                    d30: t("customers.filters.presets.d30"),
+                    month: t("customers.filters.presets.month"),
+                  }}
+                  onChange={({ from, to }) => patch({ joinedFrom: from || null, joinedTo: to || null, page: "0" })}
                 />
-              </label>
-              <SearchableSelect
-                label={t("customers.filters.channel")}
-                options={channelOptions}
-                value={channel || allLabel}
-                loading={channelsLoading}
-                onChange={(picked) => patch({ channel: picked === allLabel ? null : picked, page: "0" })}
-              />
-              <SearchableSelect
-                label={t("customers.filters.status")}
-                options={statusOptions}
-                value={status === "ACTIVE" ? t("customers.status.ACTIVE") : status === "INACTIVE" ? t("customers.status.INACTIVE") : allLabel}
-                onChange={(picked) => {
-                  const next =
-                    picked === t("customers.status.ACTIVE") ? "ACTIVE"
-                      : picked === t("customers.status.INACTIVE") ? "INACTIVE"
-                        : null;
-                  patch({ status: next, page: "0" });
-                }}
-              />
-              <SearchableSelect
-                label={t("customers.filters.segment")}
-                options={segmentOptions}
-                value={
-                  segment === "VIP" ? t("customers.segment.VIP")
-                    : segment === "REPEAT" ? t("customers.segment.REPEAT")
-                      : segment === "GENERAL" ? t("customers.segment.GENERAL")
-                        : allLabel
-                }
-                onChange={(picked) => {
-                  const next =
-                    picked === t("customers.segment.VIP") ? "VIP"
-                      : picked === t("customers.segment.REPEAT") ? "REPEAT"
-                        : picked === t("customers.segment.GENERAL") ? "GENERAL"
+                <SearchableSelect
+                  label={t("customers.filters.channel")}
+                  options={channelOptions}
+                  value={channel || allLabel}
+                  loading={channelsLoading}
+                  onChange={(picked) => patch({ channel: picked === allLabel ? null : picked, page: "0" })}
+                />
+                <SearchableSelect
+                  label={t("customers.filters.status")}
+                  options={statusOptions}
+                  value={status === "ACTIVE" ? t("customers.status.ACTIVE") : status === "INACTIVE" ? t("customers.status.INACTIVE") : allLabel}
+                  onChange={(picked) => {
+                    const next =
+                      picked === t("customers.status.ACTIVE") ? "ACTIVE"
+                        : picked === t("customers.status.INACTIVE") ? "INACTIVE"
                           : null;
-                  patch({ segment: next, page: "0" });
-                }}
-              />
-              <DateRangePicker
-                className="cm-filter-date"
-                label={t("customers.filters.joinedRange")}
-                from={joinedFrom}
-                to={joinedTo}
-                clearLabel={t("customers.filters.clear")}
-                applyLabel={t("customers.filters.apply")}
-                presetsLabel={{
-                  d7: t("customers.filters.presets.d7"),
-                  d30: t("customers.filters.presets.d30"),
-                  month: t("customers.filters.presets.month"),
-                }}
-                onChange={({ from, to }) => patch({ joinedFrom: from || null, joinedTo: to || null, page: "0" })}
-              />
-              <button className="cm-reset" type="button" onClick={reset}>
-                {t("customers.reset")}
-              </button>
+                    patch({ status: next, page: "0" });
+                  }}
+                />
+                <SearchableSelect
+                  label={t("customers.filters.segment")}
+                  options={segmentOptions}
+                  value={
+                    segment === "VIP" ? t("customers.segment.VIP")
+                      : segment === "REPEAT" ? t("customers.segment.REPEAT")
+                        : segment === "GENERAL" ? t("customers.segment.GENERAL")
+                          : allLabel
+                  }
+                  onChange={(picked) => {
+                    const next =
+                      picked === t("customers.segment.VIP") ? "VIP"
+                        : picked === t("customers.segment.REPEAT") ? "REPEAT"
+                          : picked === t("customers.segment.GENERAL") ? "GENERAL"
+                            : null;
+                    patch({ segment: next, page: "0" });
+                  }}
+                />
+                <SearchableSelect
+                  label={t("customers.sort.label")}
+                  options={sortOptions.map(([, label]) => label)}
+                  value={sortOptions.find(([value]) => value === sort)?.[1] || t("customers.sort.lastOrderAt")}
+                  onChange={(picked) => {
+                    const next = sortOptions.find(([, label]) => label === picked)?.[0] || "lastOrderAt";
+                    patch({ sort: next, page: "0" });
+                  }}
+                />
+                <div className="om-filters-actions">
+                  <button type="button" onClick={reset}>
+                    {t("customers.reset")}
+                  </button>
+                  <button type="submit" className="primary">
+                    {t("customers.filters.search")}
+                  </button>
+                </div>
+              </div>
             </form>
             <div className="cm-table-wrap" aria-busy={fetching}>
               {error ? (
@@ -618,8 +652,8 @@ export default function CustomerManagementPage() {
                             <div className="cm-person">
                               <span style={{ background: avatar.color }}>{avatar.initial}</span>
                               <p>
-                                <b>{c.displayName}</b>
-                                <small title={c.piiMasked ? t("customers.piiMasked") : undefined}>{c.email || "—"}</small>
+                                <b title={c.displayName}>{c.displayName}</b>
+                                <small title={c.piiMasked ? t("customers.piiMasked") : c.email || undefined}>{c.email || "—"}</small>
                               </p>
                             </div>
                           </td>
@@ -645,210 +679,211 @@ export default function CustomerManagementPage() {
                 </table>
               )}
             </div>
-            <div className="cm-pagination">
-              <span>{t("customers.table.showing", { from: fromIdx, to: toIdx, total })}</span>
-              <label>
-                {t("customers.table.perPage")}{" "}
-                <select
-                  aria-label={t("customers.table.perPage")}
-                  value={size}
-                  onChange={(e) => patch({ size: e.target.value, page: "0" })}
-                >
-                  <option value="8">8</option>
-                  <option value="16">16</option>
-                  <option value="24">24</option>
-                </select>{" "}
-                {t("customers.table.perPageSuffix")}
-              </label>
-              <SearchableSelect
-                compact
-                label={t("customers.sort.label")}
-                options={sortOptions.map(([, label]) => label)}
-                value={sortOptions.find(([value]) => value === sort)?.[1] || t("customers.sort.lastOrderAt")}
-                onChange={(picked) => {
-                  const next = sortOptions.find(([, label]) => label === picked)?.[0] || "lastOrderAt";
-                  patch({ sort: next, page: "0" });
-                }}
-              />
-              <nav>
-                <button type="button" aria-label="prev" disabled={page <= 0} onClick={() => patch({ page: String(page - 1) })}>
-                  <ChevronLeft />
-                </button>
-                <button type="button" className="active">{page + 1}</button>
-                <span>/ {Math.max(totalPages, 1)}</span>
-                <button type="button" aria-label="next" disabled={page + 1 >= totalPages} onClick={() => patch({ page: String(page + 1) })}>
-                  <ChevronRight />
-                </button>
-              </nav>
-            </div>
+            <MerchantPagination
+              page={page}
+              pageCount={Math.max(totalPages, 1)}
+              size={size}
+              total={total}
+              onPageChange={(next) => patch({ page: String(next) })}
+              onSizeChange={(next) => patch({ size: String(next), page: "0" })}
+            />
           </section>
-          <aside className="cm-detail">
-            {detailLoading && !detail ? (
-              <div style={{ padding: 16 }}><Skeleton height={220} /></div>
-            ) : !selected ? (
-              <div className="cm-empty">{t("customers.empty")}</div>
-            ) : (
-              <>
-                <header>
-                  <div className="cm-avatar" style={{ background: selectedAvatar?.color }} aria-hidden="true">
-                    {initialsOf(selected.displayName)}
-                  </div>
-                  <div className="cm-detail-id">
-                    <h2 title={selected.displayName}>{selected.displayName}</h2>
-                    <div className="cm-detail-meta">
-                      <span className={`cm-seg-badge ${String(selected.segment || "").toLowerCase()}`}>
-                        {selected.segment === "VIP" ? <Crown aria-hidden="true" /> : null}
-                        {t(`customers.segment.${selected.segment}`)}
-                      </span>
-                      <small>{t("customers.since", { date: formatJoined(selected.joinedAt, localeTag) })}</small>
-                    </div>
-                  </div>
-                  <button type="button" disabled title={canUpdate ? t("customers.comingSoon") : deniedTitle(canUpdate)}>
-                    <Pencil />
-                    {t("customers.edit")}
-                  </button>
-                </header>
-                <dl className="cm-contact">
-                  <div className="cm-contact-row" title={selected.piiMasked ? t("customers.piiMasked") : undefined}>
-                    <span className="cm-icon-chip" aria-hidden="true"><Mail /></span>
-                    <dt>{t("customers.detail.email")}</dt>
-                    <dd>
-                      {selected.email ? selected.email : <span className="cm-missing">{t("customers.detail.noData")}</span>}
-                      {selected.email && selected.piiMasked ? <EyeOff className="cm-masked" aria-label={t("customers.piiMasked")} /> : null}
-                    </dd>
-                  </div>
-                  <div className="cm-contact-row" title={selected.piiMasked ? t("customers.piiMasked") : undefined}>
-                    <span className="cm-icon-chip" aria-hidden="true"><Phone /></span>
-                    <dt>{t("customers.detail.phone")}</dt>
-                    <dd>
-                      {selected.phone ? <span className="num">{selected.phone}</span> : <span className="cm-missing">{t("customers.detail.noData")}</span>}
-                      {selected.phone && selected.piiMasked ? <EyeOff className="cm-masked" aria-label={t("customers.piiMasked")} /> : null}
-                      {canCopyPhone ? (
-                        <button type="button" className="cm-copy" onClick={copyPhone} aria-label={t("customers.detail.copyPhone")} title={t("customers.detail.copyPhone")}>
-                          <Copy aria-hidden="true" />
-                        </button>
-                      ) : null}
-                    </dd>
-                  </div>
-                  <div className="cm-contact-row">
-                    <span className="cm-icon-chip" aria-hidden="true"><MapPin /></span>
-                    <dt>{t("customers.detail.address")}</dt>
-                    <dd>{addressLine ? addressLine : <span className="cm-missing">{t("customers.detail.noData")}</span>}</dd>
-                  </div>
-                </dl>
-                <div className="cm-customer-kpis">
-                  <p className="tone-primary">
-                    <span className="cm-icon-chip" aria-hidden="true"><ShoppingCart /></span>
-                    <b className="num" title={selected.orderCount.toLocaleString(localeTag)}>{selected.orderCount.toLocaleString(localeTag)}</b>
-                    <small>{t("customers.detail.orders")}</small>
-                  </p>
-                  <p className="tone-success">
-                    <span className="cm-icon-chip" aria-hidden="true"><Wallet /></span>
-                    <b className="num" title={money(selected.totalSpent, localeTag)}>{money(selected.totalSpent, localeTag)}</b>
-                    <small>{t("customers.detail.spent")}</small>
-                  </p>
-                  <p className="tone-warning">
-                    <span className="cm-icon-chip" aria-hidden="true"><ReceiptText /></span>
-                    <b className="num">
-                      {money(
-                        selected.orderCount > 0 ? Number(selected.totalSpent) / selected.orderCount : 0,
-                        localeTag,
-                      )}
-                    </b>
-                    <small>{t("customers.detail.avg")}</small>
-                  </p>
-                </div>
-                <section>
-                  <h3>{t("customers.channelsTitle")}</h3>
-                  {channelBars.length === 0 ? (
-                    <p className="cm-missing">{t("customers.detail.noData")}</p>
-                  ) : (
-                    channelBars.map((row) => (
-                      <div className="cm-bar" key={row.name}>
-                        <Channel name={row.name} />
-                        <i role="presentation"><b style={{ width: `${Math.min(100, Math.max(0, row.pct))}%` }} /></i>
-                        <span className="num">{row.pct}%</span>
+        </div>
+      </section>
+      {selectedKey
+        ? createPortal(
+            <div
+              className="om-drawer-overlay cm-drawer-overlay"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget && !openOrderId) patch({ selected: null });
+              }}
+            >
+              <aside
+                className="om-drawer cm-detail"
+                role="dialog"
+                aria-modal="true"
+                aria-label={selected?.displayName || t("customers.detail.title")}
+              >
+                {detailLoading && !selected ? (
+                  <div className="om-drawer-body cm-detail-body"><Skeleton height={220} /></div>
+                ) : !selected ? (
+                  <div className="om-drawer-body cm-detail-body"><div className="cm-empty">{t("customers.empty")}</div></div>
+                ) : (
+                  <>
+                    <header className="cm-detail-head">
+                      <div className="cm-avatar" style={{ background: selectedAvatar?.color }} aria-hidden="true">
+                        {initialsOf(selected.displayName)}
                       </div>
-                    ))
-                  )}
-                </section>
-                <section className="cm-note">
-                  <h3>{t("customers.detail.orderHistory")}</h3>
-                  {!canReadOrders ? (
-                    <p className="cm-empty-state"><ShoppingBag aria-hidden="true" />{t("customers.detail.ordersDenied")}</p>
-                  ) : ordersLoading ? (
-                    <div className="cm-order-skel" aria-busy="true">
-                      {[0, 1, 2].map((i) => <Skeleton key={i} height={48} />)}
+                      <div className="cm-detail-id">
+                        <h2 title={selected.displayName}>{selected.displayName}</h2>
+                        <div className="cm-detail-meta">
+                          <span className={`cm-seg-badge ${String(selected.segment || "").toLowerCase()}`}>
+                            {selected.segment === "VIP" ? <Crown aria-hidden="true" /> : null}
+                            {t(`customers.segment.${selected.segment}`)}
+                          </span>
+                          <small>{t("customers.since", { date: formatJoined(selected.joinedAt, localeTag) })}</small>
+                        </div>
+                      </div>
+                      <button type="button" className="cm-detail-edit" disabled title={canUpdate ? t("customers.comingSoon") : deniedTitle(canUpdate)}>
+                        <Pencil />
+                        {t("customers.edit")}
+                      </button>
+                      <button
+                        type="button"
+                        className="om-drawer-close"
+                        aria-label={t("customers.detail.close")}
+                        onClick={() => patch({ selected: null })}
+                      >
+                        <X />
+                      </button>
+                    </header>
+                    <div className="om-drawer-body cm-detail-body">
+                      <dl className="cm-contact">
+                        <div className="cm-contact-row" title={selected.piiMasked ? t("customers.piiMasked") : undefined}>
+                          <span className="cm-icon-chip" aria-hidden="true"><Mail /></span>
+                          <dt>{t("customers.detail.email")}</dt>
+                          <dd>
+                            {selected.email ? selected.email : <span className="cm-missing">{t("customers.detail.noData")}</span>}
+                            {selected.email && selected.piiMasked ? <EyeOff className="cm-masked" aria-label={t("customers.piiMasked")} /> : null}
+                          </dd>
+                        </div>
+                        <div className="cm-contact-row" title={selected.piiMasked ? t("customers.piiMasked") : undefined}>
+                          <span className="cm-icon-chip" aria-hidden="true"><Phone /></span>
+                          <dt>{t("customers.detail.phone")}</dt>
+                          <dd>
+                            {selected.phone ? <span className="num">{selected.phone}</span> : <span className="cm-missing">{t("customers.detail.noData")}</span>}
+                            {selected.phone && selected.piiMasked ? <EyeOff className="cm-masked" aria-label={t("customers.piiMasked")} /> : null}
+                            {canCopyPhone ? (
+                              <button type="button" className="cm-copy" onClick={copyPhone} aria-label={t("customers.detail.copyPhone")} title={t("customers.detail.copyPhone")}>
+                                <Copy aria-hidden="true" />
+                              </button>
+                            ) : null}
+                          </dd>
+                        </div>
+                        <div className="cm-contact-row">
+                          <span className="cm-icon-chip" aria-hidden="true"><MapPin /></span>
+                          <dt>{t("customers.detail.address")}</dt>
+                          <dd>{addressLine ? addressLine : <span className="cm-missing">{t("customers.detail.noData")}</span>}</dd>
+                        </div>
+                      </dl>
+                      <div className="cm-customer-kpis">
+                        <p className="tone-primary">
+                          <span className="cm-icon-chip" aria-hidden="true"><ShoppingCart /></span>
+                          <b className="num" title={selected.orderCount.toLocaleString(localeTag)}>{selected.orderCount.toLocaleString(localeTag)}</b>
+                          <small>{t("customers.detail.orders")}</small>
+                        </p>
+                        <p className="tone-success">
+                          <span className="cm-icon-chip" aria-hidden="true"><Wallet /></span>
+                          <b className="num" title={money(selected.totalSpent, localeTag)}>{money(selected.totalSpent, localeTag)}</b>
+                          <small>{t("customers.detail.spent")}</small>
+                        </p>
+                        <p className="tone-warning">
+                          <span className="cm-icon-chip" aria-hidden="true"><ReceiptText /></span>
+                          <b className="num">
+                            {money(
+                              selected.orderCount > 0 ? Number(selected.totalSpent) / selected.orderCount : 0,
+                              localeTag,
+                            )}
+                          </b>
+                          <small>{t("customers.detail.avg")}</small>
+                        </p>
+                      </div>
+                      <section>
+                        <h3>{t("customers.channelsTitle")}</h3>
+                        {channelBars.length === 0 ? (
+                          <p className="cm-missing">{t("customers.detail.noData")}</p>
+                        ) : (
+                          channelBars.map((row) => (
+                            <div className="cm-bar" key={row.name}>
+                              <Channel name={row.name} />
+                              <i role="presentation"><b style={{ width: `${Math.min(100, Math.max(0, row.pct))}%` }} /></i>
+                              <span className="num">{row.pct}%</span>
+                            </div>
+                          ))
+                        )}
+                      </section>
+                      <section className="cm-note">
+                        <h3>{t("customers.detail.orderHistory")}</h3>
+                        {!canReadOrders ? (
+                          <p className="cm-empty-state"><ShoppingBag aria-hidden="true" />{t("customers.detail.ordersDenied")}</p>
+                        ) : ordersLoading ? (
+                          <div className="cm-order-skel" aria-busy="true">
+                            {[0, 1, 2].map((i) => <Skeleton key={i} height={48} />)}
+                          </div>
+                        ) : ordersError ? (
+                          <LoadError message={ordersError} onRetry={() => setOrdersReload((n) => n + 1)} retryLabel={t("customers.retry")} />
+                        ) : orders.length === 0 ? (
+                          <p className="cm-empty-state"><ShoppingBag aria-hidden="true" />{t("customers.detail.noOrders")}</p>
+                        ) : (
+                          <>
+                            <ul className="cm-order-list">
+                              {orders.map((order) => (
+                                <li key={order.orderId}>
+                                  <button
+                                    type="button"
+                                    className={`cm-order-row${openOrderId === order.orderId ? " active" : ""}`}
+                                    aria-label={t("customers.detail.openOrder")}
+                                    onClick={() => setOpenOrderId(order.orderId)}
+                                  >
+                                    <span className="cm-order-main">
+                                      <b className="num">{order.orderNumber}</b>
+                                      <small className="num">{formatOrderAt(order.placedAt, localeTag)}</small>
+                                    </span>
+                                    <span className="cm-order-side">
+                                      <em className={`cm-pill ${statusTone(order.status)}`}>
+                                        {t(`orderManagement.status.${order.status}`, { defaultValue: order.status })}
+                                      </em>
+                                      <strong className="num">{money(order.grandTotal, localeTag)}</strong>
+                                    </span>
+                                    <ChevronRight className="cm-chevron" aria-hidden="true" />
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                            {ordersTotal > 5 ? (
+                              <a
+                                className="cm-order-view-all"
+                                href={customerOrdersUrl(selectedKey, selected.displayName)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {t("customers.detail.viewAll", { count: ordersTotal })}
+                                <ExternalLink aria-hidden="true" />
+                              </a>
+                            ) : null}
+                          </>
+                        )}
+                      </section>
                     </div>
-                  ) : ordersError ? (
-                    <LoadError message={ordersError} onRetry={() => setOrdersReload((n) => n + 1)} retryLabel={t("customers.retry")} />
-                  ) : orders.length === 0 ? (
-                    <p className="cm-empty-state"><ShoppingBag aria-hidden="true" />{t("customers.detail.noOrders")}</p>
-                  ) : (
-                    <>
-                      <ul className="cm-order-list">
-                        {orders.map((order) => (
-                          <li key={order.orderId}>
-                            <button
-                              type="button"
-                              className={`cm-order-row${openOrderId === order.orderId ? " active" : ""}`}
-                              aria-label={t("customers.detail.openOrder")}
-                              onClick={() => setOpenOrderId(order.orderId)}
-                            >
-                              <span>
-                                <b className="num">{order.orderNumber}</b>
-                                <small className="num">{formatOrderAt(order.placedAt, localeTag)}</small>
-                              </span>
-                              <em className={`cm-pill ${statusTone(order.status)}`}>
-                                {t(`orderManagement.status.${order.status}`, { defaultValue: order.status })}
-                              </em>
-                              <strong className="num">{money(order.grandTotal, localeTag)}</strong>
-                              <ChevronRight className="cm-chevron" aria-hidden="true" />
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                      {ordersTotal > 5 && selectedKey ? (
+                    <div className="om-drawer-actions cm-detail-actions">
+                      <button type="button" disabled title={canReadPii ? t("customers.comingSoon") : deniedTitle(canReadPii)}>
+                        <Mail />
+                        {t("customers.sendMessage")}
+                      </button>
+                      {canReadOrders ? (
                         <a
-                          className="cm-order-view-all"
+                          className="primary"
                           href={customerOrdersUrl(selectedKey, selected.displayName)}
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          {t("customers.detail.viewAll", { count: ordersTotal })}
-                          <ExternalLink aria-hidden="true" />
+                          <ShoppingBag />
+                          {t("customers.viewOrders")}
                         </a>
-                      ) : null}
-                    </>
-                  )}
-                </section>
-                <div className="cm-detail-actions">
-                  <button type="button" disabled title={canReadPii ? t("customers.comingSoon") : deniedTitle(canReadPii)}>
-                    <Mail />
-                    {t("customers.sendMessage")}
-                  </button>
-                  {canReadOrders && selectedKey ? (
-                    <a
-                      className="primary"
-                      href={customerOrdersUrl(selectedKey, selected.displayName)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ShoppingBag />
-                      {t("customers.viewOrders")}
-                    </a>
-                  ) : (
-                    <button type="button" className="primary" disabled title={deniedTitle(canReadOrders)}>
-                      <ShoppingBag />
-                      {t("customers.viewOrders")}
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-          </aside>
-        </div>
-      </section>
+                      ) : (
+                        <button type="button" className="primary" disabled title={deniedTitle(canReadOrders)}>
+                          <ShoppingBag />
+                          {t("customers.viewOrders")}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </aside>
+            </div>,
+            document.body,
+          )
+        : null}
       {shopId != null && openOrderId ? (
         <MerchantOrderDrawer
           shopId={shopId}

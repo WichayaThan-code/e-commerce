@@ -417,10 +417,11 @@ function appliedOrderFilters(filters: OrderFilters) {
 function OrdersTab({ tp, localeTag, notify }: { tp: TP; localeTag: string; notify: (message: string) => void }) {
   const [searchParams, setSearchParams] = useSearchParams()
   const qFromUrl = searchParams.get('q') ?? ''
+  const orderIdFromUrl = searchParams.get('orderId')?.trim() || null
   const [draft, setDraft] = useState({ ...EMPTY_ORDER_FILTERS, q: qFromUrl })
   const [filters, setFilters] = useState({ ...EMPTY_ORDER_FILTERS, q: qFromUrl })
   const list = usePlatformList<OrderSummary>(params => adminOrderApi.list(params), appliedOrderFilters(filters), { errorText: tp('errors.load') })
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(() => orderIdFromUrl)
   const autoOpenedForQ = useRef<string | null>(null)
   const items = list.result?.items ?? []
   const set = (key: keyof OrderFilters, value: string) => setDraft(current => ({ ...current, [key]: value }))
@@ -437,9 +438,11 @@ function OrdersTab({ tp, localeTag, notify }: { tp: TP; localeTag: string; notif
 
   useEffect(() => {
     const q = searchParams.get('q') ?? ''
+    const orderId = searchParams.get('orderId')?.trim() || null
     setDraft((current) => (current.q === q ? current : { ...current, q }))
     setFilters((current) => (current.q === q ? current : { ...current, q }))
     if (!q) autoOpenedForQ.current = null
+    if (orderId) setSelectedId(orderId)
   }, [searchParams])
 
   useEffect(() => {
@@ -508,7 +511,23 @@ function OrdersTab({ tp, localeTag, notify }: { tp: TP; localeTag: string; notif
         loading={list.loading} onPage={list.setPage} onSize={value => { list.setSize(value); list.setPage(0) }} />
     </section>
 
-    {selectedId && <OrderDrawer key={selectedId} orderId={selectedId} tp={tp} localeTag={localeTag} onClose={() => setSelectedId(null)} onChanged={() => { list.reload(); notify(tp('orders.updated')) }} />}
+    {selectedId && (
+      <OrderDrawer
+        key={selectedId}
+        orderId={selectedId}
+        tp={tp}
+        localeTag={localeTag}
+        onClose={() => {
+          setSelectedId(null)
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev)
+            next.delete('orderId')
+            return next
+          }, { replace: true })
+        }}
+        onChanged={() => { list.reload(); notify(tp('orders.updated')) }}
+      />
+    )}
   </>
 }
 

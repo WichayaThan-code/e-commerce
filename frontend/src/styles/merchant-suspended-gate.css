@@ -1,0 +1,551 @@
+/* Suspended-shop hero status — mirrors merchant-signup-gate layout; scoped to this state only. */
+
+.merchant-suspended-gate {
+  --msg-navy: #061d52;
+  --msg-blue: #0879f6;
+  --msg-blue-deep: #0662d1;
+  --msg-sky: #e8f3ff;
+  --msg-mist: #f5f9fd;
+  --msg-muted: #4d6788;
+  --msg-line: #d5e4f4;
+  --msg-amber: #ff7900;
+  --msg-amber-soft: #fff4e5;
+  --msg-amber-ink: #9a5b00;
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  align-items: center;
+  padding: clamp(72px, 8vw, 88px) 24px clamp(24px, 4vw, 48px);
+  color: var(--msg-navy);
+  background:
+    radial-gradient(ellipse 70% 55% at 12% 18%, #dcebff 0%, transparent 58%),
+    radial-gradient(ellipse 55% 45% at 88% 78%, #fff1e4 0%, transparent 55%),
+    linear-gradient(165deg, #ffffff 0%, var(--msg-mist) 48%, #eef5fc 100%);
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Full merchant topbar (not the floating shop-only chip) */
+.merchant-suspended-gate--topbar {
+  padding-top: calc(70px + clamp(28px, 4vw, 48px));
+}
+
+@media (max-width: 720px) {
+  .merchant-suspended-gate--topbar {
+    padding-top: calc(62px + 24px);
+  }
+}
+
+.merchant-suspended-gate__glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(120deg, transparent 40%, rgba(8, 121, 246, 0.04) 70%, transparent 100%);
+}
+
+.merchant-suspended-gate__layout {
+  position: relative;
+  z-index: 1;
+  width: min(1080px, 100%);
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: clamp(28px, 5vw, 64px);
+  align-items: center;
+}
+
+.merchant-suspended-gate__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.merchant-suspended-gate__brand {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 18px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.merchant-suspended-gate__brand .brand-logo--with-name {
+  height: 40px;
+  width: auto;
+  max-width: min(240px, 70vw);
+}
+
+.merchant-suspended-gate__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #ffe0b5;
+  background: var(--msg-amber-soft);
+  color: var(--msg-amber-ink);
+  font: 650 12px / 1.3 var(--font-sans), Tahoma, sans-serif;
+}
+
+.merchant-suspended-gate__badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--msg-amber);
+  flex: none;
+}
+
+.merchant-suspended-gate__title {
+  margin: 0;
+  max-width: 16ch;
+  font: 800 clamp(28px, 3.4vw, 40px) / 1.2 var(--font-sans), Tahoma, sans-serif;
+  letter-spacing: -0.03em;
+  color: var(--msg-navy);
+  overflow-wrap: anywhere;
+}
+
+.merchant-suspended-gate__lead {
+  margin: 14px 0 0;
+  max-width: 40ch;
+  font: 500 16px / 1.55 var(--font-sans), Tahoma, sans-serif;
+  color: var(--msg-muted);
+  overflow-wrap: anywhere;
+}
+
+.merchant-suspended-gate__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 32px;
+  max-width: 100%;
+}
+
+.merchant-suspended-gate__btn {
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 15px / 1.2 var(--font-sans), Tahoma, sans-serif;
+  text-decoration: none;
+  text-align: center;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.merchant-suspended-gate__btn:focus-visible {
+  outline: 3px solid #ffb346;
+  outline-offset: 2px;
+}
+
+.merchant-suspended-gate__btn--primary {
+  background: #0662d1;
+  color: #fff;
+  border: 1px solid #0556b8;
+  box-shadow: 0 10px 24px rgba(5, 86, 184, 0.35);
+}
+
+.merchant-suspended-gate__btn--primary:hover:not(:disabled) {
+  background: #044ea8;
+  border-color: #044293;
+}
+
+.merchant-suspended-gate__btn--primary:disabled {
+  opacity: 1;
+  background: #9bb8d8;
+  border-color: #9bb8d8;
+  color: #fff;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+button.merchant-suspended-gate__btn {
+  cursor: pointer;
+  appearance: none;
+  font-family: inherit;
+}
+
+.merchant-suspended-gate__btn--secondary {
+  background: #fff;
+  color: var(--msg-blue);
+  border: 1.5px solid var(--msg-blue);
+}
+
+.merchant-suspended-gate__btn--secondary:hover {
+  background: var(--msg-sky);
+}
+
+.merchant-suspended-gate__btn--ghost {
+  background: transparent;
+  color: var(--msg-blue);
+  border: 1px solid transparent;
+  min-height: 44px;
+  padding: 0 12px;
+  font-weight: 650;
+  box-shadow: none;
+}
+
+.merchant-suspended-gate__btn--ghost:hover {
+  background: var(--msg-sky);
+}
+
+.merchant-suspended-gate__home {
+  margin-top: 18px;
+  font: 600 13px / 1.4 var(--font-sans), Tahoma, sans-serif;
+  color: var(--msg-muted);
+  text-decoration: none;
+}
+
+.merchant-suspended-gate__home:hover {
+  color: var(--msg-blue);
+}
+
+.merchant-suspended-gate__home:focus-visible {
+  outline: 3px solid #ffb346;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Reinstatement form — same hero shell; fields are controls, not a page card */
+.merchant-suspended-gate__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+  margin-top: 28px;
+}
+
+.merchant-suspended-gate__status {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--msg-amber-soft);
+  border: 1px solid #ffe0b5;
+  color: var(--msg-amber-ink);
+  font: 600 13px / 1.45 var(--font-sans), Tahoma, sans-serif;
+}
+
+.merchant-suspended-gate__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  font: 700 13px / 1.3 var(--font-sans), Tahoma, sans-serif;
+  color: var(--msg-navy);
+}
+
+.merchant-suspended-gate__textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 148px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1.5px solid var(--msg-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--msg-navy);
+  font: 500 14px / 1.5 var(--font-sans), Tahoma, sans-serif;
+  resize: none;
+}
+
+.merchant-suspended-gate__textarea:focus,
+.merchant-suspended-gate__textarea:focus-visible {
+  outline: none;
+  border-color: var(--msg-blue);
+  box-shadow: 0 0 0 3px rgba(8, 121, 246, 0.18);
+}
+
+.merchant-suspended-gate__textarea::placeholder {
+  color: #8495ac;
+}
+
+.merchant-suspended-gate__counter {
+  align-self: flex-end;
+  margin: -4px 0 0;
+  color: var(--msg-muted);
+  font: 600 12px / 1.3 var(--font-sans), Tahoma, sans-serif;
+}
+
+.merchant-suspended-gate__notice {
+  margin: 0;
+  font: 600 13px / 1.45 var(--font-sans), Tahoma, sans-serif;
+  color: var(--msg-muted);
+}
+
+.merchant-suspended-gate__btn:disabled {
+  cursor: not-allowed;
+}
+
+.merchant-suspended-gate__btn--submit {
+  border: 1px solid var(--msg-blue);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.merchant-suspended-gate__visual {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 1 / 1;
+  max-width: 460px;
+  width: 100%;
+  justify-self: end;
+}
+
+.merchant-suspended-gate__visual svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.merchant-suspended-gate__orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.merchant-suspended-gate__orb--a {
+  width: 58%;
+  height: 58%;
+  top: 8%;
+  right: 6%;
+  background: radial-gradient(circle at 35% 35%, #fff 0%, #d7ebff 55%, transparent 72%);
+}
+
+.merchant-suspended-gate__orb--b {
+  width: 34%;
+  height: 34%;
+  bottom: 10%;
+  left: 4%;
+  background: radial-gradient(circle at 40% 40%, rgba(255, 121, 0, 0.18) 0%, transparent 70%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .merchant-suspended-gate__visual svg .mss-float {
+    animation: mss-float 7s ease-in-out infinite;
+  }
+}
+
+@keyframes mss-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@media (max-width: 900px) {
+  .merchant-suspended-gate__layout {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .merchant-suspended-gate__title {
+    max-width: 20ch;
+  }
+
+  .merchant-suspended-gate__visual {
+    max-width: 320px;
+    justify-self: start;
+  }
+
+  .merchant-suspended-gate__orb--a {
+    opacity: 0.65;
+  }
+}
+
+@media (max-width: 560px) {
+  .merchant-suspended-gate {
+    padding: 72px 16px 32px;
+    align-items: start;
+  }
+
+  .merchant-suspended-gate__visual {
+    max-width: 260px;
+    margin-top: 8px;
+  }
+
+  .merchant-suspended-gate__title {
+    font-size: 26px;
+    max-width: none;
+  }
+
+  .merchant-suspended-gate__lead {
+    max-width: none;
+    font-size: 15px;
+  }
+
+  .merchant-suspended-gate__actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .merchant-suspended-gate__btn {
+    width: 100%;
+  }
+}
+
+@media (max-height: 640px) and (min-width: 901px) {
+  .merchant-suspended-gate {
+    align-items: start;
+    padding-block: 72px 28px;
+  }
+
+  .merchant-suspended-gate__visual {
+    max-width: 360px;
+  }
+}
+
+/* Reinstatement form — composed field + full-width CTA, no nested page card */
+.merchant-suspended-gate__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 440px;
+  margin-top: 28px;
+}
+
+.merchant-suspended-gate__status {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--msg-amber-soft);
+  border: 1px solid #ffe0b5;
+  color: var(--msg-amber-ink);
+  font: 600 13px / 1.45 var(--font-sans), Tahoma, sans-serif;
+}
+
+.merchant-suspended-gate__field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  color: var(--msg-navy);
+}
+
+.merchant-suspended-gate__field-label {
+  font: 700 14px / 1.3 var(--font-sans), Tahoma, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.merchant-suspended-gate__composer {
+  display: flex;
+  flex-direction: column;
+  border: 1.5px solid var(--msg-line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(8, 36, 93, 0.06);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.merchant-suspended-gate__composer:focus-within {
+  border-color: var(--msg-blue);
+  box-shadow: 0 0 0 3px rgba(8, 121, 246, 0.16), 0 10px 28px rgba(8, 36, 93, 0.06);
+}
+
+.merchant-suspended-gate__textarea {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 168px;
+  max-height: 168px;
+  margin: 0;
+  padding: 14px 16px 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--msg-navy);
+  font: 500 15px / 1.55 var(--font-sans), Tahoma, sans-serif;
+  resize: none !important;
+  overflow-y: auto;
+}
+
+.merchant-suspended-gate__textarea:focus,
+.merchant-suspended-gate__textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.merchant-suspended-gate__textarea::placeholder {
+  color: #8495ac;
+}
+
+.merchant-suspended-gate__composer.is-readonly {
+  background: #f5f8fc;
+}
+
+.merchant-suspended-gate__composer.is-readonly .merchant-suspended-gate__textarea {
+  color: #3d5678;
+  cursor: default;
+}
+
+.merchant-suspended-gate__composer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px 12px;
+  border-top: 1px solid #eef3f9;
+  background: #f8fbfe;
+}
+
+.merchant-suspended-gate__hint {
+  font: 600 12px / 1.3 var(--font-sans), Tahoma, sans-serif;
+  color: var(--msg-muted);
+}
+
+.merchant-suspended-gate__count {
+  margin: 0;
+  font: 700 12px / 1.3 var(--font-sans), Tahoma, sans-serif;
+  color: var(--msg-navy);
+  font-variant-numeric: tabular-nums;
+}
+
+.merchant-suspended-gate__btn--block {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 800;
+  border-radius: 12px;
+}
+
+.merchant-suspended-gate__home--in-form {
+  margin-top: 4px;
+  align-self: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.merchant-suspended-gate__notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--msg-sky);
+  color: var(--msg-navy);
+  font: 600 13px / 1.45 var(--font-sans), Tahoma, sans-serif;
+}
+
+.merchant-suspended-gate__loading {
+  margin: 28px 0 0;
+  font: 600 15px / 1.5 var(--font-sans), Tahoma, sans-serif;
+  color: var(--msg-muted);
+}
+
+@media (max-width: 560px) {
+  .merchant-suspended-gate__form {
+    max-width: none;
+  }
+
+  .merchant-suspended-gate__btn--block {
+    width: 100%;
+  }
+}

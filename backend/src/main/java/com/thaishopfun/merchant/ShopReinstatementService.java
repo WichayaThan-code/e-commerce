@@ -1,5 +1,6 @@
 package com.thaishopfun.merchant;
 
+import com.thaishopfun.admin.notification.AdminNotificationService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.UserAccountRepository;
 import com.thaishopfun.auth.authz.AuthorizationService;
@@ -16,13 +17,22 @@ public class ShopReinstatementService {
     private final UserAccountRepository users;
     private final ShopMemberRepository members;
     private final AuthorizationService authorization;
+    private final AdminNotificationService adminNotifications;
 
-    public ShopReinstatementService(ShopRepository shops, ShopReinstatementRequestRepository requests, UserAccountRepository users, ShopMemberRepository members, AuthorizationService authorization) {
+    public ShopReinstatementService(
+        ShopRepository shops,
+        ShopReinstatementRequestRepository requests,
+        UserAccountRepository users,
+        ShopMemberRepository members,
+        AuthorizationService authorization,
+        AdminNotificationService adminNotifications
+    ) {
         this.shops = shops;
         this.requests = requests;
         this.users = users;
         this.members = members;
         this.authorization = authorization;
+        this.adminNotifications = adminNotifications;
     }
 
     @Transactional(readOnly = true)
@@ -40,11 +50,12 @@ public class ShopReinstatementService {
         }
         var pending = requests.findFirstByShop_ShopIdAndStatusOrderByCreatedAtDesc(shop.getId(), ReinstatementStatus.PENDING).orElse(null);
         if (pending != null) {
-            pending.revise(text);
-            return response(shop.getId(), requests.save(pending));
+            throw new AuthException(HttpStatus.CONFLICT, "REINSTATEMENT_PENDING", "มีคำร้องรอตรวจสอบอยู่แล้ว ไม่สามารถส่งซ้ำได้");
         }
         var user = users.findById(userId).orElseThrow(() -> new AuthException(HttpStatus.UNAUTHORIZED, "USER_NOT_FOUND", "ไม่พบบัญชีผู้ใช้"));
-        return response(shop.getId(), requests.save(new ShopReinstatementRequest(shop, user, text)));
+        var saved = requests.save(new ShopReinstatementRequest(shop, user, text));
+        adminNotifications.publishReinstatement(saved.getId(), shop.getId(), shop.getName());
+        return response(shop.getId(), saved);
     }
 
     public String pendingMessage(Long shopId) {

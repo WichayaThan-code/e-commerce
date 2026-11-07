@@ -37,6 +37,7 @@ import "../styles/settings.css";
 import "../styles/my-store.css";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import MerchantSidebar from "../components/merchant/MerchantSidebar";
+import MerchantBrand from "../components/merchant/MerchantBrand";
 
 /** /merchant/store = shop profile & appearance. Operational settings (policies, payment, …) live in /merchant/settings. */
 type StoreTabKey="info"|"theme"|"hours"|"collections";
@@ -57,8 +58,6 @@ const STATUS_LABEL: Record<MerchantSettings["status"], string> = {
   REJECTED: "ปฏิเสธ",
   SUSPENDED: "ถูกระงับ",
 };
-function Brand(){return <a className="merchant-brand" href="/"><span><ShoppingBag/><i>✓</i></span><div><b>ThaiShop<span>Fun</span></b><small>Shop Local · Support Thai · Smile Together</small></div></a>}
-
 type StoreForm = MerchantSettingsPayload & {
   coverUrl: string | null
   logoUrl: string | null
@@ -274,7 +273,7 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
   const logoControl=<section className="logo-field"><label>โลโก้ร้าน</label><div className="store-logo">{form.logoUrl?<img key={form.logoUrl} src={mediaUrl(form.logoUrl)} alt="โลโก้ร้าน"/>:<span>🏪</span>}</div><button type="button" disabled={logoBusy||!canUpdate} title={deniedTitle(canUpdate)} onClick={()=>logoInput.current?.click()}>{logoBusy?"กำลังอัปโหลด...":"เปลี่ยนโลโก้"}</button><small>JPG, PNG หรือ WEBP ไม่เกิน 5 MB</small><input ref={logoInput} type="file" accept={SHOP_IMAGE_ACCEPT} hidden onChange={event=>{const file=event.target.files?.[0]; if(file) void uploadLogo(file); event.target.value="";}}/></section>;
   const themeShop:ShopThemeShopInfo={shopName:form.shopName,shopNameEn:form.shopNameEn,description:form.description,category:form.category,address:form.address,province:form.province,district:form.district,subdistrict:form.subdistrict,postalCode:form.postalCode,slug:form.slug,status:form.status,logoUrl:form.logoUrl,coverUrl:form.coverUrl,createdAt:form.createdAt||null,openingHours:form.openingHours};
   if(themePage)return <main className="merchant-shell pm-shell my-store-shell tc-page">
-    <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><MerchantTopbarActions /></header>
+    <header className="merchant-topbar"><MerchantBrand /><MerchantTopbarSearch /><MerchantTopbarActions /></header>
     <MerchantSidebar active={themePage?"theme":"store"} onNavigate={guardSidebar}/>
     <section className="pm-content my-store-content tc-content">
     {formLoading?<SkeletonForm fields={8}/>:<ShopThemeEditor shopId={shopId} shop={themeShop} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} logoControl={logoControl} onDirtyChange={onThemeDirty} notify={notify} onBack={()=>requestHref("/merchant/store")}/>}
@@ -282,7 +281,7 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
     </section>
   </main>;
   return <main className="merchant-shell pm-shell my-store-shell">
-    <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><MerchantTopbarActions /></header>
+    <header className="merchant-topbar"><MerchantBrand /><MerchantTopbarSearch /><MerchantTopbarActions /></header>
     <MerchantSidebar active={themePage?"theme":"store"} onNavigate={guardSidebar}/>
     <section className="pm-content my-store-content">
       <div className="store-page-head">

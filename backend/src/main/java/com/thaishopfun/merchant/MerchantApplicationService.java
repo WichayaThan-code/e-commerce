@@ -1,5 +1,6 @@
 package com.thaishopfun.merchant;
 
+import com.thaishopfun.admin.notification.AdminNotificationService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.UserAccountRepository;
 import org.springframework.http.HttpStatus;
@@ -23,12 +24,17 @@ public class MerchantApplicationService {
     private final OwnerAccountService ownerAccounts;
     private final ProductCategoryService categories;
     private final MerchantDraftFactory drafts;
+    private final ShopRepository shopRepository;
+    private final AdminNotificationService adminNotifications;
 
     public MerchantApplicationService(MerchantApplicationRepository applications, MerchantDocumentRepository documents,
                                       UserAccountRepository users, SensitiveDataCipher cipher, MerchantStorageService storage,
                                       ShopCatalogService shops, OwnerAccountService ownerAccounts,
-                                      ProductCategoryService categories, MerchantDraftFactory drafts) {
+                                      ProductCategoryService categories, MerchantDraftFactory drafts,
+                                      ShopRepository shopRepository, AdminNotificationService adminNotifications) {
         this.applications=applications; this.documents=documents; this.users=users; this.cipher=cipher; this.storage=storage; this.shops=shops; this.ownerAccounts=ownerAccounts; this.categories=categories; this.drafts=drafts;
+        this.shopRepository = shopRepository;
+        this.adminNotifications = adminNotifications;
     }
 
     @Transactional
@@ -138,6 +144,9 @@ public class MerchantApplicationService {
         application.submit(reference);
         var saved = applications.save(application);
         shops.openFrom(saved);
+        shopRepository.findByApplication_Id(saved.getId()).ifPresent(shop ->
+            adminNotifications.publishShopApplication(shop.getId(), shop.getName())
+        );
         return response(saved);
     }
 

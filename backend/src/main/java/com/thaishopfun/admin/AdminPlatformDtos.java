@@ -61,6 +61,8 @@ public final class AdminPlatformDtos {
     public record ShopRow(
         Long shopId, String name, String nameEn, String slug, String status, String category, String province,
         UUID merchantId, String merchantName, String merchantStatus, UserRef owner, long activeMembers, long products, long orders,
+        /** Paid GMV (PAID, not CANCELLED/REFUNDED) for orders placed in the last 30 days. */
+        BigDecimal salesLast30Days,
         Instant createdAt, Instant publishedAt, Instant suspendedAt
     ) {}
 

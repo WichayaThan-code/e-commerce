@@ -9,23 +9,9 @@ import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import {
   Menu, Search, ShoppingCart, UserRound, ChevronDown,
-  ChevronRight, Gift, Headphones, LogOut, X, ShoppingBag, Store, Package
+  ChevronRight, Gift, Headphones, LogOut, X, Store, Package
 } from "lucide-react";
-
-function Brand({ homeAria }: { homeAria: string }) {
-  return (
-    <Link className="brand" to="/" aria-label={homeAria}>
-      <span className="brand-mark">
-        <ShoppingBag size={24} />
-        <i>✓</i>
-      </span>
-      <span>
-        <b>ThaiShop<span>Fun</span></b>
-        <small>Shop Local · Support Thai · Smile Together</small>
-      </span>
-    </Link>
-  );
-}
+import SiteBrand from "./SiteBrand";
 
 interface HeaderProps {
   hideNavbar?: boolean;
@@ -83,7 +69,7 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
         <button className="mobile-menu" onClick={() => setMenuOpen(true)} aria-label={t('menu.open')}>
           <Menu />
         </button>
-        <Brand homeAria={homeAria} />
+        <SiteBrand homeAria={homeAria} />
 
         {!hideSearch && (
           <form
@@ -163,7 +149,7 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
         <div className="drawer-wrap" onClick={() => setMenuOpen(false)}>
           <aside className="drawer" onClick={(e) => e.stopPropagation()}>
             <button className="drawer-close" onClick={() => setMenuOpen(false)}><X /></button>
-            <Brand homeAria={homeAria} />
+            <SiteBrand homeAria={homeAria} />
             <Link to="/#categories" onClick={() => setMenuOpen(false)}>{t('nav.categories')} <ChevronRight size={17} /></Link>
             <Link to="/deals" onClick={() => setMenuOpen(false)}>{t('nav.deals')} <ChevronRight size={17} /></Link>
             <Link to="/recommendations" onClick={() => setMenuOpen(false)}>{t('nav.recommended')} <ChevronRight size={17} /></Link>

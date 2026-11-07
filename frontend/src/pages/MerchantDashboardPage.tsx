@@ -23,6 +23,7 @@ import { usePermissions } from "../hooks/usePermissions";
 import { dashboardGreetingName, shopInitials, shopStatusChip } from "../utils/dashboardGreeting";
 import "../styles/merchant-dashboard.css";
 import MerchantSidebar from "../components/merchant/MerchantSidebar";
+import MerchantBrand from "../components/merchant/MerchantBrand";
 
 
 /** A12: platform fee is not stored per order yet, so fee/net are an estimate. */
@@ -172,22 +173,6 @@ function customerInitials(name: string): string {
 }
 const EMPTY: DashData = { ordersToday: null, salesToday: null, prevOrders: null, prevSales: null, pending: null, lowStock: null, outOfStock: null, latest: null };
 
-function MerchantBrand() {
-  return (
-    <a className="merchant-brand" href="/">
-      <span>
-        <ShoppingBag />
-        <i>✓</i>
-      </span>
-      <div>
-        <b>
-          ThaiShop<span>Fun</span>
-        </b>
-        <small>Shop Local · Support Thai · Smile Together</small>
-      </div>
-    </a>
-  );
-}
 function MerchantPanel({
   title,
   action,

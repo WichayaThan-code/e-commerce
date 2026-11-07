@@ -16,6 +16,7 @@ import com.thaishopfun.merchant.OwnerRepository;
 import com.thaishopfun.merchant.ShopMemberRepository;
 import com.thaishopfun.merchant.ShopReinstatementRequestRepository;
 import com.thaishopfun.merchant.ShopRepository;
+import com.thaishopfun.merchant.notification.MerchantLifecycleNotificationWriter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,6 +61,7 @@ class MerchantNotificationTests {
     @Autowired PasswordEncoder passwords;
     @Autowired PlatformRoleRepository platformRoles;
     @Autowired CustomerInsightKeys customerKeys;
+    @Autowired MerchantLifecycleNotificationWriter lifecycleNotifications;
 
     private String adminToken;
 
@@ -68,6 +70,7 @@ class MerchantNotificationTests {
         adminToken = null;
         jdbc.update("DELETE FROM merchant_notification_reads");
         jdbc.update("DELETE FROM merchant_notification_cursor");
+        jdbc.update("DELETE FROM merchant_notifications");
         jdbc.update("DELETE FROM order_status_history");
         jdbc.update("DELETE FROM refund_status_history");
         jdbc.update("DELETE FROM refunds");
@@ -177,10 +180,127 @@ class MerchantNotificationTests {
                AND permission_id IN (SELECT id FROM auth_permissions WHERE code IN ('ORDER_READ', 'CUSTOMER_READ', 'PRODUCT_READ'))
             """);
         permissionMatrix.invalidate();
-        // SHOP_READ still grants entry; service denies when none of the three remain
-        perform(get(base(shopA) + "/notifications"), viewer)
-            .andExpect(status().isForbidden());
+        // SHOP_READ alone keeps lifecycle inbox; operational order/customer/stock rows stay gated out.
+        perform(get(base(shopA) + "/notifications").param("size", "50"), viewer)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[?(@.type=='ORDER_NEW')]").isEmpty())
+            .andExpect(jsonPath("$.items[?(@.type=='SHOP_APPROVED')].type", hasItem("SHOP_APPROVED")));
         restoreViewerPermissions();
+    }
+
+    @Test
+    void shopRestorePublishesDistinctLifecycleNotification() throws Exception {
+        var shop = openShop("mn-restore@example.com", "0814300011", "ร้านคืนสถานะ", "Restore Shop", "1234567890611");
+        perform(post("/api/admin/shops/" + shop.shopId + "/suspend")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"reason":"ทดสอบระงับเพื่อแจ้งเตือน","reasonCode":"POLICY_VIOLATION"}
+                    """), adminToken())
+            .andExpect(status().isOk());
+
+        perform(get(base(shop) + "/notifications").param("size", "50"), shop.token)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[?(@.type=='SHOP_SUSPENDED')].type", hasItem("SHOP_SUSPENDED")));
+
+        perform(post("/api/admin/shops/" + shop.shopId + "/reactivate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"reason":"ทดสอบคืนสถานะเพื่อแจ้งเตือน","reasonCode":"ADMIN_RESTORE"}
+                    """), adminToken())
+            .andExpect(status().isOk());
+
+        var body = perform(get(base(shop) + "/notifications").param("size", "50"), shop.token)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[?(@.type=='SHOP_RESTORED')].type", hasItem("SHOP_RESTORED")))
+            .andExpect(jsonPath("$.items[?(@.type=='SHOP_APPROVED')].type", hasItem("SHOP_APPROVED")))
+            .andReturn().getResponse().getContentAsString();
+
+        assertTrue(body.contains("SHOP_RESTORED"), "restore must be visible separately from first approval");
+
+        // Second restore after another suspend must notify again (new restored_at → new dedupe).
+        perform(post("/api/admin/shops/" + shop.shopId + "/suspend")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"reason":"ระงับรอบสอง","reasonCode":"POLICY_VIOLATION"}
+                    """), adminToken())
+            .andExpect(status().isOk());
+        Thread.sleep(5);
+        perform(post("/api/admin/shops/" + shop.shopId + "/reactivate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"reason":"คืนสถานะรอบสอง","reasonCode":"ADMIN_RESTORE"}
+                    """), adminToken())
+            .andExpect(status().isOk());
+
+        perform(get(base(shop) + "/notifications").param("size", "50"), shop.token)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[?(@.type=='SHOP_RESTORED')]", hasSize(greaterThanOrEqualTo(2))));
+    }
+
+    @Test
+    void restorePublishThenReconcileDoesNotDuplicate() throws Exception {
+        var shop = openShop("mn-reconcile@example.com", "0814300012", "ร้านไม่ซ้ำ", "No Dup Shop", "1234567890612");
+        perform(post("/api/admin/shops/" + shop.shopId + "/suspend")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"reason":"ทดสอบไม่ให้ซ้ำ","reasonCode":"POLICY_VIOLATION"}
+                    """), adminToken())
+            .andExpect(status().isOk());
+        perform(post("/api/admin/shops/" + shop.shopId + "/reactivate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"reason":"คืนสถานะครั้งเดียว","reasonCode":"ADMIN_RESTORE"}
+                    """), adminToken())
+            .andExpect(status().isOk());
+
+        // Simulate startup reconcile for the same restored_at (must not insert a second row).
+        lifecycleNotifications.reconcileLifecycleFromShops();
+
+        perform(get(base(shop) + "/notifications").param("size", "50"), shop.token)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[?(@.type=='SHOP_RESTORED')]", hasSize(1)));
+
+        Long restoredRows = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM merchant_notifications WHERE type = 'SHOP_RESTORED' AND entity_id = ?",
+            Long.class, String.valueOf(shop.shopId));
+        assertEquals(1L, restoredRows);
+    }
+
+    @Test
+    void legacyDedupeKeyForSameRestoredAtDoesNotGainSecondRow() throws Exception {
+        var shop = openShop("mn-legacy-key@example.com", "0814300013", "ร้านคีย์เก่า", "Legacy Key", "1234567890613");
+        perform(post("/api/admin/shops/" + shop.shopId + "/suspend")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"reason":"ทดสอบคีย์เก่า","reasonCode":"POLICY_VIOLATION"}
+                    """), adminToken())
+            .andExpect(status().isOk());
+        perform(post("/api/admin/shops/" + shop.shopId + "/reactivate")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"reason":"คืนสถานะคีย์เก่า","reasonCode":"ADMIN_RESTORE"}
+                    """), adminToken())
+            .andExpect(status().isOk());
+
+        var shopRow = shops.findByShopId(shop.shopId).orElseThrow();
+        // Pretend an older backfill row already exists for the same event time under another key.
+        jdbc.update("""
+            UPDATE merchant_notifications
+               SET dedupe_key = ?
+             WHERE shop_id = ? AND type = 'SHOP_RESTORED'
+            """, "SHOP_RESTORED:backfill:shop:" + shop.shopId, shopRow.getUuid());
+
+        lifecycleNotifications.reconcileLifecycleFromShops();
+        lifecycleNotifications.publishShopRestored(shopRow);
+
+        Long restoredRows = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM merchant_notifications WHERE shop_id = ? AND type = 'SHOP_RESTORED'",
+            Long.class, shopRow.getUuid());
+        assertEquals(1L, restoredRows);
+
+        perform(get(base(shop) + "/notifications").param("size", "50"), shop.token)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[?(@.type=='SHOP_RESTORED')]", hasSize(1)));
     }
 
     private static String firstString(String json, String path) {

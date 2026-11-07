@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3,
-  CalendarDays,
-  ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Copy,
   Ellipsis,
@@ -28,8 +25,13 @@ import { usePermissions } from "../hooks/usePermissions";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/promotion-management.css";
+import "../styles/form-fields.css";
+import "../styles/order-management.css";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
 import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
+import MerchantBrand from "../components/merchant/MerchantBrand";
+import MerchantPagination from "../components/merchant/MerchantPagination";
+import SearchableSelect from "../components/SearchableSelect";
 
 import ConfirmDialog from "../components/form/ConfirmDialog";
 import { LoadError, SkeletonBusy, SkeletonTable } from "../components/feedback/Skeleton";
@@ -37,18 +39,9 @@ import PromotionFormDialog, { draftFrom, emptyDraft, type PromotionDraft } from 
 import { benefitText, formatBaht, formatThaiDate, statusBadge, TYPE_CLASS, TYPE_LABEL } from "../components/merchant/promotionFormat";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
-import { ApiError, promotionApi, type Promotion, type PromotionList, type PromotionStatus, type PromotionType, type PromotionWrite } from "../services/api";
+import { ApiError, promotionApi, type Promotion, type PromotionList, type PromotionStatus, type PromotionType, type PromotionWrite } from "../services/api";
 import MerchantSidebar from "../components/merchant/MerchantSidebar";
 
-
-function Brand() {
-  return (
-    <a className="merchant-brand" href="/">
-      <span><ShoppingBag /><i>✓</i></span>
-      <div><b>ThaiShop<span>Fun</span></b><small>Shop Local · Support Thai · Smile Together</small></div>
-    </a>
-  );
-}
 
 type Tab = "ทั้งหมด" | "คูปองส่วนลด" | "ส่งฟรี" | "หยุดชั่วคราว" | "หมดอายุแล้ว";
 const TABS: Tab[] = ["ทั้งหมด", "คูปองส่วนลด", "ส่งฟรี", "หยุดชั่วคราว", "หมดอายุแล้ว"];
@@ -198,10 +191,7 @@ export default function PromotionManagementPage() {
   const toggleAll = () => setSelected(selected.length === visible.length ? [] : visible.map((item) => item.id));
   const refresh = () => setReload((value) => value + 1);
   const forbidden = loadError instanceof ApiError && (loadError.status === 403 || loadError.status === 404);
-  const from = data.total === 0 ? 0 : data.page * data.size + 1;
-  const to = Math.min(data.total, data.page * data.size + visible.length);
   const pageCount = Math.max(1, data.totalPages);
-  const pageButtons = Array.from({ length: Math.min(5, pageCount) }, (_, index) => Math.min(Math.max(0, page - 2), Math.max(0, pageCount - 5)) + index);
 
   const openCreate = (partial: Partial<PromotionDraft> = {}) => { if (canManage) setForm({ mode: "create", draft: emptyDraft(partial) }); };
   const submitForm = async (payload: PromotionWrite) => {
@@ -256,7 +246,7 @@ export default function PromotionManagementPage() {
   return (
     <main className="merchant-shell pm-shell promo-shell">
       <header className="merchant-topbar">
-        <Brand />
+        <MerchantBrand />
         <MerchantTopbarSearch />
         <MerchantTopbarActions />
       </header>
@@ -279,15 +269,62 @@ export default function PromotionManagementPage() {
         <div className="promo-layout">
           <section className="promo-table-card">
             <div className="promo-tabs-search">
-              <div className="promo-tabs">{TABS.map((label) => <button key={label} className={tab === label ? "active" : ""} onClick={() => { setTab(label); setPage(0); }}>{label} (<span className="num">{tabCount[label].toLocaleString()}</span>)</button>)}</div>
-              <label><Search /><input aria-label="ค้นหาโปรโมชั่น" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหาชื่อโปรโมชั่น หรือรหัสคูปอง..." /></label>
+              <div className="promo-tabs">{TABS.map((label) => <button key={label} type="button" className={tab === label ? "active" : ""} onClick={() => { setTab(label); setPage(0); }}>{label} (<span className="num">{tabCount[label].toLocaleString()}</span>)</button>)}</div>
             </div>
-            <form className="promo-filters" onSubmit={(event) => { event.preventDefault(); setAppliedQuery(query.trim()); setPage(0); refresh(); }}>
-              <label>สถานะ<select aria-label="สถานะโปรโมชั่น" value={status} onChange={(event) => { setStatus(event.target.value as PromotionStatus | ""); setPage(0); }}>{STATUS_OPTIONS.map(([label, value]) => <option key={label} value={value}>{label}</option>)}</select></label>
-              <label>ประเภท<select aria-label="ประเภทโปรโมชั่น" value={type} onChange={(event) => { setType(event.target.value as PromotionType | ""); setPage(0); }}>{TYPE_OPTIONS.map(([label, value]) => <option key={label} value={value}>{label}</option>)}</select></label>
-              <label>ช่องทาง<select aria-label="ช่องทางโปรโมชั่น" value="ทั้งหมด" disabled title="คูปองใช้ได้ทุกช่องทาง (ยังไม่รองรับการแยกช่องทาง)" onChange={() => undefined}><option>ทั้งหมด</option><option>เว็บไซต์</option><option>LINE OA</option></select></label>
-              <label>ช่วงวันที่<span className="promo-date"><CalendarDays />ทั้งหมด<ChevronDown /></span></label>
-              <div><button type="button" onClick={reset}>รีเซ็ต</button><button className="primary">ค้นหา</button></div>
+            <form
+              className="om-filters"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setAppliedQuery(query.trim());
+                setPage(0);
+                refresh();
+              }}
+            >
+              <div className="om-filters-main">
+                <div className="om-filter-search">
+                  <span className="form-label">ค้นหาโปรโมชั่น</span>
+                  <label className="om-search">
+                    <Search aria-hidden />
+                    <input
+                      aria-label="ค้นหาโปรโมชั่น"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="ค้นหาชื่อโปรโมชั่น หรือรหัสคูปอง..."
+                    />
+                  </label>
+                </div>
+                <SearchableSelect
+                  label="สถานะ"
+                  options={STATUS_OPTIONS.map(([label]) => label)}
+                  value={STATUS_OPTIONS.find(([, value]) => value === status)?.[0] || "ทั้งหมด"}
+                  onChange={(picked) => {
+                    setStatus((STATUS_OPTIONS.find(([label]) => label === picked)?.[1] ?? "") as PromotionStatus | "");
+                    setPage(0);
+                  }}
+                />
+                <SearchableSelect
+                  label="ประเภท"
+                  options={TYPE_OPTIONS.map(([label]) => label)}
+                  value={TYPE_OPTIONS.find(([, value]) => value === type)?.[0] || "ทั้งหมด"}
+                  onChange={(picked) => {
+                    setType((TYPE_OPTIONS.find(([label]) => label === picked)?.[1] ?? "") as PromotionType | "");
+                    setPage(0);
+                  }}
+                />
+                <div title="คูปองใช้ได้ทุกช่องทาง (ยังไม่รองรับการแยกช่องทาง)">
+                  <SearchableSelect
+                    label="ช่องทาง"
+                    options={["ทั้งหมด"]}
+                    value="ทั้งหมด"
+                    disabled
+                    onChange={() => undefined}
+                  />
+                </div>
+                <div className="om-filters-actions">
+                  <button type="button" onClick={reset}>รีเซ็ต</button>
+                  <button type="submit" className="primary">ค้นหา</button>
+                </div>
+              </div>
             </form>
             {showSkeleton && listLoading && visible.length === 0 ? (
               <div className="promo-table-wrap" aria-busy="true" aria-label="กำลังโหลดโปรโมชั่น"><SkeletonTable rows={6} cols={8} /></div>
@@ -297,21 +334,69 @@ export default function PromotionManagementPage() {
               <SkeletonBusy refetching={isRefetching} busy={isRefetching}>
                 <div className="promo-table-wrap">
                   <table>
-                    <thead><tr><th><input type="checkbox" aria-label="เลือกโปรโมชั่นทั้งหมด" checked={visible.length > 0 && selected.length === visible.length} onChange={toggleAll} /></th><th>ชื่อโปรโมชั่น / คูปอง</th><th>ประเภท</th><th>ส่วนลด / เงื่อนไข</th><th>ช่วงเวลา</th><th>การใช้งาน</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
+                    <thead>
+                      <tr>
+                        <th className="col-check"><input type="checkbox" aria-label="เลือกโปรโมชั่นทั้งหมด" checked={visible.length > 0 && selected.length === visible.length} onChange={toggleAll} /></th>
+                        <th className="col-name">ชื่อโปรโมชั่น / คูปอง</th>
+                        <th className="col-type">ประเภท</th>
+                        <th className="col-benefit">ส่วนลด / เงื่อนไข</th>
+                        <th className="col-period">ช่วงเวลา</th>
+                        <th className="col-usage">การใช้งาน</th>
+                        <th className="col-status">สถานะ</th>
+                        <th className="col-actions">จัดการ</th>
+                      </tr>
+                    </thead>
                     <tbody>{visible.map((promotion) => {
                       const limit = promotion.usageLimitTotal;
                       const percent = limit ? Math.min(100, Math.round((promotion.usedCount / limit) * 100)) : 0;
                       const badge = statusBadge(promotion);
                       const label = promotion.code ?? promotion.name;
+                      const benefit = benefitText(promotion);
+                      const conditions = conditionLines(promotion);
+                      const starts = formatThaiDate(promotion.startsAt);
+                      const ends = formatThaiDate(promotion.endsAt);
+                      const usageLabel = limit
+                        ? `${promotion.usedCount.toLocaleString()} / ${limit.toLocaleString()} ครั้ง`
+                        : `${promotion.usedCount.toLocaleString()} / ไม่จำกัด ครั้ง`;
                       return <tr key={promotion.id}>
-                        <td><input type="checkbox" aria-label={`เลือก ${label}`} checked={selected.includes(promotion.id)} onChange={() => setSelected((items) => items.includes(promotion.id) ? items.filter((id) => id !== promotion.id) : [...items, promotion.id])} /></td>
-                        <td><div className="promo-name"><PromoIcon kind={iconOf(promotion)} /><p><b className="num">{promotion.code ?? "-"}</b><small>{promotion.name}</small></p></div></td>
-                        <td><span className={`promo-type ${TYPE_CLASS[promotion.type]}`}>{TYPE_LABEL[promotion.type]}</span></td>
-                        <td><b className="num">{benefitText(promotion)}</b>{conditionLines(promotion).map((line) => <small className="num" key={line}>{line}</small>)}</td>
-                        <td><span className="num">{formatThaiDate(promotion.startsAt)} -</span><span className="num">{formatThaiDate(promotion.endsAt)}</span></td>
-                        <td><b className="num">{promotion.usedCount.toLocaleString()} / {limit ? limit.toLocaleString() : "ไม่จำกัด"} ครั้ง</b>{limit ? <><div className="promo-progress"><i style={{ width: `${percent}%` }} /></div><small className="num">{percent}%</small></> : <small>{promotion.showOnStorefront ? "แสดงบนหน้าร้าน" : "ไม่แสดงบนหน้าร้าน"}</small>}</td>
-                        <td><span className={`promo-status ${badge.className}`}>{badge.label}</span></td>
-                        <td><div className="promo-row-actions">
+                        <td className="col-check"><input type="checkbox" aria-label={`เลือก ${label}`} checked={selected.includes(promotion.id)} onChange={() => setSelected((items) => items.includes(promotion.id) ? items.filter((id) => id !== promotion.id) : [...items, promotion.id])} /></td>
+                        <td className="col-name">
+                          <div className="promo-name">
+                            <PromoIcon kind={iconOf(promotion)} />
+                            <p>
+                              <b className="num" title={promotion.code || undefined}>{promotion.code ?? "—"}</b>
+                              <small title={promotion.name}>{promotion.name}</small>
+                            </p>
+                          </div>
+                        </td>
+                        <td className="col-type"><span className={`promo-type ${TYPE_CLASS[promotion.type]}`}>{TYPE_LABEL[promotion.type]}</span></td>
+                        <td className="col-benefit">
+                          <div className="promo-cell-stack">
+                            <b className="num" title={benefit}>{benefit}</b>
+                            {conditions.map((line) => <small className="num" key={line} title={line}>{line}</small>)}
+                          </div>
+                        </td>
+                        <td className="col-period">
+                          <div className="promo-cell-stack" title={`${starts} – ${ends}`}>
+                            <span className="num">{starts}</span>
+                            <small className="num">ถึง {ends}</small>
+                          </div>
+                        </td>
+                        <td className="col-usage">
+                          <div className="promo-usage">
+                            <b className="num" title={usageLabel}>{usageLabel}</b>
+                            {limit ? (
+                              <div className="promo-usage-meter">
+                                <div className="promo-progress" aria-hidden="true"><i style={{ width: `${percent}%` }} /></div>
+                                <small className="num">{percent}%</small>
+                              </div>
+                            ) : (
+                              <small>{promotion.showOnStorefront ? "แสดงบนหน้าร้าน" : "ไม่แสดงบนหน้าร้าน"}</small>
+                            )}
+                          </div>
+                        </td>
+                        <td className="col-status"><span className={`promo-status ${badge.className}`}>{badge.label}</span></td>
+                        <td className="col-actions"><div className="promo-row-actions">
                           <button disabled={!canManage} title={deniedTitle(canManage)} aria-label={`แก้ไข ${label}`} onClick={() => setForm({ mode: "edit", draft: draftFrom(promotion), target: promotion })}><Pencil /></button>
                           <button disabled={!canManage} title={deniedTitle(canManage)} aria-label={`ทำสำเนา ${label}`} onClick={() => setForm({ mode: "create", draft: draftFrom(promotion, true) })}><Copy /></button>
                           <button disabled={!canManage || busyId === promotion.id} title={deniedTitle(canManage)} aria-label={`ตัวเลือก ${label}`} aria-haspopup="menu" aria-expanded={menuFor === promotion.id} onClick={() => setMenuFor((current) => current === promotion.id ? null : promotion.id)}><Ellipsis /></button>
@@ -328,7 +413,14 @@ export default function PromotionManagementPage() {
                 </div>
               </SkeletonBusy>
             )}
-            <div className="promo-pagination"><span>แสดง <span className="num">{from.toLocaleString()} - {to.toLocaleString()}</span> จาก <span className="num">{data.total.toLocaleString()}</span> รายการ</span><label>แสดง<select aria-label="จำนวนรายการ" value={size} onChange={(event) => { setSize(Number(event.target.value)); setPage(0); }}><option value={10}>10</option><option value={20}>20</option></select>รายการ</label><nav aria-label="หน้าโปรโมชั่น"><button aria-label="ก่อนหน้า" disabled={page <= 0} onClick={() => setPage((value) => Math.max(0, value - 1))}><ChevronLeft /></button>{pageButtons.map((index) => <button key={index} className={index === page ? "active num" : "num"} aria-current={index === page ? "page" : undefined} onClick={() => setPage(index)}>{index + 1}</button>)}<button aria-label="ถัดไป" disabled={page >= pageCount - 1} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}><ChevronRight /></button></nav></div>
+            <MerchantPagination
+              page={page}
+              pageCount={pageCount}
+              size={size}
+              total={data.total}
+              onPageChange={setPage}
+              onSizeChange={(next) => { setSize(next); setPage(0); }}
+            />
           </section>
 
           <aside className="promo-aside">

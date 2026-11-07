@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  ChevronLeft,
-  ChevronRight,
   Download,
   Eye,
   PackageCheck,
@@ -19,6 +17,7 @@ import {
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
 import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
 import MerchantOrderDrawer from "../components/merchant/MerchantOrderDrawer";
+import MerchantPagination from "../components/merchant/MerchantPagination";
 import OrderBulkBar, { type BulkRunPayload, type BulkSelectionItem } from "../components/merchant/OrderBulkBar";
 import OrderBulkResults, { type BulkResultRow } from "../components/merchant/OrderBulkResults";
 import OrderTagChips from "../components/merchant/OrderTagChips";
@@ -54,8 +53,9 @@ import {
 import "../styles/form-fields.css";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
-import "../styles/order-management.css";
+import "../styles/order-management.css";
 import MerchantSidebar from "../components/merchant/MerchantSidebar";
+import MerchantBrand from "../components/merchant/MerchantBrand";
 
 const BULK_MAX = 50;
 
@@ -67,38 +67,17 @@ const TABS = [
 const SIZES = [10, 20, 50];
 const KPI_STATUSES = [undefined, "PENDING_PAYMENT", "MERCHANT_CONFIRMED", "COMPLETED"] as const;
 
-function Brand() {
-  return (
-    <a className="merchant-brand" href="/">
-      <span>
-        <ShoppingBag />
-        <i>✓</i>
-      </span>
-      <div>
-        <b>
-          ThaiShop<span>Fun</span>
-        </b>
-        <small>Shop Local · Support Thai · Smile Together</small>
-      </div>
-    </a>
-  );
-}
-
-function pageNumbers(page: number, pages: number) {
-  const first = Math.max(0, Math.min(page - 2, pages - 5));
-  const last = Math.min(pages - 1, first + 4);
-  const numbers: number[] = [];
-  for (let n = first; n <= last; n += 1) numbers.push(n);
-  return numbers;
-}
-
 export default function OrderManagementPage() {
   const { t } = useTranslation("merchant");
   const { localeTag } = usePublicTranslation();
   const { user, loading } = useAuth();
   const { shopId } = useActiveShop();
-  const { canInShop } = usePermissions();
+  const { canInShop, deniedTitle } = usePermissions();
   const canReadCustomers = canInShop("CUSTOMER_READ");
+  const canExportOrders = canInShop("ORDER_EXPORT");
+  const [exporting, setExporting] = useState(false);
+  const navigate = useNavigate();
+  const { orderId: pathOrderId } = useParams<{ orderId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState(() => searchParams.get("q")?.trim() || "");
   const [q, setQ] = useState(() => searchParams.get("q")?.trim() || "");
@@ -120,7 +99,8 @@ export default function OrderManagementPage() {
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [kpis, setKpis] = useState<(number | null)[]>([null, null, null, null]);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const openId = (pathOrderId?.trim() || searchParams.get("order")?.trim() || null);
+  const drawerTriggerRef = useRef<HTMLElement | null>(null);
   const [notice, setNotice] = useState("");
   const [tone, setTone] = useState<"ok" | "fail">("ok");
   const toastTimer = useRef<number | undefined>(undefined);
@@ -158,6 +138,50 @@ export default function OrderManagementPage() {
     toastTimer.current = window.setTimeout(() => setNotice(""), 2400);
   }, []);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+
+  /** Open order drawer via `?order=` without clearing other list filters; deep link `/merchant/orders/:id` also works. */
+  const openOrder = useCallback((id: string, trigger?: HTMLElement | null) => {
+    drawerTriggerRef.current = trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    if (pathOrderId) {
+      const next = new URLSearchParams(searchParams);
+      next.set("order", id);
+      navigate({ pathname: "/merchant/orders", search: next.toString() ? `?${next}` : "" }, { replace: true });
+      return;
+    }
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (next.get("order") === id) return current;
+      next.set("order", id);
+      return next;
+    }, { replace: true });
+  }, [navigate, pathOrderId, searchParams, setSearchParams]);
+
+  const closeOrder = useCallback(() => {
+    const restore = drawerTriggerRef.current;
+    drawerTriggerRef.current = null;
+    if (pathOrderId) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("order");
+      navigate({ pathname: "/merchant/orders", search: next.toString() ? `?${next}` : "" }, { replace: true });
+    } else {
+      setSearchParams((current) => {
+        if (!current.get("order")) return current;
+        const next = new URLSearchParams(current);
+        next.delete("order");
+        return next;
+      }, { replace: true });
+    }
+    window.requestAnimationFrame(() => {
+      if (restore?.isConnected) restore.focus();
+    });
+  }, [navigate, pathOrderId, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (!pathOrderId) return;
+    const next = new URLSearchParams(window.location.search);
+    next.set("order", pathOrderId);
+    navigate({ pathname: "/merchant/orders", search: `?${next}` }, { replace: true });
+  }, [navigate, pathOrderId]);
 
   useEffect(() => {
     const fromUrl = searchParams.get("q")?.trim() || "";
@@ -451,8 +475,6 @@ export default function OrderManagementPage() {
     : rawItems;
   const total = data?.totalItems ?? 0;
   const pages = Math.max(1, data?.totalPages ?? 1);
-  const from = total === 0 ? 0 : page * size + 1;
-  const to = Math.min(total, page * size + items.length);
   const pageSelectedCount = items.filter((row) => selected.has(row.id)).length;
   const allPageSelected = items.length > 0 && pageSelectedCount === items.length;
   const clearFilters = () => {
@@ -537,10 +559,46 @@ export default function OrderManagementPage() {
     key === "all" ? t("orderManagement.tabs.all") : key === "AWAITING" ? t("orderManagement.tabs.awaiting") : t(`orderManagement.status.${key}`);
   const empty = !fetching && !error && items.length === 0;
 
+  const exportOrders = async () => {
+    if (shopId == null || exporting || !canExportOrders) return;
+    const exportShopId = shopId;
+    const params: Record<string, string | number | boolean | null | undefined> = {
+      status: tab !== "all" && tab !== "AWAITING" ? tab : undefined,
+      acceptance: tab === "AWAITING" ? "AWAITING" : undefined,
+      paymentStatus: payment || undefined,
+      fulfillmentStatus: fulfillment || undefined,
+      from: dateFrom || undefined,
+      to: dateTo || undefined,
+      q: q || undefined,
+      sort: "placedAt",
+      direction: "desc",
+    };
+    if (customerFilter?.key) params.customer = customerFilter.key;
+    if (FEATURES.orderFiltersApi) {
+      if (paymentMethod) params.paymentMethod = paymentMethod;
+      if (carrierCode) params.carrierCode = carrierCode;
+      if (hasTracking === "true" || hasTracking === "false") params.hasTracking = hasTracking === "true";
+      if (FEATURES.orderTagsApi && tagFilter) params.tag = tagFilter;
+    }
+    setExporting(true);
+    try {
+      await merchantOrderApi.exportXlsx(exportShopId, params);
+      if (shopId !== exportShopId) {
+        notify(t("orderManagement.exportStale"), "fail");
+        return;
+      }
+      notify(t("orderManagement.exportDone"));
+    } catch (caught) {
+      notify(orderErrorMessage(t, caught), "fail");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <main className="merchant-shell om-shell">
       <header className="merchant-topbar">
-        <Brand />
+        <MerchantBrand />
         <MerchantTopbarSearch />
         <MerchantTopbarActions />
       </header>
@@ -558,9 +616,14 @@ export default function OrderManagementPage() {
                 {t("orderManagement.tags.manage")}
               </button>
             ) : null}
-            <button type="button" disabled title={unsupported}>
+            <button
+              type="button"
+              disabled={!canExportOrders || exporting || shopId == null}
+              title={canExportOrders ? t("orderManagement.exportHint") : deniedTitle(canExportOrders)}
+              onClick={() => void exportOrders()}
+            >
               <Download />
-              {t("orderManagement.export")}
+              {exporting ? t("orderManagement.exporting") : t("orderManagement.export")}
             </button>
             <button type="button" disabled title={unsupported} className="primary">
               <Printer />
@@ -922,9 +985,15 @@ export default function OrderManagementPage() {
                   {items.map((o) => {
                     const hidden = o.awaitingAcceptance;
                     const parts = formatBangkokParts(o.placedAt, localeTag);
+                    const isOpen = openId === o.id;
                     return (
-                      <tr key={o.id}>
-                        <td>
+                      <tr
+                        key={o.id}
+                        className={isOpen ? "selected" : undefined}
+                        data-order-id={o.id}
+                        onClick={() => openOrder(o.id)}
+                      >
+                        <td onClick={(event) => event.stopPropagation()}>
                           <input
                             aria-label={o.orderNumber}
                             type="checkbox"
@@ -939,7 +1008,7 @@ export default function OrderManagementPage() {
                           {!hidden && o.paymentMethod === "COD" && <span className="om-badge cod">COD</span>}
                           {FEATURES.orderTagsApi && !hidden ? <OrderTagChips tags={o.tags} /> : null}
                         </td>
-                        <td>
+                        <td onClick={(event) => event.stopPropagation()}>
                           {hidden ? (
                             <span className="om-muted">{t("orderManagement.customer.awaiting")}</span>
                           ) : o.customerKey ? (
@@ -1000,16 +1069,19 @@ export default function OrderManagementPage() {
                         <td>
                           {parts ? parts.map((x) => <span key={x}>{x}</span>) : "—"}
                         </td>
-                        <td>
+                        <td onClick={(event) => event.stopPropagation()}>
                           <div className="om-row-actions">
                             <button
+                              type="button"
                               aria-label={t("orderManagement.viewOrder", { number: o.orderNumber })}
-                              onClick={() => setOpenId(o.id)}
+                              aria-haspopup="dialog"
+                              aria-expanded={isOpen}
+                              onClick={(event) => openOrder(o.id, event.currentTarget)}
                             >
-                              <Eye />
+                              <Eye aria-hidden="true" />
                             </button>
-                            <button disabled title={unsupported} aria-label={t("orderManagement.printOrder", { number: o.orderNumber })}>
-                              <Printer />
+                            <button type="button" disabled title={unsupported} aria-label={t("orderManagement.printOrder", { number: o.orderNumber })}>
+                              <Printer aria-hidden="true" />
                             </button>
                           </div>
                         </td>
@@ -1021,36 +1093,15 @@ export default function OrderManagementPage() {
             )}
             {empty && <div className="om-empty">{t("orderManagement.empty")}</div>}
           </div>
-          <div className="pm-pagination">
-            <span>{t("orderManagement.pagination.range", { from, to, total })}</span>
-            <div className="om-page-size">
-              <span>{t("orderManagement.pagination.show")}</span>
-              <SearchableSelect
-                compact
-                label={t("orderManagement.pagination.perPage")}
-                options={SIZES.map(String)}
-                value={String(size)}
-                onChange={(picked) => {
-                  const next = Number(picked);
-                  if (SIZES.includes(next)) { setSize(next); setPage(0); }
-                }}
-              />
-              <span>{t("orderManagement.pagination.rows")}</span>
-            </div>
-            <nav>
-              <button aria-label={t("orderManagement.pagination.first")} disabled={page === 0} onClick={() => setPage(0)}>«</button>
-              <button aria-label={t("orderManagement.pagination.prev")} disabled={page === 0} onClick={() => setPage(page - 1)}>
-                <ChevronLeft />
-              </button>
-              {pageNumbers(page, pages).map((n) => (
-                <button key={n} className={n === page ? "active" : ""} onClick={() => setPage(n)}>{n + 1}</button>
-              ))}
-              {pageNumbers(page, pages).slice(-1)[0] < pages - 1 && <span>...</span>}
-              <button aria-label={t("orderManagement.pagination.next")} disabled={page >= pages - 1} onClick={() => setPage(page + 1)}>
-                <ChevronRight />
-              </button>
-            </nav>
-          </div>
+          <MerchantPagination
+            page={page}
+            pageCount={pages}
+            size={size}
+            total={total}
+            sizeOptions={SIZES}
+            onPageChange={setPage}
+            onSizeChange={(next) => { setSize(next); setPage(0); }}
+          />
         </section>
       </section>
       <OrderBulkBar
@@ -1067,7 +1118,7 @@ export default function OrderManagementPage() {
         <MerchantOrderDrawer
           shopId={shopId}
           orderId={openId}
-          onClose={() => setOpenId(null)}
+          onClose={closeOrder}
           onChanged={handleChanged}
           notify={notify}
           shopTags={shopTags}

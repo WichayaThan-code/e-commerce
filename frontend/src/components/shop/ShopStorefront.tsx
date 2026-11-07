@@ -11,6 +11,7 @@ import { ShopCouponStripPreview } from "./ShopCouponStrip";
 import ShopBlockShell from "./ShopBlockShell";
 import { blockSection, blockSectionConfig } from "./blockLayout";
 import TsfHome from "./general/TsfHome";
+import { TsfMobileTabBar } from "./general/GeneralStorefront";
 import { usesTsfTree } from "../../theme/shopTheme";
 
 export { resolveStorefrontTheme };
@@ -128,10 +129,18 @@ export default function ShopStorefront({
 }: ShopStorefrontProps) {
   const theme = resolveStorefrontTheme(shop);
   // Preview parity: tsf templates render the exact same home body as the public ShopPage (TsfHome).
-  const tsf = previewWidth != null && usesTsfTree(theme.templateKey);
+  const tsf = usesTsfTree(theme.templateKey);
+  const preview = previewWidth != null;
+  // Same chrome as ShopLayout for GENERAL/FASHION: bottom tab bar on mobile + tablet (hidden ≥1024 via @container).
+  const after = (
+    <>
+      {children}
+      {preview && tsf ? <TsfMobileTabBar shop={shop} onNotify={() => {}} /> : null}
+    </>
+  );
   return (
-    <ShopThemeShell shop={shop} header={header} refetching={refetching} previewWidth={previewWidth} after={children}>
-      {tsf ? (
+    <ShopThemeShell shop={shop} header={header} refetching={refetching} previewWidth={previewWidth} after={after}>
+      {preview && tsf ? (
         <TsfHome slug={shop.slug} shop={shop} theme={theme} products={products} catalog={catalog}
           allProducts={{ items: allProductsLimit != null ? products.slice(0, allProductsLimit) : products, hasMore: false }}
           categoryNames={categoryNames ?? PREVIEW_CATEGORY_NAMES} couponStrip={<ShopCouponStripPreview />} />
@@ -139,8 +148,8 @@ export default function ShopStorefront({
         shop={shop}
         products={products}
         catalog={catalog}
-        preview={previewWidth != null}
-        couponStrip={previewWidth != null ? <ShopCouponStripPreview /> : undefined}
+        preview={preview}
+        couponStrip={preview ? <ShopCouponStripPreview /> : undefined}
       />}
     </ShopThemeShell>
   );

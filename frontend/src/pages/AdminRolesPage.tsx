@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ComponentType, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronLeft, ChevronRight, Crown, Eye, FileCheck2, Headphones, LockKeyhole, MoreVertical, Package, Pencil, Plus, Search, Shield, ShieldCheck, ShoppingBag, Store, UserRound, UsersRound } from 'lucide-react'
+import { Pager } from '../components/admin/PlatformBits'
 import { SkeletonForm, SkeletonTable, SkeletonText } from '../components/feedback/Skeleton'
 import ConfirmDialog from '../components/form/ConfirmDialog'
 import { useDelayedLoading } from '../hooks/useDelayedLoading'
@@ -219,7 +220,17 @@ export default function AdminRolesPage() {
                 {rolesError && <div className="roles-empty">{rolesError} <button type="button" onClick={() => setReloadKey(key => key + 1)}>ลองใหม่</button></div>}
                 {roles && filtered.length === 0 && <div className="roles-empty">{roles.length === 0 ? 'ยังไม่มีบทบาทในตาราง auth_roles' : 'ไม่พบบทบาทที่ตรงกับคำค้นหา'}</div>}
               </div>
-              <footer><div>แสดง <AdminSelect compact disabled className="adm-page-size" label="จำนวนรายการต่อหน้า" value={String(PAGE_SIZE)} onChange={() => undefined} options={[{ value: String(PAGE_SIZE), label: String(PAGE_SIZE) }]}/> รายการต่อหน้า</div><span>{filtered.length === 0 ? 0 : currentPage * PAGE_SIZE + 1} - {currentPage * PAGE_SIZE + visible.length} จาก {formatNumber(filtered.length)} รายการ</span><nav><button disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} aria-label="หน้าก่อนหน้า"><ChevronLeft/></button><button className="current">{currentPage + 1}</button><button disabled={currentPage >= totalPages - 1} onClick={() => setPage(currentPage + 1)} aria-label="หน้าถัดไป"><ChevronRight/></button></nav></footer>
+              <Pager
+                page={currentPage}
+                size={PAGE_SIZE}
+                totalItems={filtered.length}
+                totalPages={totalPages}
+                itemCount={visible.length}
+                sizeOptions={[PAGE_SIZE]}
+                sizeDisabled
+                onPage={setPage}
+                onSize={() => undefined}
+              />
             </> : <div className="role-users-empty"><UsersRound/>
               <h2>{selected ? `ผู้ใช้งานในบทบาท “${selected.nameTh ?? selected.code}” (${formatNumber(selected.userCount)})` : 'จัดการผู้ใช้งานตามบทบาท'}</h2>
               {!selected ? <p>เลือกบทบาทเพื่อดูรายชื่อผู้ใช้งาน</p>

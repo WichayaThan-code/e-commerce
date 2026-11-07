@@ -4,6 +4,7 @@ import com.thaishopfun.admin.AdminDirectoryDtos.ShopOption;
 import com.thaishopfun.admin.AdminDirectoryDtos.ShopRoleMember;
 import com.thaishopfun.audit.PlatformAuditService;
 import com.thaishopfun.auth.AuthException;
+import com.thaishopfun.merchant.notification.MerchantLifecycleNotificationWriter;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -19,10 +20,16 @@ import java.util.UUID;
 public class AdminShopRoleAssignmentService {
     private final NamedParameterJdbcTemplate jdbc;
     private final PlatformAuditService platformAudit;
+    private final MerchantLifecycleNotificationWriter merchantNotifications;
 
-    public AdminShopRoleAssignmentService(NamedParameterJdbcTemplate jdbc, PlatformAuditService platformAudit) {
+    public AdminShopRoleAssignmentService(
+        NamedParameterJdbcTemplate jdbc,
+        PlatformAuditService platformAudit,
+        MerchantLifecycleNotificationWriter merchantNotifications
+    ) {
         this.jdbc = jdbc;
         this.platformAudit = platformAudit;
+        this.merchantNotifications = merchantNotifications;
     }
 
     @Transactional(readOnly = true)
@@ -108,6 +115,7 @@ public class AdminShopRoleAssignmentService {
                 """, new MapSqlParameterSource().addValue("role", roleCode).addValue("now", now).addValue("id", memberId));
         }
         audit(actorId, memberId, "SHOP_MEMBER_ROLE_ASSIGNED", roleCode, now);
+        merchantNotifications.publishShopMemberRoleChanged(shop.id, shopNo, memberId, roleCode, now.toInstant());
         return member(shopNo, userId);
     }
 
@@ -130,6 +138,7 @@ public class AdminShopRoleAssignmentService {
              WHERE id = :id
             """, new MapSqlParameterSource().addValue("now", now).addValue("id", member.id));
         audit(actorId, member.id, "SHOP_MEMBER_REMOVED", "ADMIN_REMOVAL", now);
+        merchantNotifications.publishShopMemberRemoved(shop.id, shopNo, member.id, now.toInstant());
     }
 
     private ShopRoleMember member(long shopNo, UUID userId) {

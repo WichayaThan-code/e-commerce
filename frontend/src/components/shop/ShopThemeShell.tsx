@@ -85,6 +85,21 @@ export default function ShopThemeShell({
       }
     : undefined;
 
+  const chrome = (
+    <>
+      {customFonts ? <style>{customFonts.css}</style> : null}
+      {custom && config.header ? <ShopCustomHeader shop={shop} header={config.header} preview={preview} /> : null}
+      {general ? <TsfAnnouncementBar config={config} /> : null}
+      {general ? <TsfStoreHeader shop={shop} config={config} /> : null}
+      {header}
+      <SkeletonBusy refetching={refetching} busy={refetching}>
+        {children}
+      </SkeletonBusy>
+      {custom && config.footer ? <ShopCustomFooter shop={shop} footer={config.footer} /> : null}
+      {general ? <TsfStoreFooter shop={shop} /> : null}
+    </>
+  );
+
   return (
     <div
       className={classes.join(" ")}
@@ -97,16 +112,8 @@ export default function ShopThemeShell({
       data-heading-font={customFonts?.heading || (custom && config.fontBody) ? "custom" : undefined}
       onClickCapture={blockNavigation}
     >
-      {customFonts ? <style>{customFonts.css}</style> : null}
-      {custom && config.header ? <ShopCustomHeader shop={shop} header={config.header} preview={preview} /> : null}
-      {general ? <TsfAnnouncementBar config={config} /> : null}
-      {general ? <TsfStoreHeader shop={shop} config={config} /> : null}
-      {header}
-      <SkeletonBusy refetching={refetching} busy={refetching}>
-        {children}
-      </SkeletonBusy>
-      {custom && config.footer ? <ShopCustomFooter shop={shop} footer={config.footer} /> : null}
-      {general ? <TsfStoreFooter shop={shop} /> : null}
+      {/* Preview: scroll body + pin after (tab bar) like the live mobile viewport. Live store keeps flat DOM. */}
+      {preview ? <div className="shop-preview-scroll">{chrome}</div> : chrome}
       {after}
     </div>
   );

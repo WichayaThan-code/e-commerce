@@ -146,8 +146,8 @@ public class ProductService {
                 rows.add(sheetRow(product, sku, level));
             }
         }
-        if (rows.isEmpty()) return ProductSpreadsheet.template();
-        return ProductSpreadsheet.write(rows);
+        // Empty catalog: headers + Excel Table only (never sample template rows).
+        return ProductSpreadsheet.writeExport(rows, shop.getName());
     }
 
     @Transactional(readOnly = true)

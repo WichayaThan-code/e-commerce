@@ -5,6 +5,7 @@ import ToggleSwitch from "../form/ToggleSwitch";
 import SearchableSelect from "../SearchableSelect";
 import { productApi, type ProductImage } from "../../services/api";
 import type { LocalImage } from "./ProductImagesField";
+import VariantImagePicker from "./VariantImagePicker";
 import {
   applyGeneratedSkuCodes,
   axesFromGroups,
@@ -58,6 +59,7 @@ export default function VariantEditor({
   const [draftLabels, setDraftLabels] = useState<Record<string, string>>({});
   const [matrixError, setMatrixError] = useState("");
   const [touched, setTouched] = useState<Set<string>>(() => new Set());
+  const [openImageKey, setOpenImageKey] = useState<string | null>(null);
   const codeToken = useRef(0);
   const skusRef = useRef(skus);
   const groupsRef = useRef(groups);
@@ -468,13 +470,21 @@ export default function VariantEditor({
           <span className="pm-lang-label">{t("catalog.variants.weight")}</span>
           <input className="num" inputMode="numeric" value={bulk.weightGrams} placeholder={t("catalog.variants.weight")} onChange={(event) => setBulk({ ...bulk, weightGrams: event.target.value })} />
         </label>
-        <SearchableSelect
-          label={t("catalog.variants.image")}
-          placeholder={t("catalog.variants.image")}
-          options={imageChoices.map((choice) => choice.label)}
-          value={imageChoices.find((choice) => choice.value === bulk.image)?.label ?? ""}
-          onChange={(label) => setBulk({ ...bulk, image: imageChoices.find((choice) => choice.label === label)?.value ?? "" })}
-        />
+        <div className="variant-bulk-image">
+          <span className="pm-lang-label">{t("catalog.variants.image")}</span>
+          <VariantImagePicker
+            value={bulk.image}
+            images={images}
+            localImages={localImages}
+            open={openImageKey === "__bulk__"}
+            ariaLabel={t("catalog.variants.image")}
+            onOpenChange={(next) => setOpenImageKey(next ? "__bulk__" : null)}
+            onChange={(next) => {
+              if (next.imageLocalKey) setBulk({ ...bulk, image: `local:${next.imageLocalKey}` });
+              else setBulk({ ...bulk, image: next.imageId || "" });
+            }}
+          />
+        </div>
         <label>
           <span className="pm-lang-label">{t("catalog.variants.prefix")}</span>
           <input value={prefix} placeholder={t("catalog.variants.prefix")} onChange={(event) => setPrefix(event.target.value)} />
@@ -486,23 +496,23 @@ export default function VariantEditor({
           <button type="button" className="primary" onClick={generateCodes}>{t("catalog.variants.generate")}</button>
         </div>
       </div>
-      <div className="pm-detail">
-        <div className="pm-table-scroll">
-        <table>
+      <div className="pm-detail variant-sku-panel">
+        <div className="pm-table-scroll variant-sku-scroll">
+        <table className="variant-sku-table">
           <thead>
             <tr>
-              <th><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? [] : activeKeys)} aria-label={t("catalog.variants.selectAll")} /></th>
-              <th><span className="pm-lang-label">{t("catalog.variants.image")}</span></th>
-              <th><span className="pm-lang-label">{t("catalog.variants.combination")}</span></th>
-              <th><span className="pm-lang-label">{t("catalog.variants.sku")} <em>*</em></span></th>
-              <th><span className="pm-lang-label">{t("catalog.variants.price")} <em>*</em></span></th>
-              <th><span className="pm-lang-label">{t("catalog.variants.compare")}</span></th>
-              <th><span className="pm-lang-label">{t("catalog.variants.cost")}</span></th>
-              <th><span className="pm-lang-label">{t("catalog.variants.barcode")}</span></th>
-              <th><span className="pm-lang-label">{t("catalog.variants.weight")}</span></th>
-              <th><span className="pm-lang-label">{t("catalog.variants.stock")}</span></th>
-              <th><span className="pm-lang-label">{t("catalog.variants.safety")}</span></th>
-              <th><span className="pm-lang-label">{t("catalog.variants.active")}</span></th>
+              <th className="col-check"><input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? [] : activeKeys)} aria-label={t("catalog.variants.selectAll")} /></th>
+              <th className="col-image"><span className="pm-lang-label">{t("catalog.variants.image")}</span></th>
+              <th className="col-combo"><span className="pm-lang-label">{t("catalog.variants.combination")}</span></th>
+              <th className="col-sku"><span className="pm-lang-label">{t("catalog.variants.sku")} <em>*</em></span></th>
+              <th className="col-money"><span className="pm-lang-label">{t("catalog.variants.price")} <em>*</em></span></th>
+              <th className="col-money"><span className="pm-lang-label">{t("catalog.variants.compare")}</span></th>
+              <th className="col-money"><span className="pm-lang-label">{t("catalog.variants.cost")}</span></th>
+              <th className="col-barcode"><span className="pm-lang-label">{t("catalog.variants.barcode")}</span></th>
+              <th className="col-qty"><span className="pm-lang-label">{t("catalog.variants.weight")}</span></th>
+              <th className="col-qty"><span className="pm-lang-label">{t("catalog.variants.stock")}</span></th>
+              <th className="col-qty"><span className="pm-lang-label">{t("catalog.variants.safety")}</span></th>
+              <th className="col-active"><span className="pm-lang-label">{t("catalog.variants.active")}</span></th>
             </tr>
           </thead>
           <tbody>
@@ -522,63 +532,61 @@ export default function VariantEditor({
               const named = (column: string) => `${column} ${rowName}`;
               return (
                 <tr id={`variant-row-${index}`} key={sku.clientKey} className={sku.removed ? "variant-removed" : sku.active ? undefined : "variant-inactive"}>
-                  <td><input type="checkbox" disabled={sku.removed} aria-label={named(t("catalog.variants.selectRow"))} checked={!sku.removed && selected.includes(sku.clientKey)} onChange={() => setSelected((current) => current.includes(sku.clientKey) ? current.filter((item) => item !== sku.clientKey) : [...current, sku.clientKey])} /></td>
-                  <td>
-                    <select
-                      aria-label={named(t("catalog.variants.image"))}
+                  <td className="col-check"><input type="checkbox" disabled={sku.removed} aria-label={named(t("catalog.variants.selectRow"))} checked={!sku.removed && selected.includes(sku.clientKey)} onChange={() => setSelected((current) => current.includes(sku.clientKey) ? current.filter((item) => item !== sku.clientKey) : [...current, sku.clientKey])} /></td>
+                  <td className="col-image variant-image-cell">
+                    <VariantImagePicker
                       value={imageValue}
+                      images={images}
+                      localImages={localImages}
                       disabled={sku.removed}
+                      open={openImageKey === sku.clientKey}
+                      ariaLabel={named(t("catalog.variants.image"))}
+                      onOpenChange={(next) => setOpenImageKey(next ? sku.clientKey : null)}
                       onBlur={() => touch(sku.clientKey, "imageId")}
-                      onChange={(event) => {
+                      onChange={(next) => {
                         touch(sku.clientKey, "imageId");
-                        const value = event.target.value;
-                        if (value.startsWith("local:")) patchSku(index, { imageLocalKey: value.slice(6), imageId: undefined });
-                        else patchSku(index, { imageId: value || undefined, imageLocalKey: undefined });
+                        patchSku(index, next);
                       }}
-                    >
-                      <option value="">{t("catalog.variants.noImage")}</option>
-                      {images.map((image, imageIndex) => <option key={image.id} value={image.id}>{t("catalog.variants.imageN", { n: imageIndex + 1 })}</option>)}
-                      {localImages.map((image, imageIndex) => <option key={image.key} value={`local:${image.key}`}>{t("catalog.variants.localImage", { n: imageIndex + 1 })}</option>)}
-                    </select>
+                    />
                   </td>
-                  <td>
-                    {sku.optionLabel || "—"}
+                  <td className="col-combo">
+                    <span className="variant-combo-label" title={sku.optionLabel || undefined}>{sku.optionLabel || "—"}</span>
                     <FieldError text={message(comboError)} />
                     {sku.removed ? <div className="pm-actions"><button type="button" onClick={() => restore(index)}>{t("catalog.variants.restore")}</button></div> : null}
                   </td>
-                  <td>
-                    <input className="num" aria-label={named(t("catalog.variants.sku"))} aria-invalid={Boolean(skuError)} value={sku.skuCode} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "skuCode")} onChange={(event) => { touch(sku.clientKey, "skuCode"); patchSku(index, { skuCode: event.target.value }); }} />
+                  <td className="col-sku">
+                    <input className="num" title={sku.skuCode || undefined} aria-label={named(t("catalog.variants.sku"))} aria-invalid={Boolean(skuError)} value={sku.skuCode} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "skuCode")} onChange={(event) => { touch(sku.clientKey, "skuCode"); patchSku(index, { skuCode: event.target.value }); }} />
                     <FieldError text={message(skuError)} />
                   </td>
-                  <td>
-                    <input className="num" inputMode="decimal" aria-label={named(t("catalog.variants.price"))} aria-invalid={Boolean(priceError)} value={sku.price} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "price")} onChange={(event) => { touch(sku.clientKey, "price"); patchSku(index, { price: event.target.value }); }} />
+                  <td className="col-money">
+                    <input className="num" title={sku.price || undefined} inputMode="decimal" aria-label={named(t("catalog.variants.price"))} aria-invalid={Boolean(priceError)} value={sku.price} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "price")} onChange={(event) => { touch(sku.clientKey, "price"); patchSku(index, { price: event.target.value }); }} />
                     <FieldError text={message(priceError)} />
                   </td>
-                  <td>
-                    <input className="num" inputMode="decimal" aria-label={named(t("catalog.variants.compare"))} aria-invalid={Boolean(compareError)} value={sku.compareAtPrice} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "compareAtPrice")} onChange={(event) => { touch(sku.clientKey, "compareAtPrice"); patchSku(index, { compareAtPrice: event.target.value }); }} />
+                  <td className="col-money">
+                    <input className="num" title={sku.compareAtPrice || undefined} inputMode="decimal" aria-label={named(t("catalog.variants.compare"))} aria-invalid={Boolean(compareError)} value={sku.compareAtPrice} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "compareAtPrice")} onChange={(event) => { touch(sku.clientKey, "compareAtPrice"); patchSku(index, { compareAtPrice: event.target.value }); }} />
                     <FieldError text={message(compareError)} />
                   </td>
-                  <td>
-                    <input className="num" inputMode="decimal" aria-label={named(t("catalog.variants.cost"))} aria-invalid={Boolean(costError)} value={sku.costPrice} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "costPrice")} onChange={(event) => { touch(sku.clientKey, "costPrice"); patchSku(index, { costPrice: event.target.value }); }} />
+                  <td className="col-money">
+                    <input className="num" title={sku.costPrice || undefined} inputMode="decimal" aria-label={named(t("catalog.variants.cost"))} aria-invalid={Boolean(costError)} value={sku.costPrice} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "costPrice")} onChange={(event) => { touch(sku.clientKey, "costPrice"); patchSku(index, { costPrice: event.target.value }); }} />
                     <FieldError text={message(costError)} />
                   </td>
-                  <td>
-                    <input className="num" aria-label={named(t("catalog.variants.barcode"))} aria-invalid={Boolean(barcodeError)} value={sku.barcode} disabled={sku.removed} onBlur={() => { touch(sku.clientKey, "barcode"); patchSku(index, { barcode: sku.barcode.trim().toUpperCase() }); }} onChange={(event) => { touch(sku.clientKey, "barcode"); patchSku(index, { barcode: event.target.value.toUpperCase() }); }} />
+                  <td className="col-barcode">
+                    <input className="num" title={sku.barcode || undefined} aria-label={named(t("catalog.variants.barcode"))} aria-invalid={Boolean(barcodeError)} value={sku.barcode} disabled={sku.removed} onBlur={() => { touch(sku.clientKey, "barcode"); patchSku(index, { barcode: sku.barcode.trim().toUpperCase() }); }} onChange={(event) => { touch(sku.clientKey, "barcode"); patchSku(index, { barcode: event.target.value.toUpperCase() }); }} />
                     <FieldError text={message(barcodeError)} />
                   </td>
-                  <td>
-                    <input className="num" inputMode="numeric" aria-label={named(t("catalog.variants.weight"))} aria-invalid={Boolean(weightError)} value={sku.weightGrams} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "weightGrams")} onChange={(event) => { touch(sku.clientKey, "weightGrams"); patchSku(index, { weightGrams: event.target.value }); }} />
+                  <td className="col-qty">
+                    <input className="num" title={sku.weightGrams || undefined} inputMode="numeric" aria-label={named(t("catalog.variants.weight"))} aria-invalid={Boolean(weightError)} value={sku.weightGrams} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "weightGrams")} onChange={(event) => { touch(sku.clientKey, "weightGrams"); patchSku(index, { weightGrams: event.target.value }); }} />
                     <FieldError text={message(weightError)} />
                   </td>
-                  <td>
-                    <input className="num" inputMode="numeric" aria-label={named(t("catalog.variants.stock"))} aria-invalid={Boolean(stockError)} value={sku.initialStock} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "initialStock")} onChange={(event) => { touch(sku.clientKey, "initialStock"); patchSku(index, { initialStock: event.target.value }); }} />
+                  <td className="col-qty">
+                    <input className="num" title={sku.initialStock || undefined} inputMode="numeric" aria-label={named(t("catalog.variants.stock"))} aria-invalid={Boolean(stockError)} value={sku.initialStock} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "initialStock")} onChange={(event) => { touch(sku.clientKey, "initialStock"); patchSku(index, { initialStock: event.target.value }); }} />
                     <FieldError text={message(stockError)} />
                   </td>
-                  <td>
-                    <input className="num" inputMode="numeric" aria-label={named(t("catalog.variants.safety"))} aria-invalid={Boolean(safetyError)} value={sku.safetyStock} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "safetyStock")} onChange={(event) => { touch(sku.clientKey, "safetyStock"); patchSku(index, { safetyStock: event.target.value }); }} />
+                  <td className="col-qty">
+                    <input className="num" title={sku.safetyStock || undefined} inputMode="numeric" aria-label={named(t("catalog.variants.safety"))} aria-invalid={Boolean(safetyError)} value={sku.safetyStock} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "safetyStock")} onChange={(event) => { touch(sku.clientKey, "safetyStock"); patchSku(index, { safetyStock: event.target.value }); }} />
                     <FieldError text={message(safetyError)} />
                   </td>
-                  <td>
+                  <td className="col-active">
                     <ToggleSwitch
                       checked={sku.active}
                       disabled={sku.removed}

@@ -2,11 +2,17 @@ package com.thaishopfun.order;
 
 import com.thaishopfun.auth.RequestUser;
 import com.thaishopfun.auth.authz.RequireShopPermission;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /** Shop order management. {shopId} = public shop number; orders of other shops answer 404. */
@@ -16,17 +22,53 @@ public class MerchantOrderController {
     /** UUID-only so literal paths like {@code /bulk/...} are not captured as orderId. */
     private static final String ORDER = "/{orderId:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}}";
 
+    private static final MediaType XLSX = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
     private final OrderQueryService queries;
     private final OrderTransitionService transitions;
     private final OrderTagService tags;
+    private final OrderExportService exports;
     private final com.thaishopfun.payment.RefundService refunds;
 
     public MerchantOrderController(OrderQueryService queries, OrderTransitionService transitions, OrderTagService tags,
-                                   com.thaishopfun.payment.RefundService refunds) {
+                                   OrderExportService exports, com.thaishopfun.payment.RefundService refunds) {
         this.refunds = refunds;
         this.queries = queries;
         this.transitions = transitions;
         this.tags = tags;
+        this.exports = exports;
+    }
+
+    @RequireShopPermission("ORDER_EXPORT")
+    @GetMapping(value = "/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    public ResponseEntity<byte[]> export(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId,
+                                         @RequestParam(required = false) String status,
+                                         @RequestParam(required = false) String paymentStatus,
+                                         @RequestParam(required = false) String fulfillmentStatus,
+                                         @RequestParam(required = false) String from,
+                                         @RequestParam(required = false) String to,
+                                         @RequestParam(required = false) String q,
+                                         @RequestParam(required = false) String sort,
+                                         @RequestParam(required = false) String direction,
+                                         @RequestParam(required = false) String acceptance,
+                                         @RequestParam(required = false) UUID tag,
+                                         @RequestParam(required = false) String paymentMethod,
+                                         @RequestParam(required = false) String carrierCode,
+                                         @RequestParam(required = false) Boolean hasTracking,
+                                         @RequestParam(required = false) String customer,
+                                         @RequestParam(required = false) String lang,
+                                         Locale locale) {
+        var filters = new OrderQueryService.Filters(status, paymentStatus, fulfillmentStatus, from, to, q, 0, OrderQueryService.MAX_PAGE_SIZE,
+            sort, direction, acceptance, tag, paymentMethod, carrierCode, hasTracking, customer);
+        Locale loc = lang != null && !lang.isBlank() ? Locale.forLanguageTag(lang.trim()) : locale;
+        byte[] body = exports.export(actor(jwt, shopId), shopId, filters, loc);
+        String filename = OrderExportService.suggestedFilename(shopId);
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                .filename(filename, StandardCharsets.UTF_8).build().toString())
+            .header(HttpHeaders.CACHE_CONTROL, "no-store")
+            .contentType(XLSX)
+            .body(body);
     }
 
     @RequireShopPermission("ORDER_READ")

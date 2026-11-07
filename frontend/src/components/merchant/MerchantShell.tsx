@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { ShoppingBag } from "lucide-react";
 import MerchantSidebar, { type MerchantMenuKey } from "./MerchantSidebar";
 import MerchantTopbarSearch from "./MerchantTopbarSearch";
 import MerchantTopbarActions from "./MerchantTopbarActions";
+import MerchantBrand from "./MerchantBrand";
 import "../../styles/merchant-dashboard.css";
 import "../../styles/product-management.css";
 
@@ -10,10 +10,7 @@ export default function MerchantShell({ children, notice, tone = "ok", active = 
   return (
     <main className="merchant-shell pm-shell catalog-shell">
       <header className="merchant-topbar">
-        <a className="merchant-brand" href="/">
-          <span><ShoppingBag /><i>✓</i></span>
-          <div><b>ThaiShop<span>Fun</span></b><small>Shop Local · Support Thai · Smile Together</small></div>
-        </a>
+        <MerchantBrand />
         <MerchantTopbarSearch />
         <MerchantTopbarActions />
       </header>

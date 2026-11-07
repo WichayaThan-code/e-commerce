@@ -2,13 +2,32 @@
   "search": "搜索店铺、店主、邮箱或电话",
   "searchAction": "搜索",
   "searchLabel": "在后台中搜索",
-  "notify": "待审核店铺通知",
+  "notify": "通知",
   "notifyList": "通知列表",
   "pendingTitle": "待审核店铺",
   "shopCount": "家",
   "empty": "没有待审核的店铺",
   "waiting": "等待审核",
   "unknownOwner": "未填写店主",
+  "notifications": {
+    "bell": "管理员通知",
+    "list": "管理员通知列表",
+    "title": "通知",
+    "unread": "未读 {{count}}",
+    "markAll": "全部标为已读",
+    "loading": "加载中…",
+    "loadMore": "加载更多",
+    "empty": "暂无通知",
+    "loadError": "无法加载通知",
+    "retry": "重试",
+    "unknownShop": "店铺",
+    "types": {
+      "SHOP_APPLICATION_SUBMITTED": "有新的开店申请",
+      "SHOP_REINSTATEMENT_REQUESTED": "店铺提交解除停用申请",
+      "REFUND_DISPUTED": "有退款需管理员审核",
+      "UNKNOWN": "通知"
+    }
+  },
   "confirm": {
     "cancel": "取消",
     "confirm": "确认",
@@ -67,7 +86,10 @@
         "d7": "7 天",
         "d30": "30 天",
         "month": "本月"
-      }
+      },
+      "showing": "显示第 {{start}}–{{end}} 条，共 {{total}} 条",
+      "first": "第一页",
+      "last": "最后一页"
     },
     "reason": {
       "label": "原因",
@@ -520,6 +542,10 @@
     "stores": {
       "detail": {
         "title": "店铺详情",
+        "reinstatementTitle": "解除停用申请",
+        "reinstatementSection": "店铺留言",
+        "appealPending": "待审核",
+        "shopStatus": "店铺状态",
         "info": "店铺信息",
         "openStorefront": "打开店铺前台",
         "status": "状态",

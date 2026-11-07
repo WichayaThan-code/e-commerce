@@ -23,7 +23,7 @@
 .theme-content-row-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .theme-content-tools{display:inline-flex;gap:4px}
 .theme-content .form-field input,.theme-content .form-field select{min-height:40px;box-sizing:border-box}
-.theme-content .form-field textarea{box-sizing:border-box;width:100%;min-height:80px;resize:vertical}
+.theme-content .form-field textarea{box-sizing:border-box;width:100%;min-height:80px;resize:none}
 @media (max-width:720px){
   .theme-content-pair{grid-template-columns:minmax(0,1fr)}
 }

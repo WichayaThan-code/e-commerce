@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  ArrowDown, ArrowUp, ChevronLeft, ChevronRight, CircleAlert, ExternalLink, ImagePlus, Newspaper, Pencil, Plus, Search, Trash2,
+  ArrowDown, ArrowUp, CircleAlert, ExternalLink, ImagePlus, Newspaper, Pencil, Plus, Search, Trash2,
 } from 'lucide-react'
+import { Pager } from '../components/admin/PlatformBits'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import AdminSelect from '../components/admin/AdminSelect'
@@ -1052,14 +1053,18 @@ export default function AdminArticlesPage() {
                   </table>
                 </div>
                 {totalPages > 1 && (
-                  <footer className="ar-pager">
-                    <span>{t('articlesCms.pager.total', { count: total })}</span>
-                    <nav aria-label={t('articlesCms.pager.label')}>
-                      <button type="button" aria-label={t('articlesCms.pager.prev')} disabled={page <= 0 || listLoading} onClick={() => setPage(current => Math.max(0, current - 1))}><ChevronLeft /></button>
-                      <span>{t('articlesCms.pager.page', { page: page + 1, pages: totalPages })}</span>
-                      <button type="button" aria-label={t('articlesCms.pager.next')} disabled={page + 1 >= totalPages || listLoading} onClick={() => setPage(current => current + 1)}><ChevronRight /></button>
-                    </nav>
-                  </footer>
+                  <Pager
+                    className="ar-pager"
+                    page={page}
+                    size={PAGE_SIZE}
+                    totalItems={total}
+                    totalPages={totalPages}
+                    itemCount={rows.length}
+                    loading={listLoading}
+                    showSize={false}
+                    onPage={setPage}
+                    onSize={() => undefined}
+                  />
                 )}
               </>
             )}

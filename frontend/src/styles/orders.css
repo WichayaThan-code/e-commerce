@@ -601,7 +601,7 @@
   border: 1px solid var(--shop-border, #d7e5f3);
   border-radius: 8px;
   font: 500 14px var(--font-sans), "IBM Plex Sans Thai", sans-serif;
-  resize: vertical;
+  resize:none;
 }
 
 .orders-slip-form {
@@ -771,7 +771,7 @@
 
 .orders-dialog-fields textarea {
   min-height: 88px;
-  resize: vertical;
+  resize:none;
 }
 
 @media (max-width: 640px) {

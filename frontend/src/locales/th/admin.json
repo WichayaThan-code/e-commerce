@@ -2,13 +2,32 @@
   "search": "ค้นหาร้านค้า เจ้าของร้าน อีเมล หรือเบอร์โทร",
   "searchAction": "ค้นหา",
   "searchLabel": "ค้นหาในระบบ",
-  "notify": "การแจ้งเตือนร้านที่รออนุมัติ",
+  "notify": "การแจ้งเตือน",
   "notifyList": "รายการแจ้งเตือน",
   "pendingTitle": "รออนุมัติร้านค้า",
   "shopCount": "ร้าน",
   "empty": "ไม่มีร้านที่รออนุมัติ",
   "waiting": "รอการอนุมัติ",
   "unknownOwner": "ไม่ระบุเจ้าของ",
+  "notifications": {
+    "bell": "การแจ้งเตือนผู้ดูแล",
+    "list": "รายการแจ้งเตือนผู้ดูแล",
+    "title": "การแจ้งเตือน",
+    "unread": "ยังไม่อ่าน {{count}}",
+    "markAll": "อ่านทั้งหมด",
+    "loading": "กำลังโหลด...",
+    "loadMore": "โหลดเพิ่ม",
+    "empty": "ยังไม่มีการแจ้งเตือน",
+    "loadError": "โหลดการแจ้งเตือนไม่สำเร็จ",
+    "retry": "ลองอีกครั้ง",
+    "unknownShop": "ร้านค้า",
+    "types": {
+      "SHOP_APPLICATION_SUBMITTED": "มีคำขอเปิดร้านใหม่",
+      "SHOP_REINSTATEMENT_REQUESTED": "ร้านค้าส่งคำร้องขอปลดระงับ",
+      "REFUND_DISPUTED": "มีคำขอคืนเงินที่ต้องตรวจสอบ",
+      "UNKNOWN": "การแจ้งเตือน"
+    }
+  },
   "confirm": {
     "cancel": "ยกเลิก",
     "confirm": "ยืนยัน",
@@ -67,7 +86,10 @@
         "d7": "7 วัน",
         "d30": "30 วัน",
         "month": "เดือนนี้"
-      }
+      },
+      "showing": "แสดง {{start}}–{{end}} จาก {{total}} รายการ",
+      "first": "หน้าแรก",
+      "last": "หน้าสุดท้าย"
     },
     "reason": {
       "label": "เหตุผล",
@@ -520,6 +542,10 @@
     "stores": {
       "detail": {
         "title": "รายละเอียดร้านค้า",
+        "reinstatementTitle": "คำร้องขอปลดระงับ",
+        "reinstatementSection": "ข้อความจากร้านค้า",
+        "appealPending": "รอพิจารณา",
+        "shopStatus": "สถานะร้าน",
         "info": "ข้อมูลร้าน",
         "openStorefront": "เปิดหน้าร้าน",
         "status": "สถานะ",

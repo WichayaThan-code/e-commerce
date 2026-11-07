@@ -1,9 +1,10 @@
-import { LogOut, ShoppingBag, Store, UserRound } from 'lucide-react'
+import { LogOut, Store, UserRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { accountKind } from '../services/permissions'
 import LanguageSwitcher from '../components/LanguageSwitcher'
 import '../styles/dashboard.css'
+import SiteBrand from "../components/SiteBrand";
 
 export default function DashboardPage() {
   const { user, loading, logout } = useAuth()
@@ -15,7 +16,7 @@ export default function DashboardPage() {
   if (accountKind(user) === 'CUSTOMER') { window.location.replace('/'); return null }
   const signOut = async () => { await logout(); window.location.replace('/') }
   return <main className="dashboard-page">
-    <header><a className="brand" href="/"><span className="brand-mark"><ShoppingBag/><i>✓</i></span><span><b>ThaiShop<span>Fun</span></b><small>Shop Local · Support Thai · Smile Together</small></span></a><div className="dashboard-tools"><LanguageSwitcher /><button className="dashboard-logout" onClick={signOut}><LogOut/>{t('account.logout')}</button></div></header>
+    <header><SiteBrand homeAria="ThaiShopFun" href="/" /><div className="dashboard-tools"><LanguageSwitcher /><button className="dashboard-logout" onClick={signOut}><LogOut/>{t('account.logout')}</button></div></header>
     <section className="dashboard-welcome"><span><UserRound/></span><div><p>{t('dashboard.welcome')}</p><h1>{user.firstName} {user.lastName}</h1><small>{user.email} · {user.phone}</small></div></section>
     <section className="dashboard-card"><Store/><div><h2>{t('dashboard.readyTitle')}</h2><p>{t('dashboard.readyBody', { role: accountKind(user) })}</p><a href="/">{t('dashboard.shopLink')}</a></div></section>
   </main>

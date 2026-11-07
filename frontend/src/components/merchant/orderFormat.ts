@@ -96,14 +96,43 @@ export function paymentTone(status?: string | null): PillTone {
   }
 }
 
-/** Translated message for an order / payment / shipment API error; unknown codes get the generic translated message (never raw server text). */
+/** Prefer field-level i18n, then field-code i18n. Empty string when no translation exists. */
+export function orderFieldErrorMessage(t: TFunction, field: { field: string; code: string; message?: string }) {
+  const byField = t(`orderManagement.errors.fields.${field.field}.${field.code}`, { defaultValue: "" });
+  if (byField) return byField;
+  const byCode = t(`orderManagement.errors.${field.code}`, { defaultValue: "" });
+  if (byCode) return byCode;
+  return "";
+}
+
+/**
+ * Translated message for an order / payment / shipment API error.
+ * Uses fieldErrors first (carrier/tracking/shippedAt validation), then top-level code.
+ * Unknown codes fall back to REQUEST_FAILED — never invents success.
+ */
 export function orderErrorMessage(t: TFunction, error: unknown) {
   if (error instanceof ApiError) {
+    for (const field of error.fieldErrors) {
+      const fieldMessage = orderFieldErrorMessage(t, field);
+      if (fieldMessage) return fieldMessage;
+    }
     const key = `orderManagement.errors.${error.code}`;
     const translated = t(key, { defaultValue: "" });
-    return translated || t("orderManagement.errors.REQUEST_FAILED");
+    if (translated) return translated;
+    return t("orderManagement.errors.REQUEST_FAILED");
   }
   return t("orderManagement.errors.REQUEST_FAILED");
+}
+
+/** Map API fieldErrors to form fields for the ship dialog (carrierCode / trackingNumber / shippedAt). */
+export function orderFieldErrorMap(t: TFunction, error: unknown): Record<string, string> {
+  if (!(error instanceof ApiError) || error.fieldErrors.length === 0) return {};
+  const map: Record<string, string> = {};
+  for (const field of error.fieldErrors) {
+    if (!field.field || map[field.field]) continue;
+    map[field.field] = orderFieldErrorMessage(t, field) || t("orderManagement.errors.VALIDATION_ERROR");
+  }
+  return map;
 }
 
 export function isStaleOrderError(error: unknown) {

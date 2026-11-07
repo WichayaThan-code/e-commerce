@@ -8,7 +8,7 @@
 .hours-list input[type=time]:disabled{opacity:.45}
 .hours-list li>span{text-align:center;color:#6780a3;font-size:12px}
 
-/* Store policies editor (ShopPoliciesEditor) — extends existing .policy-card/.policy-row */
+/* Store policies editor (ShopPoliciesEditor) - extends existing .policy-card/.policy-row */
 .policy-editor>header{gap:16px;margin-bottom:10px}
 .policy-editor>header>div{display:grid;gap:4px;min-width:0}
 .policy-editor .policy-count{font-size:11px;color:#6780a3}
@@ -30,7 +30,7 @@
 .policy-edit{display:grid;gap:10px;padding:4px 0 16px}
 .policy-edit label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:#113971}
 .policy-edit input,.policy-edit textarea{border:1px solid #cbddef;border-radius:6px;color:#13396f;font:500 13px var(--font-sans);padding:9px 12px;background:#fff}
-.policy-edit textarea{min-height:220px;line-height:1.7;resize:vertical}
+.policy-edit textarea{min-height:220px;line-height:1.7;resize:none}
 .policy-edit input:focus,.policy-edit textarea:focus{outline:2px solid #087bf533;border-color:#087bf5}
 .policy-edit label>small{align-self:flex-end;font-weight:500;font-size:10px;color:#6480a7;font-family:var(--font-mono),ui-monospace,monospace}
 .policy-hint{margin:0;font-size:11px;color:#6780a3}

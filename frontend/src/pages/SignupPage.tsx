@@ -15,6 +15,7 @@ import FormGrid from '../components/form/FormGrid'
 import SignupAgreement, { type AgreementStep } from '../components/SignupAgreement'
 import { useAuth } from '../contexts/AuthContext'
 import LanguageSwitcher from '../components/LanguageSwitcher'
+import SiteBrand from '../components/SiteBrand'
 import { AUTOFILL_ANIMATION, autofillSyncHandlers } from '../hooks/autofillSync'
 import { useAsciiPasswordInput } from '../hooks/useAsciiPasswordInput'
 import { formatPhoneNumber } from '../services/merchantApplicationValidation'
@@ -25,13 +26,8 @@ type FieldName = (typeof fieldNames)[number]
 const perkKeys = ['variety', 'payment', 'delivery'] as const
 const perkIcons = { variety: Gift, payment: ShieldCheck, delivery: Truck }
 
-function SignupBrand({ ariaLabel, tagline }: { ariaLabel: string; tagline: string }) {
-  return (
-    <a className="brand signup-brand" href="/" aria-label={ariaLabel}>
-      <span className="brand-mark"><ShoppingBag size={24} /><i>✓</i></span>
-      <span><b>ThaiShop<span>Fun</span></b><small>{tagline}</small></span>
-    </a>
-  )
+function SignupBrand({ ariaLabel }: { ariaLabel: string }) {
+  return <SiteBrand homeAria={ariaLabel} className="signup-brand" href="/" />
 }
 
 export default function SignupPage() {
@@ -175,7 +171,7 @@ export default function SignupPage() {
       <section className="login-story">
         <div className="login-story-image" />
         <div className="login-story-content">
-          <SignupBrand ariaLabel={p('brandAriaHome')} tagline={p('brandTagline')} />
+          <SignupBrand ariaLabel={p('brandAriaHome')} />
           <div className="story-copy">
             <span className="login-eyebrow"><span /> {p('story.eyebrow')}</span>
             <h1>{p('story.titleLine1')}<br /><em>{p('story.titleEmphasis')}</em></h1>

@@ -10,10 +10,9 @@
 @media (max-width:720px){.merchant-social-grid{grid-template-columns:1fr}}
 
 .merchant-page{min-height:100vh;background:#f6fbff;color:#08245e}
-.merchant-header{height:70px;padding:0 4%;display:flex;align-items:center;gap:28px;background:#fff;border-bottom:1px solid #edf2f7;position:relative;z-index:5}
-.merchant-brand{width:245px;flex:none}
-.merchant-brand .brand-mark{width:46px;height:53px}
-.merchant-brand .brand b{font-size:29px}
+.merchant-header{height:70px;width:100%;box-sizing:border-box;padding:0 clamp(16px,2.5vw,40px);display:flex;align-items:center;gap:28px;background:#fff;border-bottom:1px solid #edf2f7;position:relative;z-index:5}
+.merchant-header .brand{width:auto;flex:none}
+.merchant-header .brand .brand-logo--with-name{height:40px;max-width:min(240px,48vw)}
 .merchant-header nav{display:flex;align-items:center;gap:31px;padding-left:25px;border-left:1px solid #cbd6e4}
 .merchant-header nav a{font-size:14px;font-weight:700;color:#08245e;text-decoration:none;white-space:nowrap}
 .merchant-header nav a.active{color:#076ff0}
@@ -128,8 +127,8 @@
 @media(max-width:760px){
   .merchant-header{height:76px;padding:0 16px}
   .merchant-brand{width:auto}
-  .merchant-brand .brand b{font-size:24px}
-  .merchant-brand .brand small,.merchant-actions>button,.merchant-actions label{display:none}
+  .merchant-header .brand .brand-logo--with-name{height:34px}
+  .merchant-actions>button,.merchant-actions label{display:none}
   .merchant-actions>a{padding:0 13px;height:38px}
   .merchant-layout{display:block}
   .merchant-story{min-height:300px;background-position:center 65%}
@@ -152,7 +151,7 @@
 .merchant-card form label{font-weight:600;font-size:13px;margin-bottom:17px;color:#132b50}
 .merchant-card form input,.merchant-card form select,.merchant-card form textarea,.merchant-card .merchant-icon-input,.merchant-card .form-control:not(.form-control-area),.merchant-card .searchable-select-btn{height:51px;border:1px solid #dce2eb;border-radius:10px;background:#fff;color:#132b50;font-size:14px}
 .merchant-card .form-control.form-control-area{height:auto;min-height:148px;align-items:stretch;padding:0;border:1px solid #dce2eb;border-radius:10px;background:#fff}
-.merchant-card form textarea,.merchant-card .form-control-area>textarea{height:auto;min-height:148px;padding:12px 14px;resize:vertical}
+.merchant-card form textarea,.merchant-card .form-control-area>textarea{height:auto;min-height:148px;padding:12px 14px;resize:none}
 .merchant-card form input:focus,.merchant-card form select:focus,.merchant-card form textarea:focus,.merchant-card .merchant-icon-input:focus-within,.merchant-card .form-control:focus-within,.merchant-card .searchable-select-btn:focus{outline:none;border-color:#1671de;box-shadow:var(--focus-ring)}
 .merchant-card form input::placeholder,.merchant-card form textarea::placeholder{color:#8793a3}
 /* Wrapper (.form-control / .merchant-icon-input) owns chrome; beat `.merchant-card form input` + tokens.css focus-visible. */
@@ -162,7 +161,7 @@
 .merchant-card .merchant-icon-input>input{
   flex:1;width:100%;min-width:0;height:100%;margin:0;padding:0 11px;border:0;border-radius:0;outline:none;box-shadow:none;background:transparent;
 }
-.merchant-card .form-control-area>textarea{height:auto;min-height:148px;padding:12px 14px;resize:vertical}
+.merchant-card .form-control-area>textarea{height:auto;min-height:148px;padding:12px 14px;resize:none}
 .merchant-card .form-control>input:focus,
 .merchant-card .form-control>input:focus-visible,
 .merchant-card .form-control>select:focus,

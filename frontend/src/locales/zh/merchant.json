@@ -25,9 +25,18 @@
     "trustSslPdpa": "SSL 加密 • PDPA",
     "prepareTitle": "需要准备的材料",
     "prepareSteps": [
-      { "title": "身份证", "hint": "原件清晰、无反光" },
-      { "title": "银行账户本", "hint": "户名需与店主一致" },
-      { "title": "地址证明", "hint": "户口本或水电账单" }
+      {
+        "title": "身份证",
+        "hint": "原件清晰、无反光"
+      },
+      {
+        "title": "银行账户本",
+        "hint": "户名需与店主一致"
+      },
+      {
+        "title": "地址证明",
+        "hint": "户口本或水电账单"
+      }
     ],
     "communityTitle": "加入我们的商家",
     "communityLead": "成为 ThaiShopFun 上泰国店铺的一员",
@@ -1434,6 +1443,346 @@
       "codOffConfirm": "停用 COD"
     }
   },
+  "reports": {
+    "title": "报表",
+    "subtitle": "查看业务概况，分析销售并跟踪增长。",
+    "tabsLabel": "报表类型",
+    "tabs": {
+      "overview": "概览",
+      "sales": "销售",
+      "products": "商品",
+      "orders": "订单",
+      "customers": "客户",
+      "promotions": "促销 / 优惠券",
+      "fees": "手续费",
+      "shipping": "配送"
+    },
+    "range": {
+      "label": "时间范围",
+      "today": "今天",
+      "d7": "7 天",
+      "d30": "30 天",
+      "y1": "1 年",
+      "custom": "自定义",
+      "todayFull": "今天",
+      "d7Full": "最近 7 天",
+      "d30Full": "最近 30 天",
+      "y1Full": "最近 1 年",
+      "customFull": "所选时间段",
+      "thaiTime": "泰国时间",
+      "pickDates": "请选择日期范围以查看报表",
+      "invalidRange": "日期范围无效：开始日期不能晚于结束日期"
+    },
+    "growthNone": "—",
+    "vsPrevious": "较上一周期",
+    "estimated": "估算",
+    "kpi": {
+      "gmv": "总销售额 (GMV)",
+      "gmvNote": "已支付 · 未扣除退款",
+      "income": "您的收入（估算）",
+      "incomeNote": "扣除 5% 手续费后（估算）",
+      "fee": "手续费 5%（估算）",
+      "feeNote": "占总销售额",
+      "orders": "订单数",
+      "ordersNote": "已支付 · 共 {{count}} 单",
+      "customers": "客户总数",
+      "customersNote": "新客户 {{count}} 人"
+    },
+    "chart": {
+      "title": "销售额与收入",
+      "legendGmv": "销售额 (GMV)",
+      "legendIncome": "扣费后收入（估算）",
+      "legendFee": "手续费 5%（估算）",
+      "tipGmv": "销售额",
+      "tipIncome": "收入（估算）",
+      "tipFee": "手续费 5%（估算）",
+      "tipOrders": "{{count}} 单",
+      "noSales": "本期暂无已支付的销售额",
+      "emptyHint": "有已支付订单后，将在此显示销售额与收入图表"
+    },
+    "categories": {
+      "title": "按商品分类的销售占比",
+      "centerLabel": "商品销售额",
+      "uncategorized": "未分类",
+      "other": "其他",
+      "empty": "本期暂无商品销售额",
+      "emptyHint": "有商品售出后，将在此显示分类占比"
+    },
+    "channels": {
+      "title": "按渠道的销售额",
+      "empty": "本期暂无销售额",
+      "emptyHint": "有渠道产生销售后，将在此显示占比",
+      "names": {
+        "STOREFRONT": "店铺网站",
+        "LINE_OA": "LINE OA",
+        "SHOPEE": "Shopee",
+        "TIKTOK": "TikTok Shop",
+        "LAZADA": "Lazada",
+        "MANUAL": "手动录入",
+        "OMS_IMPORT": "OMS 导入",
+        "UNKNOWN": "其他"
+      }
+    },
+    "products": {
+      "title": "热销商品 (Top 5)",
+      "rank": "#",
+      "product": "商品",
+      "quantity": "销量",
+      "sales": "销售额",
+      "empty": "本期暂无售出的商品",
+      "emptyHint": "有已支付订单后，将在此显示热销商品"
+    },
+    "customersPanel": {
+      "title": "客户汇总",
+      "total": "客户总数",
+      "fresh": "新客户",
+      "returning": "回头客",
+      "ordersPerCustomer": "人均订单数",
+      "aov": "平均订单金额",
+      "empty": "本期暂无客户下单",
+      "emptyHint": "有客户完成已支付订单后，将在此显示客户汇总",
+      "note": "按已支付订单统计 · 访客按收件人姓名分组"
+    },
+    "fee": {
+      "title": "手续费汇总",
+      "total": "手续费合计（估算）",
+      "rateTitle": "占比（估算）",
+      "rateOf": "占总销售额",
+      "note": "按总销售额估算，不是利润，也不是实际结算金额"
+    },
+    "advice": {
+      "title": "建议",
+      "open": "前往促销页面",
+      "openDenied": "您无权打开促销页面",
+      "openShipping": "前往配送页面",
+      "openShippingDenied": "您无权打开配送页面",
+      "loading": "正在生成建议…",
+      "unavailable": "数据加载失败，暂无建议",
+      "NO_SALES": "本期暂无已支付的销售额",
+      "NO_SALES_TIP": "试试选择其他时间段，或创建促销活动来提升销量",
+      "NO_BASELINE": "上一周期没有销售额，暂时无法比较增长",
+      "GMV_UP": "销售额较上一周期增长 {{pct}}%",
+      "GMV_DOWN": "销售额较上一周期下降 {{pct}}%，请检查热销商品和促销活动",
+      "GMV_FLAT": "销售额与上一周期持平",
+      "NO_NEW_CUSTOMERS": "本期没有新客户，试试针对新客户的促销",
+      "NEW_CUSTOMERS_DOWN": "新客户较上一周期减少，试试针对新客户的促销",
+      "REFUNDS_PRESENT": "本期已完成退款 {{amount}}（与总销售额分开列示）"
+    },
+    "promoPanel": {
+      "title": "促销/优惠券汇总",
+      "redemptions": "核销次数",
+      "discount": "优惠总额",
+      "couponOrders": "使用优惠券的已支付订单",
+      "attachRate": "优惠券附着率",
+      "empty": "本周期尚无促销使用记录",
+      "emptyHint": "有顾客使用优惠券后，将在此显示附着率与优惠总额",
+      "note": "核销按用券日期 · 附着率按已支付订单下单日 · 不含浏览转化漏斗"
+    },
+    "promoTypes": {
+      "title": "按促销类型的优惠",
+      "centerLabel": "优惠总额",
+      "empty": "本周期无促销优惠",
+      "emptyHint": "有优惠券核销后，将在此显示各类型优惠占比",
+      "names": {
+        "PERCENT": "百分比",
+        "FIXED_AMOUNT": "固定金额",
+        "FREE_SHIPPING": "包邮"
+      }
+    },
+    "promoTop": {
+      "title": "热门优惠券 (Top 5)",
+      "code": "优惠码",
+      "uses": "使用次数",
+      "discount": "优惠金额",
+      "empty": "本周期无优惠券使用记录",
+      "emptyHint": "有顾客使用优惠券后，将在此显示热门优惠码"
+    },
+    "shipPanel": {
+      "title": "运费汇总",
+      "feeCollected": "已收运费",
+      "freeOrders": "免运费订单",
+      "avgFee": "平均运费",
+      "empty": "本周期无已支付订单",
+      "emptyHint": "有已支付订单后，将在此显示运费汇总",
+      "note": "按已支付订单的下单日期统计"
+    },
+    "carriers": {
+      "title": "按承运商运费",
+      "empty": "本周期无承运商数据",
+      "emptyHint": "有物流发货后，将在此显示承运商占比"
+    },
+    "shipOps": {
+      "title": "物流作业",
+      "dispatched": "已发货",
+      "delivered": "已送达",
+      "failed": "投递失败",
+      "returned": "已退回",
+      "empty": "本周期无物流事件",
+      "emptyHint": "有物流状态更新后，将在此显示作业统计",
+      "note": "按发货/送达/失败/退回时间统计，不是下单日"
+    },
+    "viewAll": "查看全部 →",
+    "viewAllDenied": "您无权打开此页面",
+    "loading": "加载中…",
+    "loadingHint": "正在获取所选周期的报表数据",
+    "noShop": "尚未选择店铺",
+    "noPermission": "您无权查看报表",
+    "noPermissionHint": "请向店主申请 REPORT_READ 权限",
+    "error": {
+      "title": "报表加载失败",
+      "hint": "请重试，或更换日期范围",
+      "generic": "无法加载报表数据，请重试。",
+      "retry": "重试"
+    },
+    "export": {
+      "button": "下载报表",
+      "busy": "下载中…",
+      "done": "已下载 Excel 报表",
+      "failed": "报表下载失败，请重试",
+      "needRange": "请先选择有效的日期范围再下载",
+      "xlsxNote": "真实 Excel (.xlsx) 报表，不含个人数据；手续费为估算",
+      "stale": "导出完成，但等待期间店铺或日期已变更 — 使用前请核对文件"
+    },
+    "placeholderProduct": "无商品图片"
+  },
+  "finance": {
+    "title": "财务",
+    "subtitle": "查看销售额、收入、手续费与打款",
+    "authLoading": "正在检查店铺权限…",
+    "tabsLabel": "财务菜单",
+    "tabs": {
+      "overview": "概览",
+      "ledger": "收支明细",
+      "fees": "手续费",
+      "transfers": "打款",
+      "invoices": "账单 / 发票"
+    },
+    "range": {
+      "label": "时间范围",
+      "today": "今天",
+      "d7": "7 天",
+      "d30": "30 天",
+      "y1": "1 年",
+      "custom": "自定义",
+      "todayFull": "今天",
+      "d7Full": "近 7 天",
+      "d30Full": "近 30 天",
+      "y1Full": "近 1 年",
+      "customFull": "已选范围",
+      "thaiTime": "泰国时间",
+      "pickDates": "请选择日期范围以查看财务",
+      "invalidRange": "日期范围无效：开始日期不能晚于结束日期"
+    },
+    "growthNone": "—",
+    "kpi": {
+      "gmv": "总销售额 (GMV)",
+      "gmvNote": "已支付 · 未扣除退款",
+      "income": "扣费后收入（估算）",
+      "incomeNote": "扣除 5% 手续费（估算）",
+      "fee": "手续费 5%（估算）",
+      "feeNote": "按总销售额估算 · 不是实际打款",
+      "refunds": "已完成退款",
+      "refundsNote": "与总销售额分开列示"
+    },
+    "chart": {
+      "title": "销售额与收入（估算）",
+      "legendGmv": "销售额 (GMV)",
+      "legendIncome": "扣费后收入（估算）",
+      "legendFee": "手续费 5%（估算）",
+      "openReports": "查看报表 →",
+      "empty": "本期暂无已支付销售额",
+      "emptyHint": "有已支付订单后，将在此显示销售额与收入图表"
+    },
+    "balance": {
+      "title": "估算收入汇总",
+      "estimatedNet": "估算净收入",
+      "estimatedNetNote": "已扣 5% 手续费 · 不是店铺打款",
+      "payoutPending": "待打款金额",
+      "payoutPendingNote": "系统尚不支持店铺打款",
+      "payoutUnavailable": "暂不支持打款"
+    },
+    "feeDetail": {
+      "title": "手续费汇总",
+      "total": "手续费合计（估算）",
+      "rate": "为总销售额的 5%",
+      "net": "扣费后收入（估算）",
+      "netNote": "不是利润，也不是实际结算金额",
+      "disclaimer": "手续费按报表估算规则计算，并未按订单单独记账"
+    },
+    "ledger": {
+      "title": "最近财务记录",
+      "titleFull": "收支明细",
+      "date": "日期",
+      "item": "项目",
+      "order": "订单",
+      "sales": "销售额 (฿)",
+      "fee": "手续费估算 (฿)",
+      "net": "净收入估算 (฿)",
+      "status": "状态",
+      "proof": "详情",
+      "empty": "本期暂无已支付订单",
+      "emptyHint": "有已支付订单后，将在此显示财务明细",
+      "noPermission": "您无权查看订单",
+      "noPermissionHint": "请向店主申请 ORDER_READ 权限",
+      "payment": "付款（{{method}}）",
+      "paymentFallback": "支付方式",
+      "refund": "退款",
+      "statusPaid": "已支付",
+      "statusRefunded": "已退款",
+      "openOrder": "打开订单 {{number}}",
+      "showing": "显示 {{from}} - {{to}}，共 {{total}} 条",
+      "feeNote": "表中手续费为订单金额的 5% 估算，不是按订单实记费用",
+      "methods": {
+        "PROMPTPAY": "二维码 / PromptPay",
+        "BANK_TRANSFER": "银行转账",
+        "COD": "货到付款",
+        "OMISE": "信用卡 (Omise)",
+        "2C2P": "卡 / 2C2P"
+      }
+    },
+    "transfers": {
+      "title": "打款汇总"
+    },
+    "rail": {
+      "soonTitle": "即将推出",
+      "soonBadge": "即将"
+    },
+    "documents": {
+      "title": "财务文件",
+      "invoice": "账单",
+      "tax": "发票"
+    },
+    "unavailable": {
+      "title": "暂无数据",
+      "transfers": "系统尚无店铺打款周期或打款历史，因此无法显示打款报表",
+      "transfersShort": "暂无店铺打款功能",
+      "invoices": "系统尚未开具账单或发票，因此无法下载这些文件",
+      "invoicesShort": "尚未开具账单 / 发票"
+    },
+    "viewAll": "查看全部 →",
+    "viewAllDenied": "您无权打开此页面",
+    "loading": "加载中…",
+    "loadingHint": "正在获取所选周期的财务数据",
+    "noShop": "尚未选择店铺",
+    "noPermission": "您无权查看财务",
+    "noPermissionHint": "请向店主申请 REPORT_READ 权限",
+    "error": {
+      "title": "加载失败",
+      "hint": "请重试，或更换日期范围",
+      "generic": "无法加载财务数据，请重试。",
+      "ledger": "无法加载订单明细",
+      "retry": "重试"
+    },
+    "export": {
+      "button": "下载报表",
+      "busy": "下载中…",
+      "done": "已下载 Excel 报表",
+      "failed": "报表下载失败，请重试",
+      "needRange": "请先选择有效的日期范围再下载",
+      "xlsxNote": "真实 Excel (.xlsx) 报表，不含个人数据；手续费为估算",
+      "stale": "导出完成，但等待期间店铺或日期已变更 — 使用前请核对文件"
+    }
+  },
   "orderManagement": {
     "title": "订单",
     "subtitle": "跟踪并管理店铺的全部订单",
@@ -1608,7 +1957,18 @@
       "title": "订单详情",
       "close": "关闭",
       "cancel": "取消",
+      "actions": "订单操作",
+      "shipRequiresPacked": "请先完成打包后再发货",
+      "workTabs": "订单详情工具",
+      "tabDetail": "详情",
+      "tabHistory": "记录",
+      "noTimeline": "暂无订单记录",
       "placedAt": "下单时间",
+      "channel": "渠道",
+      "orderStatus": "订单状态",
+      "paymentStatus": "付款状态",
+      "fulfillmentStatus": "履约状态",
+      "customer": "客户与收件人",
       "acceptedAt": "商家接单时间",
       "termsAcceptedAt": "买家同意条款时间",
       "paidAt": "付款时间",
@@ -1636,7 +1996,32 @@
       "packedAt": "打包时间",
       "dispatchedAt": "发货时间",
       "deliveredAt": "送达时间",
-      "shippedAt": "发货时间",
+      "shippedAt": "发货日期与时间",
+      "shippedAtHint": "可快速选择，或自行填写日期与时间（泰国时间）",
+      "shippedAtPresets": "快速时间",
+      "shippedAtNow": "现在",
+      "shippedAtDate": "日期",
+      "shippedAtTime": "时间",
+      "shippedAtHour": "时",
+      "shippedAtMinute": "分",
+      "shippedAtApply": "使用此时刻",
+      "shippedAtPeriod": {
+        "night": "凌晨",
+        "morning": "上午",
+        "afternoon": "下午",
+        "evening": "晚上"
+      },
+      "shippedAtDatePlaceholder": "选择发货日期",
+      "shippedAtSelected": "将保存为",
+      "shippedAtPreset": {
+        "0900": "09:00",
+        "1200": "12:00",
+        "1500": "15:00",
+        "1800": "18:00"
+      },
+      "trackingPlaceholder": "例如 NINJA0123456789",
+      "trackingHintGeneric": "运单号仅限 A–Z、0–9 或 -，长度 4–40",
+      "trackingHintThaipost": "泰国邮政格式示例：EX123456789TH",
       "chooseCarrier": "选择快递公司",
       "reason": "原因",
       "paymentReference": "付款参考号（可选）",
@@ -1692,7 +2077,37 @@
       "NETWORK_ERROR": "无法连接服务器，请重试。",
       "INTERNAL_ERROR": "系统出错，请稍后再试。",
       "REQUEST_FAILED": "出现错误，请重试。",
-      "CUSTOMER_KEY_INVALID": "客户密钥无效，已清除筛选。"
+      "CUSTOMER_KEY_INVALID": "客户密钥无效，已清除筛选。",
+      "VALIDATION_ERROR": "部分字段不正确，请检查后重试。",
+      "VALIDATION_FAILED": "部分字段不正确，请检查后重试。",
+      "TRACKING_NUMBER_DUPLICATE": "该运单号已用于其他货运单",
+      "CARRIER_NOT_ENABLED": "店铺尚未启用该承运商",
+      "CARRIER_NOT_FOUND": "未找到承运商",
+      "CARRIER_INACTIVE": "该承运商已被平台停用",
+      "REQUIRED": "请填写必填项",
+      "INVALID": "值无效",
+      "INVALID_FORMAT": "格式不正确",
+      "MAX_LENGTH": "内容过长",
+      "FUTURE": "时间不能是未来",
+      "BEFORE_ORDER": "时间不能早于下单时间",
+      "fields": {
+        "carrierCode": {
+          "REQUIRED": "请选择承运商",
+          "INVALID": "未知承运商",
+          "CARRIER_NOT_ENABLED": "店铺尚未启用该承运商",
+          "MAX_LENGTH": "承运商代码过长"
+        },
+        "trackingNumber": {
+          "REQUIRED": "请输入运单号",
+          "INVALID_FORMAT": "运单号格式与所选承运商不匹配",
+          "MAX_LENGTH": "运单号过长"
+        },
+        "shippedAt": {
+          "INVALID": "发货日期/时间无效",
+          "FUTURE": "发货时间不能是未来",
+          "BEFORE_ORDER": "发货时间不能早于下单时间"
+        }
+      }
     },
     "timelineEvents": {},
     "payment": {
@@ -1820,7 +2235,11 @@
         "rejected": "已拒绝退款",
         "proofUploaded": "已上传退款凭证"
       }
-    }
+    },
+    "exporting": "正在导出…",
+    "exportDone": "订单已导出为 Excel",
+    "exportStale": "导出完成，但等待期间店铺或日期已变更 — 使用前请核对文件",
+    "exportHint": "将当前筛选条件下的全部订单导出为 Excel"
   },
   "shippingPage": {
     "title": "配送",
@@ -1886,7 +2305,8 @@
       "connect": "未启用",
       "saved": "已保存快递公司",
       "loadFailed": "快递公司加载失败",
-      "unrestricted": "尚未选择快递公司，所有可用快递公司均可使用"
+      "unrestricted": "尚未选择快递公司，所有可用快递公司均可使用",
+      "unassigned": "未指定"
     },
     "tools": {
       "title": "配送工具",
@@ -1901,6 +2321,7 @@
       "body": "联系团队或查看快递对接指南"
     },
     "actions": {
+      "DISPATCH": "确认发货",
       "IN_TRANSIT": "运输中",
       "OUT_FOR_DELIVERY": "派送中",
       "DELIVERED": "已送达",
@@ -1922,6 +2343,8 @@
       "carrier": "快递公司",
       "tracking": "运单号",
       "openTracking": "打开物流跟踪页",
+      "copyTracking": "复制运单号",
+      "copied": "已复制运单号",
       "packedAt": "打包时间",
       "shippedAt": "发货时间",
       "pickedUpAt": "快递揽收时间",
@@ -1929,15 +2352,32 @@
       "failedAt": "配送失败时间",
       "failureReason": "原因",
       "returnedAt": "退回时间",
-      "editTracking": "修改快递公司 / 运单号",
+      "moreDates": "更多时间节点",
+      "workTabs": "包裹操作",
+      "tabUpdate": "更新",
+      "tabHistory": "记录",
+      "nextSteps": "下一步",
+      "exceptionSteps": "异常处理",
+      "noMoreActions": "当前没有可变更的状态",
+      "shipHint": "发货前请先填写快递公司与运单号",
+      "editTracking": "快递与运单号",
+      "editTrackingHint": "更新此包裹的快递公司与运单号",
+      "trackingPlaceholder": "例如 KEX123456789TH",
+      "trackingLocked": "当前状态不可再修改运单号",
       "saveTracking": "保存运单号",
-      "addEvent": "添加物流备注",
+      "addEvent": "可选备注",
+      "addEventHint": "补充地点或备注，方便后续跟进",
       "location": "地点",
+      "locationPlaceholder": "例如 曼谷分拣中心",
       "note": "备注",
+      "notePlaceholder": "给团队的补充说明",
       "addEventButton": "添加备注",
       "timeline": "物流记录",
+      "timelineHint": "最新事件显示在上方",
+      "noEvents": "暂无物流记录",
       "toast": {
         "done": "包裹状态已更新",
+        "shipped": "已确认发货",
         "noteAdded": "已添加备注",
         "trackingSaved": "已保存运单号"
       }
@@ -2045,14 +2485,28 @@
     "readAll": "全部已读",
     "empty": "暂无通知",
     "loadMore": "加载更多",
+    "loadError": "无法加载通知",
+    "retry": "重试",
     "importing": "正在导入",
     "types": {
       "ORDER_NEW": "新订单 {{orderNo}} · ฿{{amount}}",
       "ORDER_PAID": "已付款 {{orderNo}} · ฿{{amount}}",
       "ORDER_CANCELLED": "已取消 {{orderNo}}",
       "REFUND_REQUESTED": "退款申请 {{orderNo}} · ฿{{amount}}",
+      "REFUND_DISPUTED": "退款有争议 {{orderNo}} · ฿{{amount}}",
+      "REFUND_COMPLETED": "退款已完成 {{orderNo}} · ฿{{amount}}",
+      "PAYMENT_SLIP_PENDING": "有待审核的付款凭证 {{orderNo}}",
       "CUSTOMER_NEW": "新客户 {{customerName}}",
-      "LOW_STOCK": "库存不足 {{productName}} ({{skuCode}}) · 剩余 {{available}}"
+      "LOW_STOCK": "库存不足 {{productName}} ({{skuCode}}) · 剩余 {{available}}",
+      "PRODUCT_REVIEW_NEW": "新评价 {{productName}} · {{rating}} 星",
+      "SHIPMENT_EXCEPTION": "配送异常 {{orderNo}} ({{shipmentStatus}})",
+      "SHOP_APPROVED": "您的店铺已获批准",
+      "SHOP_REJECTED": "您的开店申请未获批准",
+      "SHOP_SUSPENDED": "您的店铺已被停用",
+      "SHOP_RESTORED": "您的店铺已可重新使用",
+      "SHOP_PLAN_CHANGED": "店铺套餐已更改为 {{planCode}}",
+      "SHOP_MEMBER_ROLE_CHANGED": "已将员工角色设为 {{role}}",
+      "SHOP_MEMBER_REMOVED": "已有员工被移出店铺"
     }
   },
   "collections": {
@@ -2155,5 +2609,45 @@
       "CONFIGURATOR_SCHEMA_INVALID": "无效的值",
       "CONFIGURATOR_MEDIA_INVALID": "图片无效或不属于本店"
     }
+  },
+  "signupGate": {
+    "checking": "正在验证登录状态…",
+    "title": "在 ThaiShopFun 开启您的网店",
+    "description": "请先登录或注册账号，即可开始填写资料并开通店铺。",
+    "login": "登录",
+    "signup": "注册",
+    "home": "返回首页",
+    "stepsAria": "开店步骤",
+    "stepLogin": "登录",
+    "stepShop": "填写店铺资料",
+    "stepSubmit": "提交申请"
+  },
+  "suspendedGate": {
+    "badge": "店铺功能受限",
+    "title": "店铺已停用",
+    "descriptionWithName": "店铺「{{shopName}}」已停用，在解除停用前无法进入任何商家菜单。您可以提交解除停用申请，供管理员审核。",
+    "descriptionFallback": "您的店铺已停用，在解除停用前无法进入任何商家菜单。您可以提交解除停用申请，供管理员审核。",
+    "appeal": "申请解除停用",
+    "home": "返回首页"
+  },
+  "reinstatementGate": {
+    "badge": "解除停用申请",
+    "title": "提交解除停用申请",
+    "descriptionWithName": "店铺「{{shopName}}」已停用。请提交说明，供管理员审核是否恢复使用。",
+    "descriptionFallback": "您的店铺已停用。请提交说明，供管理员审核是否恢复使用。",
+    "loading": "正在加载申请…",
+    "pendingNote": "申请已提交，正在等待管理员审核，无法再次提交。",
+    "pendingHint": "等待审核结果",
+    "rejectedNote": "上次申请未通过，您可以重新提交。",
+    "reasonLabel": "申请解除停用的理由",
+    "reasonPlaceholder": "说明您已完成的修正，以及应恢复店铺的原因",
+    "minHint": "至少 10 个字符",
+    "submit": "提交申请",
+    "submitting": "正在提交…",
+    "home": "返回首页",
+    "minLength": "请至少填写 10 个字符",
+    "submitted": "申请已提交，等待管理员审核，无法再次提交。",
+    "loadError": "无法加载申请",
+    "submitError": "无法提交申请"
   }
 }

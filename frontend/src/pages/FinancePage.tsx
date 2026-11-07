@@ -1,66 +1,557 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
+  BarChart3,
   Building2,
   CalendarDays,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
   Download,
   FileText,
   Landmark,
+  Lock,
   ShoppingBag,
   TrendingUp,
   WalletCards,
 } from "lucide-react";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
 import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
+import MerchantPagination from "../components/merchant/MerchantPagination";
+import MerchantPanelEmpty from "../components/merchant/MerchantPanelEmpty";
+import DateRangePicker from "../components/form/DateRangePicker";
+import { localeTag } from "../i18n";
 import { useAuth } from "../contexts/AuthContext";
-import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
+import { useActiveShop } from "../contexts/ActiveShopContext";
+import { hasPlatformAccess, hasMerchantAccess, hasShopPermission } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
+import { numberOf } from "../components/merchant/orderFormat";
+import {
+  merchantOrderApi,
+  merchantReportsApi,
+  type MerchantDashboardRange,
+  type MerchantReportOverview,
+  type MerchantReportPeriod,
+  type OrderPage,
+  type OrderSummary,
+} from "../services/api";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
-import "../styles/finance.css";
+import "../styles/finance.css";
 import MerchantSidebar from "../components/merchant/MerchantSidebar";
+import MerchantBrand from "../components/merchant/MerchantBrand";
 
-const sales = [9500, 9000, 10200, 12800, 13800, 12900, 14600, 16000, 13700, 15800, 17600, 15800, 18200, 21430];
-const income = [8200, 7100, 8400, 10400, 11600, 10200, 12000, 13500, 11100, 13500, 15100, 13400, 15900, 19000];
-const transactions = [
-  ["12 ก.ย. 2026\n14:32", "การชำระเงิน (QR)", "#TSF202609120045", "890", "44.50", "845.50", "สำเร็จ"],
-  ["12 ก.ย. 2026\n13:18", "การชำระเงิน (บัตร)", "#TSF202609120044", "1,250", "62.50", "1,187.50", "สำเร็จ"],
-  ["12 ก.ย. 2026\n12:59", "การชำระเงิน (โอน)", "#TSF202609120043", "760", "38.00", "722.00", "สำเร็จ"],
-  ["12 ก.ย. 2026\n11:21", "คืนเงิน (Refund)", "#TSF202609120042", "-1,950", "-97.50", "-1,852.50", "คืนเงินแล้ว"],
-  ["12 ก.ย. 2026\n10:05", "การชำระเงิน (QR)", "#TSF202609120041", "420", "21.00", "399.00", "สำเร็จ"],
-] as const;
-const transfers = [["#T2566-015","1 ก.ย. 2026","24,560"],["#T2566-014","15 ส.ค. 2026","18,320"],["#T2566-013","1 ส.ค. 2026","21,450"],["#T2566-012","15 ก.ค. 2026","19,880"],["#T2566-011","1 ก.ค. 2026","22,610"]] as const;
+type RangeKey = MerchantDashboardRange | "custom";
+type FinanceTab = "overview" | "ledger" | "fees" | "transfers" | "invoices";
+type PanelKey =
+  | "kpis" | "chart" | "balance" | "transactions" | "transferSummary" | "documents"
+  | "feeDetail" | "unavailableTransfers" | "unavailableInvoices";
 
-function Brand(){return <a className="merchant-brand" href="/"><span><ShoppingBag/><i>✓</i></span><div><b>ThaiShop<span>Fun</span></b><small>Shop Local · Support Thai · Smile Together</small></div></a>}
+const RANGES: [RangeKey, string, string][] = [
+  ["today", "today", "todayFull"],
+  ["7d", "d7", "d7Full"],
+  ["30d", "d30", "d30Full"],
+  ["1y", "y1", "y1Full"],
+  ["custom", "custom", "customFull"],
+];
 
-export default function FinancePage(){
-  const {user,loading}=useAuth();
-  const {canInShop,deniedTitle}=usePermissions();
-  const canExport=canInShop("REPORT_EXPORT");
-  const [tab,setTab]=useState("ภาพรวม");
-  const [range,setRange]=useState("1 ก.ย. 2026 - 12 ก.ย. 2026");
-  const [notice,setNotice]=useState("");
-  if(loading)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
-  if(!user){window.location.replace("/login?next=/merchant/finance");return null}
-  if((hasPlatformAccess(user) && !hasMerchantAccess(user))){window.location.replace("/admin");return null}
-  if(!hasMerchantAccess(user)){window.location.replace("/");return null}
-  const shopName=(user.firstName||"MaeSomchai").toLowerCase()==="merchant"?"MaeSomchai Official":`${user.firstName||"MaeSomchai"} Official`;
-  const notify=(text:string)=>{setNotice(text);window.setTimeout(()=>setNotice(""),1900)};
-  const download=(kind="รายงาน")=>{const csv="date,type,order,sales,fee,income\n12/09/2026,QR,#TSF202609120045,890,44.50,845.50\n12/09/2026,Card,#TSF202609120044,1250,62.50,1187.50";const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));const link=document.createElement("a");link.href=url;link.download=`thaishopfun-${kind}.csv`;link.click();URL.revokeObjectURL(url);notify(`ดาวน์โหลด${kind}แล้ว`)};
-  return <main className="merchant-shell pm-shell finance-shell">
-    <header className="merchant-topbar"><Brand/><MerchantTopbarSearch /><MerchantTopbarActions /></header>
-    <MerchantSidebar active="finance"/>
-    <section className="pm-content finance-content">
-      <header className="pm-heading finance-heading"><div><h1><WalletCards/>การเงิน</h1><p>ตรวจสอบยอดขาย รายได้ ค่าธรรมเนียม และการโอนเงิน</p></div><div className="finance-actions"><button onClick={()=>{const next=range.startsWith("1 ก.ย.")?"1 ส.ค. 2026 - 31 ส.ค. 2026":"1 ก.ย. 2026 - 12 ก.ย. 2026";setRange(next);notify(`เปลี่ยนช่วงวันที่เป็น ${next}`)}}><CalendarDays/><span>{range}</span><ChevronDown/></button><button disabled={!canExport} title={deniedTitle(canExport)} onClick={()=>download()}><Download/>ดาวน์โหลดรายงาน</button></div></header>
-      <nav className="finance-tabs" aria-label="เมนูการเงิน">{["ภาพรวม","รายการรายรับ-รายจ่าย","ค่าธรรมเนียม","การโอนเงิน","ใบแจ้งหนี้ / ใบกำกับภาษี"].map((item,index)=><button className={tab===item?"active":""} onClick={()=>{setTab(item);notify(`แสดง${item}`)}} key={item}>{index===0&&<Landmark/>}{item}</button>)}</nav>
-      <section className="finance-kpis"><article className="sales"><span><TrendingUp/></span><div><small>ยอดขายรวม (GMV)</small><b>฿ 124,560 <i>↑ 18%</i></b><em>จากช่วงก่อนหน้า</em></div></article><article className="income"><span><WalletCards/></span><div><small>รายได้หลังหักค่าธรรมเนียม</small><b>฿ 118,338 <i>↑ 18%</i></b><em>จากช่วงก่อนหน้า</em></div></article><article className="fee"><span>●</span><div><small>ค่าธรรมเนียม 5%</small><b>฿ 6,222 <i>↑ 18%</i></b><em>จากช่วงก่อนหน้า</em></div></article><article className="pending"><span><Building2/></span><div><small>ยอดเงินรอการโอน ⓘ</small><b>฿ 12,450</b><em>กำหนดโอน 15 ก.ย. 2026</em></div></article></section>
-      <div className="finance-top-grid"><article className="finance-panel finance-chart"><header><h2>ยอดขาย และ การรับเงิน</h2><div className="finance-legend"><span><i/>ยอดขาย (GMV)</span><span><i/>รายได้หลังหักค่าธรรมเนียม</span><span><i/>ค่าธรรมเนียม 5%</span></div><button onClick={()=>notify("เปิดรายละเอียดกราฟ")}>ดูรายละเอียด →</button></header><div className="finance-graph"><div className="f-y">{["฿ 25,000","฿ 20,000","฿ 15,000","฿ 10,000","฿ 5,000","0"].map(x=><span key={x}>{x}</span>)}</div><div className="f-plot">{sales.map((value,index)=><div className="f-day" key={index}><div><i style={{height:`${value/250}%`}}/><i style={{height:`${income[index]/250}%`}}/><i style={{height:`${Math.max(4,value/5000)}%`}}/></div><small>{index<2?index+1:index} ก.ย.</small></div>)}<svg viewBox="0 0 780 150" preserveAspectRatio="none"><polyline points={sales.map((v,i)=>`${i*58+18},${150-v/170}`).join(" ")}/></svg></div></div></article>
-      <aside className="finance-panel balance-card"><header><h2>ยอดเงินในบัญชี</h2><button onClick={()=>notify("เปิดประวัติการโอน")}>ดูประวัติการโอน →</button></header><div className="paid"><span>💸</span><p>ยอดเงินที่โอนแล้ว<b>฿ 106,820</b><small>รวมทั้งหมด</small></p></div><div className="waiting"><Clock3/><p>ยอดเงินรอการโอน<b>฿ 12,450</b><small>รอบโอนถัดไป 15 ก.ย. 2026</small></p></div><button className="transfer" onClick={()=>notify("เปิดข้อมูลการโอนเงิน")}><Landmark/>ดูข้อมูลการโอนเงิน</button></aside></div>
-      <div className="finance-bottom-grid"><article className="finance-panel transaction-card"><header><h2>รายการการเงินล่าสุด</h2><button onClick={()=>notify("เปิดรายการการเงินทั้งหมด")}>ดูทั้งหมด →</button></header><table><thead><tr><th>#</th><th>วันที่</th><th>รายการ</th><th>คำสั่งซื้อ</th><th>ยอดขาย (฿)</th><th>ค่าธรรมเนียม (฿)</th><th>รายได้สุทธิ (฿)</th><th>สถานะ</th><th>หลักฐาน</th></tr></thead><tbody>{transactions.map((row,index)=><tr key={row[2]}><td>{index+1}</td><td>{row[0].split("\n").map(x=><span key={x}>{x}</span>)}</td><td>{row[1]}</td><td>{row[2]}</td><td className={index===3?"negative":""}>{row[3]}</td><td className={index===3?"negative":""}>{row[4]}</td><td className={index===3?"negative":""}>{row[5]}</td><td><span className={`finance-status ${index===3?"refund":"success"}`}>{row[6]}</span></td><td><button aria-label={`ดูหลักฐาน ${row[2]}`} onClick={()=>notify(`เปิดหลักฐาน ${row[2]}`)}><FileText/></button></td></tr>)}</tbody></table><footer><span>แสดง 1 - 5 จาก 532 รายการ</span><nav><button><ChevronLeft/></button><button className="active">1</button><button>2</button><button>3</button><button>4</button><button>5</button><span>...</span><button>107</button><button><ChevronRight/></button></nav></footer></article>
-      <aside className="finance-side"><article className="finance-panel transfer-history"><header><h2>สรุปการโอนเงิน</h2><button onClick={()=>notify("เปิดประวัติการโอนทั้งหมด")}>ดูทั้งหมด →</button></header><div className="transfer-head"><span>รอบโอน</span><span>วันที่โอน</span><span>จำนวนเงิน (฿)</span><span>สถานะ</span></div>{transfers.map(row=><p key={row[0]}><span>{row[0]}</span><span>{row[1]}</span><b>{row[2]}</b><i>โอนแล้ว</i></p>)}</article><article className="finance-panel documents"><h2>เอกสารทางการเงิน</h2><div><button disabled={!canExport} title={deniedTitle(canExport)} onClick={()=>download("ใบแจ้งหนี้")}><FileText/>ดาวน์โหลดใบแจ้งหนี้</button><button disabled={!canExport} title={deniedTitle(canExport)} onClick={()=>download("ใบกำกับภาษี")}><FileText/>ดาวน์โหลดใบกำกับภาษี</button></div></article></aside></div>
-    </section>{notice&&<div className="merchant-toast" role="status">{notice}</div>}
-  </main>
+const TABS: FinanceTab[] = ["overview", "ledger", "fees", "transfers", "invoices"];
+
+const TAB_PANELS: Record<FinanceTab, PanelKey[]> = {
+  overview: ["kpis", "chart", "balance", "transactions", "transferSummary", "documents"],
+  ledger: ["kpis", "transactions"],
+  fees: ["kpis", "chart", "feeDetail"],
+  transfers: ["unavailableTransfers"],
+  invoices: ["unavailableInvoices"],
+};
+
+const FEE_RATE = 0.05;
+const LEDGER_SIZES = [10, 20, 50];
+const bkkDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(d);
+const num = (v: unknown) => numberOf(v as number);
+
+function niceMax(v: number) {
+  if (v <= 0) return 5000;
+  const step = Math.pow(10, Math.floor(Math.log10(v / 5)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (m * step * 5 >= v) return m * step * 5;
+  return Math.ceil(v / 5) * 5;
+}
+
+type ReportState = { status: "idle" | "loading" | "ready" | "error"; data: MerchantReportOverview | null };
+type LedgerState = { status: "idle" | "loading" | "ready" | "error"; page: OrderPage | null };
+
+export default function FinancePage() {
+  const { t } = useTranslation("merchant");
+  const { user, loading } = useAuth();
+  const { ready, shopId } = useActiveShop();
+  const { canInShop, deniedTitle } = usePermissions();
+  const canExport = canInShop("REPORT_EXPORT");
+  const canRead = !!user && hasShopPermission(user, "REPORT_READ", shopId);
+  const canOrders = canInShop("ORDER_READ");
+
+  const [tab, setTab] = useState<FinanceTab>("overview");
+  const [range, setRange] = useState<RangeKey>("30d");
+  const [customFrom, setCustomFrom] = useState(() => bkkDate(new Date(Date.now() - 6 * 86400000)));
+  const [customTo, setCustomTo] = useState(() => bkkDate(new Date()));
+  const [notice, setNotice] = useState("");
+  const [report, setReport] = useState<ReportState>({ status: "idle", data: null });
+  const [ledger, setLedger] = useState<LedgerState>({ status: "idle", page: null });
+  const [ledgerPage, setLedgerPage] = useState(0);
+  const [ledgerSize, setLedgerSize] = useState(10);
+  const [reloadTick, setReloadTick] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const reportReq = useRef(0);
+  const ledgerReq = useRef(0);
+
+  const customValid = !!customFrom && !!customTo && customFrom <= customTo;
+  const periodKey = range === "custom"
+    ? (customValid ? JSON.stringify({ from: customFrom, to: customTo }) : "")
+    : JSON.stringify({ range });
+  const period = periodKey ? JSON.parse(periodKey) as MerchantReportPeriod : null;
+  /** Order list API accepts only from/to (YYYY-MM-DD), so presets are expanded in Asia/Bangkok. */
+  const orderDates = (() => {
+    if (!period) return null;
+    if (period.from && period.to) return { from: period.from, to: period.to };
+    const today = bkkDate(new Date());
+    const end = new Date(`${today}T12:00:00+07:00`);
+    const start = new Date(end);
+    if (period.range === "today") { /* same day */ }
+    else if (period.range === "7d") start.setDate(start.getDate() - 6);
+    else if (period.range === "30d") start.setDate(start.getDate() - 29);
+    else if (period.range === "1y") start.setFullYear(start.getFullYear() - 1);
+    else return null;
+    return { from: bkkDate(start), to: today };
+  })();
+
+  useEffect(() => {
+    if (!ready) return;
+    if (shopId == null || !canRead || !periodKey) {
+      reportReq.current += 1;
+      setReport({ status: "idle", data: null });
+      return;
+    }
+    const id = ++reportReq.current;
+    const controller = new AbortController();
+    setReport({ status: "loading", data: null });
+    merchantReportsApi.overview(shopId, JSON.parse(periodKey) as MerchantReportPeriod, controller.signal)
+      .then((data) => { if (reportReq.current === id) setReport({ status: "ready", data }); })
+      .catch(() => { if (!controller.signal.aborted && reportReq.current === id) setReport({ status: "error", data: null }); });
+    return () => controller.abort();
+  }, [ready, shopId, canRead, periodKey, reloadTick]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const needLedger = tab === "overview" || tab === "ledger";
+    if (!needLedger || shopId == null || !canOrders || !orderDates) {
+      ledgerReq.current += 1;
+      setLedger({ status: "idle", page: null });
+      return;
+    }
+    const id = ++ledgerReq.current;
+    const controller = new AbortController();
+    setLedger({ status: "loading", page: null });
+    merchantOrderApi.list(shopId, {
+      page: ledgerPage,
+      size: ledgerSize,
+      sort: "placedAt",
+      direction: "desc",
+      paymentStatus: "PAID",
+      from: orderDates.from,
+      to: orderDates.to,
+    })
+      .then((page) => { if (ledgerReq.current === id) setLedger({ status: "ready", page }); })
+      .catch(() => { if (!controller.signal.aborted && ledgerReq.current === id) setLedger({ status: "error", page: null }); });
+    return () => controller.abort();
+  }, [ready, shopId, canOrders, orderDates?.from, orderDates?.to, tab, ledgerPage, ledgerSize, reloadTick]);
+
+  useEffect(() => { setLedgerPage(0); }, [periodKey, tab, ledgerSize]);
+  useEffect(() => { setLedgerSize(tab === "overview" ? 5 : 10); }, [tab]);
+
+  if (loading) return <main className="auth-loading">{t("finance.authLoading")}</main>;
+  if (!user) { window.location.replace("/login?next=/merchant/finance"); return null; }
+  if ((hasPlatformAccess(user) && !hasMerchantAccess(user))) { window.location.replace("/admin"); return null; }
+  if (!hasMerchantAccess(user)) { window.location.replace("/"); return null; }
+
+  const loc = localeTag();
+  const data = report.data;
+  const panels = TAB_PANELS[tab];
+  const show = (panel: PanelKey) => panels.includes(panel);
+  const notify = (text: string) => { setNotice(text); window.setTimeout(() => setNotice(""), 1900); };
+
+  const baht = (v: unknown) => new Intl.NumberFormat(loc, { style: "currency", currency: "THB", maximumFractionDigits: 2 }).format(num(v));
+  const shortBaht = (v: number) => {
+    if (v >= 1_000_000) return `฿${(v / 1_000_000).toLocaleString(loc, { maximumFractionDigits: 1 })}M`;
+    if (v >= 1000) return `฿${(v / 1000).toLocaleString(loc, { maximumFractionDigits: 1 })}k`;
+    return `฿${v.toLocaleString(loc, { maximumFractionDigits: 0 })}`;
+  };
+  const dec = (v: unknown, digits = 1) => num(v).toLocaleString(loc, { maximumFractionDigits: digits, minimumFractionDigits: digits });
+  const growth = (value: number | null | undefined) => {
+    if (value == null) return <i className="growth none">{t("finance.growthNone")}</i>;
+    const v = num(value);
+    const text = Math.abs(v) > 999 ? "999+" : dec(Math.abs(v));
+    return <i className={v < 0 ? "growth down" : v > 0 ? "growth up" : "growth none"}>{v > 0 ? "↑ " : v < 0 ? "↓ " : ""}{text}%</i>;
+  };
+  const rangeLong = t(`finance.range.${RANGES.find(([k]) => k === range)?.[2] ?? "d30Full"}`);
+  const when = (iso?: string | null) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return new Intl.DateTimeFormat(loc, { timeZone: "Asia/Bangkok", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(d);
+  };
+  const methodLabel = (m?: string | null) => {
+    if (!m) return t("finance.ledger.paymentFallback");
+    return t(`finance.ledger.methods.${m}`, { defaultValue: m });
+  };
+  const orderKind = (o: OrderSummary) => {
+    if (o.status === "REFUNDED" || o.paymentStatus === "REFUNDED") return t("finance.ledger.refund");
+    return t("finance.ledger.payment", { method: methodLabel(o.paymentMethod) });
+  };
+  const feeOf = (gmv: number) => Math.round(gmv * FEE_RATE * 100) / 100;
+  const empty = (title: string, hint?: string, icon: ReactNode = <BarChart3 />) => (
+    <MerchantPanelEmpty icon={icon} title={title} hint={hint} />
+  );
+
+  const kpi = (render: (d: MerchantReportOverview) => ReactNode) => {
+    if (!canRead) return "—";
+    if (report.status === "loading") return "…";
+    if (report.status !== "ready" || !data) return "—";
+    return render(data);
+  };
+
+  const download = async () => {
+    if (!periodKey || shopId == null) { notify(t("finance.export.needRange")); return; }
+    const exportShopId = shopId;
+    const exportPeriod = JSON.parse(periodKey) as MerchantReportPeriod;
+    const exportTab = tab === "fees" ? "fees" : tab === "ledger" ? "orders" : "overview";
+    setExporting(true);
+    try {
+      await merchantReportsApi.exportXlsx(exportShopId, exportPeriod, exportTab);
+      if (shopId !== exportShopId || periodKey !== JSON.stringify(exportPeriod)) {
+        notify(t("finance.export.stale"));
+        return;
+      }
+      notify(t("finance.export.done"));
+    } catch {
+      notify(t("finance.export.failed"));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const alertText = !periodKey
+    ? (customFrom && customTo ? t("finance.range.invalidRange") : t("finance.range.pickDates"))
+    : shopId == null && ready ? t("finance.noShop")
+    : !canRead ? t("finance.noPermission")
+    : "";
+
+  const seriesChart = (d: MerchantReportOverview) => {
+    const series = d.series;
+    const n = series.length;
+    const gmv = series.map((p) => num(p.gmv));
+    const income = series.map((p) => num(p.estimatedNet));
+    const fee = series.map((p) => num(p.estimatedFee));
+    const max = niceMax(Math.max(0, ...gmv));
+    const every = n > 16 ? Math.ceil(n / 8) : 1;
+    const barW = n <= 8 ? 12 : n <= 14 ? 9 : n <= 20 ? 6 : 4;
+    const h = (v: number) => `${Math.max(0, Math.round((v / max) * 150))}px`;
+    const label = (start: string) => {
+      const day = new Date(`${start}T00:00:00+07:00`);
+      return new Intl.DateTimeFormat(loc, { timeZone: "Asia/Bangkok", day: "numeric", month: "short" }).format(day);
+    };
+    return (
+      <div className="finance-graph">
+        <div className="f-y">{[5, 4, 3, 2, 1, 0].map((k) => <span key={k}>{shortBaht((max / 5) * k)}</span>)}</div>
+        <div className="f-plot">
+          {series.map((p, i) => (
+            <div className="f-day" key={p.start} style={{ width: `${Math.min(12, 92 / n)}%` }} title={`${baht(gmv[i])}`}>
+              <div>
+                <i style={{ height: h(gmv[i]), width: barW }} />
+                <i style={{ height: h(income[i]), width: barW }} />
+                <i style={{ height: fee[i] > 0 ? `${Math.max(3, Math.round((fee[i] / max) * 150))}px` : "0px", width: barW }} />
+              </div>
+              <small style={i % every === 0 ? undefined : { visibility: "hidden" }}>{label(p.start)}</small>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const transactionRows = () => {
+    if (!canOrders) return empty(t("finance.ledger.noPermission"), t("finance.ledger.noPermissionHint"), <Lock />);
+    if (ledger.status === "loading") return empty(t("finance.loading"), t("finance.loadingHint"), <BarChart3 />);
+    if (ledger.status === "error") return (
+      <div className="finance-alert">
+        <span>{t("finance.error.ledger")}</span>
+        <button type="button" onClick={() => setReloadTick((n) => n + 1)}>{t("finance.error.retry")}</button>
+      </div>
+    );
+    const page = ledger.page;
+    if (!page || page.items.length === 0) return empty(t("finance.ledger.empty"), t("finance.ledger.emptyHint"), <FileText />);
+    return (
+      <>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>{t("finance.ledger.date")}</th>
+              <th>{t("finance.ledger.item")}</th>
+              <th>{t("finance.ledger.order")}</th>
+              <th>{t("finance.ledger.sales")}</th>
+              <th>{t("finance.ledger.fee")}</th>
+              <th>{t("finance.ledger.net")}</th>
+              <th>{t("finance.ledger.status")}</th>
+              <th>{t("finance.ledger.proof")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {page.items.map((o, index) => {
+              const gmv = num(o.grandTotal);
+              const refunded = o.status === "REFUNDED" || o.paymentStatus === "REFUNDED";
+              const sign = refunded ? -1 : 1;
+              const fee = feeOf(Math.abs(gmv));
+              const net = Math.abs(gmv) - fee;
+              const cls = refunded ? "negative" : "";
+              return (
+                <tr key={o.id}>
+                  <td>{ledgerPage * page.size + index + 1}</td>
+                  <td><span>{when(o.placedAt)}</span></td>
+                  <td>{orderKind(o)}</td>
+                  <td>{o.orderNumber}</td>
+                  <td className={cls}>{baht(sign * Math.abs(gmv))}</td>
+                  <td className={cls}>{baht(sign * fee)}</td>
+                  <td className={cls}>{baht(sign * net)}</td>
+                  <td><span className={`finance-status ${refunded ? "refund" : "success"}`}>{refunded ? t("finance.ledger.statusRefunded") : t("finance.ledger.statusPaid")}</span></td>
+                  <td>
+                    {canOrders
+                      ? <Link className="finance-proof" to={`/merchant/orders/${o.id}`} aria-label={t("finance.ledger.openOrder", { number: o.orderNumber })}><FileText /></Link>
+                      : <button type="button" disabled title={t("finance.viewAllDenied")}><FileText /></button>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <MerchantPagination
+          className="finance-pagination"
+          page={ledgerPage}
+          pageCount={Math.max(1, page.totalPages)}
+          size={ledgerSize}
+          total={page.totalItems}
+          sizeOptions={LEDGER_SIZES}
+          onPageChange={setLedgerPage}
+          onSizeChange={(next) => { setLedgerSize(next); setLedgerPage(0); }}
+        />
+        <p className="finance-ledger-note">{t("finance.ledger.feeNote")}</p>
+      </>
+    );
+  };
+
+  return (
+    <main className="merchant-shell pm-shell finance-shell">
+      <header className="merchant-topbar"><MerchantBrand /><MerchantTopbarSearch /><MerchantTopbarActions /></header>
+      <MerchantSidebar active="finance" />
+
+      <section className="pm-content finance-content">
+        <header className="pm-heading finance-heading">
+          <div>
+            <h1><WalletCards />{t("finance.title")}</h1>
+            <p>{t("finance.subtitle")}</p>
+          </div>
+          <div className="finance-actions">
+            <div className="merchant-range">
+              <div className="merchant-range-seg" role="tablist" aria-label={t("finance.range.label")}>
+                <CalendarDays />
+                {RANGES.map(([key, short]) => (
+                  <button key={key} type="button" role="tab" aria-selected={range === key} className={range === key ? "active" : ""} onClick={() => setRange(key)}>
+                    {t(`finance.range.${short}`)}
+                  </button>
+                ))}
+              </div>
+              {range === "custom" ? (
+                <DateRangePicker
+                  className="merchant-range-custom"
+                  label={t("orderManagement.filters.dateRange")}
+                  from={customFrom}
+                  to={customTo}
+                  clearLabel={t("orderManagement.filters.clear")}
+                  applyLabel={t("orderManagement.filters.apply")}
+                  presetsLabel={{
+                    d7: t("orderManagement.filters.presets.d7"),
+                    d30: t("orderManagement.filters.presets.d30"),
+                    month: t("orderManagement.filters.presets.month"),
+                  }}
+                  onChange={({ from, to }) => { setCustomFrom(from); setCustomTo(to); }}
+                />
+              ) : <small>{rangeLong} · {t("finance.range.thaiTime")}</small>}
+            </div>
+            <button type="button" disabled={!canExport || exporting || !periodKey} title={canExport ? t("finance.export.xlsxNote") : deniedTitle(canExport)} className="primary" onClick={() => void download()}>
+              <Download />{exporting ? t("finance.export.busy") : t("finance.export.button")}
+            </button>
+          </div>
+        </header>
+
+        <nav className="finance-tabs" aria-label={t("finance.tabsLabel")}>
+          {TABS.map((key) => (
+            <button key={key} type="button" className={tab === key ? "active" : ""} aria-current={tab === key ? "page" : undefined} onClick={() => setTab(key)}>
+              {t(`finance.tabs.${key}`)}
+            </button>
+          ))}
+        </nav>
+
+        {(report.status === "error" || alertText) && (
+          <div className="finance-alert" role="alert">
+            <span>{report.status === "error" ? t("finance.error.generic") : alertText}</span>
+            {report.status === "error" && <button type="button" onClick={() => setReloadTick((n) => n + 1)}>{t("finance.error.retry")}</button>}
+          </div>
+        )}
+
+        {show("kpis") && (
+          <section className="finance-kpis" aria-busy={report.status === "loading"}>
+            <article className="sales"><span><TrendingUp /></span><div><small>{t("finance.kpi.gmv")}</small><b>{kpi((d) => <>{baht(d.kpis.gmv)} {growth(d.kpis.gmvGrowthPct)}</>)}</b><em>{t("finance.kpi.gmvNote")}</em></div></article>
+            <article className="income"><span><WalletCards /></span><div><small>{t("finance.kpi.income")}</small><b>{kpi((d) => <>{baht(d.kpis.estimatedNet)} {growth(d.kpis.estimatedNetGrowthPct)}</>)}</b><em>{t("finance.kpi.incomeNote")}</em></div></article>
+            <article className="fee"><span>●</span><div><small>{t("finance.kpi.fee")}</small><b>{kpi((d) => <>{baht(d.kpis.estimatedFee)} {growth(d.kpis.estimatedFeeGrowthPct)}</>)}</b><em>{t("finance.kpi.feeNote")}</em></div></article>
+            <article className="pending"><span><Building2 /></span><div><small>{t("finance.kpi.refunds")}</small><b>{kpi((d) => <>{baht(d.kpis.refundedAmount)} {growth(d.kpis.refundedGrowthPct)}</>)}</b><em>{t("finance.kpi.refundsNote")}</em></div></article>
+          </section>
+        )}
+
+        {show("unavailableTransfers") && (
+          <article className="finance-panel finance-unavailable">
+            <header><h2>{t("finance.tabs.transfers")}</h2></header>
+            {empty(t("finance.unavailable.title"), t("finance.unavailable.transfers"), <Landmark />)}
+          </article>
+        )}
+        {show("unavailableInvoices") && (
+          <article className="finance-panel finance-unavailable">
+            <header><h2>{t("finance.tabs.invoices")}</h2></header>
+            {empty(t("finance.unavailable.title"), t("finance.unavailable.invoices"), <FileText />)}
+          </article>
+        )}
+
+        {(show("chart") || show("feeDetail")) && (
+          <div className="finance-top-grid" data-single={!show("feeDetail") ? "1" : undefined}>
+            {show("chart") && (
+              <article className="finance-panel finance-chart">
+                <header>
+                  <h2>{t("finance.chart.title")}</h2>
+                  <div className="finance-legend">
+                    <span><i />{t("finance.chart.legendGmv")}</span>
+                    <span><i />{t("finance.chart.legendIncome")}</span>
+                    <span><i />{t("finance.chart.legendFee")}</span>
+                  </div>
+                  {canInShop("REPORT_READ")
+                    ? <Link to="/merchant/reports">{t("finance.chart.openReports")}</Link>
+                    : <button type="button" disabled title={t("finance.viewAllDenied")}>{t("finance.chart.openReports")}</button>}
+                </header>
+                {!canRead ? empty(t("finance.noPermission"), t("finance.noPermissionHint"), <Lock />)
+                  : report.status === "loading" ? empty(t("finance.loading"), t("finance.loadingHint"), <BarChart3 />)
+                  : report.status !== "ready" || !data ? empty(
+                    report.status === "error" ? t("finance.error.title") : "—",
+                    report.status === "error" ? t("finance.error.hint") : undefined,
+                    <BarChart3 />,
+                  )
+                  : num(data.kpis.gmv) <= 0 ? empty(t("finance.chart.empty"), t("finance.chart.emptyHint"), <TrendingUp />)
+                  : seriesChart(data)}
+              </article>
+            )}
+            {show("feeDetail") && (
+              <aside className="finance-panel finance-rail fee-detail">
+                <header><h2>{t("finance.feeDetail.title")}</h2></header>
+                <div className="finance-rail-hero">
+                  <small>{t("finance.feeDetail.total")}</small>
+                  <b>{kpi((d) => baht(d.kpis.estimatedFee))}</b>
+                  <em>{t("finance.feeDetail.rate")}</em>
+                </div>
+                <div className="finance-rail-metric">
+                  <span><WalletCards /></span>
+                  <p>
+                    <small>{t("finance.feeDetail.net")}</small>
+                    <strong>{kpi((d) => baht(d.kpis.estimatedNet))}</strong>
+                    <em>{t("finance.feeDetail.netNote")}</em>
+                  </p>
+                </div>
+                <p className="finance-ledger-note">{t("finance.feeDetail.disclaimer")}</p>
+              </aside>
+            )}
+          </div>
+        )}
+
+        {(show("transactions") || show("balance") || show("transferSummary") || show("documents")) && (
+          <div className="finance-bottom-grid" data-single={!show("balance") && !show("transferSummary") && !show("documents") ? "1" : undefined}>
+            {show("transactions") && (
+              <article className={`finance-panel transaction-card${tab === "ledger" ? " is-ledger" : ""}`}>
+                <header>
+                  <h2>{tab === "ledger" ? t("finance.ledger.titleFull") : t("finance.ledger.title")}</h2>
+                  {canOrders
+                    ? <Link to="/merchant/orders">{t("finance.viewAll")}</Link>
+                    : <button type="button" disabled title={t("finance.viewAllDenied")}>{t("finance.viewAll")}</button>}
+                </header>
+                {transactionRows()}
+              </article>
+            )}
+            {(show("balance") || show("transferSummary") || show("documents")) && (
+              <aside className="finance-panel finance-rail">
+                {show("balance") && (
+                  <section className="finance-rail-block">
+                    <header><h2>{t("finance.balance.title")}</h2></header>
+                    <div className="finance-rail-hero">
+                      <small>{t("finance.balance.estimatedNet")}</small>
+                      <b>{kpi((d) => baht(d.kpis.estimatedNet))}</b>
+                      <em>{t("finance.balance.estimatedNetNote")}</em>
+                    </div>
+                    <div className="finance-rail-metric">
+                      <span><Building2 /></span>
+                      <p>
+                        <small>{t("finance.balance.payoutPending")}</small>
+                        <strong>{t("finance.growthNone")}</strong>
+                        <em>{t("finance.balance.payoutPendingNote")}</em>
+                      </p>
+                    </div>
+                    <button type="button" className="finance-rail-cta" disabled title={t("finance.balance.payoutUnavailable")}>
+                      <Landmark />{t("finance.balance.payoutUnavailable")}
+                    </button>
+                  </section>
+                )}
+                {(show("transferSummary") || show("documents")) && (
+                  <section className="finance-rail-block finance-rail-soon">
+                    <header><h2>{t("finance.rail.soonTitle")}</h2></header>
+                    <ul>
+                      {show("transferSummary") && (
+                        <li>
+                          <i><Landmark /></i>
+                          <div>
+                            <b>{t("finance.transfers.title")}</b>
+                            <small>{t("finance.unavailable.transfersShort")}</small>
+                          </div>
+                          <em>{t("finance.rail.soonBadge")}</em>
+                        </li>
+                      )}
+                      {show("documents") && (
+                        <>
+                          <li>
+                            <i><FileText /></i>
+                            <div>
+                              <b>{t("finance.documents.invoice")}</b>
+                              <small>{t("finance.unavailable.invoicesShort")}</small>
+                            </div>
+                            <em>{t("finance.rail.soonBadge")}</em>
+                          </li>
+                          <li>
+                            <i><FileText /></i>
+                            <div>
+                              <b>{t("finance.documents.tax")}</b>
+                              <small>{t("finance.unavailable.invoicesShort")}</small>
+                            </div>
+                            <em>{t("finance.rail.soonBadge")}</em>
+                          </li>
+                        </>
+                      )}
+                    </ul>
+                  </section>
+                )}
+              </aside>
+            )}
+          </div>
+        )}
+      </section>
+      {notice && <div className="merchant-toast" role="status">{notice}</div>}
+    </main>
+  );
 }

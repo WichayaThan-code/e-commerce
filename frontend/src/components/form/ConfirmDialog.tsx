@@ -9,6 +9,7 @@ type ConfirmDialogProps = {
   danger?: boolean;
   confirmDisabled?: boolean;
   confirmTitle?: string;
+  className?: string;
   onConfirm: () => void;
   onCancel: () => void;
   children?: ReactNode;
@@ -22,6 +23,7 @@ export default function ConfirmDialog({
   danger = false,
   confirmDisabled = false,
   confirmTitle,
+  className,
   onConfirm,
   onCancel,
   children,
@@ -59,7 +61,7 @@ export default function ConfirmDialog({
   }, []);
 
   return (
-    <div className="pm-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={dialogRef}>
+    <div className={["pm-dialog", className].filter(Boolean).join(" ")} role="dialog" aria-modal="true" aria-labelledby={titleId} ref={dialogRef}>
       <section>
         <h2 id={titleId}>{title}</h2>
         <p>{message}</p>

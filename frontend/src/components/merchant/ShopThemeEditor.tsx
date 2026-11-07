@@ -28,9 +28,9 @@ import {
 } from "../../services/api";
 import {
   ensureThemeFontLink, normalizeTheme, PREVIEW_WIDTHS, presetForTemplate, registerThemePresets, sectionsFromBlocks,
-  sectionSupportsVariant, withSynthesizedLayout, type LayoutBlock,
+  sectionSupportsVariant, type LayoutBlock,
   SHOP_BUTTON_SHAPES, SHOP_CARD_STYLES, SHOP_CTA_STYLES, SHOP_DENSITIES, SHOP_IMAGE_RATIOS,
-  SHOP_SHADOWS, SHOP_THEME_FONTS, SHOP_THEME_TEMPLATES,
+  SHOP_SHADOWS, SHOP_THEME_FONTS, SHOP_THEME_PICKER_TEMPLATES,
   shopThemeFontStack, themeContrastIssues, variantsForSection,
   SHOP_TITLE_ALIGNS, SHOP_TRUST_ICONS, MAX_HERO_SLIDES,
   type SectionVariant, type ShopButtonShape, type ShopCardStyle, type ShopCtaStyle, type ShopDensity, type ShopImageRatio,
@@ -257,8 +257,15 @@ export default function ShopThemeEditor({
         }
         const loaded = normalizeTheme(theme as Partial<ShopTheme>);
         setPresets(map);
-        setBaseline(loaded);
-        setDraft(loaded);
+        // CUSTOM is retired from the picker — migrate the editor draft to GENERAL so merchants can save the switch.
+        if (loaded.templateKey === "CUSTOM") {
+          const general = map.GENERAL ?? { templateKey: "GENERAL" as const, config: presetForTemplate("GENERAL") };
+          setBaseline(loaded);
+          setDraft({ templateKey: "GENERAL", config: stripLayout(structuredClone(general.config)) });
+        } else {
+          setBaseline(loaded);
+          setDraft(loaded);
+        }
         setFieldErrors([]);
       })
       .catch(() => {
@@ -331,18 +338,12 @@ export default function ShopThemeEditor({
     const config = structuredClone(preset.config) as ThemeConfig;
     setDraft({
       templateKey: key,
-      config: key === "CUSTOM" ? withSynthesizedLayout(config) : stripLayout(config),
+      config: stripLayout(config),
     });
   };
 
   const chooseTemplate = (key: ShopThemeTemplateKey) => {
     if (key === draft.templateKey) return;
-    if (key === "CUSTOM") {
-      setFieldErrors([]);
-      // AG3: CUSTOM always edits layout.blocks; build them from the current sections the first time.
-      setDraft((current) => ({ templateKey: "CUSTOM", config: withSynthesizedLayout(current.config) }));
-      return;
-    }
     const differsFromTarget = !sameConfig(draft.config, presetFor(key).config);
     if (differsFromTarget) setConfirm({ kind: "template", key });
     else applyPreset(key);
@@ -631,7 +632,7 @@ export default function ShopThemeEditor({
         <fieldset className="theme-block">
           <legend>{t("storeTheme.tc.templateHead")}</legend>
           <div className="tc-tpls">
-            {SHOP_THEME_TEMPLATES.map((key) => {
+            {SHOP_THEME_PICKER_TEMPLATES.map((key) => {
               const active = draft.templateKey === key;
               const colors = presetFor(key).config.colors;
               const dots = [colors.primary, colors.secondary, colors.accent ?? colors.text, colors.background];
@@ -1374,7 +1375,7 @@ export default function ShopThemeEditor({
 
       <section className="tc-preview store-theme-preview">
         <div className="theme-preview-stage" ref={stageRef}>
-          <div className="theme-preview-device tc-device" style={{ width: previewWidth, zoom }}>
+          <div className="theme-preview-device tc-device" data-device={device} style={{ width: previewWidth, zoom }}>
             <HeroStickerDragContext.Provider value={stickerDrag}>
               <ShopStorefront shop={previewShop} products={previewProducts} catalog={previewCatalog} previewWidth={previewWidth}
                 categoryNames={previewCategoryNames} allProductsLimit={PREVIEW_PRODUCT_LIMIT} />

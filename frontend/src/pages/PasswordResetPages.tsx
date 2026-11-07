@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, CheckCircle2, CircleAlert, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShoppingBag } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CheckCircle2, CircleAlert, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { AsciiPasswordInput, PasswordInputHints } from '../components/form/AsciiPasswordInput'
 import LanguageSwitcher from '../components/LanguageSwitcher'
+import SiteBrand from '../components/SiteBrand'
 import { useAsciiPasswordInput } from '../hooks/useAsciiPasswordInput'
 import { ApiError, authApi } from '../services/api'
 import { isPasswordValid } from '../utils/passwordRules'
@@ -13,10 +14,11 @@ import '../styles/password-reset.css'
 function ResetBrand() {
   const { t } = useTranslation('auth')
   return (
-    <a className="brand login-brand" href="/" aria-label={t('passwordResetPage.brandAriaHome')}>
-      <span className="brand-mark"><ShoppingBag size={24} /><i>✓</i></span>
-      <span><b>ThaiShop<span>Fun</span></b><small>{t('passwordResetPage.brandTagline')}</small></span>
-    </a>
+    <SiteBrand
+      homeAria={t('passwordResetPage.brandAriaHome')}
+      className="login-brand"
+      href="/"
+    />
   )
 }
 

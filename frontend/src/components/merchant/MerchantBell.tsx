@@ -8,6 +8,16 @@ import {
   RotateCcw,
   UserPlus,
   TriangleAlert,
+  BadgeCheck,
+  CircleX,
+  ShieldOff,
+  ShieldCheck,
+  FileWarning,
+  Star,
+  Truck,
+  PackageCheck,
+  Users,
+  UserMinus,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { FEATURES } from "../../config/features";
@@ -28,6 +38,10 @@ function hrefFor(item: MerchantNotificationItem): string {
     case "ORDER_PAID":
     case "ORDER_CANCELLED":
     case "REFUND_REQUESTED":
+    case "REFUND_DISPUTED":
+    case "REFUND_COMPLETED":
+    case "PAYMENT_SLIP_PENDING":
+    case "SHIPMENT_EXCEPTION":
       return item.orderNo
         ? `/merchant/orders?q=${encodeURIComponent(item.orderNo)}`
         : "/merchant/orders";
@@ -41,8 +55,25 @@ function hrefFor(item: MerchantNotificationItem): string {
         : "";
       return `/merchant/products?${q}stock=low`;
     }
+    case "PRODUCT_REVIEW_NEW": {
+      const name = item.titleParams?.productName;
+      return name
+        ? `/merchant/products?q=${encodeURIComponent(String(name))}`
+        : "/merchant/products";
+    }
+    case "SHOP_APPROVED":
+    case "SHOP_RESTORED":
+    case "SHOP_PLAN_CHANGED":
+      return "/merchant/dashboard";
+    case "SHOP_SUSPENDED":
+      return "/merchant/reinstatement";
+    case "SHOP_REJECTED":
+      return "/merchant/review";
+    case "SHOP_MEMBER_ROLE_CHANGED":
+    case "SHOP_MEMBER_REMOVED":
+      return "/merchant/settings";
     default:
-      return "/merchant";
+      return "/merchant/dashboard";
   }
 }
 
@@ -55,11 +86,33 @@ function TypeIcon({ type }: { type: MerchantNotificationType }) {
     case "ORDER_CANCELLED":
       return <Ban aria-hidden />;
     case "REFUND_REQUESTED":
+    case "REFUND_DISPUTED":
+    case "REFUND_COMPLETED":
       return <RotateCcw aria-hidden />;
+    case "PAYMENT_SLIP_PENDING":
+      return <FileWarning aria-hidden />;
     case "CUSTOMER_NEW":
       return <UserPlus aria-hidden />;
     case "LOW_STOCK":
       return <TriangleAlert aria-hidden />;
+    case "PRODUCT_REVIEW_NEW":
+      return <Star aria-hidden />;
+    case "SHIPMENT_EXCEPTION":
+      return <Truck aria-hidden />;
+    case "SHOP_APPROVED":
+      return <BadgeCheck aria-hidden />;
+    case "SHOP_REJECTED":
+      return <CircleX aria-hidden />;
+    case "SHOP_SUSPENDED":
+      return <ShieldOff aria-hidden />;
+    case "SHOP_RESTORED":
+      return <ShieldCheck aria-hidden />;
+    case "SHOP_PLAN_CHANGED":
+      return <PackageCheck aria-hidden />;
+    case "SHOP_MEMBER_ROLE_CHANGED":
+      return <Users aria-hidden />;
+    case "SHOP_MEMBER_REMOVED":
+      return <UserMinus aria-hidden />;
     default:
       return <Bell aria-hidden />;
   }
@@ -95,15 +148,30 @@ export default function MerchantBell() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [listError, setListError] = useState(false);
+  const requestGen = useRef(0);
 
   const refreshUnread = useCallback(() => {
     if (!apiOn || shopId == null || document.hidden) return;
+    const gen = requestGen.current;
     merchantNotificationsApi.unreadCount(shopId)
-      .then((row) => setUnread(row.count))
-      .catch(() => undefined);
+      .then((row) => {
+        if (gen !== requestGen.current) return;
+        setUnread(row.count);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        // Keep last known unread; do not force 0 on transient failures.
+      });
   }, [apiOn, shopId]);
 
   useEffect(() => {
+    requestGen.current += 1;
+    setUnread(0);
+    setItems([]);
+    setNextCursor(null);
+    setListError(false);
+    setOpen(false);
     if (!apiOn || shopId == null || !ready) return;
     refreshUnread();
     const onFocus = () => refreshUnread();
@@ -124,12 +192,18 @@ export default function MerchantBell() {
     if (!apiOn || shopId == null) return;
     if (append) setLoadingMore(true);
     else setLoading(true);
+    if (!append) setListError(false);
     try {
       const page = await merchantNotificationsApi.list(shopId, { cursor: cursor || undefined, size: 20 });
       setItems((prev) => append ? [...prev, ...page.items] : page.items);
       setNextCursor(page.nextCursor);
-    } catch {
-      if (!append) setItems([]);
+      setListError(false);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (!append) {
+        setListError(true);
+        // Do not clear items to an empty success state on failure.
+      }
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -194,7 +268,7 @@ export default function MerchantBell() {
     t(`notifications.types.${item.type}`, { ...item.titleParams, defaultValue: item.type });
 
   const showFeed = apiOn && shopId != null;
-  const feedEmpty = !loading && items.length === 0;
+  const feedEmpty = !loading && !listError && items.length === 0;
   const importEmpty = notice == null;
 
   return (
@@ -250,6 +324,13 @@ export default function MerchantBell() {
               {loading ? (
                 <div className="merchant-notify-skeleton" aria-busy="true">
                   <span /><span /><span />
+                </div>
+              ) : listError ? (
+                <div className="merchant-notify-empty">
+                  <p>{t("notifications.loadError")}</p>
+                  <button type="button" className="merchant-notify-more" onClick={() => void loadList()}>
+                    {t("notifications.retry")}
+                  </button>
                 </div>
               ) : feedEmpty && importEmpty ? (
                 <p className="merchant-notify-empty">{t("notifications.empty")}</p>

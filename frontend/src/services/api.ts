@@ -1247,10 +1247,94 @@ export const merchantDashboardApi = {
     request<MerchantDashboardInsights>(`${shopPath(shopId, '/dashboard/insights')}${queryOf(period)}`, { cache: 'no-store' }, true),
 }
 
+/**
+ * Merchant reports: GET /api/merchant/shops/{shopId}/reports/overview (REPORT_READ) and .../export.csv (REPORT_EXPORT).
+ * Money fields are numbers or decimal strings; every *GrowthPct is null when the previous period has no base (show "—").
+ * gmv = paid orders grand_total (placed_at, Asia/Bangkok); itemSales = paid order item totals; refundedAmount = COMPLETED
+ * refunds by completed_at (separate, not subtracted); estimatedFee/Net are 5% ESTIMATES (not profit / not a payout).
+ */
+export type MerchantReportPeriod = { range?: MerchantDashboardRange; from?: string; to?: string }
+export type MerchantReportTab = 'overview' | 'sales' | 'products' | 'orders' | 'customers' | 'promotions' | 'fees' | 'shipping'
+type ReportMoney = number | string
+type ReportGrowth = number | null
+export type MerchantReportKpis = {
+  gmv: ReportMoney; previousGmv: ReportMoney; gmvGrowthPct: ReportGrowth
+  itemSales: ReportMoney; previousItemSales: ReportMoney; itemSalesGrowthPct: ReportGrowth
+  paidOrderCount: number; previousPaidOrderCount: number; paidOrderGrowthPct: ReportGrowth
+  allOrderCount: number; previousAllOrderCount: number; allOrderGrowthPct: ReportGrowth
+  refundedAmount: ReportMoney; previousRefundedAmount: ReportMoney; refundedGrowthPct: ReportGrowth; refundCount: number
+  estimatedFee: ReportMoney; previousEstimatedFee: ReportMoney; estimatedFeeGrowthPct: ReportGrowth
+  estimatedNet: ReportMoney; previousEstimatedNet: ReportMoney; estimatedNetGrowthPct: ReportGrowth
+}
+export type MerchantReportCustomerSummary = {
+  uniqueCustomers: number; previousUniqueCustomers: number; uniqueGrowthPct: ReportGrowth
+  newCustomers: number; previousNewCustomers: number; newGrowthPct: ReportGrowth
+  returningCustomers: number; previousReturningCustomers: number; returningGrowthPct: ReportGrowth
+  averageOrdersPerCustomer: ReportMoney; previousAverageOrdersPerCustomer: ReportMoney; averageOrdersGrowthPct: ReportGrowth
+  averageOrderValue: ReportMoney; previousAverageOrderValue: ReportMoney; averageOrderValueGrowthPct: ReportGrowth
+}
+export type MerchantReportPromotionSummary = {
+  redemptionCount: number; previousRedemptionCount: number; redemptionGrowthPct: ReportGrowth
+  discountTotal: ReportMoney; previousDiscountTotal: ReportMoney; discountGrowthPct: ReportGrowth
+  paidOrdersWithCoupon: number; previousPaidOrdersWithCoupon: number; couponOrderGrowthPct: ReportGrowth
+  attachRatePct: ReportMoney; previousAttachRatePct: ReportMoney; attachRateGrowthPct: ReportGrowth
+}
+export type MerchantReportShippingSummary = {
+  shippingFeeCollected: ReportMoney; previousShippingFeeCollected: ReportMoney; shippingFeeGrowthPct: ReportGrowth
+  freeShippingOrderCount: number; previousFreeShippingOrderCount: number; freeShippingGrowthPct: ReportGrowth
+  averageShippingFee: ReportMoney; previousAverageShippingFee: ReportMoney; averageShippingFeeGrowthPct: ReportGrowth
+  paidOrderCount: number
+}
+export type MerchantReportShipmentOps = {
+  dispatchedCount: number; previousDispatchedCount: number; dispatchedGrowthPct: ReportGrowth
+  deliveredCount: number; previousDeliveredCount: number; deliveredGrowthPct: ReportGrowth
+  failedCount: number; previousFailedCount: number; failedGrowthPct: ReportGrowth
+  returnedCount: number; previousReturnedCount: number; returnedGrowthPct: ReportGrowth
+}
+export type MerchantReportOverview = {
+  range: string; from: string; to: string; days: number; timezone: string; currency: string; bucket: 'day' | 'week' | 'month'
+  previousFrom: string; previousTo: string; feeEstimateRate: number | string
+  kpis: MerchantReportKpis
+  series: { start: string; end: string; gmv: ReportMoney; orders: number; estimatedFee: ReportMoney; estimatedNet: ReportMoney }[]
+  /** key = category slug | UNCATEGORIZED | OTHER (names null for the two synthetic keys) */
+  categories: { key: string; nameTh: string | null; nameEn: string | null; nameZh: string | null; itemSales: ReportMoney; quantity: number; sharePercent: number | string }[]
+  /** channel = STOREFRONT | SHOPEE | TIKTOK | LAZADA | LINE_OA | MANUAL | OMS_IMPORT | UNKNOWN */
+  channels: { channel: string; orders: number; gmv: ReportMoney; sharePercent: number | string }[]
+  topProducts: { productId: string | null; name: string; imageUrl: string | null; quantity: number; itemSales: ReportMoney }[]
+  customerSummary: MerchantReportCustomerSummary
+  /** NO_SALES | NO_BASELINE | GMV_UP | GMV_DOWN | GMV_FLAT | NO_NEW_CUSTOMERS | NEW_CUSTOMERS_DOWN | REFUNDS_PRESENT */
+  adviceFlags: string[]
+  promotionSummary: MerchantReportPromotionSummary
+  promoTypes: { promoType: string; redemptions: number; discountTotal: ReportMoney; sharePercent: number | string }[]
+  topCoupons: { code: string; promoType: string; redemptions: number; discountTotal: ReportMoney }[]
+  shippingSummary: MerchantReportShippingSummary
+  carriers: { carrier: string; orders: number; shippingFee: ReportMoney; sharePercent: number | string }[]
+  shipmentOps: MerchantReportShipmentOps
+}
+export const merchantReportsApi = {
+  overview: (shopId: number, period: MerchantReportPeriod = {}, signal?: AbortSignal) =>
+    request<MerchantReportOverview>(`${shopPath(shopId, '/reports/overview')}${queryOf(period)}`, { cache: 'no-store', signal }, true),
+  /** Real .xlsx workbook (Excel Table + meta). Labels follow Accept-Language / lang. */
+  exportXlsx: (shopId: number, period: MerchantReportPeriod = {}, tab: MerchantReportTab = 'overview') => {
+    const label = period.range ?? `${period.from ?? ''}_${period.to ?? ''}`
+    return downloadFile(`${shopPath(shopId, '/reports/export.xlsx')}${queryOf({ ...period, tab })}`, `thaishopfun-report-${tab}-${label}.xlsx`)
+  },
+  /** @deprecated use exportXlsx — kept as alias during transition */
+  exportCsv: (shopId: number, period: MerchantReportPeriod = {}, tab: MerchantReportTab = 'overview') =>
+    merchantReportsApi.exportXlsx(shopId, period, tab),
+}
+
 export const merchantOrderApi = {
   /** query: status, paymentStatus, fulfillmentStatus, from, to, q, page, size, sort, direction, acceptance, customer (opaque insight key) */
   list: (shopId: number, params: Record<string, string | number | boolean | null | undefined> = {}) =>
     request<OrderPage>(`${merchantOrders(shopId)}${queryOf(params)}`, { cache: 'no-store' }, true),
+  /** ORDER_EXPORT — same filters as list (drops page/size); real .xlsx of all matching rows. */
+  exportXlsx: (shopId: number, params: Record<string, string | number | boolean | null | undefined> = {}) => {
+    const query = { ...params }
+    delete query.page
+    delete query.size
+    return downloadFile(`${merchantOrders(shopId, '/export')}${queryOf(query)}`, `orders-${shopId}.xlsx`)
+  },
   get: (shopId: number, orderId: string) => request<OrderDetail>(merchantOrders(shopId, `/${orderId}`), { cache: 'no-store' }, true),
   timeline: (shopId: number, orderId: string) => request<OrderTimelineEntry[]>(merchantOrders(shopId, `/${orderId}/timeline`), { cache: 'no-store' }, true),
   transitions: (shopId: number, orderId: string) => request<AllowedTransitions>(merchantOrders(shopId, `/${orderId}/transitions`), { cache: 'no-store' }, true),
@@ -1397,6 +1481,8 @@ export type AdminShopRow = {
   shopId: number; name: string; nameEn?: string | null; slug?: string | null; status: string; category?: string | null
   province?: string | null; merchantId?: string | null; merchantName?: string | null; merchantStatus?: string | null
   owner?: AdminUserRef | null; activeMembers: number; products: number; orders: number
+  /** Paid GMV for orders placed in the last 30 days. */
+  salesLast30Days?: number | string | null
   createdAt?: string | null; publishedAt?: string | null; suspendedAt?: string | null
 }
 export type AdminShopMemberView = {
@@ -1578,7 +1664,10 @@ export const adminOrderApi = {
 
 /* ---------------------------------------------------------------- merchant notifications (AE1) */
 export type MerchantNotificationType =
-  | 'ORDER_NEW' | 'ORDER_PAID' | 'ORDER_CANCELLED' | 'REFUND_REQUESTED' | 'CUSTOMER_NEW' | 'LOW_STOCK'
+  | 'ORDER_NEW' | 'ORDER_PAID' | 'ORDER_CANCELLED' | 'REFUND_REQUESTED' | 'REFUND_DISPUTED' | 'REFUND_COMPLETED'
+  | 'PAYMENT_SLIP_PENDING' | 'CUSTOMER_NEW' | 'LOW_STOCK' | 'PRODUCT_REVIEW_NEW' | 'SHIPMENT_EXCEPTION'
+  | 'SHOP_APPROVED' | 'SHOP_REJECTED' | 'SHOP_SUSPENDED' | 'SHOP_RESTORED'
+  | 'SHOP_PLAN_CHANGED' | 'SHOP_MEMBER_ROLE_CHANGED' | 'SHOP_MEMBER_REMOVED'
 
 export type MerchantNotificationItem = {
   key: string
@@ -1609,6 +1698,44 @@ export const merchantNotificationsApi = {
     request<void>(shopPath(shopId, `/notifications/${encodeURIComponent(key)}/read`), { method: 'POST' }, true),
   markAllRead: (shopId: number) =>
     request<void>(shopPath(shopId, '/notifications/read-all'), { method: 'POST' }, true),
+}
+
+export type AdminNotificationType =
+  | 'SHOP_APPLICATION_SUBMITTED'
+  | 'SHOP_REINSTATEMENT_REQUESTED'
+  | 'REFUND_DISPUTED'
+
+export type AdminNotificationItem = {
+  id: string
+  type: AdminNotificationType | string
+  entityType: string
+  entityId: string
+  shopId?: number | null
+  shopName?: string | null
+  href: string
+  unread: boolean
+  createdAt: string
+}
+
+export type AdminNotificationPage = {
+  items: AdminNotificationItem[]
+  nextCursor?: string | null
+  unreadCount: number
+}
+
+export const adminNotificationsApi = {
+  list: (params: { cursor?: string | null; size?: number } = {}) =>
+    request<AdminNotificationPage>(
+      `/api/admin/notifications${queryOf({ cursor: params.cursor || undefined, size: params.size })}`,
+      { cache: 'no-store' },
+      true,
+    ),
+  unreadCount: () =>
+    request<{ count: number }>('/api/admin/notifications/unread-count', { cache: 'no-store' }, true),
+  markRead: (id: string) =>
+    request<void>(`/api/admin/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }, true),
+  markAllRead: () =>
+    request<void>('/api/admin/notifications/read-all', { method: 'POST' }, true),
 }
 
 /** AB3: public order tracking (no login; POST /api/public/orders/lookup). PII is masked by the backend. */

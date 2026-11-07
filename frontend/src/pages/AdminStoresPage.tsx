@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  Check, ChevronDown, ChevronLeft, ChevronRight,
+  Check, ChevronDown,
   CircleX, Clock3, Download, MoreVertical, Plus,
   Search, SlidersHorizontal, Store,
 } from 'lucide-react'
 import { SkeletonTable, SkeletonForm, LoadError } from '../components/feedback/Skeleton'
 import ReasonDialog, { SUSPEND_REASON_CODES } from '../components/admin/ReasonDialog'
-import { Drawer, Pill, errorMessage, statusTone } from '../components/admin/PlatformBits'
+import { Drawer, Pager, Pill, errorMessage, statusTone } from '../components/admin/PlatformBits'
 import { QuotaBar, buildUsageQuotas, quotaRatio, quotaTone } from '../components/admin/QuotaBar'
 import { useDelayedLoading } from '../hooks/useDelayedLoading'
 import AdminHeader from '../components/AdminHeader'
@@ -96,6 +96,12 @@ function formatCount(value: number, locale: string) {
   return value.toLocaleString(tag)
 }
 
+function moneyAmount(value: number | string | null | undefined) {
+  if (value == null || value === '') return 0
+  const amount = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(amount) ? amount : 0
+}
+
 function ownerDisplayName(detail: AdminShopDetail | null): string {
   if (!detail) return '—'
   if (detail.owner) {
@@ -133,7 +139,11 @@ export default function AdminStoresPage(){
   const [page,setPage]=useState(1)
   const [pageSize,setPageSize]=useState(10)
 
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [selectedId, setSelectedId] = useState<number | null>(() => {
+    const raw = Number(searchParams.get('shopId'))
+    return Number.isFinite(raw) && raw > 0 ? raw : null
+  })
   const [detailKey, setDetailKey] = useState(0)
   const [detail, setDetail] = useState<AdminShopDetail | null>(null)
   const [usage, setUsage] = useState<AdminShopUsage | null>(null)
@@ -144,6 +154,13 @@ export default function AdminStoresPage(){
   const [drawerBusy, setDrawerBusy] = useState(false)
   const [drawerActionError, setDrawerActionError] = useState('')
   const [serverMatchIds, setServerMatchIds] = useState<number[] | null>(null)
+  /** Metrics from GET /api/admin/shops — kept separate so application reloads do not wipe sales. */
+  const [shopMetrics, setShopMetrics] = useState<Record<number, { sales: number; products: number }>>({})
+
+  useEffect(() => {
+    const raw = Number(searchParams.get('shopId'))
+    if (Number.isFinite(raw) && raw > 0) setSelectedId(raw)
+  }, [searchParams])
 
   useEffect(() => {
     if (!user || !hasPlatformAccess(user)) return
@@ -159,6 +176,7 @@ export default function AdminStoresPage(){
   }, [user])
 
   // Phone/email/name search against full DB values via GET /api/admin/shops?q= (response stays masked).
+  // Also carries salesLast30Days / products for the list columns.
   useEffect(() => {
     if (!user || !hasPlatformAccess(user)) return
     let cancelled = false
@@ -169,7 +187,16 @@ export default function AdminStoresPage(){
       sort: 'shopId',
       dir: 'asc',
     }).then(page => {
-      if (!cancelled) setServerMatchIds(page.items.map(item => item.shopId))
+      if (cancelled) return
+      setServerMatchIds(page.items.map(item => item.shopId))
+      const next: Record<number, { sales: number; products: number }> = {}
+      for (const item of page.items) {
+        next[item.shopId] = {
+          sales: moneyAmount(item.salesLast30Days),
+          products: item.products ?? 0,
+        }
+      }
+      setShopMetrics(next)
     }).catch(() => {
       if (!cancelled) setServerMatchIds(null)
     })
@@ -216,12 +243,18 @@ export default function AdminStoresPage(){
     return () => { cancelled = true }
   }, [selectedId, detailKey])
 
-  const filtered=useMemo(()=>rows.filter(store=>{
+  const enrichedRows = useMemo(() => rows.map(store => {
+    const metrics = shopMetrics[store.id]
+    if (!metrics) return store
+    return { ...store, sales: metrics.sales, products: metrics.products }
+  }), [rows, shopMetrics])
+
+  const filtered=useMemo(()=>enrichedRows.filter(store=>{
     if (serverMatchIds && !serverMatchIds.includes(store.id)) return false
     if (status !== 'ALL' && store.status !== status) return false
     return (category==='ALL'||store.category===category)
       && (province==='ALL'||store.province===province)
-  }),[rows,serverMatchIds,status,category,province])
+  }),[enrichedRows,serverMatchIds,status,category,province])
   const pageCount=Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage=Math.min(page, pageCount)
   const visible=filtered.slice((safePage - 1) * pageSize, safePage * pageSize)
@@ -248,8 +281,26 @@ export default function AdminStoresPage(){
   const reset=()=>{setQuery('');setStatus('ALL');setCategory('ALL');setProvince('ALL')}
   const toggleAll=()=>setSelected(selected.length===visible.length&&visible.length>0?[]:visible.map(row=>row.id))
   const toggle=(id:number)=>setSelected(items=>items.includes(id)?items.filter(item=>item!==id):[...items,id])
-  const openDetail = (id: number) => { setDrawerConfirm(null); setDrawerActionError(''); setSelectedId(id) }
-  const closeDrawer = () => { setSelectedId(null); setDrawerConfirm(null); setDrawerActionError('') }
+  const openDetail = (id: number) => {
+    setDrawerConfirm(null)
+    setDrawerActionError('')
+    setSelectedId(id)
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('shopId', String(id))
+      return next
+    }, { replace: true })
+  }
+  const closeDrawer = () => {
+    setSelectedId(null)
+    setDrawerConfirm(null)
+    setDrawerActionError('')
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('shopId')
+      return next
+    }, { replace: true })
+  }
   const manage=async(store:StoreRecord)=>{
     if(store.status==='PENDING_REVIEW'||store.status==='REJECTED'){
       navigate(`/admin/store-applications?shop=${store.id}`)
@@ -330,9 +381,6 @@ export default function AdminStoresPage(){
       setDrawerBusy(false)
     }
   }
-  const from=filtered.length?((safePage-1)*pageSize)+1:0
-  const to=Math.min(safePage*pageSize, filtered.length)
-  const pages=Array.from({length:pageCount},(_,index)=>index+1).filter(number=>number===1||number===pageCount||Math.abs(number-safePage)<=2)
   const statusOptions=STATUS_FILTERS.map(value=>({
     value,
     label: value==='ALL' ? t('adminPlatform.common.all') : tp(`status.${value}`),
@@ -344,9 +392,18 @@ export default function AdminStoresPage(){
   const shownUsage = usage ?? detail?.usage ?? null
   const suspension = detail?.suspension
   const showSuspension = detail?.status === 'SUSPENDED' && suspension && (suspension.suspendedAt || suspension.reasonCode || suspension.reason)
+  const appealMessage = (detail?.pendingReinstatementMessage || selectedRow?.appeal || '').trim()
+  const hasAppeal = Boolean(appealMessage)
+  const canActSuspend = detail?.status === 'APPROVED'
+  const canActRestore = detail?.status === 'SUSPENDED'
+  const showDrawerActions = Boolean(detail && (canActSuspend || canActRestore))
   const reasonCodeLabel = (code: string | null | undefined) => {
     if (!code) return ''
     return t(`adminPlatform.reason.codes.${code}`, { defaultValue: code })
+  }
+  const dash = (value: string | null | undefined) => {
+    const text = (value ?? '').trim()
+    return text || '—'
   }
 
   return <main className="admin-shell stores-shell">
@@ -355,9 +412,15 @@ export default function AdminStoresPage(){
     <AdminSidebar active="stores" className="stores-sidebar"/>
 
     <div className="admin-content stores-content">
-      <section className="stores-heading">
-        <div className="stores-title"><span><Store/></span><div><h1>{tp('title')}</h1><p>{tp('subtitle')}</p></div></div>
-        <button className="add-store" onClick={()=>notify(tp('addStoreToast'))}><Plus/>{tp('addStore')}</button>
+      <section className="ap-heading stores-heading">
+        <span className="ap-heading-icon" aria-hidden="true"><Store /></span>
+        <div>
+          <h1>{tp('title')}</h1>
+          <p>{tp('subtitle')}</p>
+        </div>
+        <button type="button" className="add-store" onClick={() => notify(tp('addStoreToast'))}>
+          <Plus />{tp('addStore')}
+        </button>
       </section>
 
       <section className="store-kpis" aria-label={tp('kpiAria')}>
@@ -415,12 +478,46 @@ export default function AdminStoresPage(){
           </div>)}
           {filtered.length===0&&<div className="stores-empty">{tp('emptyFiltered')}</div>}
         </div></div>
-        <footer><div>{tp('show')} <AdminSelect compact className="adm-page-size" label={tp('pageSizeLabel')} value={String(pageSize)} onChange={value=>setPageSize(Number(value))} options={['10', '25', '50'].map(value=>({ value, label: value }))}/> {tp('perPage')}</div><span>{tp('range', { from, to, total: formatCount(rows.length, locale) })}</span><nav aria-label={tp('paginationAria')}><button disabled={safePage<=1} onClick={()=>setPage(value=>Math.max(1, value-1))}><ChevronLeft/></button>{pages.map(number=><button className={safePage===number?'current':''} key={number} onClick={()=>setPage(number)}>{number}</button>)}<button disabled={safePage>=pageCount} onClick={()=>setPage(value=>Math.min(pageCount, value+1))}><ChevronRight/></button></nav></footer>
+        <Pager
+          page={safePage - 1}
+          size={pageSize}
+          totalItems={filtered.length}
+          totalPages={pageCount}
+          itemCount={visible.length}
+          sizeOptions={[10, 25, 50]}
+          onPage={next => setPage(next + 1)}
+          onSize={next => { setPageSize(next); setPage(1) }}
+        />
       </section>
     </div>
     {notice&&<div className="admin-toast" role="status">{notice}</div>}
     {selectedId !== null && (
-      <Drawer title={td('title')} subtitle={detail?.name || selectedRow?.name} onClose={closeDrawer} wide>
+      <Drawer
+        className="store-detail-drawer"
+        title={hasAppeal ? td('reinstatementTitle') : td('title')}
+        subtitle={
+          <span className="store-drawer-ref">
+            <span className="num">#{selectedId}</span>
+            {(detail?.name || selectedRow?.name) ? <span className="store-drawer-ref-name">{detail?.name || selectedRow?.name}</span> : null}
+          </span>
+        }
+        onClose={closeDrawer}
+        wide
+        footer={
+          showDrawerActions ? (
+            <div className="ap-drawer-actions store-drawer-actions">
+              {canActSuspend && (
+                <button type="button" className="ap-danger" disabled={!canSuspend || drawerBusy} title={deniedTitle(canSuspend)}
+                  onClick={() => { setDrawerActionError(''); setDrawerConfirm('suspend') }}>{td('suspend')}</button>
+              )}
+              {canActRestore && (
+                <button type="button" className="ap-primary" disabled={!canRestore || drawerBusy} title={deniedTitle(canRestore)}
+                  onClick={() => { setDrawerActionError(''); setDrawerConfirm('reactivate') }}>{td('reactivate')}</button>
+              )}
+            </div>
+          ) : undefined
+        }
+      >
         {detailForbidden ? (
           <p className="ap-error" role="alert">{td('forbidden')}</p>
         ) : detailError && !detail ? (
@@ -428,77 +525,139 @@ export default function AdminStoresPage(){
         ) : !detail ? (
           <SkeletonForm fields={6} />
         ) : (
-          <>
-            <div className="ap-drawer-status">
-              <Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill>
-              <span className="num">#{detail.shopId}</span>
-            </div>
-            <section className="ap-section">
-              <h3>{td('info')}</h3>
-              <div className="store-identity" style={{ marginBottom: 12 }}>
-                <i className={selectedRow?.logoClass || 'garden'}>
-                  {selectedRow?.logoUrl ? <img src={mediaUrl(selectedRow.logoUrl)} alt="" /> : (selectedRow?.logo || detail.name.trim().charAt(0) || 'S')}
-                </i>
-                <p>
-                  <b>{detail.name}</b>
+          <div className="store-drawer">
+            <section className="store-drawer-summary" aria-label={td('info')}>
+              <i className={`store-drawer-logo ${selectedRow?.logoClass || 'garden'}`} aria-hidden>
+                {selectedRow?.logoUrl
+                  ? <img src={mediaUrl(selectedRow.logoUrl)} alt="" />
+                  : (selectedRow?.logo || detail.name.trim().charAt(0) || 'S')}
+              </i>
+              <div className="store-drawer-summary-copy">
+                <h3>{detail.name}</h3>
+                <div className="store-drawer-summary-meta">
+                  <Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill>
                   {detail.slug ? (
-                    <span>
-                      <a href={`/shop/${encodeURIComponent(detail.slug)}`} target="_blank" rel="noreferrer">
-                        @{detail.slug}
-                      </a>
-                      {' · '}
-                      <a href={`/shop/${encodeURIComponent(detail.slug)}`} target="_blank" rel="noreferrer">{td('openStorefront')}</a>
-                    </span>
+                    <a href={`/shop/${encodeURIComponent(detail.slug)}`} target="_blank" rel="noreferrer">
+                      @{detail.slug}
+                    </a>
                   ) : null}
-                </p>
+                  {detail.slug ? (
+                    <a href={`/shop/${encodeURIComponent(detail.slug)}`} target="_blank" rel="noreferrer">{td('openStorefront')}</a>
+                  ) : null}
+                </div>
               </div>
-              <dl className="ap-fields">
-                <div><dt>{td('status')}</dt><dd><Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill></dd></div>
-                <div><dt>{td('createdAt')}</dt><dd className="num">{formatDateTime(detail.createdAt)}</dd></div>
+            </section>
+
+            {hasAppeal && (
+              <section className="store-drawer-appeal" aria-label={td('reinstatementSection')}>
+                <div className="store-drawer-appeal-top">
+                  <span className="store-drawer-appeal-label">{td('reinstatementSection')}</span>
+                  <span className="store-drawer-appeal-status">{td('appealPending')}</span>
+                </div>
+                <blockquote className="store-drawer-appeal-quote">{appealMessage}</blockquote>
+              </section>
+            )}
+
+            {showSuspension && (
+              <section className="store-drawer-section" aria-label={td('suspension')}>
+                <h4>{td('suspension')}</h4>
+                <dl className="store-drawer-fields">
+                  <div>
+                    <dt>{td('shopStatus')}</dt>
+                    <dd><Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill></dd>
+                  </div>
+                  {suspension?.suspendedAt && (
+                    <div>
+                      <dt>{td('suspendedAt')}</dt>
+                      <dd className="num">{formatDateTime(suspension.suspendedAt)}</dd>
+                    </div>
+                  )}
+                  {suspension?.reasonCode && (
+                    <div>
+                      <dt>{td('reasonCode')}</dt>
+                      <dd>{reasonCodeLabel(suspension.reasonCode)}</dd>
+                    </div>
+                  )}
+                  {suspension?.reason && (
+                    <div className="full">
+                      <dt>{td('reason')}</dt>
+                      <dd className="store-drawer-longtext">{suspension.reason}</dd>
+                    </div>
+                  )}
+                </dl>
+              </section>
+            )}
+
+            <section className="store-drawer-section" aria-label={td('info')}>
+              <h4>{td('info')}</h4>
+              <dl className="store-drawer-fields">
+                {!showSuspension && (
+                  <div>
+                    <dt>{td('status')}</dt>
+                    <dd><Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill></dd>
+                  </div>
+                )}
+                <div>
+                  <dt>{td('createdAt')}</dt>
+                  <dd className="num">{formatDateTime(detail.createdAt)}</dd>
+                </div>
                 <div>
                   <dt>{td('merchant')}</dt>
                   <dd>
                     {detail.merchantId ? (
-                      <a href={`/admin/merchants?merchant=${encodeURIComponent(detail.merchantId)}`}>{detail.merchantName || ownerDisplayName(detail)}</a>
-                    ) : (detail.merchantName || ownerDisplayName(detail))}
-                    {detail.merchantStatus ? <small className="block">{ta(`status.${detail.merchantStatus}`, { defaultValue: detail.merchantStatus })}</small> : null}
+                      <a href={`/admin/merchants?merchant=${encodeURIComponent(detail.merchantId)}`}>
+                        {dash(detail.merchantName || ownerDisplayName(detail))}
+                      </a>
+                    ) : dash(detail.merchantName || ownerDisplayName(detail))}
+                    {detail.merchantStatus ? (
+                      <small className="block">{ta(`status.${detail.merchantStatus}`, { defaultValue: detail.merchantStatus })}</small>
+                    ) : null}
                   </dd>
                 </div>
-                <div><dt>{td('owner')}</dt><dd>{ownerDisplayName(detail)}</dd></div>
-                <div><dt>{td('phone')}</dt><dd className="num">{maskPhone(detail.owner?.phone ?? selectedRow?.phone)}</dd></div>
-                <div><dt>{td('email')}</dt><dd className="num">{maskEmail(detail.owner?.email ?? selectedRow?.email)}</dd></div>
+                <div>
+                  <dt>{td('owner')}</dt>
+                  <dd>{dash(ownerDisplayName(detail))}</dd>
+                </div>
+                <div>
+                  <dt>{td('phone')}</dt>
+                  <dd className="num">{maskPhone(detail.owner?.phone ?? selectedRow?.phone)}</dd>
+                </div>
+                <div>
+                  <dt>{td('email')}</dt>
+                  <dd className="num">{maskEmail(detail.owner?.email ?? selectedRow?.email)}</dd>
+                </div>
               </dl>
             </section>
-            {showSuspension && (
-              <section className="ap-section">
-                <h3>{td('suspension')}</h3>
-                <dl className="ap-fields">
-                  {suspension?.suspendedAt && <div><dt>{td('suspendedAt')}</dt><dd className="num">{formatDateTime(suspension.suspendedAt)}</dd></div>}
-                  {suspension?.reasonCode && <div><dt>{td('reasonCode')}</dt><dd>{reasonCodeLabel(suspension.reasonCode)}</dd></div>}
-                  {suspension?.reason && <div className="full"><dt>{td('reason')}</dt><dd>{suspension.reason}</dd></div>}
-                </dl>
-              </section>
-            )}
-            <section className="ap-section">
-              <h3>{td('planUsage')}</h3>
-              <p className="ap-muted">{td('plan')}: <b>{shownUsage?.planCode || detail.usage?.planCode || td('noPlan')}</b></p>
-              {usageError && !shownUsage ? <p className="ap-error" role="alert">{usageError}</p>
-                : !shownUsage ? <SkeletonForm fields={3} />
-                : (
-                  <div className="ap-quota-list">
-                    {buildUsageQuotas(shownUsage, ta).map(row => {
-                      const displayUsed = row.format ? row.format(row.used) : String(row.used)
-                      const displayLimit = row.limit == null
-                        ? ta('usage.unlimited')
-                        : (row.format ? row.format(row.limit) : String(row.limit))
-                      const pct = quotaRatio(row.used, row.limit)
-                      const tone = quotaTone(row.used, row.limit, pct)
-                      return (
-                        <article key={row.key} className={`ap-quota-card ${tone}`}>
-                          <header>
-                            <b>{row.label}</b>
-                            <strong className="num">{displayUsed}{row.limit != null ? ` / ${displayLimit}` : ` · ${ta('usage.unlimited')}`}</strong>
-                          </header>
+
+            <details className="store-drawer-section store-drawer-usage">
+              <summary>
+                <span>{td('planUsage')}</span>
+                <b>{shownUsage?.planCode || detail.usage?.planCode || td('noPlan')}</b>
+              </summary>
+              {usageError && !shownUsage ? (
+                <p className="ap-error" role="alert">{usageError}</p>
+              ) : !shownUsage ? (
+                <SkeletonForm fields={3} />
+              ) : (
+                <ul className="store-drawer-quota">
+                  {buildUsageQuotas(shownUsage, ta).map((row) => {
+                    const displayUsed = row.format ? row.format(row.used) : String(row.used)
+                    const displayLimit = row.limit == null
+                      ? ta('usage.unlimited')
+                      : (row.format ? row.format(row.limit) : String(row.limit))
+                    const pct = quotaRatio(row.used, row.limit)
+                    const tone = quotaTone(row.used, row.limit, pct)
+                    return (
+                      <li key={row.key} className={tone}>
+                        <div>
+                          <b>{row.label}</b>
+                          <strong className="num">
+                            {row.limit == null
+                              ? `${displayUsed} · ${ta('usage.unlimited')}`
+                              : `${displayUsed} / ${displayLimit}`}
+                          </strong>
+                        </div>
+                        {row.limit != null && (
                           <QuotaBar
                             used={row.used}
                             limit={row.limit}
@@ -506,30 +665,22 @@ export default function AdminStoresPage(){
                             format={row.format}
                             showCaption={false}
                           />
-                          {row.hint && <span>{row.hint}</span>}
-                        </article>
-                      )
-                    })}
-                  </div>
-                )}
-            </section>
+                        )}
+                        {row.hint && <span>{row.hint}</span>}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </details>
+
             {canAudit && (
-              <p className="ap-muted">
+              <p className="store-drawer-audit">
                 <a href={`/admin/audit-logs?targetType=SHOP&targetId=${detail.shopId}&kind=BUSINESS`}>{td('auditLink')}</a>
               </p>
             )}
             {drawerActionError && !drawerConfirm && <p className="ap-error" role="alert">{drawerActionError}</p>}
-            <footer className="ap-drawer-actions">
-              {detail.status === 'APPROVED' && (
-                <button type="button" className="ap-danger" disabled={!canSuspend || drawerBusy} title={deniedTitle(canSuspend)}
-                  onClick={() => { setDrawerActionError(''); setDrawerConfirm('suspend') }}>{td('suspend')}</button>
-              )}
-              {detail.status === 'SUSPENDED' && (
-                <button type="button" className="ap-primary" disabled={!canRestore || drawerBusy} title={deniedTitle(canRestore)}
-                  onClick={() => { setDrawerActionError(''); setDrawerConfirm('reactivate') }}>{td('reactivate')}</button>
-              )}
-            </footer>
-          </>
+          </div>
         )}
       </Drawer>
     )}
@@ -572,7 +723,10 @@ export default function AdminStoresPage(){
     {drawerConfirm && detail && (
       <ReasonDialog
         title={t(drawerConfirm === 'suspend' ? 'confirm.suspendStoreTitle' : 'confirm.reactivateStoreTitle')}
-        message={t(drawerConfirm === 'suspend' ? 'confirm.suspendStoreBody' : 'confirm.reactivateStoreBody', { name: detail.name })}
+        message={[
+          t(drawerConfirm === 'suspend' ? 'confirm.suspendStoreBody' : 'confirm.reactivateStoreBody', { name: detail.name }),
+          drawerConfirm === 'reactivate' && hasAppeal ? t('confirm.appealNote', { appeal: appealMessage }) : '',
+        ].filter(Boolean).join(' ')}
         confirmLabel={t('confirm.confirm')}
         danger={drawerConfirm === 'suspend'}
         busy={drawerBusy}

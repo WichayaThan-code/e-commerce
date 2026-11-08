@@ -98,6 +98,13 @@ app:
       from-name: ${MAIL_FROM_NAME:ThaiShopFun}
       starttls: ${MAIL_STARTTLS:true}
       ssl: ${MAIL_SSL:false}
+  shop-team:
+    # Single-use invite links (SHA-256 hashed at rest). No email send in local/dev by default —
+    # create/resend responses return inviteUrl once for the actor to copy.
+    invite-ttl-days: ${SHOP_TEAM_INVITE_TTL_DAYS:7}
+    resend-cooldown-seconds: ${SHOP_TEAM_RESEND_COOLDOWN_SECONDS:60}
+    invite-create-per-hour: ${SHOP_TEAM_INVITE_CREATE_PER_HOUR:20}
+    invite-path: ${SHOP_TEAM_INVITE_PATH:/invite}
 
 # SMTP is configured by app.notification.mail (not spring.mail), so Boot's mail auto-config never
 # runs; keep the actuator mail health check off in case actuator is added later.

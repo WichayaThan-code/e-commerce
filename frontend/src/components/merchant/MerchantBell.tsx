@@ -24,6 +24,7 @@ import { FEATURES } from "../../config/features";
 import { useImportActivity } from "../../contexts/ImportActivityContext";
 import { useActiveShop } from "../../contexts/ActiveShopContext";
 import {
+  MERCHANT_NOTIFICATION_PREFS_EVENT,
   merchantNotificationsApi,
   type MerchantNotificationItem,
   type MerchantNotificationType,
@@ -165,29 +166,6 @@ export default function MerchantBell() {
       });
   }, [apiOn, shopId]);
 
-  useEffect(() => {
-    requestGen.current += 1;
-    setUnread(0);
-    setItems([]);
-    setNextCursor(null);
-    setListError(false);
-    setOpen(false);
-    if (!apiOn || shopId == null || !ready) return;
-    refreshUnread();
-    const onFocus = () => refreshUnread();
-    const onVis = () => { if (!document.hidden) refreshUnread(); };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVis);
-    const timer = window.setInterval(() => {
-      if (!document.hidden) refreshUnread();
-    }, POLL_MS);
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVis);
-      window.clearInterval(timer);
-    };
-  }, [apiOn, shopId, ready, refreshUnread]);
-
   const loadList = useCallback(async (cursor?: string | null, append = false) => {
     if (!apiOn || shopId == null) return;
     if (append) setLoadingMore(true);
@@ -209,6 +187,42 @@ export default function MerchantBell() {
       setLoadingMore(false);
     }
   }, [apiOn, shopId]);
+
+  const openRef = useRef(open);
+  openRef.current = open;
+  const loadListRef = useRef(loadList);
+  loadListRef.current = loadList;
+
+  useEffect(() => {
+    requestGen.current += 1;
+    setUnread(0);
+    setItems([]);
+    setNextCursor(null);
+    setListError(false);
+    setOpen(false);
+    if (!apiOn || shopId == null || !ready) return;
+    refreshUnread();
+    const onFocus = () => refreshUnread();
+    const onVis = () => { if (!document.hidden) refreshUnread(); };
+    const onPrefs = (event: Event) => {
+      const detail = (event as CustomEvent<{ shopId?: number }>).detail;
+      if (detail?.shopId != null && detail.shopId !== shopId) return;
+      refreshUnread();
+      if (openRef.current) void loadListRef.current(null, false);
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener(MERCHANT_NOTIFICATION_PREFS_EVENT, onPrefs);
+    const timer = window.setInterval(() => {
+      if (!document.hidden) refreshUnread();
+    }, POLL_MS);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener(MERCHANT_NOTIFICATION_PREFS_EVENT, onPrefs);
+      window.clearInterval(timer);
+    };
+  }, [apiOn, shopId, ready, refreshUnread]);
 
   useEffect(() => {
     if (attention > 0) setOpen(true);

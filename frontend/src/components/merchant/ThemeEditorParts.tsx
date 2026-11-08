@@ -1,9 +1,16 @@
-import { Children, isValidElement, useEffect, useState, type ReactNode } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Children, isValidElement, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, Plus, Search, Trash2, X } from "lucide-react";
 import FormField, { FieldError } from "../form/FormField";
 import SearchableSelect from "../SearchableSelect";
 import { labelOf, uniqueOptions, valueOf } from "./selectOptions";
-import type { ThemeColors, ThemeGradient, ThemeGradientStop } from "../../theme/shopTheme";
+import {
+  ensureThemeFontLink,
+  shopThemeFontStack,
+  type ShopThemeFontKey,
+  type ThemeColors,
+  type ThemeGradient,
+  type ThemeGradientStop,
+} from "../../theme/shopTheme";
 
 export const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -249,6 +256,213 @@ export function ThemeSelect({
           if (opts.some((opt) => opt.label === picked)) onChange({ target: { value: next } });
         }}
       />
+    </div>
+  );
+}
+
+type ThemeFontOption = { value: ShopThemeFontKey; label: string };
+
+/**
+ * Heading/body font picker for the theme editor: searchable list with real Thai+Latin samples,
+ * keyboard navigation, and lazy Google Font loads (selected + opened options only).
+ */
+export function ThemeFontSelect({
+  label,
+  value,
+  options,
+  sample,
+  searchPlaceholder,
+  emptyLabel,
+  disabled,
+  error,
+  onChange,
+}: {
+  label: string;
+  value: ShopThemeFontKey;
+  options: ThemeFontOption[];
+  sample: string;
+  searchPlaceholder: string;
+  emptyLabel: string;
+  disabled?: boolean;
+  error?: string;
+  onChange: (font: ShopThemeFontKey) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const [loaded, setLoaded] = useState<Partial<Record<ShopThemeFontKey, true>>>({});
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
+  const opts = uniqueOptions(options);
+  const selected = opts.find((opt) => opt.value === value) ?? opts[0];
+  const filtered = opts.filter((opt) =>
+    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+      || opt.value.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+
+  const markLoaded = (font: ShopThemeFontKey) => {
+    ensureThemeFontLink(font);
+    setLoaded((prev) => (prev[font] ? prev : { ...prev, [font]: true }));
+  };
+
+  useEffect(() => {
+    markLoaded(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load current selection only
+  }, [value]);
+
+  useEffect(() => {
+    if (!open) return;
+    const selectedIndex = filtered.findIndex((opt) => opt.value === value);
+    setHighlight(selectedIndex >= 0 ? selectedIndex : 0);
+    const focusSearch = window.setTimeout(() => searchRef.current?.focus(), 0);
+    // Warm visible options only (dedupe via ensureThemeFontLink id check).
+    filtered.slice(0, 12).forEach((opt) => markLoaded(opt.value as ShopThemeFontKey));
+    return () => window.clearTimeout(focusSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDownOutside = (event: PointerEvent) => {
+      if (containerRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+      setSearchTerm("");
+    };
+    document.addEventListener("pointerdown", handlePointerDownOutside);
+    return () => document.removeEventListener("pointerdown", handlePointerDownOutside);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !filtered[highlight]) return;
+    markLoaded(filtered[highlight].value as ShopThemeFontKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlight, open]);
+
+  const close = () => {
+    setOpen(false);
+    setSearchTerm("");
+  };
+
+  const commit = (font: ShopThemeFontKey) => {
+    markLoaded(font);
+    onChange(font);
+    close();
+  };
+
+  const moveHighlight = (delta: number) => {
+    if (filtered.length === 0) return;
+    setHighlight((current) => (current + delta + filtered.length) % filtered.length);
+  };
+
+  return (
+    <div className="theme-select theme-font-select">
+      <div className="searchable-select-wrap" ref={containerRef}>
+        <span className="select-label">{label}</span>
+        <div
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-label={label}
+          aria-invalid={Boolean(error)}
+          tabIndex={disabled ? -1 : 0}
+          className={`searchable-select-btn${disabled ? " disabled" : ""}${open ? " active" : ""}${error ? " is-invalid" : ""}`}
+          onClick={() => !disabled && setOpen((prev) => !prev)}
+          onKeyDown={(event) => {
+            if (disabled) return;
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setOpen((prev) => !prev);
+            } else if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setOpen(true);
+            } else if (event.key === "Escape" && open) {
+              event.preventDefault();
+              close();
+            }
+          }}
+        >
+          <span style={{ fontFamily: shopThemeFontStack(selected?.value) }}>
+            {selected?.label ?? value}
+          </span>
+          <ChevronDown size={16} />
+        </div>
+
+        {open && !disabled ? (
+          <div className="searchable-dropdown">
+            <div className="dropdown-search-box">
+              <Search size={16} />
+              <input
+                ref={searchRef}
+                type="text"
+                placeholder={searchPlaceholder}
+                value={searchTerm}
+                aria-autocomplete="list"
+                aria-controls={listId}
+                onChange={(event) => {
+                  setSearchTerm(event.target.value);
+                  setHighlight(0);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowDown") {
+                    event.preventDefault();
+                    moveHighlight(1);
+                  } else if (event.key === "ArrowUp") {
+                    event.preventDefault();
+                    moveHighlight(-1);
+                  } else if (event.key === "Enter") {
+                    event.preventDefault();
+                    const picked = filtered[highlight];
+                    if (picked) commit(picked.value as ShopThemeFontKey);
+                  } else if (event.key === "Escape") {
+                    event.preventDefault();
+                    close();
+                  }
+                }}
+              />
+              {searchTerm ? (
+                <button type="button" className="clear-btn" onClick={() => setSearchTerm("")}>
+                  <X size={14} />
+                </button>
+              ) : null}
+            </div>
+            <ul className="dropdown-options-list" id={listId} role="listbox">
+              {filtered.length > 0 ? (
+                filtered.map((opt, index) => {
+                  const font = opt.value as ShopThemeFontKey;
+                  return (
+                    <li
+                      key={font}
+                      role="option"
+                      aria-selected={font === value}
+                      className={`theme-font-option${font === value ? " selected" : ""}${index === highlight ? " highlight" : ""}`}
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        commit(font);
+                      }}
+                      onMouseEnter={() => {
+                        setHighlight(index);
+                        markLoaded(font);
+                      }}
+                    >
+                      <span className="theme-font-option-name">{opt.label}</span>
+                      <span
+                        className="theme-font-option-sample"
+                        style={{ fontFamily: loaded[font] || font === value ? shopThemeFontStack(font) : undefined }}
+                      >
+                        {sample}
+                      </span>
+                    </li>
+                  );
+                })
+              ) : (
+                <li className="no-options">{emptyLabel}</li>
+              )}
+            </ul>
+          </div>
+        ) : null}
+        <FieldError text={error} />
+      </div>
     </div>
   );
 }

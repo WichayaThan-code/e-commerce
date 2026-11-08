@@ -492,19 +492,19 @@ export default function ProductManagementPage() {
           </div>
         ) : (
           <SkeletonBusy refetching={isRefetching} busy={isRefetching}>
-            <div className="pm-table-wrap">
+            <div className="pm-table-wrap pm-detail-table">
               <table>
                 <thead>
                   <tr>
-                    <th><input aria-label={t("catalog.columns.product")} type="checkbox" checked={selected.length === items.length} onChange={() => setSelected(selected.length === items.length ? [] : items.map((item) => item.id))} /></th>
-                    <th>{t("catalog.columns.product")}</th>
-                    <th>{t("catalog.columns.sku")}</th>
-                    <th>{t("catalog.columns.category")}</th>
-                    <th>{t("catalog.columns.price")}</th>
-                    <th>{t("catalog.columns.stock")}</th>
-                    <th>{t("catalog.columns.status")}</th>
-                    <th>{t("catalog.columns.updated")}</th>
-                    <th>{t("catalog.columns.actions")}</th>
+                    <th className="pm-col-check"><input aria-label={t("catalog.columns.product")} type="checkbox" checked={selected.length === items.length} onChange={() => setSelected(selected.length === items.length ? [] : items.map((item) => item.id))} /></th>
+                    <th className="pm-col-fk pm-col-product">{t("catalog.columns.product")}</th>
+                    <th className="pm-col-fk pm-col-sku">{t("catalog.columns.sku")}</th>
+                    <th className="pm-col-fk pm-col-category">{t("catalog.columns.category")}</th>
+                    <th className="pm-col-price">{t("catalog.columns.price")}</th>
+                    <th className="pm-col-stock">{t("catalog.columns.stock")}</th>
+                    <th className="pm-col-status">{t("catalog.columns.status")}</th>
+                    <th className="pm-col-updated">{t("catalog.columns.updated")}</th>
+                    <th className="pm-col-actions">{t("catalog.columns.actions")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -517,25 +517,25 @@ export default function ProductManagementPage() {
                       : product.skus.length > 1 ? product.skus.map((sku) => sku.skuCode).join(", ") : product.skus[0]?.skuCode || "—";
                     return (
                       <tr key={product.id}>
-                        <td><input aria-label={product.nameTh} type="checkbox" checked={selected.includes(product.id)} onChange={() => setSelected((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id])} /></td>
-                        <td>
+                        <td className="pm-col-check"><input aria-label={product.nameTh} type="checkbox" checked={selected.includes(product.id)} onChange={() => setSelected((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id])} /></td>
+                        <td className="pm-col-fk pm-col-product">
                           <div className="pm-product">
                             <span className="pm-thumb"><AuthImage path={image?.url} alt="" /></span>
                             <p><b title={product.nameTh}>{product.nameTh}</b><small title={product.nameEn || product.slug}>{product.nameEn || product.slug}</small></p>
                           </div>
                         </td>
-                        <td className="pm-clip num" title={variantText}>{variantText}</td>
-                        <td className="pm-clip">{categoryName(product.categoryId)}</td>
-                        <td><b className="num">{priceLabel(product, locale, formatMoney)}</b></td>
-                        <td>
+                        <td className="pm-col-fk pm-col-sku pm-clip num" title={variantText}>{variantText}</td>
+                        <td className="pm-col-fk pm-col-category pm-clip" title={categoryName(product.categoryId)}>{categoryName(product.categoryId)}</td>
+                        <td className="pm-col-price"><b className="num">{priceLabel(product, locale, formatMoney)}</b></td>
+                        <td className="pm-col-stock">
                           <div className="pm-stock">
                             <b className={`num ${badge === "out" ? "stock-zero" : badge === "low" ? "stock-low" : "stock-ok"}`}>{available}</b>
                             {badge !== "in" ? <span className={badge === "out" ? "pm-status empty" : "pm-status low"}>{t(`catalog.badges.${badge}`)}</span> : null}
                           </div>
                         </td>
-                        <td className="pm-state-cell"><span className={product.status === "PUBLISHED" ? "pm-status ready" : product.status === "ARCHIVED" ? "pm-status empty" : "pm-status low"}>{t(`catalog.status.${product.status}`)}</span></td>
-                        <td className="pm-clip" title={formatWhen(product.modifiedAt, locale)}>{formatWhen(product.modifiedAt, locale)}</td>
-                        <td>{rowActions(product)}</td>
+                        <td className="pm-col-status pm-state-cell"><span className={product.status === "PUBLISHED" ? "pm-status ready" : product.status === "ARCHIVED" ? "pm-status empty" : "pm-status low"}>{t(`catalog.status.${product.status}`)}</span></td>
+                        <td className="pm-col-updated pm-clip" title={formatWhen(product.modifiedAt, locale)}>{formatWhen(product.modifiedAt, locale)}</td>
+                        <td className="pm-col-actions">{rowActions(product)}</td>
                       </tr>
                     );
                   })}

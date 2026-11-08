@@ -15,6 +15,7 @@ import LoginPage from "../pages/LoginPage";
 import PasswordResetPages from "../pages/PasswordResetPages";
 import SignupPage from "../pages/SignupPage";
 import VerifyEmailPage from "../pages/VerifyEmailPage";
+import InviteAcceptPage from "../pages/InviteAcceptPage";
 import DashboardPage from "../pages/DashboardPage";
 
 import AdminDashboardPage from "../pages/AdminDashboardPage";
@@ -31,6 +32,7 @@ import AdminOrdersPage from "../pages/AdminOrdersPage";
 import AdminAuditLogPage from "../pages/AdminAuditLogPage";
 import AdminMerchantsPage from "../pages/AdminMerchantsPage";
 import AdminUsagePage from "../pages/admin/AdminUsagePage";
+import AdminPayoutsPage from "../pages/AdminPayoutsPage";
 import AdminSystemStatusPage from "../pages/AdminSystemStatusPage";
 
 import MerchantDashboardPage from "../pages/MerchantDashboardPage";
@@ -145,6 +147,7 @@ export const routes: RouteObject[] = [
   { path: "/reset-password", element: <PasswordResetPages /> },
   { path: "/signup", element: <SignupPage /> },
   { path: "/verify-email", element: <VerifyEmailPage /> },
+  { path: "/invite/:token", element: <InviteAcceptPage /> },
   { path: "/dashboard", element: <DashboardPage /> },
 
   // 3. กลุ่มหน้า Admin
@@ -160,6 +163,7 @@ export const routes: RouteObject[] = [
   { path: "/admin/roles", element: guarded("/admin/roles", <AdminRolesPage />) },
   { path: "/admin/role-assignments", element: guarded("/admin/role-assignments", <AdminShopRoleAssignmentsPage />) },
   { path: "/admin/orders", element: guarded("/admin/orders", <AdminOrdersPage />) },
+  { path: "/admin/payouts", element: guarded("/admin/payouts", <AdminPayoutsPage />) },
   { path: "/admin/merchants", element: guarded("/admin/merchants", <AdminMerchantsPage />) },
   { path: "/admin/usage", element: guarded("/admin/usage", <AdminUsagePage />) },
   { path: "/admin/audit-logs", element: guarded("/admin/audit-logs", <AdminAuditLogPage />) },

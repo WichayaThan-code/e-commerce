@@ -600,6 +600,68 @@
 .om-field{display:grid;gap:4px;font-size:12px;font-weight:600;color:var(--shop-text,#08245d)}
 .om-field input,.om-field select,.om-field textarea{border:1px solid var(--shop-border,#cbddef);border-radius:6px;padding:8px 10px;font:500 13px var(--font-sans);background:var(--shop-card-bg,#fff);color:var(--shop-text,#08245d)}
 
+/* Refund slip upload dialog */
+.pm-dialog.om-refund-proof{z-index:110;background:rgba(8,36,93,.48);backdrop-filter:blur(2px)}
+.pm-dialog.om-refund-proof section{
+  width:min(520px,100%);
+  padding:24px 24px 18px;
+  border:1px solid #d9e6f5;
+  border-radius:18px;
+  box-shadow:0 28px 60px rgba(8,36,93,.24);
+  overflow:visible;
+}
+.pm-dialog.om-refund-proof h2{margin:0 0 6px;font-size:21px;font-weight:800;letter-spacing:-.02em;color:#08245d}
+.pm-dialog.om-refund-proof>section>p{margin:0 0 2px;font-size:13px;line-height:1.5;color:#5a7091}
+.pm-dialog.om-refund-proof .pm-dialog-actions{margin-top:8px;padding-top:16px;border-top:1px solid #e8eef6}
+.pm-dialog.om-refund-proof .pm-dialog-actions button{
+  min-height:44px;padding:0 18px;border-radius:11px;font:700 13px var(--font-sans),sans-serif
+}
+.pm-dialog.om-refund-proof .pm-dialog-actions button.secondary:hover:not(:disabled){
+  background:#eef6ff;color:#0669d6;border-color:#087bf5
+}
+.om-refund-proof-fields{gap:14px;margin:16px 0 4px}
+.om-refund-proof-fields .om-field span{font:700 12px var(--font-sans),sans-serif;color:#132b50}
+.om-refund-proof-fields .om-field input,
+.om-refund-proof-fields .om-field textarea,
+.om-refund-proof-fields .searchable-select-btn{
+  box-sizing:border-box;width:100%;min-height:44px;height:44px;margin:0;
+  border-radius:11px;border:1px solid #d5e0ee;background:#f8fbfe;
+  color:#132b50;font:500 14px var(--font-sans),sans-serif;padding:0 14px
+}
+.om-refund-proof-fields .om-field input:focus,
+.om-refund-proof-fields .om-field textarea:focus{
+  outline:none;border-color:#087bf5;background:#fff;box-shadow:0 0 0 3px rgba(8,123,245,.16)
+}
+.om-refund-proof-fields .om-field.invalid input,
+.om-refund-proof-fields .om-field.invalid .om-refund-file-drop{
+  border-color:#e8a477;background:var(--color-warning-bg,#fdf1e3)
+}
+.om-refund-file-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.om-refund-file-drop{
+  display:flex;align-items:center;gap:12px;width:100%;min-height:72px;padding:12px 14px;
+  border:1.5px dashed #b7cce4;border-radius:14px;background:
+    radial-gradient(120% 90% at 100% 0%,rgba(8,123,245,.08),transparent 55%),
+    linear-gradient(180deg,#f5faff,#fff);
+  color:#0e326b;text-align:left;cursor:pointer
+}
+.om-refund-file-drop:hover,
+.om-refund-file-drop:focus-visible{
+  outline:none;border-color:#087bf5;box-shadow:0 0 0 3px rgba(8,123,245,.16)
+}
+.om-refund-file-drop.has-file{border-style:solid;border-color:#9ec4ef;background:#fff}
+.om-refund-file-icon{
+  width:42px;height:42px;border-radius:12px;display:grid;place-items:center;flex:none;
+  background:#e8f2fb;color:#087bf5
+}
+.om-refund-file-icon svg{width:20px;height:20px}
+.om-refund-file-copy{display:grid;gap:2px;min-width:0}
+.om-refund-file-copy b{
+  margin:0;font:700 13px var(--font-sans),sans-serif;color:#08245d;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
+.om-refund-file-copy small{font:500 12px var(--font-sans),sans-serif;color:#6780a3}
+.om-refund-proof-fields .om-ship-datetime{margin-top:2px}
+
 /* Ship confirm dialog */
 .pm-dialog.om-ship-confirm{z-index:100;background:rgba(8,36,93,.48);backdrop-filter:blur(2px)}
 .pm-dialog.om-ship-confirm section{

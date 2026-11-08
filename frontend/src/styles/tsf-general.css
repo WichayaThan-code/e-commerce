@@ -1,8 +1,8 @@
 /* GENERAL storefront — ported from the ThaiShopFun Themes artifact (components/bundle.css), General template only.
    Scoped to .tsf-store; colours come from the shop theme --shop-* vars set inline by ShopThemeShell. */
 .tsf-store[data-theme="general"] {
-  --tsf-font-display: var(--font-sans, "IBM Plex Sans Thai", "Noto Sans Thai", sans-serif);
-  --tsf-font-body: var(--shop-font-body, var(--font-sans, "IBM Plex Sans Thai", "Noto Sans Thai", sans-serif));
+  --tsf-font-display: var(--shop-font-heading, var(--shop-font, var(--font-sans, "IBM Plex Sans Thai"))), "Noto Sans Thai", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --tsf-font-body: var(--shop-font-body, var(--shop-font, var(--font-sans, "IBM Plex Sans Thai"))), "Noto Sans Thai", "PingFang SC", "Microsoft YaHei", sans-serif;
   --tsf-display-weight: 700;
   --tsf-display-case: none;
   --tsf-display-track: -0.01em;
@@ -315,8 +315,8 @@
 
 /* ---------- integration with the app shell ---------- */
 .tsf-store[data-theme="general"] {
-  --tsf-font-display: var(--shop-font, "IBM Plex Sans Thai"), "Noto Sans Thai", sans-serif;
-  --tsf-font-body: var(--shop-font-body, var(--shop-font, "IBM Plex Sans Thai")), "Noto Sans Thai", sans-serif;
+  --tsf-font-display: var(--shop-font-heading, var(--shop-font, "IBM Plex Sans Thai")), "Noto Sans Thai", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --tsf-font-body: var(--shop-font-body, var(--shop-font, "IBM Plex Sans Thai")), "Noto Sans Thai", "PingFang SC", "Microsoft YaHei", sans-serif;
   --shop-sale: var(--shop-sale-color, #c4271b);
   --shop-on-accent: #1a1206;
   --shop-focus: var(--shop-primary);
@@ -408,8 +408,8 @@
    Only shape/type tokens + fallbacks; colours and font still come from the shop's saved theme (--shop-* / --shop-font). */
 .tsf-store[data-btn="PILL"] { --tsf-btn-radius: 999px; }
 .tsf-store[data-theme="fashion"] {
-  --tsf-font-display: var(--shop-font, "Prompt"), "Noto Sans Thai", sans-serif;
-  --tsf-font-body: var(--shop-font-body, var(--shop-font, "Prompt")), "Noto Sans Thai", sans-serif;
+  --tsf-font-display: var(--shop-font-heading, var(--shop-font, "Prompt")), "Noto Sans Thai", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --tsf-font-body: var(--shop-font-body, var(--shop-font, "Prompt")), "Noto Sans Thai", "PingFang SC", "Microsoft YaHei", sans-serif;
   --tsf-display-weight: 700;
   --tsf-display-case: uppercase;
   --tsf-display-track: 0.01em;
@@ -453,8 +453,8 @@
 
 /* ---------- Themes port: FOOD_BEVERAGE (data-theme="food") ---------- */
 .tsf-store[data-theme="food"] {
-  --tsf-font-display: var(--shop-font, "Mitr"), "Noto Sans Thai", sans-serif;
-  --tsf-font-body: var(--shop-font-body, "Noto Sans Thai"), sans-serif;
+  --tsf-font-display: var(--shop-font-heading, var(--shop-font, "Mitr")), "Noto Sans Thai", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --tsf-font-body: var(--shop-font-body, var(--shop-font, "Noto Sans Thai")), "Noto Sans Thai", "PingFang SC", "Microsoft YaHei", sans-serif;
   --tsf-display-weight: 600;
   --tsf-display-case: none;
   --tsf-display-track: 0;

@@ -1,0 +1,114 @@
+/**
+ * /merchant/register outer shell only.
+ * Must NOT restyle .merchant-story, .merchant-card, or their descendants
+ * (promo panel + registration form are protected).
+ */
+
+.merchant-page--register {
+  background:
+    radial-gradient(ellipse 90% 42% at 50% -8%, #e7f2ff 0%, transparent 58%),
+    linear-gradient(180deg, #f9fcff 0%, #f4f8fc 42%, #eef5fb 100%);
+}
+
+/* Header: same structure/controls — softer chrome that matches page canvas */
+.merchant-page--register > .merchant-header {
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom-color: #e4eef7;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Column canvas around the white form card — outside the protected card */
+.merchant-page--register > .merchant-layout > .merchant-form-side {
+  background:
+    radial-gradient(ellipse 65% 38% at 85% 8%, rgba(231, 242, 255, 0.95) 0%, transparent 62%),
+    linear-gradient(160deg, #f8fbfe 0%, #f1f7fd 52%, #eaf3fb 100%);
+}
+
+/*
+ * Trust strip under the form card (outside .merchant-card).
+ * Keep same 3 items / icons / copy — only presentation.
+ */
+.merchant-page--register .merchant-trust {
+  max-width: 650px;
+  width: 100%;
+  margin: 18px auto 0;
+  padding: 14px 8px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  background: #fff;
+  border: 1px solid #dce9f5;
+  border-radius: 14px;
+  box-shadow: 0 8px 22px rgba(21, 58, 96, 0.05);
+}
+
+.merchant-page--register .merchant-trust > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 14px;
+  border-right: 1px solid #e6eef6;
+}
+
+.merchant-page--register .merchant-trust > div:last-child {
+  border-right: 0;
+}
+
+.merchant-page--register .merchant-trust svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  margin-top: 1px;
+  color: #0878f5;
+}
+
+.merchant-page--register .merchant-trust p {
+  margin: 0;
+  min-width: 0;
+}
+
+.merchant-page--register .merchant-trust b,
+.merchant-page--register .merchant-trust span {
+  display: block;
+}
+
+.merchant-page--register .merchant-trust b {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #08245e;
+}
+
+.merchant-page--register .merchant-trust span {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #5c7190;
+}
+
+@media (max-width: 760px) {
+  .merchant-page--register .merchant-trust {
+    grid-template-columns: 1fr;
+    padding: 10px 12px;
+  }
+
+  .merchant-page--register .merchant-trust > div {
+    border-right: 0;
+    border-bottom: 1px solid #e6eef6;
+    padding: 12px 6px;
+  }
+
+  .merchant-page--register .merchant-trust > div:last-child {
+    border-bottom: 0;
+  }
+
+  /* Keep mobile behavior: show first trust item only (matches base signup CSS) */
+  .merchant-page--register .merchant-trust > div:nth-child(n + 2) {
+    display: none;
+  }
+}

@@ -3,6 +3,8 @@ package com.thaishopfun.merchant;
 import com.thaishopfun.admin.SuspensionReasonCodes;
 import com.thaishopfun.audit.PlatformAuditService;
 import com.thaishopfun.auth.AuthException;
+import com.thaishopfun.merchant.delivery.ShopLifecycleAction;
+import com.thaishopfun.merchant.delivery.ShopLifecycleEmailPublisher;
 import com.thaishopfun.merchant.notification.MerchantLifecycleNotificationWriter;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -42,17 +44,20 @@ public class ShopSuspensionService {
     private final ShopReinstatementService reinstatements;
     private final PlatformAuditService audit;
     private final MerchantLifecycleNotificationWriter merchantNotifications;
+    private final ShopLifecycleEmailPublisher shopMails;
 
     public ShopSuspensionService(
         ShopRepository shops,
         ShopReinstatementService reinstatements,
         PlatformAuditService audit,
-        MerchantLifecycleNotificationWriter merchantNotifications
+        MerchantLifecycleNotificationWriter merchantNotifications,
+        ShopLifecycleEmailPublisher shopMails
     ) {
         this.shops = shops;
         this.reinstatements = reinstatements;
         this.audit = audit;
         this.merchantNotifications = merchantNotifications;
+        this.shopMails = shopMails;
     }
 
     /** @return true when the shop changed; false for a repeated call when idempotent */
@@ -71,6 +76,7 @@ public class ShopSuspensionService {
         shop.suspend(actorId, reason, reasonCode);
         record(actorId, "SHOP_SUSPENDED", shop, "PLATFORM_SHOP_SUSPEND", reasonCode, reason, before, null, correlationId);
         merchantNotifications.publishShopSuspended(shop);
+        shopMails.statusChanged(shop, ShopLifecycleAction.SUSPENDED, reason);
         return true;
     }
 
@@ -91,6 +97,7 @@ public class ShopSuspensionService {
         reinstatements.approvePending(shop.getId());
         record(actorId, "SHOP_REACTIVATED", shop, "PLATFORM_SHOP_RESTORE", reasonCode, reason, before, null, correlationId);
         merchantNotifications.publishShopRestored(shop);
+        shopMails.statusChanged(shop, ShopLifecycleAction.RESTORED, reason);
         return true;
     }
 
@@ -132,6 +139,7 @@ public class ShopSuspensionService {
             record(actorId, "SHOP_SUSPENDED", shop, "PLATFORM_SHOP_SUSPEND", MERCHANT_SUSPENDED, reason,
                 shopBefores.get(shop.getUuid()), owner.getId(), correlationId);
             merchantNotifications.publishShopSuspended(shop);
+            shopMails.statusChanged(shop, ShopLifecycleAction.SUSPENDED, reason);
         }
         return new ArrayList<>(affected);
     }
@@ -163,6 +171,7 @@ public class ShopSuspensionService {
             record(actorId, "SHOP_REACTIVATED", shop, "PLATFORM_SHOP_RESTORE", MERCHANT_SUSPENDED, reason,
                 shopBefores.get(shop.getUuid()), owner.getId(), correlationId);
             merchantNotifications.publishShopRestored(shop);
+            shopMails.statusChanged(shop, ShopLifecycleAction.RESTORED, reason);
         }
         return new ArrayList<>(affected);
     }

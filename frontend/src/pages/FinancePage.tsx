@@ -27,12 +27,15 @@ import { numberOf } from "../components/merchant/orderFormat";
 import {
   merchantOrderApi,
   merchantReportsApi,
+  merchantFinanceApi,
   type MerchantDashboardRange,
   type MerchantReportOverview,
   type MerchantReportPeriod,
   type OrderPage,
   type OrderSummary,
 } from "../services/api";
+import FinanceWithdrawPanel from "../components/merchant/FinanceWithdrawPanel";
+import FinanceInvoicePanel, { type InvoiceExportFilters } from "../components/merchant/FinanceInvoicePanel";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/finance.css";
@@ -43,7 +46,7 @@ type RangeKey = MerchantDashboardRange | "custom";
 type FinanceTab = "overview" | "ledger" | "fees" | "transfers" | "invoices";
 type PanelKey =
   | "kpis" | "chart" | "balance" | "transactions" | "transferSummary" | "documents"
-  | "feeDetail" | "unavailableTransfers" | "unavailableInvoices";
+  | "feeDetail" | "transfers" | "invoices";
 
 const RANGES: [RangeKey, string, string][] = [
   ["today", "today", "todayFull"],
@@ -59,8 +62,8 @@ const TAB_PANELS: Record<FinanceTab, PanelKey[]> = {
   overview: ["kpis", "chart", "balance", "transactions", "transferSummary", "documents"],
   ledger: ["kpis", "transactions"],
   fees: ["kpis", "chart", "feeDetail"],
-  transfers: ["unavailableTransfers"],
-  invoices: ["unavailableInvoices"],
+  transfers: ["transfers"],
+  invoices: ["invoices"],
 };
 
 const FEE_RATE = 0.05;
@@ -84,6 +87,10 @@ export default function FinancePage() {
   const { ready, shopId } = useActiveShop();
   const { canInShop, deniedTitle } = usePermissions();
   const canExport = canInShop("REPORT_EXPORT");
+  const canFinanceExport = canInShop("FINANCE_EXPORT") || canExport;
+  const canFinanceRead = canInShop("FINANCE_READ") || canInShop("REPORT_READ");
+  const canWithdraw = canInShop("FINANCE_WITHDRAW");
+  const canInvoiceManage = canInShop("FINANCE_INVOICE_MANAGE");
   const canRead = !!user && hasShopPermission(user, "REPORT_READ", shopId);
   const canOrders = canInShop("ORDER_READ");
 
@@ -100,6 +107,7 @@ export default function FinancePage() {
   const [exporting, setExporting] = useState(false);
   const reportReq = useRef(0);
   const ledgerReq = useRef(0);
+  const invoiceExportFiltersRef = useRef<InvoiceExportFilters>({});
 
   const customValid = !!customFrom && !!customTo && customFrom <= customTo;
   const periodKey = range === "custom"
@@ -216,7 +224,42 @@ export default function FinancePage() {
   };
 
   const download = async () => {
-    if (!periodKey || shopId == null) { notify(t("finance.export.needRange")); return; }
+    if (shopId == null) { notify(t("finance.export.needRange")); return; }
+    if (tab === "transfers") {
+      if (!canFinanceExport) { notify(t("finance.noPermission")); return; }
+      setExporting(true);
+      try {
+        await merchantFinanceApi.exportWithdrawalsCsv(shopId, { dateField: "requestedAt" });
+        notify(t("finance.payout.exportDone"));
+      } catch {
+        notify(t("finance.payout.exportFailed"));
+      } finally {
+        setExporting(false);
+      }
+      return;
+    }
+    if (tab === "invoices") {
+      if (!canFinanceExport) { notify(t("finance.noPermission")); return; }
+      setExporting(true);
+      try {
+        const filters = invoiceExportFiltersRef.current;
+        await merchantFinanceApi.exportInvoicesCsv(shopId, {
+          docType: filters.docType,
+          status: filters.status,
+          q: filters.q,
+          from: filters.from,
+          to: filters.to,
+          dateField: "createdAt",
+        });
+        notify(t("finance.invoices.exportDone"));
+      } catch {
+        notify(t("finance.invoices.exportFailed"));
+      } finally {
+        setExporting(false);
+      }
+      return;
+    }
+    if (!periodKey) { notify(t("finance.export.needRange")); return; }
     const exportShopId = shopId;
     const exportPeriod = JSON.parse(periodKey) as MerchantReportPeriod;
     const exportTab = tab === "fees" ? "fees" : tab === "ledger" ? "orders" : "overview";
@@ -382,8 +425,22 @@ export default function FinancePage() {
                 />
               ) : <small>{rangeLong} · {t("finance.range.thaiTime")}</small>}
             </div>
-            <button type="button" disabled={!canExport || exporting || !periodKey} title={canExport ? t("finance.export.xlsxNote") : deniedTitle(canExport)} className="primary" onClick={() => void download()}>
-              <Download />{exporting ? t("finance.export.busy") : t("finance.export.button")}
+            <button
+              type="button"
+              disabled={(tab === "transfers" || tab === "invoices") ? (!canFinanceExport || exporting) : (!canExport || exporting || !periodKey)}
+              title={(tab === "transfers" || tab === "invoices")
+                ? (canFinanceExport
+                  ? (tab === "invoices" ? t("finance.invoices.export") : t("finance.payout.export"))
+                  : deniedTitle(canFinanceExport))
+                : (canExport ? t("finance.export.xlsxNote") : deniedTitle(canExport))}
+              className="primary"
+              onClick={() => void download()}
+            >
+              <Download />{exporting
+                ? t("finance.export.busy")
+                : tab === "transfers" ? t("finance.payout.export")
+                : tab === "invoices" ? t("finance.invoices.export")
+                : t("finance.export.button")}
             </button>
           </div>
         </header>
@@ -412,16 +469,37 @@ export default function FinancePage() {
           </section>
         )}
 
-        {show("unavailableTransfers") && (
+        {show("transfers") && shopId != null && canFinanceRead && (
+          <FinanceWithdrawPanel
+            shopId={shopId}
+            canWithdraw={canWithdraw}
+            canExport={canFinanceExport}
+            localeTag={loc}
+            deniedTitle={deniedTitle}
+            notify={notify}
+            mode="transfers"
+          />
+        )}
+        {show("transfers") && !canFinanceRead && (
           <article className="finance-panel finance-unavailable">
             <header><h2>{t("finance.tabs.transfers")}</h2></header>
-            {empty(t("finance.unavailable.title"), t("finance.unavailable.transfers"), <Landmark />)}
+            {empty(t("finance.noPermission"), t("finance.payout.needFinanceRead"), <Lock />)}
           </article>
         )}
-        {show("unavailableInvoices") && (
+        {show("invoices") && shopId != null && canFinanceRead && (
+          <FinanceInvoicePanel
+            shopId={shopId}
+            canManage={canInvoiceManage}
+            localeTag={loc}
+            deniedTitle={deniedTitle}
+            notify={notify}
+            exportFiltersRef={invoiceExportFiltersRef}
+          />
+        )}
+        {show("invoices") && !canFinanceRead && (
           <article className="finance-panel finance-unavailable">
             <header><h2>{t("finance.tabs.invoices")}</h2></header>
-            {empty(t("finance.unavailable.title"), t("finance.unavailable.invoices"), <FileText />)}
+            {empty(t("finance.noPermission"), t("finance.payout.needFinanceRead"), <Lock />)}
           </article>
         )}
 
@@ -489,25 +567,27 @@ export default function FinancePage() {
             {(show("balance") || show("transferSummary") || show("documents")) && (
               <aside className="finance-panel finance-rail">
                 {show("balance") && (
-                  <section className="finance-rail-block">
-                    <header><h2>{t("finance.balance.title")}</h2></header>
-                    <div className="finance-rail-hero">
-                      <small>{t("finance.balance.estimatedNet")}</small>
-                      <b>{kpi((d) => baht(d.kpis.estimatedNet))}</b>
-                      <em>{t("finance.balance.estimatedNetNote")}</em>
-                    </div>
-                    <div className="finance-rail-metric">
-                      <span><Building2 /></span>
-                      <p>
-                        <small>{t("finance.balance.payoutPending")}</small>
-                        <strong>{t("finance.growthNone")}</strong>
-                        <em>{t("finance.balance.payoutPendingNote")}</em>
-                      </p>
-                    </div>
-                    <button type="button" className="finance-rail-cta" disabled title={t("finance.balance.payoutUnavailable")}>
-                      <Landmark />{t("finance.balance.payoutUnavailable")}
-                    </button>
-                  </section>
+                  <>
+                    <section className="finance-rail-block">
+                      <header><h2>{t("finance.balance.title")}</h2></header>
+                      <div className="finance-rail-hero">
+                        <small>{t("finance.balance.estimatedNet")}</small>
+                        <b>{kpi((d) => baht(d.kpis.estimatedNet))}</b>
+                        <em>{t("finance.balance.estimatedNetNote")}</em>
+                      </div>
+                    </section>
+                    {shopId != null && canFinanceRead ? (
+                      <FinanceWithdrawPanel
+                        shopId={shopId}
+                        canWithdraw={canWithdraw}
+                        canExport={canFinanceExport}
+                        localeTag={loc}
+                        deniedTitle={deniedTitle}
+                        notify={notify}
+                        mode="balance"
+                      />
+                    ) : null}
+                  </>
                 )}
                 {(show("transferSummary") || show("documents")) && (
                   <section className="finance-rail-block finance-rail-soon">
@@ -518,30 +598,20 @@ export default function FinancePage() {
                           <i><Landmark /></i>
                           <div>
                             <b>{t("finance.transfers.title")}</b>
-                            <small>{t("finance.unavailable.transfersShort")}</small>
+                            <small>{t("finance.payout.goTransfers")}</small>
                           </div>
-                          <em>{t("finance.rail.soonBadge")}</em>
+                          <button type="button" onClick={() => setTab("transfers")}>{t("finance.payout.openTransfers")}</button>
                         </li>
                       )}
                       {show("documents") && (
-                        <>
-                          <li>
-                            <i><FileText /></i>
-                            <div>
-                              <b>{t("finance.documents.invoice")}</b>
-                              <small>{t("finance.unavailable.invoicesShort")}</small>
-                            </div>
-                            <em>{t("finance.rail.soonBadge")}</em>
-                          </li>
-                          <li>
-                            <i><FileText /></i>
-                            <div>
-                              <b>{t("finance.documents.tax")}</b>
-                              <small>{t("finance.unavailable.invoicesShort")}</small>
-                            </div>
-                            <em>{t("finance.rail.soonBadge")}</em>
-                          </li>
-                        </>
+                        <li>
+                          <i><FileText /></i>
+                          <div>
+                            <b>{t("finance.documents.title")}</b>
+                            <small>{t("finance.invoices.openHint")}</small>
+                          </div>
+                          <button type="button" onClick={() => setTab("invoices")}>{t("finance.invoices.openTab")}</button>
+                        </li>
                       )}
                     </ul>
                   </section>

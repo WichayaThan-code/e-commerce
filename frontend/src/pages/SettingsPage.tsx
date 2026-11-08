@@ -22,6 +22,11 @@ import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions"
 import ShopPoliciesEditor from "../components/merchant/ShopPoliciesEditor";
 import ShippingMethodsSettings from "../components/merchant/ShippingMethodsSettings";
 import PaymentSettings from "../components/merchant/PaymentSettings";
+import SettingsTeamPanel from "../components/merchant/SettingsTeamPanel";
+import SettingsNotificationsPanel from "../components/merchant/SettingsNotificationsPanel";
+import SettingsSecurityPanel from "../components/merchant/SettingsSecurityPanel";
+import SettingsIntegrationsPanel from "../components/merchant/SettingsIntegrationsPanel";
+import SettingsPlanPanel from "../components/merchant/SettingsPlanPanel";
 import ConfirmDialog from "../components/form/ConfirmDialog";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
@@ -29,7 +34,7 @@ import { useActiveShop } from "../contexts/ActiveShopContext";
 import { usePermissions } from "../hooks/usePermissions";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
-import "../styles/settings.css";
+import "../styles/settings.css";
 import MerchantSidebar from "../components/merchant/MerchantSidebar";
 import MerchantBrand from "../components/merchant/MerchantBrand";
 
@@ -62,7 +67,7 @@ function resolveTab(raw: string | null): SettingsTabKey {
 
 export default function SettingsPage(){
   const {user,loading}=useAuth();
-  const {shopId,ready}=useActiveShop();
+  const {shopId,shops,ready}=useActiveShop();
   const {canInShop,deniedTitle}=usePermissions();
   const {t}=useTranslation("merchant");
   const navigate=useNavigate();
@@ -72,12 +77,21 @@ export default function SettingsPage(){
   const canUpdate=canInShop("SHOP_UPDATE");const canClose=canInShop("SHOP_CLOSE");
   const [notice,setNotice]=useState("");
   const [policiesDirty,setPoliciesDirty]=useState(false);
+  const [teamDirty,setTeamDirty]=useState(false);
+  const [notificationsDirty,setNotificationsDirty]=useState(false);
+  const [securityDirty,setSecurityDirty]=useState(false);
+  const [integrationsDirty,setIntegrationsDirty]=useState(false);
   const [pendingLeave,setPendingLeave]=useState<PendingLeave>(null);
   const [openStore,setOpenStore]=useState(true);
   const [chat,setChat]=useState(true);
   const notify=useCallback((text:string)=>{setNotice(text);window.setTimeout(()=>setNotice(""),1900)},[]);
   const onPoliciesDirty=useCallback((dirty:boolean)=>setPoliciesDirty(dirty),[]);
-  const hasUnsaved=activeTab==="policies"&&policiesDirty;
+  const onTeamDirty=useCallback((dirty:boolean)=>setTeamDirty(dirty),[]);
+  const onNotificationsDirty=useCallback((dirty:boolean)=>setNotificationsDirty(dirty),[]);
+  const onSecurityDirty=useCallback((dirty:boolean)=>setSecurityDirty(dirty),[]);
+  const onIntegrationsDirty=useCallback((dirty:boolean)=>setIntegrationsDirty(dirty),[]);
+  const hasUnsaved=(activeTab==="policies"&&policiesDirty)||(activeTab==="team"&&teamDirty)||(activeTab==="notifications"&&notificationsDirty)||(activeTab==="security"&&securityDirty)||(activeTab==="integrations"&&integrationsDirty);
+  const activeShopName=shops.find((row)=>row.shopId===shopId)?.shopName??"";
 
   // Old links: ?tab=hours (and store tabs) now live in /merchant/store; unknown values normalise to a real tab.
   useEffect(()=>{
@@ -108,8 +122,23 @@ export default function SettingsPage(){
     setPendingLeave(null);
     if(!target)return;
     setPoliciesDirty(false);
+    setTeamDirty(false);
+    setNotificationsDirty(false);
+    setSecurityDirty(false);
+    setIntegrationsDirty(false);
     if(target.kind==="tab")goTab(target.tab);
     else window.location.assign(target.href);
+  };
+  const leaveToHref=(href:string)=>{
+    if(hasUnsaved){setPendingLeave({kind:"href",href});return}
+    try{
+      const url=new URL(href,window.location.origin);
+      if(url.pathname==="/merchant/settings"){
+        goTab(resolveTab(url.searchParams.get("tab")));
+        return;
+      }
+    }catch{/* fall through */}
+    window.location.assign(href);
   };
 
   if(loading||!ready)return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
@@ -133,6 +162,11 @@ export default function SettingsPage(){
       </aside></div>
       :activeTab==="shipping"?<div className="settings-layout"><div className="settings-main"><ShippingMethodsSettings shopId={shopId} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} notify={notify}/>{current.link&&<p className="settings-note"><a href={current.link.href}>{current.link.label} →</a></p>}</div></div>
       :activeTab==="payment"?<div className="settings-layout"><div className="settings-main"><PaymentSettings shopId={shopId} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} notify={notify}/>{current.link&&<p className="settings-note"><a href={current.link.href}>{current.link.label} →</a></p>}</div></div>
+      :activeTab==="team"?shopId!=null?<SettingsTeamPanel shopId={shopId} notify={notify} onDirtyChange={onTeamDirty}/>:<section className="settings-card settings-soon"><header><div><h2><UsersRound/>{t("team.title")}</h2><p>{t("team.loadError")}</p></div></header></section>
+      :activeTab==="notifications"?shopId!=null?<SettingsNotificationsPanel shopId={shopId} notify={notify} onDirtyChange={onNotificationsDirty}/>:<section className="settings-card settings-soon"><header><div><h2><Bell/>{t("notificationPrefs.title")}</h2><p>{t("notificationPrefs.loadError")}</p></div></header></section>
+      :activeTab==="security"?shopId!=null?<SettingsSecurityPanel shopId={shopId} shopName={activeShopName} notify={notify} onDirtyChange={onSecurityDirty}/>:<section className="settings-card settings-soon"><header><div><h2><ShieldCheck/>{t("security.account.title")}</h2><p>{t("security.activity.loadError")}</p></div></header></section>
+      :activeTab==="integrations"?shopId!=null?<SettingsIntegrationsPanel shopId={shopId} notify={notify} onDirtyChange={onIntegrationsDirty} onNavigateHref={leaveToHref}/>:<section className="settings-card settings-soon"><header><div><h2><Link2/>{t("integrations.drive.title")}</h2><p>{t("integrations.loadError")}</p></div></header></section>
+      :activeTab==="plan"?shopId!=null?<SettingsPlanPanel shopId={shopId} notify={notify} onNavigateHref={leaveToHref}/>:<section className="settings-card settings-soon"><header><div><h2><Sparkles/>{t("plan.title")}</h2><p>{t("plan.loadError")}</p></div></header></section>
       :<section className="settings-card settings-soon"><header><div><h2><CurrentIcon/>{current.label}</h2><p>ฟีเจอร์นี้จะเปิดให้ใช้เร็วๆ นี้</p></div></header>{current.link&&<a href={current.link.href}>{current.link.label} →</a>}</section>}
     </section>{pendingLeave&&<ConfirmDialog title={t("storeTheme.confirm.leave.title")} message={t("storeTheme.confirm.leave.message")} confirmLabel={t("storeTheme.confirm.leave.confirm")} cancelLabel={t("storeTheme.confirm.leave.stay")} danger onConfirm={confirmLeave} onCancel={()=>setPendingLeave(null)}/>}{notice&&<div className="merchant-toast" role="status">{notice}</div>}
   </main>

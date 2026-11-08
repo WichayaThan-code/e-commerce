@@ -117,6 +117,16 @@ public class MerchantStoreController {
     }
 
     @RequireShopPermission(value = "SHOP_UPDATE", defaultShop = true)
+    @PutMapping("/settings/channels")
+    public MerchantDtos.MerchantSettingsResponse updateChannels(
+        @AuthenticationPrincipal Jwt jwt,
+        @RequestParam(required = false) Long shopId,
+        @Valid @RequestBody MerchantDtos.MerchantChannelsUpdateRequest request
+    ) {
+        return shopSettings.updateChannels(UUID.fromString(jwt.getSubject()), shopId, request);
+    }
+
+    @RequireShopPermission(value = "SHOP_UPDATE", defaultShop = true)
     @PutMapping("/settings/hours")
     public MerchantDtos.MerchantSettingsResponse updateHours(
         @AuthenticationPrincipal Jwt jwt,

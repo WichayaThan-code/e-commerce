@@ -5,7 +5,6 @@ import {
   Download,
   Eye,
   PackageCheck,
-  Printer,
   Search,
   ShoppingBag,
   SlidersHorizontal,
@@ -105,7 +104,6 @@ export default function OrderManagementPage() {
   const [tone, setTone] = useState<"ok" | "fail">("ok");
   const toastTimer = useRef<number | undefined>(undefined);
   const qRef = useRef(searchParams.get("q")?.trim() || "");
-  const unsupported = t("orderManagement.notSupported");
   const money = (value: number | string | null | undefined) => formatBaht(value, localeTag);
   const [paymentMethod, setPaymentMethod] = useState("");
   const [carrierCode, setCarrierCode] = useState("");
@@ -625,10 +623,6 @@ export default function OrderManagementPage() {
               <Download />
               {exporting ? t("orderManagement.exporting") : t("orderManagement.export")}
             </button>
-            <button type="button" disabled title={unsupported} className="primary">
-              <Printer />
-              {t("orderManagement.printLabels")}
-            </button>
           </div>
         </header>
         <section className="pm-kpis om-kpis">
@@ -1079,9 +1073,6 @@ export default function OrderManagementPage() {
                               onClick={(event) => openOrder(o.id, event.currentTarget)}
                             >
                               <Eye aria-hidden="true" />
-                            </button>
-                            <button type="button" disabled title={unsupported} aria-label={t("orderManagement.printOrder", { number: o.orderNumber })}>
-                              <Printer aria-hidden="true" />
                             </button>
                           </div>
                         </td>

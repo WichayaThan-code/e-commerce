@@ -39,6 +39,7 @@ import i18n from "../i18n";
 import { catalogApi, merchantApi, type ProductCategory } from "../services/api";
 import { labelForCategory } from "../services/categories";
 import "../styles/merchant-signup.css";
+import "../styles/merchant-register-shell.css";
 import "../styles/form-invalid.css";
 
 const benefitIcons = [Store, BarChart3, Megaphone, Headphones, TrendingUp];
@@ -282,7 +283,7 @@ export default function MerchantSignupPage() {
   };
 
   return (
-    <main className="merchant-page">
+    <main className="merchant-page merchant-page--register">
       <MerchantHeader />
 
       <div className="merchant-layout">

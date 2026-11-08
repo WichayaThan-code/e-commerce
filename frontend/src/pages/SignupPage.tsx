@@ -115,7 +115,9 @@ export default function SignupPage() {
     try {
       await register(payload)
       setAgreement(null)
-      window.location.replace('/verify-email')
+      const next = new URLSearchParams(window.location.search).get('next')
+      const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : null
+      window.location.replace(safeNext ? `/verify-email?next=${encodeURIComponent(safeNext)}` : '/verify-email')
     } catch (error) {
       const reason = error instanceof Error ? error.message : p('form.errorFailed')
       setAgreementError(reason)

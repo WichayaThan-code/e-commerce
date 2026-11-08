@@ -4,14 +4,48 @@ import {
   NEW_BLOCK_TYPES, defaultBlockContent, resolveBlockContent, resolveLocalized,
   type BlockContent, type LocalizedString,
 } from './blockContent'
+import {
+  SHOP_THEME_FONT_ROWS,
+  SHOP_THEME_FONTS,
+  type ShopThemeFontKey,
+} from './shopThemeFontCatalog'
+
+export { SHOP_THEME_FONTS, type ShopThemeFontKey }
 
 export const SHOP_THEME_TEMPLATES = ['GENERAL', 'FASHION', 'FOOD_BEVERAGE', 'CUSTOM'] as const
 export type ShopThemeTemplateKey = (typeof SHOP_THEME_TEMPLATES)[number]
 /** Templates shown in /merchant/store/theme picker (CUSTOM is retired from the UI). */
 export const SHOP_THEME_PICKER_TEMPLATES = ['GENERAL', 'FASHION', 'FOOD_BEVERAGE'] as const satisfies ReadonlyArray<ShopThemeTemplateKey>
 
-export const SHOP_THEME_FONTS = ['NOTO_SANS_THAI', 'NOTO_SERIF_THAI', 'PROMPT', 'MITR', 'IBM_PLEX_SANS_THAI'] as const
-export type ShopThemeFontKey = (typeof SHOP_THEME_FONTS)[number]
+/** CJK system fallbacks — Thai families do not cover Chinese glyphs. */
+const CJK_SANS = '"PingFang SC", "Microsoft YaHei", "Noto Sans SC"'
+const CJK_SERIF = '"Songti SC", "Noto Serif SC"'
+
+export type ShopThemeFontDefinition = {
+  id: ShopThemeFontKey
+  /** CSS `font-family` primary name (not an i18n label). */
+  family: string
+  stack: string
+  /** Google Fonts css2 URL, or null when self-hosted / already in index.html. */
+  href: string | null
+  /** Real weights requested from the provider (no synthetic extras). */
+  weights: readonly number[]
+  /** Family includes Thai glyphs; otherwise Thai falls back to Noto Thai in the stack. */
+  thaiNative: boolean
+}
+
+function googleFontHref(family: string, weights: readonly number[]): string {
+  const encoded = family.replace(/ /g, '+')
+  const axis = weights.length === 1 && weights[0] === 400
+    ? ''
+    : `:wght@${weights.join(';')}`
+  return `https://fonts.googleapis.com/css2?family=${encoded}${axis}&display=swap`
+}
+
+function fontStack(family: string, kind: 'sans' | 'serif' | 'display' | 'hand'): string {
+  if (kind === 'serif') return `"${family}", "Noto Serif Thai", ${CJK_SERIF}, serif`
+  return `"${family}", "Noto Sans Thai", ${CJK_SANS}, sans-serif`
+}
 
 export const SHOP_SECTION_KEYS = [
   'HERO', 'BANNERS', 'CATEGORIES', 'TRUST', 'INTRO', 'FEATURED', 'BESTSELLERS', 'NEW_ARRIVALS', 'CATALOG', 'HOURS',
@@ -338,20 +372,27 @@ export type ShopTheme = {
   config: ThemeConfig
 }
 
-export const SHOP_THEME_FONT_STACKS: Record<ShopThemeFontKey, string> = {
-  NOTO_SANS_THAI: '"Noto Sans Thai", sans-serif',
-  NOTO_SERIF_THAI: '"Noto Serif Thai", serif',
-  PROMPT: '"Prompt", "Noto Sans Thai", sans-serif',
-  MITR: '"Mitr", "Noto Sans Thai", sans-serif',
-  IBM_PLEX_SANS_THAI: '"IBM Plex Sans Thai", "Noto Sans Thai", sans-serif',
-}
+/** Typed catalog used by editor samples, loaders, and CSS stacks (100 families). */
+export const SHOP_THEME_FONT_CATALOG: readonly ShopThemeFontDefinition[] = SHOP_THEME_FONT_ROWS.map((row) => ({
+  id: row.id,
+  family: row.family,
+  stack: fontStack(row.family, row.kind),
+  href: 'selfHosted' in row && row.selfHosted ? null : googleFontHref(row.family, row.weights),
+  weights: row.weights,
+  thaiNative: row.thaiNative,
+}))
 
-export const SHOP_THEME_FONT_HREF: Record<ShopThemeFontKey, string | null> = {
-  NOTO_SANS_THAI: 'https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap',
-  NOTO_SERIF_THAI: 'https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@400;500;600;700&display=swap',
-  PROMPT: 'https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap',
-  MITR: 'https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600;700&display=swap',
-  IBM_PLEX_SANS_THAI: null,
+export const SHOP_THEME_FONT_STACKS: Record<ShopThemeFontKey, string> = Object.fromEntries(
+  SHOP_THEME_FONT_CATALOG.map((font) => [font.id, font.stack]),
+) as Record<ShopThemeFontKey, string>
+
+export const SHOP_THEME_FONT_HREF: Record<ShopThemeFontKey, string | null> = Object.fromEntries(
+  SHOP_THEME_FONT_CATALOG.map((font) => [font.id, font.href]),
+) as Record<ShopThemeFontKey, string | null>
+
+export function shopThemeFontDefinition(font: ShopThemeFontKey): ShopThemeFontDefinition {
+  return SHOP_THEME_FONT_CATALOG.find((row) => row.id === font)
+    ?? SHOP_THEME_FONT_CATALOG.find((row) => row.id === 'IBM_PLEX_SANS_THAI')!
 }
 
 export const SHOP_BREAKPOINTS = {
@@ -439,17 +480,31 @@ export function shopThemeFontStack(font?: string | null) {
   return SHOP_THEME_FONT_STACKS.IBM_PLEX_SANS_THAI
 }
 
-export function ensureThemeFontLink(font: ShopThemeFontKey) {
-  if (typeof document === 'undefined') return
-  const href = SHOP_THEME_FONT_HREF[font]
-  if (!href) return
-  const id = `shop-theme-font-${font}`
-  if (document.getElementById(id)) return
+function appendFontStylesheet(id: string, href: string) {
+  if (typeof document === 'undefined' || document.getElementById(id)) return
   const link = document.createElement('link')
   link.id = id
   link.rel = 'stylesheet'
   link.href = href
+  // Network failure must not crash the page — browser keeps system fallbacks.
+  link.onerror = () => { link.remove() }
   document.head.appendChild(link)
+}
+
+export function ensureThemeFontLink(font: ShopThemeFontKey | string | null | undefined) {
+  if (typeof document === 'undefined' || !font) return
+  const key = font.trim().toUpperCase()
+  if (!(key in SHOP_THEME_FONT_HREF)) return
+  const typed = key as ShopThemeFontKey
+  const href = SHOP_THEME_FONT_HREF[typed]
+  if (href) appendFontStylesheet(`shop-theme-font-${key}`, href)
+  // Latin-primary picks still need a Thai face for storefront copy.
+  const def = shopThemeFontDefinition(typed)
+  if (!def.thaiNative) {
+    const fallback: ShopThemeFontKey = def.stack.includes('Noto Serif Thai') ? 'NOTO_SERIF_THAI' : 'NOTO_SANS_THAI'
+    const fallbackHref = SHOP_THEME_FONT_HREF[fallback]
+    if (fallbackHref) appendFontStylesheet(`shop-theme-font-${fallback}`, fallbackHref)
+  }
 }
 
 function parseHex(hex: string): [number, number, number] | null {
@@ -656,9 +711,10 @@ export function themeCssVars(config: ThemeConfig, templateKey?: ShopThemeTemplat
       '--shop-page-bg': pageBg,
       '--shop-text': text,
       '--shop-accent': accentHex,
-      '--shop-font': shopThemeFontStack(config.font),
+      '--shop-font-heading': shopThemeFontStack(config.font),
+      '--shop-font-body': shopThemeFontStack(themeBodyFont(config)),
+      '--shop-font': shopThemeFontStack(themeBodyFont(config)),
       '--font-sans': shopThemeFontStack(themeBodyFont(config)),
-      ...(config.fontBody ? { '--shop-font-body': shopThemeFontStack(config.fontBody) } : {}),
       '--shop-muted': `color-mix(in srgb, ${text} 65%, ${background})`,
       '--shop-border': `color-mix(in srgb, ${text} 10%, ${background})`,
       '--shop-surface': `color-mix(in srgb, ${text} 4%, ${background})`,
@@ -696,9 +752,10 @@ export function themeCssVars(config: ThemeConfig, templateKey?: ShopThemeTemplat
     '--shop-page-bg': pageGradient || pageBg,
     '--shop-text': text,
     '--shop-accent': accentHex,
+    '--shop-font-heading': shopThemeFontStack(config.font),
+    '--shop-font-body': shopThemeFontStack(themeBodyFont(config)),
     '--shop-font': shopThemeFontStack(themeBodyFont(config)),
     '--font-sans': shopThemeFontStack(themeBodyFont(config)),
-    ...(config.fontBody ? { '--shop-font-heading': shopThemeFontStack(config.font), '--shop-font-body': shopThemeFontStack(config.fontBody) } : {}),
     '--shop-muted': muted,
     '--shop-border': border,
     '--shop-surface': surface,

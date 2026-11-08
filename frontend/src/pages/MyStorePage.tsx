@@ -5,15 +5,19 @@ import {
   CalendarDays,
   CheckCircle2,
   ExternalLink,
+  FileText,
   Layers,
   Facebook,
   Instagram,
-  LineChart,
+  Mail,
   MapPin,
-  PackageCheck,
-  ShieldCheck,
-  ShoppingBag,
+  MessageCircle,
+  Music2,
+  Phone,
+  RefreshCw,
+  Shield,
   Store,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
@@ -24,9 +28,12 @@ import { useActiveShop } from "../contexts/ActiveShopContext";
 import { usePermissions } from "../hooks/usePermissions";
 import { SkeletonForm } from "../components/feedback/Skeleton";
 import ConfirmDialog from "../components/form/ConfirmDialog";
+import FormField from "../components/form/FormField";
+import SearchableSelect from "../components/SearchableSelect";
 import ShopThemeEditor, { type ShopThemeShopInfo } from "../components/merchant/ShopThemeEditor";
 import ShopHoursEditor from "../components/merchant/ShopHoursEditor";
 import ShopCollectionsManager from "../components/merchant/ShopCollectionsManager";
+import StoreMiniMap from "../components/merchant/StoreMiniMap";
 import MerchantSaveButton from "../components/merchant/MerchantSaveButton";
 import { ApiError, catalogApi, mediaUrl, merchantApi, type MerchantSettings, type MerchantSettingsPayload, type ShopHour } from "../services/api";
 import { MERCHANT_CATEGORY_VALUES } from "../i18n/merchantOnboardingCopy";
@@ -34,6 +41,7 @@ import { isShopImage, SHOP_IMAGE_ACCEPT } from "../services/shopImage";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/settings.css";
+import "../styles/form-fields.css";
 import "../styles/my-store.css";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import MerchantSidebar from "../components/merchant/MerchantSidebar";
@@ -267,7 +275,8 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
   const statusLabel=STATUS_LABEL[form.status]||form.status;
   const createdLabel=form.createdAt?new Date(form.createdAt).toLocaleDateString("th-TH",{day:"numeric",month:"short",year:"numeric"}):"";
   const addressLine=[form.address,form.subdistrict,form.district,form.province,form.postalCode].filter(Boolean).join(" ");
-  const mapUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressLine||form.shopName)}`;
+  const mapQuery=encodeURIComponent(addressLine||form.shopName||"Thailand");
+  const mapUrl=`https://www.google.com/maps/search/?api=1&query=${mapQuery}`;
   const categories=form.category && !categoryNames.includes(form.category)?[form.category,...categoryNames]:categoryNames;
   const previewText=form.description.split("\n").map(line=>line.trim()).find(Boolean)||"";
   const logoControl=<section className="logo-field"><label>โลโก้ร้าน</label><div className="store-logo">{form.logoUrl?<img key={form.logoUrl} src={mediaUrl(form.logoUrl)} alt="โลโก้ร้าน"/>:<span>🏪</span>}</div><button type="button" disabled={logoBusy||!canUpdate} title={deniedTitle(canUpdate)} onClick={()=>logoInput.current?.click()}>{logoBusy?"กำลังอัปโหลด...":"เปลี่ยนโลโก้"}</button><small>JPG, PNG หรือ WEBP ไม่เกิน 5 MB</small><input ref={logoInput} type="file" accept={SHOP_IMAGE_ACCEPT} hidden onChange={event=>{const file=event.target.files?.[0]; if(file) void uploadLogo(file); event.target.value="";}}/></section>;
@@ -288,24 +297,198 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
         <header className="pm-heading my-store-heading"><div><h1><Store/>ร้านของฉัน</h1><p>จัดการข้อมูลร้านค้า ปรับแต่งหน้าร้าน และตั้งค่าการขาย</p></div><button type="button" onClick={openStorefront} disabled={!form.slug}><ExternalLink/>ดูหน้าร้านจริง</button></header>
         <nav className="store-tabs" aria-label="หมวดร้านของฉัน">{STORE_TABS.map(({key,label,icon:Icon})=><button key={key} type="button" className={activeTab===key?"active":""} aria-current={activeTab===key?"page":undefined} onClick={()=>requestTab(key)}><Icon/>{key==="theme"?t("storeTheme.tab"):key==="collections"?t("collections.tab"):label}</button>)}</nav>
       </div>
-      {activeTab==="collections"?<ShopCollectionsManager shopId={shopId} shopSlug={form.slug} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} notify={notify}/>:activeTab==="theme"?<ShopThemeEditor shopId={shopId} shop={themeShop} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} logoControl={logoControl} onDirtyChange={onThemeDirty} notify={notify}/>:activeTab==="hours"?<div className="store-hours"><ShopHoursEditor shopId={shopId} initialHours={form.openingHours} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} notify={notify} onDirtyChange={onHoursDirty} onSaved={hours=>{patch({openingHours:hours});baseline.current={...baseline.current,openingHours:hours};}}/></div>:<div className="store-layout"><section className="store-form-card"><header><div><h2>ข้อมูลร้านค้า</h2><p>ข้อมูลพื้นฐานของร้านค้า จะแสดงบนหน้าร้านและใช้ในการติดต่อ</p></div><div className="store-enabled"><span><CheckCircle2/>{statusLabel}</span>{createdLabel&&<small>สร้างเมื่อ {createdLabel}</small>}{form.status==="SUSPENDED"&&<a href="/merchant/reinstatement">ยื่นคำร้องปลดระงับ</a>}</div><div className="store-head-actions">{infoDirty&&<button type="button" className="store-cancel" onClick={cancel} disabled={saving}>ยกเลิก</button>}<MerchantSaveButton saving={saving} disabled={!canUpdate} title={deniedTitle(canUpdate)} onClick={()=>void save()}/></div></header>
-        <div className="store-form-grid">{logoControl}
-        <div className="store-fields"><label>ชื่อร้านค้า <i>*</i><input value={form.shopName} maxLength={100} onChange={e=>patch({shopName:e.target.value})}/><small>{form.shopName.length}/100</small></label><label>คำอธิบายร้านค้า<textarea value={form.description} maxLength={500} onChange={e=>patch({description:e.target.value})}/><small>{form.description.length}/500</small></label></div></div>
-        <div className="store-contact"><label>ประเภทร้านค้า <i>*</i><select value={form.category} onChange={e=>patch({category:e.target.value})}>{categories.map(option=><option key={option}>{option}</option>)}</select></label><label>เบอร์โทรศัพท์เจ้าของ (ไม่แสดงบนหน้าร้าน) <i>*</i><input value={form.phone} onChange={e=>patch({phone:e.target.value})}/></label><label>อีเมลเจ้าของ (ไม่แสดงบนหน้าร้าน) <i>*</i><input value={form.email} onChange={e=>patch({email:e.target.value})}/></label><label>เบอร์ติดต่อหน้าร้าน (แสดงต่อสาธารณะ)<input value={form.publicPhone} onChange={e=>patch({publicPhone:e.target.value})}/><small>เว้นว่าง = ไม่แสดงบนหน้าร้าน</small></label><label>อีเมลติดต่อหน้าร้าน (แสดงต่อสาธารณะ)<input value={form.publicEmail} onChange={e=>patch({publicEmail:e.target.value})}/><small>เว้นว่าง = ไม่แสดงบนหน้าร้าน</small></label></div>
-        <div className="store-lower"><section><h3>ช่องทางโซเชียล</h3><small>แสดงบนหน้าติดต่อร้าน</small>{([
-          ["line","lineId",form.lineId],
-          ["facebook","facebookUrl",form.facebookUrl],
-          ["instagram","instagramUrl",form.instagramUrl],
-          ["tiktok","tiktokUrl",form.tiktokUrl],
-        ] as const).map(([kind,key,value])=><label key={kind}><span className={kind}>{kind==="line"?"LINE":kind==="facebook"?<Facebook/>:kind==="instagram"?<Instagram/>:"♪"}</span><input value={value} placeholder={kind==="line"?"LINE ID":`ลิงก์ ${kind}`} onChange={e=>patch({[key]:e.target.value})}/></label>)}</section>
-        <aside><header><h3>ที่อยู่ร้านค้า</h3><button type="button" disabled={!canUpdate} title={deniedTitle(canUpdate)} onClick={()=>setEditingAddress(value=>!value)}>{editingAddress?"ซ่อนแบบฟอร์ม":"✎ แก้ไขที่อยู่"}</button></header>
-          {editingAddress?<div className="store-address-edit"><textarea value={form.address} onChange={e=>patch({address:e.target.value})} placeholder="บ้านเลขที่ ถนน"/><input value={form.subdistrict} onChange={e=>patch({subdistrict:e.target.value})} placeholder="ตำบล / แขวง"/><input value={form.district} onChange={e=>patch({district:e.target.value})} placeholder="อำเภอ / เขต"/><input value={form.province} onChange={e=>patch({province:e.target.value})} placeholder="จังหวัด"/><input value={form.postalCode} inputMode="numeric" maxLength={5} onChange={e=>patch({postalCode:e.target.value})} placeholder="รหัสไปรษณีย์"/></div>:<div className="address"><MapPin/><span>{addressLine||"ยังไม่มีที่อยู่"}</span></div>}
-          <div className="mini-map"><MapPin/><a href={mapUrl} target="_blank" rel="noreferrer">ดูบน Google Maps</a></div>
-          <header><h3>นโยบายร้านค้า</h3><button type="button" onClick={()=>requestHref("/merchant/settings?tab=policies")}>จัดการนโยบาย →</button></header><p className="store-policy-link">การจัดส่ง · การคืนสินค้า · ความเป็นส่วนตัว · ข้อกำหนด — แก้ไขได้ที่ ตั้งค่า › นโยบายร้าน</p></aside></div>
-      </section><aside className="store-side"><section className="store-preview"><header><h2>ตัวอย่างหน้าร้าน</h2><button type="button" onClick={openStorefront} disabled={!form.slug}>ดูหน้าร้าน</button></header><div className="preview-cover" aria-hidden="true"/><div className="preview-profile"><div className="preview-logo">{form.logoUrl?<img src={mediaUrl(form.logoUrl)} alt=""/>:<span>🏪</span>}</div><p><b>{form.shopName||"ชื่อร้านค้า"}</b><small>{form.category||"ยังไม่เลือกหมวด"}</small></p></div>{previewText&&<p className="preview-desc">{previewText}</p>}<div className="preview-stats"><span><small>ประเภท</small><b>{form.category||"—"}</b></span><span><small>จังหวัด</small><b>{form.province||"—"}</b></span><span><small>สถานะ</small><b>{statusLabel}</b></span></div><button className="enter-store" type="button" onClick={openStorefront} disabled={!form.slug}>เข้าชมหน้าร้าน</button></section>
-        <section className="store-status"><header><h2>สถานะร้านค้า</h2><span>● {statusLabel}</span></header><p><ShieldCheck/><b>สถานะร้าน</b><span>{statusLabel}</span></p><p><PackageCheck/><b>ประเภทร้าน</b><span>{form.category||"—"}</span></p><p><LineChart/><b>จังหวัด</b><span>{form.province||"—"}</span></p></section>
-        <section className="store-tips"><header><h2>💡 เคล็ดลับเพิ่มยอดขาย</h2><button onClick={()=>notify("แสดงเคล็ดลับทั้งหมด")}>ดูทั้งหมด →</button></header><p><CheckCircle2/>เพิ่มรูปภาพหน้าร้าน และวิดีโอแนะนำ <b>+20%</b></p><p><CheckCircle2/>ตั้งค่าคูปองส่วนลดสำหรับลูกค้าใหม่ <b>+15%</b></p><p><CheckCircle2/>เชื่อมต่อ LINE OA เพื่อแจ้งโปรโมชั่น <b>+30%</b></p></section>
-      </aside></div>}
+      {activeTab==="collections"?<ShopCollectionsManager shopId={shopId} shopSlug={form.slug} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} notify={notify}/>:activeTab==="theme"?<ShopThemeEditor shopId={shopId} shop={themeShop} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} logoControl={logoControl} onDirtyChange={onThemeDirty} notify={notify}/>:activeTab==="hours"?<div className="store-hours"><ShopHoursEditor shopId={shopId} initialHours={form.openingHours} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} notify={notify} onDirtyChange={onHoursDirty} onSaved={hours=>{patch({openingHours:hours});baseline.current={...baseline.current,openingHours:hours};}}/></div>:(
+      <div className="store-layout">
+        <section className="store-form-card store-info-card">
+          <header className="store-info-head">
+            <div>
+              <h2><Store aria-hidden />ข้อมูลร้านค้า</h2>
+              <p>ข้อมูลพื้นฐานของร้าน จะแสดงบนหน้าร้านและใช้ในการติดต่อลูกค้า</p>
+            </div>
+            <div className="store-enabled">
+              <span><CheckCircle2 aria-hidden />{statusLabel}</span>
+              {createdLabel ? <small>สร้างเมื่อ {createdLabel}</small> : null}
+              {form.status === "SUSPENDED" ? <a href="/merchant/reinstatement">ยื่นคำร้องปลดระงับ</a> : null}
+            </div>
+            <div className="store-head-actions">
+              {infoDirty ? <button type="button" className="store-cancel" onClick={cancel} disabled={saving}>ยกเลิก</button> : null}
+              <MerchantSaveButton saving={saving} disabled={!canUpdate} title={deniedTitle(canUpdate)} onClick={() => void save()} />
+            </div>
+          </header>
+
+          <section className="store-info-block">
+            <h3>โปรไฟล์ร้าน</h3>
+            <div className="store-info-stack">
+              <FormField label={<>ชื่อร้านค้า <i>*</i></>} icon={Store} aside={<span>{form.shopName.length}/100</span>} className="flush">
+                <input value={form.shopName} maxLength={100} onChange={(e) => patch({ shopName: e.target.value })} />
+              </FormField>
+              <FormField label="คำอธิบายร้านค้า" multiline aside={<span>{form.description.length}/500</span>} className="flush">
+                <textarea value={form.description} maxLength={500} onChange={(e) => patch({ description: e.target.value })} />
+              </FormField>
+              <SearchableSelect
+                label="ประเภทร้านค้า"
+                required
+                options={categories}
+                value={form.category}
+                placeholder="เลือกประเภทร้านค้า"
+                disabled={!canUpdate}
+                portal
+                onChange={(value) => patch({ category: value })}
+              />
+            </div>
+          </section>
+
+          <section className="store-info-block">
+            <h3>ข้อมูลติดต่อ</h3>
+            <p className="store-info-hint">เบอร์/อีเมลเจ้าของใช้ภายในระบบ ส่วนช่องสาธารณะจะแสดงบนหน้าร้านเมื่อกรอก</p>
+            <div className="form-grid store-info-grid">
+              <FormField label={<>เบอร์โทรศัพท์เจ้าของ <i>*</i></>} icon={Phone} aside={<span>ไม่แสดงบนหน้าร้าน</span>} className="flush">
+                <input value={form.phone} onChange={(e) => patch({ phone: e.target.value })} />
+              </FormField>
+              <FormField label={<>อีเมลเจ้าของ <i>*</i></>} icon={Mail} aside={<span>ไม่แสดงบนหน้าร้าน</span>} className="flush">
+                <input value={form.email} onChange={(e) => patch({ email: e.target.value })} />
+              </FormField>
+              <FormField label="เบอร์ติดต่อหน้าร้าน" icon={Phone} aside={<span>เว้นว่าง = ไม่แสดง</span>} className="flush">
+                <input value={form.publicPhone} onChange={(e) => patch({ publicPhone: e.target.value })} />
+              </FormField>
+              <FormField label="อีเมลติดต่อหน้าร้าน" icon={Mail} aside={<span>เว้นว่าง = ไม่แสดง</span>} className="flush">
+                <input value={form.publicEmail} onChange={(e) => patch({ publicEmail: e.target.value })} />
+              </FormField>
+            </div>
+          </section>
+
+          <div className="store-lower">
+            <section className="store-info-block">
+              <h3>ช่องทางโซเชียล</h3>
+              <p className="store-info-hint">แสดงบนหน้าติดต่อร้าน</p>
+              <div className="store-info-stack">
+                <FormField label="LINE" icon={MessageCircle} className="flush">
+                  <input value={form.lineId} placeholder="LINE ID" onChange={(e) => patch({ lineId: e.target.value })} />
+                </FormField>
+                <FormField label="Facebook" icon={Facebook} className="flush">
+                  <input value={form.facebookUrl} placeholder="ลิงก์ Facebook" onChange={(e) => patch({ facebookUrl: e.target.value })} />
+                </FormField>
+                <FormField label="Instagram" icon={Instagram} className="flush">
+                  <input value={form.instagramUrl} placeholder="ลิงก์ Instagram" onChange={(e) => patch({ instagramUrl: e.target.value })} />
+                </FormField>
+                <FormField label="TikTok" icon={Music2} className="flush">
+                  <input value={form.tiktokUrl} placeholder="ลิงก์ TikTok" onChange={(e) => patch({ tiktokUrl: e.target.value })} />
+                </FormField>
+              </div>
+            </section>
+
+            <aside className="store-info-block store-address-block">
+              <header className="store-section-head">
+                <div className="store-section-title">
+                  <span className="store-section-icon" aria-hidden="true"><MapPin /></span>
+                  <div>
+                    <h3>ที่อยู่ร้านค้า</h3>
+                    <p>ใช้แสดงบนหน้าร้านและแผนที่</p>
+                  </div>
+                </div>
+                <button type="button" disabled={!canUpdate} title={deniedTitle(canUpdate)} onClick={() => setEditingAddress((value) => !value)}>
+                  {editingAddress ? "เสร็จสิ้น" : "แก้ไข"}
+                </button>
+              </header>
+              <div className="store-section-body">
+                {editingAddress ? (
+                  <div className="form-grid store-info-grid store-address-edit">
+                    <FormField label="ที่อยู่" multiline className="flush wide">
+                      <textarea value={form.address} onChange={(e) => patch({ address: e.target.value })} placeholder="บ้านเลขที่ ถนน" />
+                    </FormField>
+                    <FormField label="ตำบล / แขวง" className="flush">
+                      <input value={form.subdistrict} onChange={(e) => patch({ subdistrict: e.target.value })} />
+                    </FormField>
+                    <FormField label="อำเภอ / เขต" className="flush">
+                      <input value={form.district} onChange={(e) => patch({ district: e.target.value })} />
+                    </FormField>
+                    <FormField label="จังหวัด" className="flush">
+                      <input value={form.province} onChange={(e) => patch({ province: e.target.value })} />
+                    </FormField>
+                    <FormField label="รหัสไปรษณีย์" className="flush">
+                      <input value={form.postalCode} inputMode="numeric" maxLength={5} onChange={(e) => patch({ postalCode: e.target.value })} />
+                    </FormField>
+                  </div>
+                ) : (
+                  <div className={`store-address-panel${addressLine ? "" : " is-empty"}`}>
+                    <div className="store-address-card">
+                      <span className="store-address-icon" aria-hidden="true"><MapPin /></span>
+                      <div>
+                        <b>{addressLine || "ยังไม่ได้ระบุที่อยู่"}</b>
+                        <small>{addressLine ? [form.district, form.province].filter(Boolean).join(" · ") || "ที่อยู่ร้านค้า" : "กดแก้ไขเพื่อเพิ่มที่อยู่ร้าน"}</small>
+                      </div>
+                    </div>
+                    <StoreMiniMap address={addressLine} mapUrl={mapUrl} />
+                  </div>
+                )}
+              </div>
+            </aside>
+          </div>
+
+          <section className="store-info-block store-policy-block">
+            <header className="store-section-head">
+              <div className="store-section-title">
+                <span className="store-section-icon" aria-hidden="true"><FileText /></span>
+                <div>
+                  <h3>นโยบายร้านค้า</h3>
+                  <p>ลูกค้าจะเห็นนโยบายเหล่านี้บนหน้าร้าน</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => requestHref("/merchant/settings?tab=policies")}>จัดการนโยบาย →</button>
+            </header>
+            <div className="store-section-body">
+              <div className="store-policy-grid">
+                {([
+                  [Truck, "การจัดส่ง"],
+                  [RefreshCw, "การคืนสินค้า"],
+                  [Shield, "ความเป็นส่วนตัว"],
+                  [FileText, "ข้อกำหนด"],
+                ] as const).map(([Icon, label]) => (
+                  <button key={label} type="button" className="store-policy-item" onClick={() => requestHref("/merchant/settings?tab=policies")}>
+                    <span aria-hidden="true"><Icon /></span>
+                    <b>{label}</b>
+                    <small>ไปตั้งค่า</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <aside className="store-side">
+          <section className="store-summary">
+            <header className="store-summary-head">
+              <h2>สรุปร้าน</h2>
+              <span className="store-summary-badge">{statusLabel}</span>
+            </header>
+            <div className="store-summary-hero">
+              <div className="store-summary-mark" aria-hidden="true">{(form.shopName.trim().charAt(0) || "ร").toUpperCase()}</div>
+              <div className="store-summary-copy">
+                <b>{form.shopName || "ชื่อร้านค้า"}</b>
+                <small>{form.category || "ยังไม่เลือกประเภท"}</small>
+              </div>
+            </div>
+            {previewText ? <p className="store-summary-desc">{previewText}</p> : <p className="store-summary-desc is-empty">ยังไม่มีคำอธิบายร้าน</p>}
+            <ul className="store-summary-meta">
+              <li><span>ประเภท</span><b>{form.category || "—"}</b></li>
+              <li><span>จังหวัด</span><b>{form.province || "—"}</b></li>
+              <li><span>สถานะ</span><b>{statusLabel}</b></li>
+              <li><span>สร้างเมื่อ</span><b>{createdLabel || "—"}</b></li>
+            </ul>
+            <button className="store-summary-cta" type="button" onClick={openStorefront} disabled={!form.slug}>
+              <ExternalLink aria-hidden />เข้าชมหน้าร้าน
+            </button>
+          </section>
+
+          <section className="store-tips">
+            <header><h2>เคล็ดลับเพิ่มยอดขาย</h2></header>
+            <p><CheckCircle2 aria-hidden />กรอกคำอธิบายร้านให้ครบและชัดเจน</p>
+            <p><CheckCircle2 aria-hidden />ใส่ช่องทางติดต่อสาธารณะที่ลูกค้าใช้จริง</p>
+            <p><CheckCircle2 aria-hidden />เชื่อมต่อ LINE / Facebook เพื่อรับข้อความจากลูกค้า</p>
+          </section>
+        </aside>
+      </div>
+      )}
     </section>{pendingLeave&&<ConfirmDialog title={t("storeTheme.confirm.leave.title")} message={t("storeTheme.confirm.leave.message")} confirmLabel={t("storeTheme.confirm.leave.confirm")} cancelLabel={t("storeTheme.confirm.leave.stay")} danger onConfirm={confirmLeave} onCancel={()=>setPendingLeave(null)}/>}{notice&&<div className="merchant-toast" role="status">{notice}</div>}
   </main>
 }

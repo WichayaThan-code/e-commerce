@@ -15,7 +15,7 @@
 .owner-form-section .searchable-select-wrap{min-width:0}
 .owner-icon-field>svg{top:18px;color:#557097}
 .owner-message[role="alert"]{color:var(--color-danger)}
-.owner-person-grid,.owner-contact-grid{align-items:end}
+.owner-person-grid,.owner-contact-grid{align-items:start}
 .owner-form-section .same-address{position:relative;display:inline-flex;align-items:center;gap:8px;margin:0;padding:8px 12px;border:1.5px solid #cedaea;border-radius:8px;background:#fff;color:#08245e;font-size:13px;font-weight:700!important;line-height:1.2;cursor:pointer;user-select:none;transition:border-color .15s,background .15s,box-shadow .15s}
 .owner-form-section .same-address:hover{border-color:#0878f5;background:#f4f9ff}
 .owner-form-section .same-address:has(input:checked){border-color:#0878f5;background:#eef6ff;box-shadow:var(--focus-ring)}
@@ -53,6 +53,75 @@
 .owner-address-grid label.wide,.owner-payout-grid label.wide,.owner-address-grid .address-grid{grid-column:1 / -1}
 .owner-person-grid .date-picker{min-width:0}
 .owner-card .form-field{margin-bottom:0;min-width:0}
+
+/*
+ * Lock every mixed field type (FormField / DatePicker / SearchableSelect)
+ * to the same label + control tracks so citizenId/DOB/nationality and
+ * bank/accountNumber share one baseline.
+ */
+.owner-card .owner-person-grid > .form-field,
+.owner-card .owner-person-grid > .searchable-select-wrap,
+.owner-card .owner-person-grid > .date-picker,
+.owner-card .owner-payout-grid > .form-field,
+.owner-card .owner-payout-grid > .searchable-select-wrap,
+.owner-card .owner-form-section .form-grid > .form-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 18px 51px;
+  align-content: start;
+  align-self: start;
+  row-gap: 8px;
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.owner-card .owner-person-grid .form-label,
+.owner-card .owner-person-grid .select-label,
+.owner-card .owner-person-grid .date-picker-label,
+.owner-card .owner-payout-grid .form-label,
+.owner-card .owner-payout-grid .select-label,
+.owner-card .owner-form-section .form-grid .form-label {
+  display: block;
+  grid-row: 1;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  line-height: 18px;
+  height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 700;
+  color: #08245e;
+}
+
+.owner-card .owner-person-grid .form-control,
+.owner-card .owner-person-grid .searchable-select-btn,
+.owner-card .owner-person-grid .date-picker-trigger,
+.owner-card .owner-payout-grid .form-control,
+.owner-card .owner-payout-grid .searchable-select-btn,
+.owner-card .owner-form-section .form-grid .form-control {
+  grid-row: 2;
+  box-sizing: border-box;
+  width: 100%;
+  height: 51px;
+  min-height: 51px;
+  max-height: 51px;
+  margin: 0;
+  flex: none;
+}
+
+.owner-card .owner-person-grid .form-field-meta,
+.owner-card .owner-person-grid .signup-field-error,
+.owner-card .owner-payout-grid .form-field-meta,
+.owner-card .owner-payout-grid .signup-field-error,
+.owner-card .owner-form-section .form-grid .form-field-meta,
+.owner-card .owner-form-section .form-grid .signup-field-error {
+  grid-row: 3;
+  margin-top: 0;
+}
 .owner-form-section .form-grid{margin-top:13px}
 .owner-address-display{display:grid;gap:4px;width:100%;box-sizing:border-box;margin-top:12px;padding:14px 16px;border:1px solid #dce2eb;border-radius:10px;background:#f7f9fc;color:#132b50;font-size:14px;line-height:1.6}
 .owner-address-display b{font-weight:600}

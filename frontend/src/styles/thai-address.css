@@ -107,7 +107,15 @@
   border-radius: 8px;
   box-shadow: 0 10px 25px rgba(8, 36, 94, 0.15);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: min(280px, 50vh);
   animation: fadeInDown 0.15s ease-out;
+}
+
+.searchable-dropdown.is-portaled {
+  right: auto;
+  animation: none;
 }
 
 /* Right-column fields: keep panel flush to the trigger's right edge. */
@@ -135,6 +143,7 @@
   background: #f7fbff;
   border-bottom: 1px solid #e1ebf5;
   min-width: 0;
+  flex: none;
 }
 
 .dropdown-search-box svg {
@@ -176,8 +185,12 @@
 }
 
 .dropdown-options-list {
-  max-height: 180px;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   margin: 0;
   padding: 4px 0;
   list-style: none;

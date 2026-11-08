@@ -123,7 +123,7 @@ public class PaymentAccountService {
             masked ? mask(number) : number, (String) config.get("accountName"), masked ? mask(promptPay) : promptPay, gateway.isActive(), masked);
     }
 
-    static String mask(String value) {
+    public static String mask(String value) {
         if (value == null) return null;
         return value.length() <= 4 ? "****" : "*".repeat(value.length() - 4) + value.substring(value.length() - 4);
     }

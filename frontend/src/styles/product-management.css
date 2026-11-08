@@ -310,76 +310,115 @@
   overflow: auto;
   border-top: 1px solid #e0ebf5;
 }
+.pm-table-wrap.pm-detail-table {
+  border-top: 0;
+  margin: 0 16px 4px;
+  border: 1px solid #dce9f5;
+  border-radius: 12px;
+  background: #fff;
+}
 .pm-table-wrap table {
   width: 100%;
-  min-width: 1080px;
+  min-width: 1120px;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 13px;
+  font-size: 14px;
 }
 .pm-table-wrap th {
-  height: 41px;
+  height: auto;
   background: #edf6fd;
+  color: #0b2a64;
   text-align: left;
   font-weight: 700;
+  white-space: nowrap;
 }
-.pm-table-wrap th:first-child,
-.pm-table-wrap td:first-child {
-  width: 50px;
+.pm-table-wrap th,
+.pm-table-wrap td {
+  padding: 12px 14px;
+  overflow: hidden;
+  text-align: left;
+  vertical-align: middle;
+}
+.pm-table-wrap td {
+  height: auto;
+  border-bottom: 1px solid #e6eef6;
+  color: #365d92;
+}
+.pm-table-wrap th {
+  text-overflow: ellipsis;
+}
+.pm-table-wrap td b {
+  color: var(--pm-navy);
+}
+.pm-table-wrap .pm-col-check {
+  width: 48px;
   text-align: center;
+  padding-left: 10px;
+  padding-right: 10px;
 }
-.pm-table-wrap th:nth-child(3),
-.pm-table-wrap td:nth-child(3) {
-  width: 112px;
+/* FK-ish labels stay compact; price/stock keep readable room */
+.pm-table-wrap .pm-col-product {
+  width: 220px;
 }
-.pm-table-wrap th:nth-child(4),
-.pm-table-wrap td:nth-child(4) {
+.pm-table-wrap .pm-col-sku {
   width: 120px;
 }
-.pm-table-wrap th:nth-child(5),
-.pm-table-wrap td:nth-child(5) {
-  width: 108px;
+.pm-table-wrap .pm-col-category {
+  width: 120px;
 }
-.pm-table-wrap th:nth-child(6),
-.pm-table-wrap td:nth-child(6) {
-  width: 168px;
+.pm-table-wrap .pm-col-price {
+  width: 200px;
+  white-space: nowrap;
 }
-.pm-table-wrap th:nth-child(7),
-.pm-table-wrap td:nth-child(7) {
-  width: 140px;
+.pm-table-wrap .pm-col-stock {
+  width: 120px;
+  white-space: nowrap;
 }
-.pm-table-wrap th:nth-child(8),
-.pm-table-wrap td:nth-child(8) {
-  width: 118px;
+.pm-table-wrap .pm-col-status {
+  width: 124px;
 }
-.pm-table-wrap th:nth-child(9),
-.pm-table-wrap td:nth-child(9) {
+.pm-table-wrap .pm-col-updated {
+  width: 132px;
+}
+.pm-table-wrap .pm-col-actions {
   width: 96px;
   overflow: visible;
   padding-left: 8px;
   padding-right: 8px;
 }
-.pm-table-wrap th,
-.pm-table-wrap td {
-  padding: 8px 10px;
+.pm-table-wrap .pm-col-fk .pm-product p {
+  min-width: 0;
+}
+.pm-table-wrap .pm-col-fk .pm-product p b,
+.pm-table-wrap .pm-col-fk .pm-product p small {
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
 }
-.pm-table-wrap td {
-  height: auto;
-  border-bottom: 1px solid #e2ebf3;
-  color: #365d92;
-  vertical-align: middle;
+.pm-table-wrap .pm-col-fk .pm-product p b {
+  font-size: 13px;
+  line-height: 1.35;
 }
-.pm-table-wrap th {
+.pm-table-wrap .pm-col-fk.pm-clip {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pm-table-wrap td b {
-  color: var(--pm-navy);
+.pm-table-wrap .pm-col-price,
+.pm-table-wrap .pm-col-stock {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.pm-table-wrap td:nth-child(5) {
-  white-space: nowrap;
+.pm-table-wrap .pm-col-product .pm-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+}
+.pm-table-wrap .pm-col-product .pm-product {
+  gap: 8px;
 }
 .pm-stock {
   display: inline-flex;

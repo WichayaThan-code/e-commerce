@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { RotateCcw } from "lucide-react";
+import { FileUp, RotateCcw } from "lucide-react";
 import ConfirmDialog from "../form/ConfirmDialog";
 import { Skeleton } from "../feedback/Skeleton";
 import { formatBaht } from "../cart/cartFormat";
@@ -14,6 +14,7 @@ import {
   type RefundView,
 } from "../../services/api";
 import SlipPreview from "./SlipPreview";
+import { OrderDateTimeField, shipNowInput } from "./ShipDateTimeFields";
 import { formatBangkokDateTime, isStaleOrderError, orderErrorMessage } from "./orderFormat";
 
 export type RefundDialogRequest = { kind: "approve" | "reject"; nonce: number } | null;
@@ -61,6 +62,7 @@ export default function OrderRefundPanel({ shopId, order, canRefund, deniedTitle
   const [file, setFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const summaryRef = useRef<RefundSummary | null>(null);
   summaryRef.current = summary;
 
@@ -80,10 +82,11 @@ export default function OrderRefundPanel({ shopId, order, canRefund, deniedTitle
     setRestock(true);
     setReason("");
     setReference("");
-    setTransferredAt("");
+    setTransferredAt(shipNowInput());
     setFile(null);
     setErrors({});
     setFormError("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const lastNonce = useRef(0);
@@ -264,6 +267,7 @@ export default function OrderRefundPanel({ shopId, order, canRefund, deniedTitle
 
       {dialog?.kind === "proof" && (
         <ConfirmDialog
+          className="om-refund-proof"
           title={t("orderManagement.refund.proofTitle")}
           message={t("orderManagement.refund.proofMessage", { amount: money(dialog.refund.amount) })}
           confirmLabel={t("orderManagement.refund.uploadProof")}
@@ -272,22 +276,68 @@ export default function OrderRefundPanel({ shopId, order, canRefund, deniedTitle
           onCancel={close}
           onConfirm={() => void uploadProof(dialog.refund)}
         >
-          <div className="om-dialog-fields">
-            <label className="om-field">
+          <div className="om-dialog-fields om-refund-proof-fields">
+            <div className={`om-field om-refund-file${errors.file ? " invalid" : ""}`}>
               <span>{t("orderManagement.refund.proofFile")}</span>
-              <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              <input
+                ref={fileInputRef}
+                className="om-refund-file-input"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+              <button
+                type="button"
+                className={`om-refund-file-drop${file ? " has-file" : ""}`}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <span className="om-refund-file-icon" aria-hidden="true"><FileUp /></span>
+                <span className="om-refund-file-copy">
+                  <b>{file ? file.name : t("orderManagement.refund.proofFilePick")}</b>
+                  <small>{file ? t("orderManagement.refund.proofFileChange") : t("orderManagement.refund.proofFileHint")}</small>
+                </span>
+              </button>
               {fieldError("file")}
-            </label>
-            <label className="om-field">
+            </div>
+            <label className={`om-field${errors.reference ? " invalid" : ""}`}>
               <span>{t("orderManagement.refund.proofReference")}</span>
-              <input maxLength={120} value={reference} onChange={(e) => setReference(e.target.value)} />
+              <input
+                maxLength={120}
+                value={reference}
+                placeholder={t("orderManagement.refund.proofReference")}
+                onChange={(e) => setReference(e.target.value)}
+              />
               {fieldError("reference")}
             </label>
-            <label className="om-field">
-              <span>{t("orderManagement.refund.proofTransferredAt")}</span>
-              <input type="datetime-local" value={transferredAt} onChange={(e) => setTransferredAt(e.target.value)} />
-              {fieldError("transferredAt")}
-            </label>
+            <OrderDateTimeField
+              value={transferredAt}
+              localeTag={localeTag}
+              title={t("orderManagement.refund.proofTransferredAt")}
+              hint={t("orderManagement.refund.proofDateTimeHint")}
+              presetsLabel={t("orderManagement.drawer.shippedAtPresets")}
+              nowLabel={t("orderManagement.drawer.shippedAtNow")}
+              dateLabel={t("orderManagement.drawer.shippedAtDate")}
+              timeLabel={t("orderManagement.drawer.shippedAtTime")}
+              hourLabel={t("orderManagement.drawer.shippedAtHour")}
+              minuteLabel={t("orderManagement.drawer.shippedAtMinute")}
+              applyLabel={t("orderManagement.drawer.shippedAtApply")}
+              selectedLabel={t("orderManagement.drawer.shippedAtSelected")}
+              datePlaceholder={t("orderManagement.refund.proofDate")}
+              error={errors.transferredAt}
+              periodLabels={{
+                night: t("orderManagement.drawer.shippedAtPeriod.night"),
+                morning: t("orderManagement.drawer.shippedAtPeriod.morning"),
+                afternoon: t("orderManagement.drawer.shippedAtPeriod.afternoon"),
+                evening: t("orderManagement.drawer.shippedAtPeriod.evening"),
+              }}
+              presetLabels={{
+                "0900": t("orderManagement.drawer.shippedAtPreset.0900"),
+                "1200": t("orderManagement.drawer.shippedAtPreset.1200"),
+                "1500": t("orderManagement.drawer.shippedAtPreset.1500"),
+                "1800": t("orderManagement.drawer.shippedAtPreset.1800"),
+              }}
+              onChange={setTransferredAt}
+            />
             {formError && <p className="om-error" role="alert">{formError}</p>}
           </div>
         </ConfirmDialog>

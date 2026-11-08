@@ -164,6 +164,28 @@ public class MerchantShopSettingsService {
         return "/api/shops/" + shop.getSlug() + "/cover" + version;
     }
 
+    /** Contact channels only — shared with /merchant/store social fields; does not overwrite other settings. */
+    @Transactional
+    public MerchantDtos.MerchantSettingsResponse updateChannels(UUID userId, Long shopId, MerchantDtos.MerchantChannelsUpdateRequest request) {
+        var shop = ownedShop(userId, shopId);
+        var channels = ShopChannelUrls.normalizeOrThrow(
+            request.website(),
+            request.lineId(),
+            request.facebookUrl(),
+            request.instagramUrl(),
+            request.tiktokUrl()
+        );
+        shop.updateChannels(channels.website(), channels.lineId(), channels.facebookUrl(), channels.instagramUrl(), channels.tiktokUrl());
+        var application = shop.getApplication();
+        var owner = shop.getOwner();
+        String phone = owner == null || owner.getPhone() == null ? "" : owner.getPhone();
+        String email = owner == null || owner.getEmail() == null ? "" : owner.getEmail();
+        application.syncFromShop(shop, phone, email);
+        applications.save(application);
+        shops.save(shop);
+        return get(userId, shop.getId());
+    }
+
     @Transactional
     public MerchantDtos.MerchantSettingsResponse update(UUID userId, Long shopId, MerchantDtos.MerchantSettingsUpdateRequest request) {
         var shop = ownedShop(userId, shopId);

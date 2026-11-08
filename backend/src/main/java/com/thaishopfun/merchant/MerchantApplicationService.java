@@ -3,6 +3,7 @@ package com.thaishopfun.merchant;
 import com.thaishopfun.admin.notification.AdminNotificationService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.UserAccountRepository;
+import com.thaishopfun.merchant.delivery.ShopLifecycleEmailPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,15 +27,18 @@ public class MerchantApplicationService {
     private final MerchantDraftFactory drafts;
     private final ShopRepository shopRepository;
     private final AdminNotificationService adminNotifications;
+    private final ShopLifecycleEmailPublisher shopMails;
 
     public MerchantApplicationService(MerchantApplicationRepository applications, MerchantDocumentRepository documents,
                                       UserAccountRepository users, SensitiveDataCipher cipher, MerchantStorageService storage,
                                       ShopCatalogService shops, OwnerAccountService ownerAccounts,
                                       ProductCategoryService categories, MerchantDraftFactory drafts,
-                                      ShopRepository shopRepository, AdminNotificationService adminNotifications) {
+                                      ShopRepository shopRepository, AdminNotificationService adminNotifications,
+                                      ShopLifecycleEmailPublisher shopMails) {
         this.applications=applications; this.documents=documents; this.users=users; this.cipher=cipher; this.storage=storage; this.shops=shops; this.ownerAccounts=ownerAccounts; this.categories=categories; this.drafts=drafts;
         this.shopRepository = shopRepository;
         this.adminNotifications = adminNotifications;
+        this.shopMails = shopMails;
     }
 
     @Transactional
@@ -144,9 +148,10 @@ public class MerchantApplicationService {
         application.submit(reference);
         var saved = applications.save(application);
         shops.openFrom(saved);
-        shopRepository.findByApplication_Id(saved.getId()).ifPresent(shop ->
-            adminNotifications.publishShopApplication(shop.getId(), shop.getName())
-        );
+        shopRepository.findByApplication_Id(saved.getId()).ifPresent(shop -> {
+            adminNotifications.publishShopApplication(shop.getId(), shop.getName());
+            shopMails.applicationSubmitted(shop);
+        });
         return response(saved);
     }
 

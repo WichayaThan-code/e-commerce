@@ -262,6 +262,14 @@
 }
 /* tsf storefronts (GENERAL / FASHION / FOOD_BEVERAGE) pick heading vs body fonts themselves in tsf-general.css. */
 .recommend-page.shop-themed.tsf-store{font-family:var(--tsf-font-body,var(--shop-font)),sans-serif}
+/* Legacy (non-TSF) storefront: section/hero titles use heading font when set. */
+.recommend-page.shop-themed:not(.tsf-store) .shop-hero-copy h1,
+.recommend-page.shop-themed:not(.tsf-store) .shop-profile-copy h2,
+.recommend-page.shop-themed:not(.tsf-store) .shop-featured-head h2,
+.recommend-page.shop-themed:not(.tsf-store) .shop-hours h2,
+.recommend-page.shop-themed:not(.tsf-store) .shop-products h2,
+.recommend-page.shop-themed:not(.tsf-store) .shop-collection-name,
+.recommend-page.shop-themed:not(.tsf-store) .shop-collection-page-head h1{font-family:var(--shop-font-heading,var(--shop-font)),sans-serif;line-height:1.35}
 .shop-themed:where(:not(.tsf-store)),
 .shop-themed:where(:not(.tsf-store)) button:not(.num),
 .shop-themed:where(:not(.tsf-store)) input,

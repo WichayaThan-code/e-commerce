@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useLanguage } from '../../contexts/LanguageContext'
 import {
@@ -16,6 +17,7 @@ import '../../styles/date-picker.css'
 import '../../styles/date-range-picker.css'
 
 type RangeValue = { from: string; to: string }
+type PanelPos = { top: number; left: number; width: number }
 
 type DateRangePickerProps = {
   label: ReactNode
@@ -29,6 +31,8 @@ type DateRangePickerProps = {
   clearLabel?: string
   applyLabel?: string
   presetsLabel?: { d7: string; d30: string; month: string }
+  /** Render the calendar in document.body to avoid overflow clipping in cards/filters. */
+  portal?: boolean
 }
 
 export default function DateRangePicker({
@@ -43,17 +47,20 @@ export default function DateRangePicker({
   clearLabel,
   applyLabel,
   presetsLabel,
+  portal = false,
 }: DateRangePickerProps) {
   const { locale, localeTag: tag } = useLanguage()
   const isThai = locale === 'th'
   const containerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const yearListRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [menu, setMenu] = useState<MenuMode>('none')
   const [draftFrom, setDraftFrom] = useState(from)
   const [draftTo, setDraftTo] = useState(to)
   const [hover, setHover] = useState<string | null>(null)
+  const [panelPos, setPanelPos] = useState<PanelPos | null>(null)
   const fromDate = parseIso(draftFrom)
   const toDate = parseIso(draftTo)
   const minDate = min ? parseIso(min) : null
@@ -63,6 +70,7 @@ export default function DateRangePicker({
   useEffect(() => {
     if (!open) {
       setMenu('none')
+      setPanelPos(null)
       return
     }
     setDraftFrom(from)
@@ -72,11 +80,38 @@ export default function DateRangePicker({
   }, [open, from, to, maxDate])
 
   useEffect(() => {
+    if (!open || !portal) return
+    const update = () => {
+      const trigger = triggerRef.current
+      if (!trigger) return
+      const rect = trigger.getBoundingClientRect()
+      const width = Math.min(Math.max(rect.width, 320), window.innerWidth - 16)
+      const estimatedHeight = 420
+      const below = rect.bottom + 6
+      const top = below + estimatedHeight > window.innerHeight - 8
+        ? Math.max(8, rect.top - estimatedHeight - 6)
+        : below
+      let left = rect.right - width
+      if (left < 8) left = 8
+      if (left + width > window.innerWidth - 8) left = Math.max(8, window.innerWidth - width - 8)
+      setPanelPos({ top, left, width })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [open, portal])
+
+  useEffect(() => {
     if (!open) return
     const onPointer = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
+      const target = event.target as Node
+      if (containerRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      setOpen(false)
     }
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -201,6 +236,147 @@ export default function DateRangePicker({
   const viewMonth = view.getMonth()
   const viewYear = view.getFullYear()
   const hasValue = Boolean(from || to)
+  const portalStyle: CSSProperties | undefined = portal && panelPos
+    ? { position: 'fixed', top: panelPos.top, left: panelPos.left, width: panelPos.width, right: 'auto', zIndex: 1200 }
+    : undefined
+
+  const panel = open && (!portal || panelPos) ? (
+    <div
+      ref={panelRef}
+      className="date-picker-panel date-range-panel"
+      role="dialog"
+      aria-label={typeof label === 'string' ? label : undefined}
+      style={portalStyle}
+    >
+      <div className="date-picker-toolbar">
+        <button type="button" className="date-picker-nav" aria-label="Previous month" onClick={() => shiftMonth(-1)}>
+          <ChevronLeft />
+        </button>
+        <div className="date-picker-heading">
+          <button
+            type="button"
+            className={`date-picker-chip${menu === 'month' ? ' active' : ''}`}
+            aria-expanded={menu === 'month'}
+            onClick={() => setMenu((current) => (current === 'month' ? 'none' : 'month'))}
+          >
+            <span>{months[viewMonth]}</span>
+            <ChevronDown />
+          </button>
+          <button
+            type="button"
+            className={`date-picker-chip year${menu === 'year' ? ' active' : ''}`}
+            aria-expanded={menu === 'year'}
+            onClick={() => setMenu((current) => (current === 'year' ? 'none' : 'year'))}
+          >
+            <span>{yearLabel(viewYear)}</span>
+            <ChevronDown />
+          </button>
+        </div>
+        <button type="button" className="date-picker-nav" aria-label="Next month" onClick={() => shiftMonth(1)}>
+          <ChevronRight />
+        </button>
+      </div>
+
+      {menu === 'month' ? (
+        <div className="date-picker-menu months" role="listbox" aria-label="Month">
+          {months.map((month, index) => (
+            <button
+              key={month}
+              type="button"
+              role="option"
+              aria-selected={index === viewMonth}
+              className={index === viewMonth ? 'active' : ''}
+              onClick={() => {
+                setView(new Date(viewYear, index, 1))
+                setMenu('none')
+              }}
+            >
+              {month}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {menu === 'year' ? (
+        <div className="date-picker-menu years" role="listbox" aria-label="Year" ref={yearListRef}>
+          {yearOptions.map((year) => (
+            <button
+              key={year}
+              type="button"
+              role="option"
+              data-active={year === viewYear ? 'true' : undefined}
+              aria-selected={year === viewYear}
+              className={year === viewYear ? 'active' : ''}
+              onClick={() => {
+                setView(new Date(year, viewMonth, 1))
+                setMenu('none')
+              }}
+            >
+              {yearLabel(year)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {menu === 'none' ? (
+        <>
+          <div className="date-range-presets">
+            <button type="button" onClick={() => applyPreset(7)}>{presetsLabel?.d7 || (isThai ? '7 วัน' : '7 days')}</button>
+            <button type="button" onClick={() => applyPreset(30)}>{presetsLabel?.d30 || (isThai ? '30 วัน' : '30 days')}</button>
+            <button type="button" onClick={() => applyPreset('month')}>{presetsLabel?.month || (isThai ? 'เดือนนี้' : 'This month')}</button>
+          </div>
+          <div className="date-picker-weekdays">
+            {weekdays.map((day) => <span key={day}>{day}</span>)}
+          </div>
+          <div className="date-picker-grid">
+            {cells.map(({ date, inMonth }) => {
+              const iso = toIso(date)
+              const disabled = isDisabled(date)
+              const isStart = draftFrom === iso
+              const isEnd = draftTo === iso
+              const selected = isStart || isEnd
+              const ranged = inRange(iso)
+              const isToday = toIso(today) === iso
+              return (
+                <button
+                  key={`${iso}-${inMonth ? 'in' : 'out'}`}
+                  type="button"
+                  disabled={disabled}
+                  aria-selected={selected}
+                  aria-label={date.toLocaleDateString(tag, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  className={[
+                    'date-picker-day',
+                    'num',
+                    inMonth ? '' : 'muted',
+                    selected ? 'selected' : '',
+                    ranged ? 'in-range' : '',
+                    isStart ? 'range-start' : '',
+                    isEnd ? 'range-end' : '',
+                    isToday ? 'today' : '',
+                  ].filter(Boolean).join(' ')}
+                  onMouseEnter={() => {
+                    if (draftFrom && !draftTo) setHover(iso)
+                  }}
+                  onClick={() => pick(date)}
+                >
+                  {date.getDate()}
+                </button>
+              )
+            })}
+          </div>
+        </>
+      ) : null}
+
+      <div className="date-picker-footer">
+        <button type="button" className="date-picker-clear" onClick={clear}>
+          {clearLabel || (isThai ? 'ล้าง' : 'Clear')}
+        </button>
+        <button type="button" className="date-picker-today" disabled={!draftFrom} onClick={apply}>
+          {applyLabel || (isThai ? 'ตกลง' : 'Apply')}
+        </button>
+      </div>
+    </div>
+  ) : null
 
   return (
     <div className={['date-picker', 'date-range-picker', className].filter(Boolean).join(' ')} ref={containerRef}>
@@ -231,137 +407,7 @@ export default function DateRangePicker({
           </button>
         ) : null}
       </div>
-      {open ? (
-        <div className="date-picker-panel date-range-panel" role="dialog" aria-label={typeof label === 'string' ? label : undefined}>
-          <div className="date-picker-toolbar">
-            <button type="button" className="date-picker-nav" aria-label="Previous month" onClick={() => shiftMonth(-1)}>
-              <ChevronLeft />
-            </button>
-            <div className="date-picker-heading">
-              <button
-                type="button"
-                className={`date-picker-chip${menu === 'month' ? ' active' : ''}`}
-                aria-expanded={menu === 'month'}
-                onClick={() => setMenu((current) => (current === 'month' ? 'none' : 'month'))}
-              >
-                <span>{months[viewMonth]}</span>
-                <ChevronDown />
-              </button>
-              <button
-                type="button"
-                className={`date-picker-chip year${menu === 'year' ? ' active' : ''}`}
-                aria-expanded={menu === 'year'}
-                onClick={() => setMenu((current) => (current === 'year' ? 'none' : 'year'))}
-              >
-                <span>{yearLabel(viewYear)}</span>
-                <ChevronDown />
-              </button>
-            </div>
-            <button type="button" className="date-picker-nav" aria-label="Next month" onClick={() => shiftMonth(1)}>
-              <ChevronRight />
-            </button>
-          </div>
-
-          {menu === 'month' ? (
-            <div className="date-picker-menu months" role="listbox" aria-label="Month">
-              {months.map((month, index) => (
-                <button
-                  key={month}
-                  type="button"
-                  role="option"
-                  aria-selected={index === viewMonth}
-                  className={index === viewMonth ? 'active' : ''}
-                  onClick={() => {
-                    setView(new Date(viewYear, index, 1))
-                    setMenu('none')
-                  }}
-                >
-                  {month}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {menu === 'year' ? (
-            <div className="date-picker-menu years" role="listbox" aria-label="Year" ref={yearListRef}>
-              {yearOptions.map((year) => (
-                <button
-                  key={year}
-                  type="button"
-                  role="option"
-                  data-active={year === viewYear ? 'true' : undefined}
-                  aria-selected={year === viewYear}
-                  className={year === viewYear ? 'active' : ''}
-                  onClick={() => {
-                    setView(new Date(year, viewMonth, 1))
-                    setMenu('none')
-                  }}
-                >
-                  {yearLabel(year)}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {menu === 'none' ? (
-            <>
-              <div className="date-range-presets">
-                <button type="button" onClick={() => applyPreset(7)}>{presetsLabel?.d7 || (isThai ? '7 วัน' : '7 days')}</button>
-                <button type="button" onClick={() => applyPreset(30)}>{presetsLabel?.d30 || (isThai ? '30 วัน' : '30 days')}</button>
-                <button type="button" onClick={() => applyPreset('month')}>{presetsLabel?.month || (isThai ? 'เดือนนี้' : 'This month')}</button>
-              </div>
-              <div className="date-picker-weekdays">
-                {weekdays.map((day) => <span key={day}>{day}</span>)}
-              </div>
-              <div className="date-picker-grid">
-                {cells.map(({ date, inMonth }) => {
-                  const iso = toIso(date)
-                  const disabled = isDisabled(date)
-                  const isStart = draftFrom === iso
-                  const isEnd = draftTo === iso
-                  const selected = isStart || isEnd
-                  const ranged = inRange(iso)
-                  const isToday = toIso(today) === iso
-                  return (
-                    <button
-                      key={`${iso}-${inMonth ? 'in' : 'out'}`}
-                      type="button"
-                      disabled={disabled}
-                      aria-selected={selected}
-                      aria-label={date.toLocaleDateString(tag, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                      className={[
-                        'date-picker-day',
-                        'num',
-                        inMonth ? '' : 'muted',
-                        selected ? 'selected' : '',
-                        ranged ? 'in-range' : '',
-                        isStart ? 'range-start' : '',
-                        isEnd ? 'range-end' : '',
-                        isToday ? 'today' : '',
-                      ].filter(Boolean).join(' ')}
-                      onMouseEnter={() => {
-                        if (draftFrom && !draftTo) setHover(iso)
-                      }}
-                      onClick={() => pick(date)}
-                    >
-                      {date.getDate()}
-                    </button>
-                  )
-                })}
-              </div>
-            </>
-          ) : null}
-
-          <div className="date-picker-footer">
-            <button type="button" className="date-picker-clear" onClick={clear}>
-              {clearLabel || (isThai ? 'ล้าง' : 'Clear')}
-            </button>
-            <button type="button" className="date-picker-today" disabled={!draftFrom} onClick={apply}>
-              {applyLabel || (isThai ? 'ตกลง' : 'Apply')}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {portal ? (panel ? createPortal(panel, document.body) : null) : panel}
     </div>
   )
 }

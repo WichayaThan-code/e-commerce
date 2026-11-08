@@ -10,7 +10,7 @@ import FormTextarea from "../form/FormTextarea";
 import ToggleSwitch from "../form/ToggleSwitch";
 import { LoadError, SkeletonForm } from "../feedback/Skeleton";
 import ThemeMediaPicker from "./ThemeMediaPicker";
-import { MediaField, ThemeSelect } from "./ThemeEditorParts";
+import { MediaField, ThemeFontSelect, ThemeSelect } from "./ThemeEditorParts";
 import ShopBlocksEditor from "./ShopBlocksEditor";
 import SearchableSelect from "../SearchableSelect";
 import { chromePayload, FontPanel, FooterPanel, HeaderPanel, HeroMediaPanel } from "./ShopChromeEditor";
@@ -723,25 +723,29 @@ export default function ShopThemeEditor({
 
         <fieldset className="theme-block">
           <legend>{t("storeTheme.tc.fonts")}</legend>
-          <ThemeSelect
+          <ThemeFontSelect
             label={t("storeTheme.tc.fontHeading")}
             value={config.font}
+            options={SHOP_THEME_FONTS.map((font) => ({ value: font, label: t(`storeTheme.font.${font}`) }))}
+            sample={t("storeTheme.font.sample")}
+            searchPlaceholder={t("storeTheme.font.search")}
+            emptyLabel={t("storeTheme.font.empty")}
             disabled={disabled}
             error={errorFor("font")}
-            onChange={(event) => patchConfig((current) => ({ ...current, font: event.target.value as ShopThemeFontKey }), "config.font")}
-          >
-            {SHOP_THEME_FONTS.map((font) => <option key={font} value={font}>{t(`storeTheme.font.${font}`)}</option>)}
-          </ThemeSelect>
+            onChange={(font) => patchConfig((current) => ({ ...current, font }), "config.font")}
+          />
           <p className="theme-font-sample" style={{ fontFamily: shopThemeFontStack(config.font) }}>{t("storeTheme.font.sample")}</p>
-          <ThemeSelect
+          <ThemeFontSelect
             label={t("storeTheme.tc.fontBody")}
             value={config.fontBody ?? config.font}
+            options={SHOP_THEME_FONTS.map((font) => ({ value: font, label: t(`storeTheme.font.${font}`) }))}
+            sample={t("storeTheme.font.sample")}
+            searchPlaceholder={t("storeTheme.font.search")}
+            emptyLabel={t("storeTheme.font.empty")}
             disabled={disabled}
             error={errorFor("fontBody")}
-            onChange={(event) => patchConfig((current) => ({ ...current, fontBody: event.target.value as ShopThemeFontKey }), "config.fontBody")}
-          >
-            {SHOP_THEME_FONTS.map((font) => <option key={font} value={font}>{t(`storeTheme.font.${font}`)}</option>)}
-          </ThemeSelect>
+            onChange={(font) => patchConfig((current) => ({ ...current, fontBody: font }), "config.fontBody")}
+          />
           <p className="theme-font-sample" style={{ fontFamily: shopThemeFontStack(config.fontBody ?? config.font) }}>{t("storeTheme.font.sample")}</p>
         </fieldset>
 

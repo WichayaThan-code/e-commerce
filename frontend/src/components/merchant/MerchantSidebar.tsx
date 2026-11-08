@@ -2,7 +2,7 @@ import { useEffect, useState, type MouseEvent } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   BarChart3, Box, CircleHelp, CircleUserRound, Crown, Headphones, Home,
-  Menu, Palette, Settings, ShoppingBag, Store, TicketPercent, Truck, UserCog, WalletCards, X,
+  Menu, Palette, Settings, ShoppingBag, Store, TicketPercent, Truck, WalletCards, X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import MerchantLogoutButton from "./MerchantLogoutButton";
@@ -27,9 +27,6 @@ export const MERCHANT_MENU = [
   [Palette, "theme", "/merchant/store/theme"],
   [Settings, "settings", "/merchant/settings"],
 ] as const;
-
-/** Account settings live in the "account" group of /merchant/settings (security tab). */
-const ACCOUNT_HREF = "/merchant/settings?tab=security";
 
 export type MerchantMenuKey = (typeof MERCHANT_MENU)[number][1];
 
@@ -137,12 +134,6 @@ export default function MerchantSidebar({ active, onNavigate, badges }: Props) {
             </Link>
           );
         })}
-      </nav>
-      <nav className="merchant-account-nav" aria-label={t("catalog.menu.account", { defaultValue: "ตั้งค่าบัญชี" })}>
-        <Link to={ACCOUNT_HREF} onClick={guard(ACCOUNT_HREF)} title={t("catalog.menu.account", { defaultValue: "ตั้งค่าบัญชี" })}>
-          <UserCog />
-          {t("catalog.menu.account", { defaultValue: "ตั้งค่าบัญชี" })}
-        </Link>
       </nav>
       <section className="upgrade-card">
         <Crown />

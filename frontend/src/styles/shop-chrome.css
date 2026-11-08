@@ -2,10 +2,10 @@
    [data-template="CUSTOM"]; scripts/check-ag1-css-scope.mjs enforces this for the whole file (uses --shop-* tokens only). */
 
 /* Custom heading font (the @font-face itself is generated in ShopThemeShell from our own media URLs). */
-.shop-themed[data-template="CUSTOM"][data-heading-font="custom"] h1,
-.shop-themed[data-template="CUSTOM"][data-heading-font="custom"] h2,
-.shop-themed[data-template="CUSTOM"][data-heading-font="custom"] h3,
-.shop-themed[data-template="CUSTOM"][data-heading-font="custom"] h4{font-family:var(--shop-font-heading,var(--shop-font)),sans-serif}
+.shop-themed[data-template="CUSTOM"] h1,
+.shop-themed[data-template="CUSTOM"] h2,
+.shop-themed[data-template="CUSTOM"] h3,
+.shop-themed[data-template="CUSTOM"] h4{font-family:var(--shop-font-heading,var(--shop-font)),sans-serif}
 
 /* ---------- Hero MEDIA_FULL ---------- */
 .shop-themed[data-template="CUSTOM"] .shop-hero-media{

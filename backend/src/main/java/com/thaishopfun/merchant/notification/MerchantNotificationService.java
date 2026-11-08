@@ -34,13 +34,16 @@ public class MerchantNotificationService {
     private final AuthorizationService authz;
     private final NamedParameterJdbcTemplate jdbc;
     private final CustomerInsightKeys customerKeys;
+    private final MerchantNotificationPreferenceService preferences;
 
     public MerchantNotificationService(ShopRepository shops, AuthorizationService authz,
-                                       NamedParameterJdbcTemplate jdbc, CustomerInsightKeys customerKeys) {
+                                       NamedParameterJdbcTemplate jdbc, CustomerInsightKeys customerKeys,
+                                       MerchantNotificationPreferenceService preferences) {
         this.shops = shops;
         this.authz = authz;
         this.jdbc = jdbc;
         this.customerKeys = customerKeys;
+        this.preferences = preferences;
     }
 
     @Transactional(readOnly = true)
@@ -81,6 +84,11 @@ public class MerchantNotificationService {
         if (key == null || !ITEM_KEY.matcher(key).matches()) {
             throw new AuthException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "รหัสการแจ้งเตือนไม่ถูกต้อง");
         }
+        String type = key.substring(0, key.indexOf(':'));
+        if (!ctx.enabledTypes().contains(type)) {
+            throw new AuthException(HttpStatus.NOT_FOUND, "NOTIFICATION_NOT_VISIBLE",
+                "ไม่พบการแจ้งเตือนนี้ในขอบเขตที่มองเห็นได้");
+        }
         jdbc.update("""
             INSERT INTO merchant_notification_reads (shop_id, user_id, item_key, read_at)
             SELECT :shopId, :userId, :key, now()
@@ -94,27 +102,34 @@ public class MerchantNotificationService {
             .addValue("key", key));
     }
 
+    /**
+     * Marks only currently visible feed items as read. Does not advance {@code read_all_at}
+     * so hidden (preference-off) categories keep their previous read/unread state.
+     */
     @Transactional
     public void markAllRead(UUID userId, Long shopNo) {
         var ctx = open(userId, shopNo);
-        var params = new MapSqlParameterSource()
-            .addValue("shopId", ctx.shopUuid())
-            .addValue("userId", userId);
-        int updated = jdbc.update("""
-            UPDATE merchant_notification_cursor
-               SET read_all_at = now()
-             WHERE shop_id = :shopId AND user_id = :userId
-            """, params);
-        if (updated == 0) {
-            jdbc.update("""
-                INSERT INTO merchant_notification_cursor (shop_id, user_id, read_all_at)
-                VALUES (:shopId, :userId, now())
-                """, params);
+        CursorPoint after = null;
+        while (true) {
+            var rows = loadFeed(ctx, after, MAX_SIZE);
+            if (rows.isEmpty()) break;
+            for (var row : rows) {
+                jdbc.update("""
+                    INSERT INTO merchant_notification_reads (shop_id, user_id, item_key, read_at)
+                    SELECT :shopId, :userId, :key, now()
+                     WHERE NOT EXISTS (
+                       SELECT 1 FROM merchant_notification_reads
+                        WHERE shop_id = :shopId AND user_id = :userId AND item_key = :key
+                     )
+                    """, new MapSqlParameterSource()
+                    .addValue("shopId", ctx.shopUuid())
+                    .addValue("userId", userId)
+                    .addValue("key", row.key()));
+            }
+            if (rows.size() < MAX_SIZE) break;
+            var last = rows.get(rows.size() - 1);
+            after = new CursorPoint(last.createdAt(), last.key());
         }
-        jdbc.update("""
-            DELETE FROM merchant_notification_reads
-             WHERE shop_id = :shopId AND user_id = :userId
-            """, params);
     }
 
     private Ctx open(UUID userId, Long shopNo) {
@@ -131,7 +146,8 @@ public class MerchantNotificationService {
                 "คุณไม่มีสิทธิ์ทำรายการนี้ (ต้องมีสิทธิ์ SHOP_READ / ORDER_READ / CUSTOMER_READ / PRODUCT_READ / SHIPMENT_READ / USER_ROLE_UPDATE)");
         }
         boolean pii = granted(userId, shopNo, "CUSTOMER_PII_READ");
-        return new Ctx(shop, shopRead, order, customer, product, shipment, userRoleUpdate, pii);
+        Set<String> enabledTypes = preferences.enabledEventTypes(shop.getUuid(), userId);
+        return new Ctx(shop, shopRead, order, customer, product, shipment, userRoleUpdate, pii, enabledTypes);
     }
 
     private boolean granted(UUID userId, Long shopNo, String permission) {
@@ -146,12 +162,25 @@ public class MerchantNotificationService {
             .addValue("since", Timestamp.from(since))
             .addValue("limit", limit);
 
-        // Durable lifecycle / membership / plan events — filtered by required_permission.
+        // Durable lifecycle / membership / plan events — filtered by required_permission + preferences.
         var lifecyclePerms = new ArrayList<String>();
         if (ctx.shopRead()) lifecyclePerms.add("SHOP_READ");
         if (ctx.userRoleUpdate()) lifecyclePerms.add("USER_ROLE_UPDATE");
-        if (!lifecyclePerms.isEmpty()) {
+        var lifecycleTypes = new ArrayList<String>();
+        for (String type : List.of(
+            MerchantNotificationTypes.SHOP_APPROVED,
+            MerchantNotificationTypes.SHOP_REJECTED,
+            MerchantNotificationTypes.SHOP_SUSPENDED,
+            MerchantNotificationTypes.SHOP_RESTORED,
+            MerchantNotificationTypes.SHOP_PLAN_CHANGED,
+            MerchantNotificationTypes.SHOP_MEMBER_ROLE_CHANGED,
+            MerchantNotificationTypes.SHOP_MEMBER_REMOVED
+        )) {
+            if (ctx.enabledTypes().contains(type)) lifecycleTypes.add(type);
+        }
+        if (!lifecyclePerms.isEmpty() && !lifecycleTypes.isEmpty()) {
             params.addValue("lifecyclePerms", lifecyclePerms);
+            params.addValue("lifecycleTypes", lifecycleTypes);
             parts.add("""
                 SELECT n.type || ':' || n.id::text AS item_key, n.type AS item_type,
                        NULL::text AS order_no, NULL::numeric AS amount, n.created_at AS created_at,
@@ -164,98 +193,113 @@ public class MerchantNotificationService {
                  WHERE n.shop_id = :shopId
                    AND n.created_at >= :since
                    AND n.required_permission IN (:lifecyclePerms)
+                   AND n.type IN (:lifecycleTypes)
                 """);
         }
 
         if (ctx.order()) {
-            parts.add("""
-                SELECT 'ORDER_NEW:' || o.order_number AS item_key, 'ORDER_NEW' AS item_type,
-                       o.order_number AS order_no, o.grand_total AS amount, o.created_date_time AS created_at,
-                       NULL::uuid AS shop_customer_id, NULL::uuid AS buyer_user_id, NULL::text AS customer_name,
-                       NULL::text AS sku_code, NULL::text AS product_name, NULL::int AS available_qty
-                  FROM orders o
-                 WHERE o.shop_id = :shopId
-                   AND o.merchant_confirmed_at IS NULL
-                   AND o.status NOT IN ('CANCELLED', 'REFUNDED')
-                   AND o.created_date_time >= :since
-                """);
-            parts.add("""
-                SELECT 'ORDER_PAID:' || p.id::text, 'ORDER_PAID',
-                       o.order_number, o.grand_total, COALESCE(p.captured_at, p.paid_at, p.created_date_time),
-                       NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
-                  FROM payments p
-                  JOIN orders o ON o.id = p.order_id
-                 WHERE p.shop_id = :shopId AND o.shop_id = :shopId
-                   AND p.status = 'CAPTURED'
-                   AND o.merchant_confirmed_at IS NOT NULL
-                   AND COALESCE(p.captured_at, p.paid_at, p.created_date_time) >= :since
-                """);
-            parts.add("""
-                SELECT 'ORDER_PAID:' || h.id::text, 'ORDER_PAID',
-                       o.order_number, o.grand_total, h.created_date_time,
-                       NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
-                  FROM order_status_history h
-                  JOIN orders o ON o.id = h.order_id
-                 WHERE o.shop_id = :shopId
-                   AND h.to_status = 'PAID'
-                   AND h.from_status IS DISTINCT FROM h.to_status
-                   AND o.merchant_confirmed_at IS NOT NULL
-                   AND h.created_date_time >= :since
-                """);
-            parts.add("""
-                SELECT 'ORDER_CANCELLED:' || h.id::text, 'ORDER_CANCELLED',
-                       o.order_number, o.grand_total, h.created_date_time,
-                       NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
-                  FROM order_status_history h
-                  JOIN orders o ON o.id = h.order_id
-                 WHERE o.shop_id = :shopId
-                   AND h.to_status = 'CANCELLED'
-                   AND h.from_status IS DISTINCT FROM h.to_status
-                   AND h.created_date_time >= :since
-                """);
-            parts.add("""
-                SELECT 'REFUND_REQUESTED:' || r.id::text, 'REFUND_REQUESTED',
-                       o.order_number, r.amount, r.created_date_time,
-                       NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
-                  FROM refunds r
-                  JOIN orders o ON o.id = r.order_id
-                 WHERE r.shop_id = :shopId
-                   AND r.status = 'REQUESTED'
-                   AND r.created_date_time >= :since
-                """);
-            parts.add("""
-                SELECT 'REFUND_DISPUTED:' || r.id::text, 'REFUND_DISPUTED',
-                       o.order_number, r.amount, COALESCE(r.modified_date_time, r.created_date_time),
-                       NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
-                  FROM refunds r
-                  JOIN orders o ON o.id = r.order_id
-                 WHERE r.shop_id = :shopId
-                   AND r.status = 'DISPUTED'
-                   AND COALESCE(r.modified_date_time, r.created_date_time) >= :since
-                """);
-            parts.add("""
-                SELECT 'REFUND_COMPLETED:' || r.id::text, 'REFUND_COMPLETED',
-                       o.order_number, r.amount, COALESCE(r.modified_date_time, r.created_date_time),
-                       NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
-                  FROM refunds r
-                  JOIN orders o ON o.id = r.order_id
-                 WHERE r.shop_id = :shopId
-                   AND r.status = 'COMPLETED'
-                   AND COALESCE(r.modified_date_time, r.created_date_time) >= :since
-                """);
-            parts.add("""
-                SELECT 'PAYMENT_SLIP_PENDING:' || pp.id::text, 'PAYMENT_SLIP_PENDING',
-                       o.order_number, COALESCE(pp.amount_declared, o.grand_total), pp.created_date_time,
-                       NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
-                  FROM payment_proofs pp
-                  JOIN orders o ON o.id = pp.order_id
-                 WHERE pp.shop_id = :shopId
-                   AND pp.status = 'PENDING_REVIEW'
-                   AND pp.proof_type = 'SLIP'
-                   AND pp.created_date_time >= :since
-                """);
+            if (ctx.enabledTypes().contains("ORDER_NEW")) {
+                parts.add("""
+                    SELECT 'ORDER_NEW:' || o.order_number AS item_key, 'ORDER_NEW' AS item_type,
+                           o.order_number AS order_no, o.grand_total AS amount, o.created_date_time AS created_at,
+                           NULL::uuid AS shop_customer_id, NULL::uuid AS buyer_user_id, NULL::text AS customer_name,
+                           NULL::text AS sku_code, NULL::text AS product_name, NULL::int AS available_qty
+                      FROM orders o
+                     WHERE o.shop_id = :shopId
+                       AND o.merchant_confirmed_at IS NULL
+                       AND o.status NOT IN ('CANCELLED', 'REFUNDED')
+                       AND o.created_date_time >= :since
+                    """);
+            }
+            if (ctx.enabledTypes().contains("ORDER_PAID")) {
+                parts.add("""
+                    SELECT 'ORDER_PAID:' || p.id::text, 'ORDER_PAID',
+                           o.order_number, o.grand_total, COALESCE(p.captured_at, p.paid_at, p.created_date_time),
+                           NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
+                      FROM payments p
+                      JOIN orders o ON o.id = p.order_id
+                     WHERE p.shop_id = :shopId AND o.shop_id = :shopId
+                       AND p.status = 'CAPTURED'
+                       AND o.merchant_confirmed_at IS NOT NULL
+                       AND COALESCE(p.captured_at, p.paid_at, p.created_date_time) >= :since
+                    """);
+                parts.add("""
+                    SELECT 'ORDER_PAID:' || h.id::text, 'ORDER_PAID',
+                           o.order_number, o.grand_total, h.created_date_time,
+                           NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
+                      FROM order_status_history h
+                      JOIN orders o ON o.id = h.order_id
+                     WHERE o.shop_id = :shopId
+                       AND h.to_status = 'PAID'
+                       AND h.from_status IS DISTINCT FROM h.to_status
+                       AND o.merchant_confirmed_at IS NOT NULL
+                       AND h.created_date_time >= :since
+                    """);
+            }
+            if (ctx.enabledTypes().contains("ORDER_CANCELLED")) {
+                parts.add("""
+                    SELECT 'ORDER_CANCELLED:' || h.id::text, 'ORDER_CANCELLED',
+                           o.order_number, o.grand_total, h.created_date_time,
+                           NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
+                      FROM order_status_history h
+                      JOIN orders o ON o.id = h.order_id
+                     WHERE o.shop_id = :shopId
+                       AND h.to_status = 'CANCELLED'
+                       AND h.from_status IS DISTINCT FROM h.to_status
+                       AND h.created_date_time >= :since
+                    """);
+            }
+            if (ctx.enabledTypes().contains("REFUND_REQUESTED")) {
+                parts.add("""
+                    SELECT 'REFUND_REQUESTED:' || r.id::text, 'REFUND_REQUESTED',
+                           o.order_number, r.amount, r.created_date_time,
+                           NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
+                      FROM refunds r
+                      JOIN orders o ON o.id = r.order_id
+                     WHERE r.shop_id = :shopId
+                       AND r.status = 'REQUESTED'
+                       AND r.created_date_time >= :since
+                    """);
+            }
+            if (ctx.enabledTypes().contains("REFUND_DISPUTED")) {
+                parts.add("""
+                    SELECT 'REFUND_DISPUTED:' || r.id::text, 'REFUND_DISPUTED',
+                           o.order_number, r.amount, COALESCE(r.modified_date_time, r.created_date_time),
+                           NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
+                      FROM refunds r
+                      JOIN orders o ON o.id = r.order_id
+                     WHERE r.shop_id = :shopId
+                       AND r.status = 'DISPUTED'
+                       AND COALESCE(r.modified_date_time, r.created_date_time) >= :since
+                    """);
+            }
+            if (ctx.enabledTypes().contains("REFUND_COMPLETED")) {
+                parts.add("""
+                    SELECT 'REFUND_COMPLETED:' || r.id::text, 'REFUND_COMPLETED',
+                           o.order_number, r.amount, COALESCE(r.modified_date_time, r.created_date_time),
+                           NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
+                      FROM refunds r
+                      JOIN orders o ON o.id = r.order_id
+                     WHERE r.shop_id = :shopId
+                       AND r.status = 'COMPLETED'
+                       AND COALESCE(r.modified_date_time, r.created_date_time) >= :since
+                    """);
+            }
+            if (ctx.enabledTypes().contains("PAYMENT_SLIP_PENDING")) {
+                parts.add("""
+                    SELECT 'PAYMENT_SLIP_PENDING:' || pp.id::text, 'PAYMENT_SLIP_PENDING',
+                           o.order_number, COALESCE(pp.amount_declared, o.grand_total), pp.created_date_time,
+                           NULL::uuid, NULL::uuid, NULL::text, NULL::text, NULL::text, NULL::int
+                      FROM payment_proofs pp
+                      JOIN orders o ON o.id = pp.order_id
+                     WHERE pp.shop_id = :shopId
+                       AND pp.status = 'PENDING_REVIEW'
+                       AND pp.proof_type = 'SLIP'
+                       AND pp.created_date_time >= :since
+                    """);
+            }
         }
-        if (ctx.customer()) {
+        if (ctx.customer() && ctx.enabledTypes().contains("CUSTOMER_NEW")) {
             parts.add("""
                 SELECT 'CUSTOMER_NEW:' || o.order_number, 'CUSTOMER_NEW',
                        o.order_number, o.grand_total, o.merchant_confirmed_at,
@@ -285,32 +329,36 @@ public class MerchantNotificationService {
                 """);
         }
         if (ctx.product()) {
-            parts.add("""
-                SELECT 'LOW_STOCK:' || l.id::text, 'LOW_STOCK',
-                       NULL::text, NULL::numeric, l.modified_date_time,
-                       NULL::uuid, NULL::uuid, NULL::text, s.sku_code,
-                       COALESCE(NULLIF(p.name_th, ''), s.sku_code), l.available
-                  FROM inventory_levels l
-                  JOIN product_skus s ON s.id = l.sku_id
-                  JOIN products p ON p.id = s.product_id
-                 WHERE l.shop_id = :shopId
-                   AND l.available <= COALESCE(l.low_stock_threshold, 5)
-                   AND l.modified_date_time >= :since
-                """);
-            parts.add("""
-                SELECT 'PRODUCT_REVIEW_NEW:' || r.id::text, 'PRODUCT_REVIEW_NEW',
-                       NULL::text, NULL::numeric, r.created_date_time,
-                       NULL::uuid, NULL::uuid, NULL::text, NULL::text,
-                       COALESCE(NULLIF(p.name_th, ''), p.slug), CAST(r.rating AS int)
-                  FROM product_reviews r
-                  JOIN products p ON p.id = r.product_id
-                 WHERE r.shop_id = :shopId
-                   AND r.status = 'PUBLISHED'
-                   AND r.deleted_at IS NULL
-                   AND r.created_date_time >= :since
-                """);
+            if (ctx.enabledTypes().contains("LOW_STOCK")) {
+                parts.add("""
+                    SELECT 'LOW_STOCK:' || l.id::text, 'LOW_STOCK',
+                           NULL::text, NULL::numeric, l.modified_date_time,
+                           NULL::uuid, NULL::uuid, NULL::text, s.sku_code,
+                           COALESCE(NULLIF(p.name_th, ''), s.sku_code), l.available
+                      FROM inventory_levels l
+                      JOIN product_skus s ON s.id = l.sku_id
+                      JOIN products p ON p.id = s.product_id
+                     WHERE l.shop_id = :shopId
+                       AND l.available <= COALESCE(l.low_stock_threshold, 5)
+                       AND l.modified_date_time >= :since
+                    """);
+            }
+            if (ctx.enabledTypes().contains("PRODUCT_REVIEW_NEW")) {
+                parts.add("""
+                    SELECT 'PRODUCT_REVIEW_NEW:' || r.id::text, 'PRODUCT_REVIEW_NEW',
+                           NULL::text, NULL::numeric, r.created_date_time,
+                           NULL::uuid, NULL::uuid, NULL::text, NULL::text,
+                           COALESCE(NULLIF(p.name_th, ''), p.slug), CAST(r.rating AS int)
+                      FROM product_reviews r
+                      JOIN products p ON p.id = r.product_id
+                     WHERE r.shop_id = :shopId
+                       AND r.status = 'PUBLISHED'
+                       AND r.deleted_at IS NULL
+                       AND r.created_date_time >= :since
+                    """);
+            }
         }
-        if (ctx.shipment()) {
+        if (ctx.shipment() && ctx.enabledTypes().contains("SHIPMENT_EXCEPTION")) {
             parts.add("""
                 SELECT 'SHIPMENT_EXCEPTION:' || s.id::text, 'SHIPMENT_EXCEPTION',
                        o.order_number, o.grand_total, COALESCE(s.last_tracking_event_at, s.modified_date_time),
@@ -462,7 +510,8 @@ public class MerchantNotificationService {
         boolean product,
         boolean shipment,
         boolean userRoleUpdate,
-        boolean pii
+        boolean pii,
+        Set<String> enabledTypes
     ) {
         UUID shopUuid() { return shop.getUuid(); }
     }

@@ -14,13 +14,14 @@ export function refreshAdminStoreApplications() {
   window.dispatchEvent(new Event(STORE_APPLICATIONS_CHANGED))
 }
 
-export type AdminSection = 'home' | 'stores' | 'applications' | 'categories' | 'help-center' | 'articles' | 'promotions' | 'users' | 'roles' | 'role-assignments' | 'orders' | 'audit' | 'merchants' | 'usage' | 'system-status'
+export type AdminSection = 'home' | 'stores' | 'applications' | 'categories' | 'help-center' | 'articles' | 'promotions' | 'users' | 'roles' | 'role-assignments' | 'orders' | 'payouts' | 'audit' | 'merchants' | 'usage' | 'system-status'
 
 const links: { key: AdminSection; label: string; href: string; icon: typeof Store }[] = [
   { key: 'stores', label: 'ร้านค้า', href: '/admin/stores', icon: Store },
   { key: 'merchants', label: 'ผู้ขายและแพ็กเกจ', href: '/admin/merchants', icon: Building2 },
   { key: 'usage', label: 'การใช้งาน (Usage)', href: '/admin/usage', icon: Gauge },
   { key: 'orders', label: 'คำสั่งซื้อทั้งหมด', href: '/admin/orders', icon: ShoppingBag },
+  { key: 'payouts', label: 'คำขอถอนเงิน', href: '/admin/payouts', icon: WalletCards },
   { key: 'applications', label: 'ใบสมัครร้านค้า', href: '/admin/store-applications', icon: FileCheck2 },
   { key: 'categories', label: 'หมวดหมู่สินค้า', href: '/admin/categories', icon: Tags },
   { key: 'help-center', label: 'ศูนย์ช่วยเหลือ', href: '/admin/help-center', icon: Headphones },
@@ -34,7 +35,7 @@ const links: { key: AdminSection; label: string; href: string; icon: typeof Stor
 ]
 
 const groups: { label: string; keys: AdminSection[] }[] = [
-  { label: 'จัดการร้านค้า', keys: ['stores', 'merchants', 'usage', 'orders', 'applications', 'categories', 'help-center', 'articles', 'promotions'] },
+  { label: 'จัดการร้านค้า', keys: ['stores', 'merchants', 'usage', 'orders', 'payouts', 'applications', 'categories', 'help-center', 'articles', 'promotions'] },
   { label: 'จัดการผู้ใช้', keys: ['users', 'roles', 'role-assignments'] },
 ]
 

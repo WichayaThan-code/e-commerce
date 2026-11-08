@@ -1,23 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { hasMerchantAccess } from "../services/permissions";
 import { useActiveShop } from "../contexts/ActiveShopContext";
-import MerchantGateTopbar from "./merchant/MerchantGateTopbar";
+import MerchantPendingStatus from "./MerchantPendingStatus";
 import MerchantSuspendedStatus from "./MerchantSuspendedStatus";
 import { merchantApi, type StoreAccess } from "../services/api";
+import "../styles/merchant-signup-gate.css";
 
-const SETTINGS_PATH = "/merchant/settings";
-const STORE_PATH = "/merchant/store";
 const APPEAL_PATH = "/merchant/reinstatement";
 
 export default function MerchantStoreGuard() {
   const { user, loading, reload } = useAuth();
   const { shops, shopId, ready } = useActiveShop();
   const location = useLocation();
-  const settingsRoute = location.pathname === SETTINGS_PATH || location.pathname.startsWith(`${SETTINGS_PATH}/`);
-  const storeRoute = location.pathname === STORE_PATH || location.pathname.startsWith(`${STORE_PATH}/`);
-  const profileRoute = settingsRoute || storeRoute;
+  const { t } = useTranslation("merchant");
   const appealRoute = location.pathname === APPEAL_PATH;
   const [access, setAccess] = useState<StoreAccess | null>(null);
   const [gate, setGate] = useState<"checking" | "none" | "no-shop" | "locked">("checking");
@@ -32,34 +30,43 @@ export default function MerchantStoreGuard() {
     }
     let active = true;
     setGate("checking");
-    merchantApi.storeAccess(shopId).then(async (result) => {
-      if (!active) return;
-      setAccess(result);
-      if (!result.hasShop) {
-        setGate("no-shop");
-        return;
-      }
-      // Suspended shops may only open the reinstatement form — no other merchant menus.
-      const suspended = result.status === "SUSPENDED";
-      const canAppeal = appealRoute && suspended;
-      const canProfileWhileLocked = profileRoute && !suspended;
-      if (!result.approved && !canProfileWhileLocked && !canAppeal) {
-        setGate("locked");
-        return;
-      }
-      if (result.approved && !hasMerchantAccess(user) && !reloaded.current) {
-        reloaded.current = true;
-        await reload();
-      }
-      if (active) setGate("none");
-    }).catch(() => {
-      if (active) setGate("no-shop");
-    });
-    return () => { active = false; };
-  }, [loading, user, reload, profileRoute, appealRoute, ready, shopId, shops.length]);
+    merchantApi
+      .storeAccess(shopId)
+      .then(async (result) => {
+        if (!active) return;
+        setAccess(result);
+        if (!result.hasShop) {
+          setGate("no-shop");
+          return;
+        }
+        // Suspended shops may only open the reinstatement form — no other merchant menus.
+        const suspended = result.status === "SUSPENDED";
+        const canAppeal = appealRoute && suspended;
+        // Pending / rejected: block every merchant page (no settings/store exception).
+        if (!result.approved && !canAppeal) {
+          setGate("locked");
+          return;
+        }
+        if (result.approved && !hasMerchantAccess(user) && !reloaded.current) {
+          reloaded.current = true;
+          await reload();
+        }
+        if (active) setGate("none");
+      })
+      .catch(() => {
+        if (active) setGate("no-shop");
+      });
+    return () => {
+      active = false;
+    };
+  }, [loading, user, reload, appealRoute, ready, shopId, shops.length]);
 
   if (loading || !ready || (user && gate === "checking")) {
-    return <main className="merchant-auth-gate">กำลังตรวจสอบสถานะร้านค้า...</main>;
+    return (
+      <main className="merchant-signup-gate merchant-signup-gate--checking">
+        {t("pendingGate.checking")}
+      </main>
+    );
   }
   if (!user) {
     window.location.replace("/login");
@@ -67,42 +74,33 @@ export default function MerchantStoreGuard() {
   }
   if (gate === "no-shop") {
     return (
-      <main className="merchant-auth-gate">
-        <section role="alert">
-          <h1>ยังไม่มีร้านค้า</h1>
-          <p>กรุณาสมัครเปิดร้านค้าก่อนเข้าใช้งานส่วนนี้</p>
-          <div>
-            <Link className="primary" to="/merchant/register">สมัครเปิดร้าน</Link>
-            <Link className="quiet" to="/">กลับหน้าแรก</Link>
+      <main className="merchant-signup-gate">
+        <div className="merchant-signup-gate__glow" aria-hidden="true" />
+        <div className="merchant-signup-gate__layout">
+          <div className="merchant-signup-gate__copy">
+            <div role="alert">
+              <h1 className="merchant-signup-gate__title">{t("pendingGate.noShopTitle")}</h1>
+              <p className="merchant-signup-gate__lead">{t("pendingGate.noShopDescription")}</p>
+            </div>
+            <div className="merchant-signup-gate__actions">
+              <Link className="merchant-signup-gate__btn merchant-signup-gate__btn--primary" to="/merchant/register">
+                {t("pendingGate.register")}
+              </Link>
+              <Link className="merchant-signup-gate__btn merchant-signup-gate__btn--secondary" to="/">
+                {t("pendingGate.home")}
+              </Link>
+            </div>
           </div>
-        </section>
+        </div>
       </main>
     );
   }
   if (gate === "locked") {
-    const suspended = access?.status === "SUSPENDED";
-    if (suspended) {
+    if (access?.status === "SUSPENDED") {
       return <MerchantSuspendedStatus shopName={access?.shopName} />;
     }
-    const rejected = access?.status === "REJECTED";
-    const shopLabel = access?.shopName ? `ร้าน ${access.shopName} ` : "ร้านค้าของคุณ ";
     return (
-      <main className="merchant-auth-gate merchant-auth-gate--topbar">
-        <MerchantGateTopbar />
-        <section role="alert">
-          <h1>{rejected ? "ร้านค้าไม่ได้รับการอนุมัติ" : "ร้านค้ายังไม่ได้รับการอนุมัติ"}</h1>
-          <p>
-            {shopLabel}
-            {rejected
-              ? "ไม่สามารถใช้งานเมนูจัดการร้านได้ แต่ยังแก้ไขข้อมูลร้านและเวลาทำการได้"
-              : "ยังไม่สามารถใช้งานเมนูจัดการร้านได้ จนกว่าผู้ดูแลระบบจะอนุมัติ แต่ยังแก้ไขข้อมูลร้านและเวลาทำการได้"}
-          </p>
-          <div>
-            <Link className="primary" to={STORE_PATH}>แก้ไขข้อมูลร้าน</Link>
-            <Link className="quiet" to={SETTINGS_PATH}>ตั้งค่าเวลาทำการ</Link>
-          </div>
-        </section>
-      </main>
+      <MerchantPendingStatus shopName={access?.shopName} rejected={access?.status === "REJECTED"} />
     );
   }
   return <Outlet context={access} />;

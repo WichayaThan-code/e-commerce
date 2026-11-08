@@ -172,6 +172,16 @@ public class Shop {
         this.updatedAt = Instant.now();
     }
 
+    /** Field-scoped contact channels only (does not touch name/address/payment/theme). */
+    public void updateChannels(String website, String lineId, String facebookUrl, String instagramUrl, String tiktokUrl) {
+        this.website = blankToNull(website);
+        this.lineId = blankToNull(lineId);
+        this.facebookUrl = blankToNull(facebookUrl);
+        this.instagramUrl = blankToNull(instagramUrl);
+        this.tiktokUrl = blankToNull(tiktokUrl);
+        this.updatedAt = Instant.now();
+    }
+
     /** Public running shop number (shops.shop_no) used by the API as "shopId". */
     public Long getId() { return shopId; }
     /** Database primary key (shops.id). */

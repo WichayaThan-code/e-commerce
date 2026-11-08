@@ -17,10 +17,16 @@ public class ShopMember {
     @Column(name = "user_id", nullable = false) private UUID userId;
     @Column(nullable = false, length = 40) private String role;
     @Column(nullable = false, length = 30) private String status;
+    @Column(name = "permission_version", nullable = false) private int permissionVersion;
+    @Column(name = "invited_by") private UUID invitedBy;
     @Column(name = "joined_at", nullable = false) private Instant joinedAt;
     @Column(name = "removed_at") private Instant removedAt;
+    @Column(name = "removed_by") private UUID removedBy;
+    @Column(name = "remove_reason_code", length = 50) private String removeReasonCode;
     @Column(name = "created_date_time", nullable = false) private Instant createdDateTime;
+    @Column(name = "created_by") private UUID createdBy;
     @Column(name = "modified_date_time", nullable = false) private Instant modifiedDateTime;
+    @Column(name = "modified_by") private UUID modifiedBy;
 
     protected ShopMember() {}
 
@@ -32,6 +38,7 @@ public class ShopMember {
         member.userId = userId;
         member.role = "STORE_OWNER";
         member.status = "ACTIVE";
+        member.permissionVersion = 0;
         member.joinedAt = now;
         member.createdDateTime = now;
         member.modifiedDateTime = now;

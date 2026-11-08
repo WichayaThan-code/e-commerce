@@ -71,6 +71,7 @@ class MerchantNotificationTests {
         jdbc.update("DELETE FROM merchant_notification_reads");
         jdbc.update("DELETE FROM merchant_notification_cursor");
         jdbc.update("DELETE FROM merchant_notifications");
+        try { jdbc.update("DELETE FROM merchant_notification_preferences"); } catch (Exception ignored) { }
         jdbc.update("DELETE FROM order_status_history");
         jdbc.update("DELETE FROM refund_status_history");
         jdbc.update("DELETE FROM refunds");
@@ -96,6 +97,80 @@ class MerchantNotificationTests {
         refreshTokens.deleteAll();
         platformRoles.deleteAll();
         users.deleteAll();
+    }
+
+    @Test
+    void preferencesHideOptionalCategoryFromBellWithoutDeletingEvents() throws Exception {
+        var shopA = openShop("mn-pref-a@example.com", "0814300101", "ร้านค่าการแจ้งเตือนเอ", "Pref A", "1234567890701");
+        var shopB = openShop("mn-pref-b@example.com", "0814300102", "ร้านค่าการแจ้งเตือนบี", "Pref B", "1234567890702");
+        var shopAUuid = shops.findByShopId(shopA.shopId).orElseThrow().getUuid();
+        var buyer = registerBuyer("mn-pref-buyer@example.com", "0814300199");
+        var now = Instant.now();
+        insertOrder(shopAUuid, null, buyer, "PREF-NEW-1", "150.00", "PAID_AWAITING_MERCHANT_CONFIRM", null, now);
+
+        perform(get(base(shopA) + "/notification-preferences"), shopA.token)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.shopId").value((int) shopA.shopId))
+            .andExpect(jsonPath("$.version").value(1))
+            .andExpect(jsonPath("$.channels.inApp.supported").value(true))
+            .andExpect(jsonPath("$.channels.email.supported").value(false))
+            .andExpect(jsonPath("$.categories[?(@.code=='SHOP_STATUS')].mandatory", hasItem(true)))
+            .andExpect(jsonPath("$.categories[?(@.code=='ORDERS')].inAppEnabled", hasItem(true)));
+
+        perform(get(base(shopA) + "/notifications").param("size", "50"), shopA.token)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[?(@.type=='ORDER_NEW')].orderNo", hasItem("PREF-NEW-1")));
+
+        perform(put(base(shopA) + "/notification-preferences"), shopA.token, """
+            {"version":1,"categories":[{"code":"ORDERS","inAppEnabled":false}]}
+            """)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.version").value(1))
+            .andExpect(jsonPath("$.categories[?(@.code=='ORDERS')].inAppEnabled", hasItem(false)));
+
+        perform(get(base(shopA) + "/notifications").param("size", "50"), shopA.token)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[?(@.type=='ORDER_NEW')]").isEmpty())
+            .andExpect(jsonPath("$.items[?(@.type=='SHOP_APPROVED')]", hasSize(greaterThanOrEqualTo(1))));
+        perform(get(base(shopA) + "/notifications/unread-count"), shopA.token)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.count").value(1)); // SHOP_APPROVED only; ORDER_NEW hidden
+
+        // User B (owner of shop B viewing as separate shop) and shop B feed unchanged for their own orders.
+        insertOrder(shops.findByShopId(shopB.shopId).orElseThrow().getUuid(), null, buyer,
+            "PREF-B-1", "80.00", "PAID_AWAITING_MERCHANT_CONFIRM", null, now);
+        perform(get(base(shopB) + "/notifications").param("size", "50"), shopB.token)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[?(@.type=='ORDER_NEW')].orderNo", hasItem("PREF-B-1")));
+
+        // Mandatory tamper rejected; unknown category rejected; version conflict.
+        perform(put(base(shopA) + "/notification-preferences"), shopA.token, """
+            {"version":1,"categories":[{"code":"SHOP_STATUS","inAppEnabled":false}]}
+            """)
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("MANDATORY_CATEGORY"));
+        perform(put(base(shopA) + "/notification-preferences"), shopA.token, """
+            {"version":1,"categories":[{"code":"PAYOUTS","inAppEnabled":false}]}
+            """)
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("UNKNOWN_CATEGORY"));
+        perform(put(base(shopA) + "/notification-preferences"), shopA.token, """
+            {"version":99,"categories":[{"code":"ORDERS","inAppEnabled":true}]}
+            """)
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
+
+        // Re-enable ORDERS — original derive-on-read item returns with prior unread state (no new event).
+        perform(put(base(shopA) + "/notification-preferences"), shopA.token, """
+            {"version":1,"categories":[{"code":"ORDERS","inAppEnabled":true}]}
+            """)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.version").value(2))
+            .andExpect(jsonPath("$.categories[?(@.code=='ORDERS')].inAppEnabled", hasItem(true)));
+        perform(get(base(shopA) + "/notifications").param("size", "50"), shopA.token)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[?(@.type=='ORDER_NEW')].orderNo", hasItem("PREF-NEW-1")))
+            .andExpect(jsonPath("$.items[?(@.orderNo=='PREF-NEW-1')].read", hasItem(false)));
     }
 
     @Test

@@ -4,6 +4,8 @@ import com.thaishopfun.admin.SuspensionReasonCodes;
 import com.thaishopfun.audit.PlatformAuditService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.authz.AuthorizationService;
+import com.thaishopfun.merchant.delivery.ShopLifecycleAction;
+import com.thaishopfun.merchant.delivery.ShopLifecycleEmailPublisher;
 import com.thaishopfun.merchant.notification.MerchantLifecycleNotificationWriter;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,7 @@ public class StoreReviewService {
     private final ShopSuspensionService suspensions;
     private final PlatformAuditService platformAudit;
     private final MerchantLifecycleNotificationWriter merchantNotifications;
+    private final ShopLifecycleEmailPublisher shopMails;
 
     public StoreReviewService(
         ShopRepository shops,
@@ -35,7 +38,8 @@ public class StoreReviewService {
         AuthorizationService authorization,
         ShopSuspensionService suspensions,
         PlatformAuditService platformAudit,
-        MerchantLifecycleNotificationWriter merchantNotifications
+        MerchantLifecycleNotificationWriter merchantNotifications,
+        ShopLifecycleEmailPublisher shopMails
     ) {
         this.shops = shops;
         this.documents = documents;
@@ -45,6 +49,7 @@ public class StoreReviewService {
         this.suspensions = suspensions;
         this.platformAudit = platformAudit;
         this.merchantNotifications = merchantNotifications;
+        this.shopMails = shopMails;
     }
 
     @Transactional(readOnly = true)
@@ -115,6 +120,7 @@ public class StoreReviewService {
         shop.approve(); // the owner's STORE_OWNER membership (shop_members) already exists; it is the source of truth
         suspensions.recordReview(actorId, "SHOP_APPROVED", shop, before);
         merchantNotifications.publishShopApproved(shop);
+        shopMails.statusChanged(shop, ShopLifecycleAction.APPROVED);
         return toAdmin(shop);
     }
 
@@ -139,6 +145,7 @@ public class StoreReviewService {
             shop.approve();
             suspensions.recordReview(actorId, "SHOP_APPROVED", shop, ShopStatus.PENDING_REVIEW);
             merchantNotifications.publishShopApproved(shop);
+            shopMails.statusChanged(shop, ShopLifecycleAction.APPROVED);
             return true;
         });
     }
@@ -154,6 +161,7 @@ public class StoreReviewService {
             shop.reject();
             suspensions.recordReview(actorId, "SHOP_REJECTED", shop, ShopStatus.PENDING_REVIEW);
             merchantNotifications.publishShopRejected(shop);
+            shopMails.statusChanged(shop, ShopLifecycleAction.REJECTED);
             return true;
         });
     }
@@ -209,6 +217,7 @@ public class StoreReviewService {
             shop.reject();
             suspensions.recordReview(actorId, "SHOP_REJECTED", shop, before);
             merchantNotifications.publishShopRejected(shop);
+            shopMails.statusChanged(shop, ShopLifecycleAction.REJECTED);
         }
         return toAdmin(shop);
     }

@@ -142,6 +142,14 @@ public final class MerchantDtos {
         @Pattern(regexp="^$|^[0-9+ -]{9,20}$") String publicPhone,
         @Email @Size(max=255) String publicEmail
     ) {}
+    /** Field-scoped contact channels for /merchant/settings?tab=integrations (not OAuth/API sync). */
+    public record MerchantChannelsUpdateRequest(
+        @Size(max=500) String website,
+        @Size(max=500) String lineId,
+        @Size(max=500) String facebookUrl,
+        @Size(max=500) String instagramUrl,
+        @Size(max=500) String tiktokUrl
+    ) {}
     /**
      * Bulk shop action. For suspend, {@code reasonCode} is required (validated in the service).
      * {@code reason} is optional free-text (≤500). Reactivate may omit both.

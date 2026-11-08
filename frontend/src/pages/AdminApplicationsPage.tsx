@@ -2,14 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import {
-  Building2, Check, CircleX, Clock3, Download, Facebook, FileCheck2,
-  FileText, Home, Instagram, LockKeyhole, Mail, MapPin,
-  MessageCircle, MoreVertical, Phone, Plus, Search,
-  UsersRound,
+  Ban, Check, CheckCircle2, CircleX, Clock3, Download, Eye, FileCheck2, Plus, Search, X,
 } from 'lucide-react'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar, { refreshAdminStoreApplications } from '../components/AdminSidebar'
-import AdminSidePanel from '../components/admin/AdminSidePanel'
+import AdminApplicationDrawer, { type ApplicationDetailTab } from '../components/admin/AdminApplicationDrawer'
 import AdminSelect from '../components/admin/AdminSelect'
 import AdminDateRange from '../components/admin/AdminDateRange'
 import { Pager } from '../components/admin/PlatformBits'
@@ -17,15 +14,18 @@ import { useAuth } from '../contexts/AuthContext'
 import { hasPlatformAccess } from '../services/permissions'
 import { usePermissions } from '../hooks/usePermissions'
 import { adminApplicationApi, ApiError, mediaUrl, type AdminStoreApplication } from '../services/api'
-import { maskEmail, maskPhone } from '../utils/maskContact'
+import { maskPhone } from '../utils/maskContact'
 import '../styles/admin-dashboard.css'
-import '../styles/admin-applications.css'
 import '../styles/admin-platform.css'
 import '../styles/admin-form-controls.css'
-import '../styles/admin-side-panel.css'
+import '../styles/product-management.css'
+import '../styles/order-management.css'
+import '../styles/customer-management.css'
+import '../styles/form-fields.css'
+import '../styles/admin-applications.css'
 
 type ApplicationStatus = AdminStoreApplication['status']
-type DetailTab = 'info' | 'documents' | 'history'
+type DetailTab = ApplicationDetailTab
 type ApplicationRecord = {
   id: number
   logo: string
@@ -52,8 +52,6 @@ type ApplicationRecord = {
   documents: { id: string; label: string; filename: string; fileSize: number }[]
   otherShops: string
 }
-
-const STATUS_CODES: ApplicationStatus[] = ['APPROVED', 'PENDING_REVIEW', 'SUSPENDED', 'REJECTED']
 
 function appliedLabel(value: string, locale: string) {
   const date = new Date(value)
@@ -110,11 +108,25 @@ function mapApplication(item: AdminStoreApplication, locale: string): Applicatio
   }
 }
 
-function statusPillClass(status: ApplicationStatus) {
-  if (status === 'APPROVED') return 'active'
+function statusOmTone(status: ApplicationStatus) {
+  if (status === 'APPROVED') return 'delivered'
   if (status === 'PENDING_REVIEW') return 'waiting'
-  if (status === 'SUSPENDED') return 'blocked'
-  return 'rejected'
+  if (status === 'SUSPENDED') return 'shipping'
+  return 'cancelled'
+}
+
+function StatusPill({ status, label }: { status: ApplicationStatus; label: string }) {
+  const Icon =
+    status === 'APPROVED' ? CheckCircle2
+      : status === 'PENDING_REVIEW' ? Clock3
+        : status === 'SUSPENDED' ? Ban
+          : CircleX
+  return (
+    <span className={`om-pill app-status-pill ${statusOmTone(status)}`}>
+      <Icon aria-hidden="true" />
+      {label}
+    </span>
+  )
 }
 
 function ShopMark({ item }: { item: ApplicationRecord }) {
@@ -148,11 +160,6 @@ export default function AdminApplicationsPage() {
   const [revealedContact, setRevealedContact] = useState<{ shopId: number; phone: string; email: string } | null>(null)
   const [revealBusy, setRevealBusy] = useState(false)
   const locale = i18n.language || 'th'
-
-  const statusOptions = useMemo(() => [
-    { value: '', label: t('adminPlatform.common.all') },
-    ...STATUS_CODES.map(value => ({ value, label: tp(`status.${value}`) })),
-  ], [t, i18n.language])
 
   const categoryOptions = useMemo(() => [
     { value: '', label: t('adminPlatform.common.all') },
@@ -202,7 +209,6 @@ export default function AdminApplicationsPage() {
       if (!active) return
       const mapped = rows.map(item => mapApplication(item, locale))
       setRecords(mapped)
-      setSelectedId(current => current ?? mapped[0]?.id ?? null)
     }).catch(error => {
       if (!active) return
       setRecords([])
@@ -327,61 +333,198 @@ export default function AdminApplicationsPage() {
         <article className="approved"><span><Check /></span><div><b>{tp('kpiApproved')}</b><strong>{approved} <em>{share(approved, records.length)}%</em></strong><small>{tp('kpiShare', { pct: share(approved, records.length) })}</small></div></article>
         <article className="rejected"><span><CircleX /></span><div><b>{tp('kpiRejected')}</b><strong>{rejected} <em>{share(rejected, records.length)}%</em></strong><small>{tp('kpiShare', { pct: share(rejected, records.length) })}</small></div></article>
       </section>
-      <form className="ap-filters application-filters" onSubmit={event => { event.preventDefault(); setPage(1); notify(tp('foundToast', { count: filtered.length })) }}>
-        <div className="ap-filter-search wide">
-          <span className="ap-filter-label">{tp('searchLabel')}</span>
-          <label className="ap-search adm-search application-search">
-            <Search />
-            <input value={query} onChange={event => setQuery(event.target.value)} placeholder={tp('searchPlaceholder')} aria-label={tp('searchAria')} />
-          </label>
+      <section className="pm-table-card om-card applications-table-card">
+        <div className="om-tabs" role="tablist">
+          {([
+            ['all', tp('kpiAll')],
+            ['PENDING_REVIEW', tp('status.PENDING_REVIEW')],
+            ['APPROVED', tp('status.APPROVED')],
+            ['REJECTED', tp('status.REJECTED')],
+            ['SUSPENDED', tp('status.SUSPENDED')],
+          ] as const).map(([key, label]) => {
+            const active = (status || 'all') === key
+            return (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={active ? 'active' : ''}
+                onClick={() => {
+                  setStatus(key === 'all' ? '' : key)
+                  setPage(1)
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
-        <AdminSelect label={tp('statusLabel')} value={status} onChange={value => { setStatus(value); setPage(1) }} options={statusOptions} />
-        <AdminSelect label={tp('categoryLabel')} value={category} onChange={value => { setCategory(value); setPage(1) }} options={categoryOptions} />
-        <AdminSelect label={tp('provinceLabel')} value={province} onChange={value => { setProvince(value); setPage(1) }} options={provinceOptions} />
-        <AdminDateRange label={tp('dateRangeLabel')} from={dateFrom} to={dateTo} onChange={range => { setDateFrom(range.from); setDateTo(range.to) }} />
-        <div className="ap-filter-actions">
-          <button type="button" className="ap-ghost filter-reset" onClick={reset}>{tp('reset')}</button>
-          <button type="submit" className="ap-primary filter-search">{tp('search')}</button>
-        </div>
-      </form>
-      <section className="applications-table-card">
-        <header>
-          <h2>{tp('listTitle', { count: records.length })}</h2>
-          {selectedRows.length > 0 && (
-            <div className="bulk-actions">
-              <span>{tp('selectedCount', { count: selectedRows.length })}</span>
-              <button className="approve" disabled={busy || !canReview} title={deniedTitle(canReview)} onClick={() => runBulk('approve')}>{tp('bulkApprove')}</button>
-              <button className="reject" disabled={busy || !canReview} title={deniedTitle(canReview)} onClick={() => runBulk('reject')}>{tp('bulkReject')}</button>
+
+        <form
+          className="om-filters application-filters"
+          onSubmit={event => {
+            event.preventDefault()
+            setPage(1)
+            notify(tp('foundToast', { count: filtered.length }))
+          }}
+        >
+          <div className="om-filters-main">
+            <div className="om-filter-search">
+              <span className="form-label">{tp('searchLabel')}</span>
+              <label className="om-search">
+                <Search aria-hidden />
+                <input
+                  value={query}
+                  onChange={event => setQuery(event.target.value)}
+                  placeholder={tp('searchPlaceholder')}
+                  aria-label={tp('searchAria')}
+                />
+              </label>
             </div>
-          )}
-        </header>
-        <div className="applications-table-scroll">
-          <div className="applications-table">
-            <div className="applications-tr applications-th">
-              <input type="checkbox" aria-label={tp('selectAllAria')} disabled={pageTargets.length === 0} checked={pageTargets.length > 0 && pageTargets.every(item => selectedRows.includes(item.id))} onChange={togglePage} />
-              <b>{tp('colId')}</b><b>{tp('colShop')}</b><b>{tp('colOwner')}</b><b>{tp('colProvince')}</b><b>{tp('colCategory')}</b><b>{tp('colAppliedAt')}</b><b>{tp('colStatus')}</b><b>{tp('colActions')}</b><span />
+            <AdminSelect label={tp('categoryLabel')} value={category} onChange={value => { setCategory(value); setPage(1) }} options={categoryOptions} />
+            <AdminSelect label={tp('provinceLabel')} value={province} onChange={value => { setProvince(value); setPage(1) }} options={provinceOptions} />
+            <AdminDateRange label={tp('dateRangeLabel')} from={dateFrom} to={dateTo} onChange={range => { setDateFrom(range.from); setDateTo(range.to) }} />
+            <div className="om-filters-actions">
+              <button type="button" onClick={reset}>{tp('reset')}</button>
+              <button type="submit" className="primary">{tp('search')}</button>
             </div>
-            {visible.map(item => (
-              <div className={`applications-tr ${selectedId === item.id ? 'selected' : ''}`} key={item.id} onClick={() => { setSelectedId(item.id); setRevealedContact(null) }}>
-                <input type="checkbox" aria-label={tp('selectRowAria', { name: item.shop })} disabled={!selectedRows.includes(item.id) && !canSelect(item)} checked={selectedRows.includes(item.id)} onClick={event => event.stopPropagation()} onChange={() => toggleRow(item)} />
-                <span>{item.id}</span>
-                <div className="application-shop"><ShopMark item={item} /><b>{item.shop}</b></div>
-                <p><b>{item.owner}</b><span>{maskPhone(item.phone)}</span></p>
-                <span>{item.province}</span>
-                <span><i className={`application-category ${item.categoryClass}`}>{item.category}</i></span>
-                <span className="applied-at">{item.appliedAt}</span>
-                <span><i className={`status-pill ${statusPillClass(item.status)}`}><small />{statusText(item.status)}</i></span>
-                <button className="review-button" onClick={event => { event.stopPropagation(); setSelectedId(item.id); setRevealedContact(null) }}>
-                  {item.status === 'PENDING_REVIEW' ? tp('review') : tp('viewDetail')}
-                </button>
-                <button className="more-button" aria-label={tp('moreAria', { name: item.shop })} onClick={event => { event.stopPropagation(); notify(tp('moreToast', { name: item.shop })) }}>
-                  <MoreVertical />
+          </div>
+        </form>
+
+        {(query || category || province || dateFrom || dateTo || status) ? (
+          <div className="om-active-filters" role="list">
+            {query ? (
+              <div className="om-filter-chip" role="listitem">
+                <span>{tp('searchLabel')}: {query}</span>
+                <button type="button" aria-label={tp('searchLabel')} onClick={() => setQuery('')}>
+                  <X size={14} aria-hidden />
                 </button>
               </div>
-            ))}
-            {filtered.length === 0 && <div className="applications-empty">{tp('emptyFiltered')}</div>}
+            ) : null}
+            {status ? (
+              <div className="om-filter-chip" role="listitem">
+                <span>{tp('statusLabel')}: {statusText(status as ApplicationStatus)}</span>
+                <button type="button" aria-label={tp('statusLabel')} onClick={() => setStatus('')}>
+                  <X size={14} aria-hidden />
+                </button>
+              </div>
+            ) : null}
+            {category ? (
+              <div className="om-filter-chip" role="listitem">
+                <span>{tp('categoryLabel')}: {category}</span>
+                <button type="button" aria-label={tp('categoryLabel')} onClick={() => setCategory('')}>
+                  <X size={14} aria-hidden />
+                </button>
+              </div>
+            ) : null}
+            {province ? (
+              <div className="om-filter-chip" role="listitem">
+                <span>{tp('provinceLabel')}: {province}</span>
+                <button type="button" aria-label={tp('provinceLabel')} onClick={() => setProvince('')}>
+                  <X size={14} aria-hidden />
+                </button>
+              </div>
+            ) : null}
+            {(dateFrom || dateTo) ? (
+              <div className="om-filter-chip" role="listitem">
+                <span>{tp('dateRangeLabel')}: {[dateFrom, dateTo].filter(Boolean).join(' – ')}</span>
+                <button type="button" aria-label={tp('dateRangeLabel')} onClick={() => { setDateFrom(''); setDateTo('') }}>
+                  <X size={14} aria-hidden />
+                </button>
+              </div>
+            ) : null}
+            <button type="button" className="om-clear-all" onClick={reset}>{tp('reset')}</button>
           </div>
+        ) : null}
+
+        {selectedRows.length > 0 ? (
+          <div className="bulk-actions applications-bulk-bar">
+            <span>{tp('selectedCount', { count: selectedRows.length })}</span>
+            <button className="approve" disabled={busy || !canReview} title={deniedTitle(canReview)} onClick={() => runBulk('approve')}>{tp('bulkApprove')}</button>
+            <button className="reject" disabled={busy || !canReview} title={deniedTitle(canReview)} onClick={() => runBulk('reject')}>{tp('bulkReject')}</button>
+          </div>
+        ) : null}
+
+        <div className="om-table-wrap applications-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>
+                  <input
+                    type="checkbox"
+                    aria-label={tp('selectAllAria')}
+                    disabled={pageTargets.length === 0}
+                    checked={pageTargets.length > 0 && pageTargets.every(item => selectedRows.includes(item.id))}
+                    onChange={togglePage}
+                  />
+                </th>
+                <th>{tp('colId')}</th>
+                <th>{tp('colShop')}</th>
+                <th>{tp('colOwner')}</th>
+                <th>{tp('colProvince')}</th>
+                <th>{tp('colCategory')}</th>
+                <th>{tp('colAppliedAt')}</th>
+                <th>{tp('colStatus')}</th>
+                <th>{tp('colActions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map(item => {
+                const isOpen = selectedId === item.id
+                return (
+                  <tr
+                    key={item.id}
+                    className={isOpen ? 'selected' : undefined}
+                    onClick={() => { setSelectedId(item.id); setTab('info'); setRevealedContact(null) }}
+                  >
+                    <td onClick={event => event.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={tp('selectRowAria', { name: item.shop })}
+                        disabled={!selectedRows.includes(item.id) && !canSelect(item)}
+                        checked={selectedRows.includes(item.id)}
+                        onChange={() => toggleRow(item)}
+                      />
+                    </td>
+                    <td><b className="num">{item.id}</b></td>
+                    <td>
+                      <div className="application-shop">
+                        <ShopMark item={item} />
+                        <b>{item.shop}</b>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="om-customer-cell">
+                        <b>{item.owner}</b>
+                        <span className="om-muted">{maskPhone(item.phone)}</span>
+                      </div>
+                    </td>
+                    <td>{item.province}</td>
+                    <td><span className={`application-category ${item.categoryClass}`}>{item.category}</span></td>
+                    <td className="applied-at">{item.appliedAt}</td>
+                    <td>
+                      <StatusPill status={item.status} label={statusText(item.status)} />
+                    </td>
+                    <td onClick={event => event.stopPropagation()}>
+                      <div className="om-row-actions">
+                        <button
+                          type="button"
+                          aria-label={item.status === 'PENDING_REVIEW' ? tp('review') : tp('viewDetail')}
+                          onClick={() => { setSelectedId(item.id); setTab('info'); setRevealedContact(null) }}
+                        >
+                          <Eye aria-hidden />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {filtered.length === 0 ? <div className="om-empty">{tp('emptyFiltered')}</div> : null}
         </div>
+
         <Pager
           page={safePage - 1}
           size={pageSize}
@@ -395,136 +538,84 @@ export default function AdminApplicationsPage() {
       </section>
     </div>
 
-    <AdminSidePanel
-      variant="drawer"
-      className="application-detail"
+    <AdminApplicationDrawer
       open={selectedId != null}
+      item={selected ?? null}
+      tab={tab}
+      onTabChange={setTab}
       onClose={() => { setSelectedId(null); setRevealedContact(null) }}
-      title={tp('detailTitle')}
-      tabs={[
-        { id: 'info', label: tp('tabInfo') },
-        { id: 'documents', label: tp('tabDocuments') },
-        { id: 'history', label: tp('tabHistory') },
-      ]}
-      activeTab={tab}
-      onTabChange={(id) => setTab(id as DetailTab)}
-      footer={selected ? (
-        <>
-          <button type="button" className="asp-secondary contact" onClick={() => {
-            const email = revealedContact?.shopId === selected.id ? revealedContact.email : selected.email
-            if (email && email !== '-' && !email.includes('*')) window.location.href = `mailto:${email}`
-            else notify(tp('contactReveal.needRevealForMail'))
-          }}>{tp('contactOwner')}</button>
-          {canRevealContact && (
-            <button type="button" className="asp-secondary" disabled={revealBusy || revealedContact?.shopId === selected.id}
-              title={deniedTitle(canRevealContact)}
-              onClick={() => {
-                if (revealedContact?.shopId === selected.id) return
-                setRevealBusy(true)
-                adminApplicationApi.revealContact(selected.id)
-                  .then(contact => {
-                    setRevealedContact({
-                      shopId: selected.id,
-                      phone: contact.phone || '',
-                      email: contact.email || '',
-                    })
-                    notify(tp('contactReveal.revealedToast'))
-                  })
-                  .catch(error => notify(error instanceof ApiError ? error.message : tp('contactReveal.revealError')))
-                  .finally(() => setRevealBusy(false))
-              }}>{revealedContact?.shopId === selected.id ? tp('contactReveal.revealed') : tp('contactReveal.button')}</button>
-          )}
-          {selected.status === 'PENDING_REVIEW' ? (
-            <>
-              <button type="button" className="asp-primary approve" disabled={busy || !canReview} title={deniedTitle(canReview)} onClick={() => decide('approve')}><Check />{tp('approveShop')}</button>
-              <button type="button" className="asp-danger reject" disabled={busy || !canReview} title={deniedTitle(canReview)} onClick={() => decide('reject')}><CircleX />{tp('reject')}</button>
-            </>
-          ) : null}
-        </>
-      ) : null}
-    >
-      {selected ? (
-        <>
-          <section className="detail-summary">
-            <ShopMark item={selected} />
-            <div>
-              <b>{selected.shop}</b>
-              <span className={`status-pill ${statusPillClass(selected.status)}`}><small />{statusText(selected.status)}</span>
-              <p>{tp('appliedAt', { date: selected.appliedAt })}</p>
-            </div>
-          </section>
-          {tab === 'info' ? (
-            <div className="detail-body">
-              <dl>
-                <div><dt><Home />{tp('fieldShopId')}</dt><dd>{selected.id}</dd></div>
-                <div><dt><Home />{tp('fieldShopName')}</dt><dd>{selected.shop}</dd></div>
-                <div>
-                  <dt><UsersRound />{tp('fieldOwner')}</dt>
-                  <dd>
-                    {selected.owner}
-                    {selected.otherShops ? <small className="owner-siblings">{tp('otherShops', { names: selected.otherShops })}</small> : null}
-                  </dd>
-                </div>
-                <div><dt><Mail />{tp('fieldEmail')}</dt><dd>{revealedContact?.shopId === selected.id ? revealedContact.email : maskEmail(selected.email)}</dd></div>
-                <div><dt><Phone />{tp('fieldPhone')}</dt><dd>{revealedContact?.shopId === selected.id ? revealedContact.phone : maskPhone(selected.phone)}</dd></div>
-                <div><dt><MapPin />{tp('fieldProvince')}</dt><dd>{selected.province}</dd></div>
-                <div><dt><MapPin />{tp('fieldAddress')}</dt><dd>{selected.address}</dd></div>
-                <div><dt><FileText />{tp('fieldCategory')}</dt><dd>{selected.category}</dd></div>
-                <div><dt><LockKeyhole />{tp('fieldDescription')}</dt><dd>{selected.description}</dd></div>
-              </dl>
-              <div className="social-row">
-                <b><Building2 />{tp('socialTitle')}</b>
-                {([
-                  [tp('socialWebsite'), selected.website],
-                  ['LINE', selected.lineId],
-                  ['Facebook', selected.facebookUrl],
-                  ['Instagram', selected.instagramUrl],
-                  ['TikTok', selected.tiktokUrl],
-                ] as const).map(([label, raw]) => {
-                  const link = socialLink(raw || '')
-                  return (
-                    <p key={label}>
-                      <span>
-                        {label === 'LINE' ? <MessageCircle /> : label === 'Facebook' ? <Facebook /> : label === 'Instagram' ? <Instagram /> : null}
-                        {label}
-                      </span>
-                      {link.href ? <a href={link.href} target="_blank" rel="noreferrer">{link.label}</a> : <a>{link.label}</a>}
-                    </p>
-                  )
-                })}
-              </div>
-            </div>
-          ) : tab === 'documents' ? (
-            <div className="detail-documents">
-              {selected.documents.length
-                ? selected.documents.map(document => (
-                  <p key={document.id}>
-                    <FileCheck2 />
-                    <span><b>{document.label}</b><small>{document.filename} · {fileSize(document.fileSize)}</small></span>
-                    <button type="button" className="document-download" onClick={() => downloadDocument(document.id, document.filename)}>
-                      <Download />{tp('download')}
-                    </button>
-                  </p>
-                ))
-                : <p><FileText /><span><b>{tp('noDocumentsTitle')}</b><small>-</small></span></p>}
-            </div>
-          ) : (
-            <div className="detail-history">
-              <p><Clock3 /><span><b>{tp('historySubmitted')}</b><small>{selected.appliedAt}</small></span></p>
-              {selected.status === 'APPROVED' && <p><FileCheck2 /><span><b>{tp('historyActive')}</b><small>{selected.updatedAt}</small></span></p>}
-              {selected.status === 'REJECTED' && <p><CircleX /><span><b>{tp('historyRejected')}</b><small>{selected.updatedAt}</small></span></p>}
-              {selected.status === 'PENDING_REVIEW' && <p><FileCheck2 /><span><b>{tp('historyPending')}</b><small>{tp('historyPendingHint')}</small></span></p>}
-              {selected.status === 'SUSPENDED' && <p><CircleX /><span><b>{tp('historySuspended')}</b><small>{selected.updatedAt}</small></span></p>}
-              {canAudit && (
-                <p className="ap-muted">
-                  <a href={`/admin/audit-logs?targetType=SHOP&targetId=${selected.id}&kind=BUSINESS`}>{t('adminPlatform.audit.openForTarget')}</a>
-                </p>
-              )}
-            </div>
-          )}
-        </>
-      ) : <div className="detail-body"><p>{tp('emptyDetail')}</p></div>}
-    </AdminSidePanel>
+      statusLabel={statusText}
+      statusTone={statusOmTone}
+      labels={{
+        close: tp('detailTitle'),
+        tabInfo: tp('tabInfo'),
+        tabDocuments: tp('tabDocuments'),
+        tabHistory: tp('tabHistory'),
+        appliedAt: date => tp('appliedAt', { date }),
+        fieldShopId: tp('fieldShopId'),
+        fieldShopName: tp('fieldShopName'),
+        fieldOwner: tp('fieldOwner'),
+        otherShops: names => tp('otherShops', { names }),
+        fieldEmail: tp('fieldEmail'),
+        fieldPhone: tp('fieldPhone'),
+        fieldProvince: tp('fieldProvince'),
+        fieldAddress: tp('fieldAddress'),
+        fieldCategory: tp('fieldCategory'),
+        fieldDescription: tp('fieldDescription'),
+        socialTitle: tp('socialTitle'),
+        socialWebsite: tp('socialWebsite'),
+        socialEmpty: tp('socialEmpty'),
+        socialOpen: tp('socialOpen'),
+        download: tp('download'),
+        noDocumentsTitle: tp('noDocumentsTitle'),
+        historySubmitted: tp('historySubmitted'),
+        historyActive: tp('historyActive'),
+        historyRejected: tp('historyRejected'),
+        historyPending: tp('historyPending'),
+        historyPendingHint: tp('historyPendingHint'),
+        historySuspended: tp('historySuspended'),
+        auditLink: t('adminPlatform.audit.openForTarget'),
+        contactOwner: tp('contactOwner'),
+        revealButton: tp('contactReveal.button'),
+        revealed: tp('contactReveal.revealed'),
+        approveShop: tp('approveShop'),
+        reject: tp('reject'),
+        emptyDetail: tp('emptyDetail'),
+      }}
+      canReview={canReview}
+      canRevealContact={canRevealContact}
+      canAudit={canAudit}
+      deniedTitle={deniedTitle}
+      busy={busy}
+      revealBusy={revealBusy}
+      revealedContact={revealedContact}
+      onRevealContact={() => {
+        if (!selected || revealedContact?.shopId === selected.id) return
+        setRevealBusy(true)
+        adminApplicationApi.revealContact(selected.id)
+          .then(contact => {
+            setRevealedContact({
+              shopId: selected.id,
+              phone: contact.phone || '',
+              email: contact.email || '',
+            })
+            notify(tp('contactReveal.revealedToast'))
+          })
+          .catch(error => notify(error instanceof ApiError ? error.message : tp('contactReveal.revealError')))
+          .finally(() => setRevealBusy(false))
+      }}
+      onContactOwner={() => {
+        if (!selected) return
+        const email = revealedContact?.shopId === selected.id ? revealedContact.email : selected.email
+        if (email && email !== '-' && !email.includes('*')) window.location.href = `mailto:${email}`
+        else notify(tp('contactReveal.needRevealForMail'))
+      }}
+      onApprove={() => decide('approve')}
+      onReject={() => decide('reject')}
+      onDownloadDocument={downloadDocument}
+      fileSizeLabel={fileSize}
+      socialLink={socialLink}
+    />
     {notice && <div className="admin-toast" role="status">{notice}</div>}
   </main>
 }

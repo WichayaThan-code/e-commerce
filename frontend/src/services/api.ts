@@ -104,6 +104,8 @@ export const authApi = {
   verifyOtpLink: (otpId:string, token:string) => request<VerifyOtpResponse>('/api/auth/otp/verify-link', {method:'POST', body:JSON.stringify({otpId,token})}),
   forgotPassword: (email:string) => request<ForgotPasswordResponse>('/api/auth/forgot-password', {method:'POST', body:JSON.stringify({email})}),
   resetPassword: (token:string, newPassword:string) => request<{message:string}>('/api/auth/reset-password', {method:'POST', body:JSON.stringify({token,newPassword})}),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<{ message: string }>('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) }, true),
   refresh: () => refreshSession().then(response=>response.user),
   me: () => request<AuthUser>('/api/auth/me', {}, true),
   logout: async () => { try { await request<void>('/api/auth/logout', {method:'POST'}) } finally { accessToken = null } },
@@ -198,6 +200,9 @@ export type MerchantSettingsPayload = {
   address:string; province:string; district:string; subdistrict:string; postalCode:string
   publicPhone:string; publicEmail:string
 }
+export type MerchantChannelsPayload = {
+  website:string; lineId:string; facebookUrl:string; instagramUrl:string; tiktokUrl:string
+}
 export type ShopPoliciesPayload = {
   policies: { type: ShopPolicyType; title: string; body: string }[]
 }
@@ -229,6 +234,8 @@ export const merchantApi = {
   storeAccess: (shopId?:number|null) => request<StoreAccess>(withShop('/api/merchant/store-access', shopId), {}, true),
   getSettings: (shopId?:number|null) => request<MerchantSettings>(withShop('/api/merchant/settings', shopId), {}, true),
   saveSettings: (payload: MerchantSettingsPayload, shopId?:number|null) => request<MerchantSettings>(withShop('/api/merchant/settings', shopId), { method: 'PUT', body: JSON.stringify(payload) }, true),
+  /** Field-scoped contact channels (website/LINE/social). Does not overwrite other shop settings. */
+  saveChannels: (payload: MerchantChannelsPayload, shopId?:number|null) => request<MerchantSettings>(withShop('/api/merchant/settings/channels', shopId), { method: 'PUT', body: JSON.stringify(payload) }, true),
   saveHours: (days: ShopHour[], shopId?:number|null) => request<MerchantSettings>(withShop('/api/merchant/settings/hours', shopId), { method: 'PUT', body: JSON.stringify({ days }) }, true),
   uploadCover: (file: File, shopId?:number|null) => { const body = new FormData(); body.append('file', file); return request<MerchantSettings>(withShop('/api/merchant/settings/cover', shopId), { method: 'POST', body }, true) },
   uploadLogo: (file: File, shopId?:number|null) => { const body = new FormData(); body.append('file', file); return request<MerchantSettings>(withShop('/api/merchant/settings/logo', shopId), { method: 'POST', body }, true) },
@@ -1324,6 +1331,150 @@ export const merchantReportsApi = {
     merchantReportsApi.exportXlsx(shopId, period, tab),
 }
 
+/** Platform-held shop wallet + withdrawals (not GMV / BANK_TRANSFER / COD sales). */
+export type ShopWalletBalance = {
+  available: number | string
+  reserved: number | string
+  pendingWithdrawals: number | string
+  currency: string
+  holdingPolicy: string
+  canRequestWithdrawal: boolean
+}
+export type ShopWithdrawalStatus = 'REQUESTED' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'REJECTED' | 'CANCELLED' | 'NEEDS_REVIEW'
+export type ShopWithdrawal = {
+  id: string
+  shopId: number
+  shopName: string | null
+  amount: number | string
+  currency: string
+  status: ShopWithdrawalStatus
+  accountProvider: string
+  accountBankName: string | null
+  accountName: string | null
+  accountNumberMasked: string
+  accountPromptPayMasked: string | null
+  requestedAt: string
+  reviewedAt: string | null
+  rejectReason: string | null
+  paidAt: string | null
+  transferReference: string | null
+  transferAmount: number | string | null
+  transferDate: string | null
+  cancelledAt: string | null
+  events?: { fromStatus: string | null; toStatus: string; eventCode: string; createdAt: string; note: string | null }[]
+}
+export type ShopWithdrawalPage = { items: ShopWithdrawal[]; page: number; size: number; totalItems: number; totalPages: number }
+export type PaymentAccountSummary = { provider: string; bankName: string | null; accountName: string | null; accountNumber: string | null; promptPayId: string | null; active: boolean; masked: boolean }
+
+export type ShopTaxProfile = {
+  legalName: string | null
+  taxId: string | null
+  branchCode: string
+  vatRegistered: boolean
+  vatRate: number | string | null
+  canIssueTaxInvoice: boolean
+  taxInvoiceBlockedReason: string | null
+  policyNote: string
+  updatedAt: string | null
+}
+export type ShopInvoiceDocType = 'INVOICE' | 'TAX_INVOICE'
+export type ShopInvoiceStatus = 'DRAFT' | 'ISSUED' | 'CANCELLED'
+export type ShopInvoiceSummary = {
+  id: string
+  docType: ShopInvoiceDocType
+  status: ShopInvoiceStatus
+  documentNumber: string | null
+  buyerName: string
+  grandTotal: number | string
+  taxAmount: number | string
+  currency: string
+  sourceType: string
+  sourceRef: string | null
+  createdAt: string
+  issuedAt: string | null
+}
+export type ShopInvoiceDetail = ShopInvoiceSummary & {
+  sourceId: string
+  sellerLegalName: string
+  sellerTaxId: string | null
+  sellerBranchCode: string | null
+  sellerAddress: string
+  sellerVatRegistered: boolean
+  buyerTaxId: string | null
+  buyerAddress: string
+  buyerPhone: string | null
+  buyerEmail: string | null
+  subtotal: number | string
+  discountTotal: number | string
+  shippingTotal: number | string
+  taxableBase: number | string
+  vatRateApplied: number | string | null
+  note: string | null
+  cancelledAt: string | null
+  cancelReason: string | null
+  lines: {
+    lineNo: number
+    description: string
+    quantity: number | string
+    unitPrice: number | string
+    lineDiscount: number | string
+    lineSubtotal: number | string
+    taxAmount: number | string
+  }[]
+  events: { fromStatus: string | null; toStatus: string; eventCode: string; at: string; note: string | null }[]
+  disclaimer: string
+}
+export type ShopInvoicePage = { items: ShopInvoiceSummary[]; page: number; size: number; totalItems: number; totalPages: number }
+
+export const merchantFinanceApi = {
+  wallet: (shopId: number, signal?: AbortSignal) =>
+    request<ShopWalletBalance>(shopPath(shopId, '/finance/wallet'), { cache: 'no-store', signal }, true),
+  withdrawals: (shopId: number, params: Record<string, string | number | null | undefined> = {}, signal?: AbortSignal) =>
+    request<ShopWithdrawalPage>(`${shopPath(shopId, '/finance/withdrawals')}${queryOf(params)}`, { cache: 'no-store', signal }, true),
+  withdrawal: (shopId: number, id: string) =>
+    request<ShopWithdrawal>(shopPath(shopId, `/finance/withdrawals/${id}`), { cache: 'no-store' }, true),
+  createWithdrawal: (shopId: number, body: { amount: number; currency?: string; accountProvider: string; idempotencyKey: string }) =>
+    request<ShopWithdrawal>(shopPath(shopId, '/finance/withdrawals'), json('POST', body), true),
+  cancelWithdrawal: (shopId: number, id: string) =>
+    request<ShopWithdrawal>(shopPath(shopId, `/finance/withdrawals/${id}/cancel`), json('POST', {}), true),
+  exportWithdrawalsCsv: (shopId: number, params: Record<string, string | number | null | undefined> = {}) =>
+    downloadFile(`${shopPath(shopId, '/finance/withdrawals/export.csv')}${queryOf(params)}`, `withdrawals-${shopId}.csv`),
+  taxProfile: (shopId: number, signal?: AbortSignal) =>
+    request<ShopTaxProfile>(shopPath(shopId, '/finance/invoices/tax-profile'), { cache: 'no-store', signal }, true),
+  upsertTaxProfile: (shopId: number, body: { legalName?: string | null; taxId?: string | null; branchCode?: string | null; vatRegistered?: boolean; vatRate?: number | null }) =>
+    request<ShopTaxProfile>(shopPath(shopId, '/finance/invoices/tax-profile'), json('PUT', body), true),
+  invoices: (shopId: number, params: Record<string, string | number | null | undefined> = {}, signal?: AbortSignal) =>
+    request<ShopInvoicePage>(`${shopPath(shopId, '/finance/invoices')}${queryOf(params)}`, { cache: 'no-store', signal }, true),
+  invoice: (shopId: number, id: string) =>
+    request<ShopInvoiceDetail>(shopPath(shopId, `/finance/invoices/${id}`), { cache: 'no-store' }, true),
+  createInvoice: (shopId: number, body: { orderId: string; docType: ShopInvoiceDocType; buyerTaxId?: string; buyerEmail?: string; note?: string; idempotencyKey: string }) =>
+    request<ShopInvoiceDetail>(shopPath(shopId, '/finance/invoices'), json('POST', body), true),
+  updateInvoiceDraft: (shopId: number, id: string, body: { buyerName: string; buyerTaxId?: string | null; buyerAddress: string; buyerPhone?: string | null; buyerEmail?: string | null; note?: string | null }) =>
+    request<ShopInvoiceDetail>(shopPath(shopId, `/finance/invoices/${id}`), json('PATCH', body), true),
+  issueInvoice: (shopId: number, id: string, idempotencyKey: string) =>
+    request<ShopInvoiceDetail>(shopPath(shopId, `/finance/invoices/${id}/issue`), json('POST', { idempotencyKey }), true),
+  cancelInvoice: (shopId: number, id: string, reason: string) =>
+    request<ShopInvoiceDetail>(shopPath(shopId, `/finance/invoices/${id}/cancel`), json('POST', { reason }), true),
+  exportInvoicesCsv: (shopId: number, params: Record<string, string | number | null | undefined> = {}) =>
+    downloadFile(`${shopPath(shopId, '/finance/invoices/export.csv')}${queryOf(params)}`, `invoices-${shopId}.csv`),
+  downloadInvoicePdf: (shopId: number, id: string, filename: string) =>
+    downloadFile(shopPath(shopId, `/finance/invoices/${id}/pdf`), filename),
+}
+
+export const adminPayoutApi = {
+  list: (params: Record<string, string | number | null | undefined> = {}) =>
+    request<ShopWithdrawalPage>(`/api/admin/payouts${queryOf(params)}`, { cache: 'no-store' }, true),
+  get: (id: string) => request<ShopWithdrawal>(`/api/admin/payouts/${id}`, { cache: 'no-store' }, true),
+  approve: (id: string) => request<ShopWithdrawal>(`/api/admin/payouts/${id}/approve`, json('POST', {}), true),
+  reject: (id: string, reason: string) => request<ShopWithdrawal>(`/api/admin/payouts/${id}/reject`, json('POST', { reason }), true),
+  processing: (id: string) => request<ShopWithdrawal>(`/api/admin/payouts/${id}/processing`, json('POST', {}), true),
+  needsReview: (id: string, reason: string) => request<ShopWithdrawal>(`/api/admin/payouts/${id}/needs-review`, json('POST', { reason }), true),
+  paid: (id: string, body: { transferReference: string; transferAmount?: number; transferDate: string; externalTransferKey?: string; note?: string }) =>
+    request<ShopWithdrawal>(`/api/admin/payouts/${id}/paid`, json('POST', body), true),
+  credit: (shopId: number, body: { amount: number; currency?: string; idempotencyKey: string; note?: string; sourceReference?: string }) =>
+    request<ShopWalletBalance>(`/api/admin/payouts/shops/${shopId}/credits`, json('POST', body), true),
+}
+
 export const merchantOrderApi = {
   /** query: status, paymentStatus, fulfillmentStatus, from, to, q, page, size, sort, direction, acceptance, customer (opaque insight key) */
   list: (shopId: number, params: Record<string, string | number | boolean | null | undefined> = {}) =>
@@ -1700,6 +1851,51 @@ export const merchantNotificationsApi = {
     request<void>(shopPath(shopId, '/notifications/read-all'), { method: 'POST' }, true),
 }
 
+/** Fired after notification preferences save so the merchant bell refreshes list/badge. */
+export const MERCHANT_NOTIFICATION_PREFS_EVENT = 'tsf:merchant-notification-prefs'
+
+export type NotificationChannelInfo = { supported: boolean; editable: boolean }
+
+export type NotificationCategoryInfo = {
+  code: string
+  mandatory: boolean
+  defaultInApp: boolean
+  inAppEnabled: boolean
+  editable: boolean
+  viewerPermission: string
+  eventTypes: string[]
+  policyReason: string
+  viewerHasPermission: boolean
+}
+
+export type NotificationPreferences = {
+  shopId: number
+  shopName: string
+  version: number
+  channels: Record<string, NotificationChannelInfo>
+  categories: NotificationCategoryInfo[]
+}
+
+export type NotificationPreferencesSave = {
+  version: number
+  categories: { code: string; inAppEnabled: boolean }[]
+}
+
+export const merchantNotificationPreferencesApi = {
+  get: (shopId: number) =>
+    request<NotificationPreferences>(
+      shopPath(shopId, '/notification-preferences'),
+      { cache: 'no-store' },
+      true,
+    ),
+  save: (shopId: number, body: NotificationPreferencesSave) =>
+    request<NotificationPreferences>(
+      shopPath(shopId, '/notification-preferences'),
+      { method: 'PUT', body: JSON.stringify(body) },
+      true,
+    ),
+}
+
 export type AdminNotificationType =
   | 'SHOP_APPLICATION_SUBMITTED'
   | 'SHOP_REINSTATEMENT_REQUESTED'
@@ -1943,4 +2139,164 @@ export const articleAdminApi = {
   setCategoryActive: (id: string, active: boolean) => request<AdminArticleCategory>(adminPath(`/article-categories/${id}/active`), json('PATCH', { active }), true),
   reorderCategories: (ids: string[]) => request<AdminArticleCategory[]>(adminPath('/article-categories/reorder'), json('PUT', { ids }), true),
   deleteCategory: (id: string) => request<void>(adminPath(`/article-categories/${id}`), json('DELETE'), true),
+}
+
+/* ---------------------------------------------------------------- merchant shop team (invites / members) */
+export type TeamPageMeta = { page: number; size: number; totalItems: number; totalPages: number }
+export type TeamPermissionItem = { code: string; descriptionTh: string; sensitive: boolean }
+export type TeamPermissionGroup = { module: string; items: TeamPermissionItem[] }
+export type TeamMemberSummary = {
+  userId: string; firstName: string | null; lastName: string | null; email: string
+  role: string; roleName: string | null; status: string; joinedAt: string | null; active: boolean
+}
+export type TeamMemberEvent = { action: string; note: string | null; at: string | null }
+export type TeamMemberDetail = TeamMemberSummary & {
+  removedAt: string | null; permissions: string[]; permissionGroups: TeamPermissionGroup[]; events: TeamMemberEvent[]
+}
+export type TeamInvitationSummary = {
+  id: string; email: string; role: string; roleName: string | null; status: string
+  expiresAt: string; createdAt: string; acceptedAt: string | null; invitedByName: string | null; actionable: boolean
+}
+export type TeamInvitationCreated = {
+  id: string; email: string; role: string; status: string; expiresAt: string
+  inviteUrl: string; emailQueued: boolean; deliveryNote: string
+}
+export type TeamRoleOption = {
+  code: string; nameTh: string; nameEn: string; assignableByActor: boolean
+  permissions: string[]; permissionGroups: TeamPermissionGroup[]; sensitive: boolean
+}
+export type TeamStaffQuota = { staffLimit: number | null; staffUsed: number; quotaEnforced: boolean; quotaNote: string | null }
+export type TeamRoleCatalog = { roles: TeamRoleOption[]; actorRole: string; staffQuota: TeamStaffQuota }
+export type TeamInvitePreview = {
+  shopName: string; inviterName: string; role: string; roleName: string; status: string; expiresAt: string
+  permissions: string[]; permissionGroups: TeamPermissionGroup[]
+  emailMatchesCaller: boolean; callerAuthenticated: boolean; callerEmailVerified: boolean; conflictCode: string | null
+}
+export type TeamMemberListParams = { q?: string; role?: string; status?: string; page?: number; size?: number }
+export type TeamInviteListParams = { q?: string; status?: string; page?: number; size?: number }
+
+export const merchantTeamApi = {
+  roles: (shopId: number) =>
+    request<TeamRoleCatalog>(shopPath(shopId, '/team/roles'), { cache: 'no-store' }, true),
+  members: (shopId: number, params: TeamMemberListParams = {}) =>
+    request<{ items: TeamMemberSummary[]; page: TeamPageMeta; totalActive: number }>(
+      `${shopPath(shopId, '/team/members')}${queryOf(params)}`, { cache: 'no-store' }, true),
+  member: (shopId: number, userId: string) =>
+    request<TeamMemberDetail>(shopPath(shopId, `/team/members/${userId}`), { cache: 'no-store' }, true),
+  changeRole: (shopId: number, userId: string, role: string) =>
+    request<TeamMemberSummary>(shopPath(shopId, `/team/members/${userId}`), json('PATCH', { role }), true),
+  removeMember: (shopId: number, userId: string, reason?: string) =>
+    request<void>(shopPath(shopId, `/team/members/${userId}`), json('DELETE', { reason: reason ?? 'MERCHANT_REMOVAL' }), true),
+  invitations: (shopId: number, params: TeamInviteListParams = {}) =>
+    request<{ items: TeamInvitationSummary[]; page: TeamPageMeta; totalPending: number }>(
+      `${shopPath(shopId, '/team/invitations')}${queryOf(params)}`, { cache: 'no-store' }, true),
+  createInvite: (shopId: number, body: { email: string; role: string }) =>
+    request<TeamInvitationCreated>(shopPath(shopId, '/team/invitations'), json('POST', body), true),
+  resendInvite: (shopId: number, invitationId: string) =>
+    request<TeamInvitationCreated>(shopPath(shopId, `/team/invitations/${invitationId}/resend`), json('POST'), true),
+  revokeInvite: (shopId: number, invitationId: string) =>
+    request<void>(shopPath(shopId, `/team/invitations/${invitationId}/revoke`), json('POST'), true),
+}
+
+/** Public preview (optional auth). Accept requires auth. */
+export const shopInvitationApi = {
+  preview: (token: string, authenticate = false) =>
+    request<TeamInvitePreview>(`/api/invitations/${encodeURIComponent(token)}`, { cache: 'no-store' }, authenticate, true, { redirectOn401: false }),
+  accept: (token: string) =>
+    request<TeamMemberSummary>(`/api/invitations/${encodeURIComponent(token)}/accept`, json('POST'), true),
+}
+
+/* ---------------------------------------------------------------- merchant shop security activity (AUDIT_READ) */
+export type MerchantSecurityActivityRow = {
+  id: number
+  occurredAt: string
+  actorName: string | null
+  actorType: string
+  action: string
+  outcome: string
+  summary: string | null
+  reasonCode: string | null
+}
+export type MerchantSecurityActivityDetail = MerchantSecurityActivityRow & {
+  before: Record<string, unknown> | null
+  after: Record<string, unknown> | null
+}
+export type MerchantSecurityActivityPage = {
+  items: MerchantSecurityActivityRow[]
+  page: number
+  size: number
+  totalItems: number
+  totalPages: number
+  supportedActions: string[]
+}
+export type MerchantSecurityActivityParams = {
+  action?: string
+  outcome?: string
+  from?: string
+  to?: string
+  page?: number
+  size?: number
+}
+
+export const merchantSecurityActivityApi = {
+  list: (shopId: number, params: MerchantSecurityActivityParams = {}) =>
+    request<MerchantSecurityActivityPage>(
+      `${shopPath(shopId, '/security-activity')}${queryOf(params)}`,
+      { cache: 'no-store' },
+      true,
+    ),
+  detail: (shopId: number, id: number) =>
+    request<MerchantSecurityActivityDetail>(
+      shopPath(shopId, `/security-activity/${id}`),
+      { cache: 'no-store' },
+      true,
+    ),
+}
+
+/* ---------------------------------------------------------------- merchant plan usage (SHOP_READ; metrics may be RESTRICTED) */
+export type MerchantPlanLimitKind = 'FINITE' | 'ZERO' | 'UNLIMITED' | 'NOT_APPLICABLE' | 'UNKNOWN'
+export type MerchantPlanMetricStatus =
+  | 'OK' | 'WARN' | 'FULL' | 'OVER' | 'UNLIMITED' | 'ZERO_QUOTA' | 'NOT_APPLICABLE' | 'UNKNOWN' | 'RESTRICTED'
+export type MerchantPlanMetric = {
+  code: string
+  availability: 'AVAILABLE' | 'RESTRICTED'
+  permissionRequired: string
+  viewerHasPermission: boolean
+  used: number | null
+  limit: { kind: MerchantPlanLimitKind; value: number | null }
+  unit: 'COUNT' | 'BYTES'
+  completeness: 'COMPLETE' | 'PARTIAL' | 'UNKNOWN'
+  period: {
+    kind: 'NONE' | 'ROLLING_DAYS'
+    rollingDays: number | null
+    start: string | null
+    end: string | null
+  }
+  definition: { source: string; includes: string; excludes: string; note: string }
+  status: MerchantPlanMetricStatus
+  remaining: number | null
+  usedRatio: number | null
+  breakdown: Record<string, number>
+}
+export type MerchantPlanUsage = {
+  shopId: number
+  shopName: string
+  shopStatus: string
+  plan: {
+    assignment: 'ASSIGNED' | 'UNASSIGNED'
+    code: string | null
+    name: string | null
+    resolution: 'ACTIVE' | 'RETIRED' | 'UNKNOWN' | 'NONE'
+    note: string | null
+  }
+  asOf: string
+  timezone: string
+  displayPolicy: { warnAtRatio: number; note: string }
+  metrics: MerchantPlanMetric[]
+  enforcement: { metricCode: string; level: string; detail: string }[]
+}
+
+export const merchantPlanUsageApi = {
+  get: (shopId: number) =>
+    request<MerchantPlanUsage>(shopPath(shopId, '/plan-usage'), { cache: 'no-store' }, true),
 }

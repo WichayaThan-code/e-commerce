@@ -199,10 +199,63 @@ export default function ShippingPage(){
     <header className="merchant-topbar"><MerchantBrand /><MerchantTopbarSearch /><MerchantTopbarActions /></header>
     <MerchantSidebar active="shipping"/>
     <section className="pm-content shipping-content">
-      <header className="pm-heading shipping-heading"><div><h1><Truck/>{t("shippingPage.title")}</h1><p>{t("shippingPage.subtitle")}</p></div><div className="pm-actions"><button disabled={!canConfigure} title={deniedTitle(canConfigure)} className="primary" onClick={()=>carriersRef.current?.scrollIntoView({behavior:"smooth",block:"start"})}><Plus/>{t("shippingPage.connectMore")}</button></div></header>
-      <section className="shipping-kpis">{TABS.map(([key],i)=>{const Icon=KPI_ICONS[key as keyof typeof KPI_ICONS];return <article className={key} key={key}><span><Icon/></span><div><small>{t(`shippingPage.kpi.${key}`)}</small><b>{kpiValue(i)}</b><em>{t(`shippingPage.kpi.${key}Hint`)}</em></div></article>})}</section>
-      <div className="shipping-layout"><article className="shipping-table-card">
-        <nav className="shipping-tabs" role="tablist">{TABS.map(([key,value],i)=><button type="button" role="tab" aria-selected={status===value} className={status===value?"active":""} onClick={()=>{setStatus(value);setPage(0)}} key={key}>{t(`shippingPage.tabs.${key}`)}{kpis[i]!=null?` (${kpis[i]})`:""}</button>)}</nav>
+      <header className="pm-heading shipping-heading">
+        <div>
+          <h1><Truck aria-hidden />{t("shippingPage.title")}</h1>
+          <p>{t("shippingPage.subtitle")}</p>
+        </div>
+        <div className="pm-actions">
+          <button
+            type="button"
+            disabled={!canConfigure}
+            title={deniedTitle(canConfigure)}
+            className="primary"
+            onClick={() => carriersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          >
+            <Plus aria-hidden />{t("shippingPage.connectMore")}
+          </button>
+        </div>
+      </header>
+
+      <section className="shipping-kpis" aria-label={t("shippingPage.title")}>
+        {TABS.map(([key, value], i) => {
+          const Icon = KPI_ICONS[key as keyof typeof KPI_ICONS];
+          const active = status === value;
+          return (
+            <button
+              type="button"
+              className={`shipping-kpi ${key}${active ? " is-active" : ""}`}
+              key={key}
+              aria-pressed={active}
+              onClick={() => { setStatus(value); setPage(0); }}
+            >
+              <span aria-hidden="true"><Icon /></span>
+              <div>
+                <small>{t(`shippingPage.kpi.${key}`)}</small>
+                <b>{kpiValue(i)}</b>
+              </div>
+            </button>
+          );
+        })}
+      </section>
+
+      <div className="shipping-layout">
+      <article className="shipping-table-card">
+        <nav className="shipping-tabs" role="tablist" aria-label={t("shippingPage.title")}>
+          {TABS.map(([key, value], i) => (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={status === value}
+              className={status === value ? "active" : ""}
+              onClick={() => { setStatus(value); setPage(0); }}
+              key={key}
+            >
+              <span>{t(`shippingPage.tabs.${key}`)}</span>
+              {kpis[i] != null ? <em>{kpis[i]}</em> : null}
+            </button>
+          ))}
+        </nav>
         <form
           className="om-filters"
           onSubmit={(event)=>{
@@ -338,17 +391,51 @@ export default function ShippingPage(){
           onPageChange={setPage}
           onSizeChange={(next)=>{setSize(next);setPage(0)}}
         />
-      </article><aside className="shipping-side">
-        <section ref={carriersRef} id="shipping-carriers"><header><h2>{t("shippingPage.carriers.title")}</h2></header>
-          {carrierFailed&&<p className="sh-side-note" role="alert">{t("shippingPage.carriers.loadFailed")}</p>}
-          {carrierData&&!carrierData.restricted&&<p className="sh-side-note">{t("shippingPage.carriers.unrestricted")}</p>}
-          {!carrierData&&!carrierFailed&&<SkeletonTable rows={3} cols={1}/>}
-          {carrierList.map(c=><p key={c.code} className="shipping-carrier-row">{logo(c.code)}<b className="carrier-name">{carrierName(c.code)}</b><span className="sh-toggle"><ToggleSwitch checked={c.enabled} disabled={!canConfigure||toggling===c.code} label={carrierName(c.code)} onText={t("shippingPage.carriers.connected")} offText={t("shippingPage.carriers.connect")} onChange={v=>void toggleCarrier(c.code,v)}/></span></p>)}
-          {!canConfigure&&<p className="sh-side-note">{deniedTitle(false)}</p>}
+      </article>
+
+      <aside className="shipping-side">
+        <section ref={carriersRef} id="shipping-carriers" className="shipping-carriers-card">
+          <header><h2>{t("shippingPage.carriers.title")}</h2></header>
+          {carrierFailed ? <p className="sh-side-note" role="alert">{t("shippingPage.carriers.loadFailed")}</p> : null}
+          {carrierData && !carrierData.restricted ? <p className="sh-side-note">{t("shippingPage.carriers.unrestricted")}</p> : null}
+          {!carrierData && !carrierFailed ? <SkeletonTable rows={3} cols={1} /> : null}
+          <div className="shipping-carrier-list">
+            {carrierList.map((c) => (
+              <div key={c.code} className={`shipping-carrier-row${c.enabled ? " is-on" : ""}`}>
+                {logo(c.code)}
+                <b className="carrier-name">{carrierName(c.code)}</b>
+                <span className="sh-toggle">
+                  <ToggleSwitch
+                    checked={c.enabled}
+                    disabled={!canConfigure || toggling === c.code}
+                    label={carrierName(c.code)}
+                    onText={t("shippingPage.carriers.connected")}
+                    offText={t("shippingPage.carriers.connect")}
+                    onChange={(v) => void toggleCarrier(c.code, v)}
+                  />
+                </span>
+              </div>
+            ))}
+          </div>
+          {!canConfigure ? <p className="sh-side-note">{deniedTitle(false)}</p> : null}
         </section>
-        <section className="shipping-tools"><h2>{t("shippingPage.tools.title")}</h2><a href="/merchant/orders"><Package/>{t("shippingPage.tools.createShipment")}<ChevronRight/></a><button disabled title={unsupported}><Box/>{t("shippingPage.tools.parcelSize")}<ChevronRight/></button><button disabled title={unsupported}><MapPin/>{t("shippingPage.tools.senderAddress")}<ChevronRight/></button><button disabled title={unsupported}><Clock3/>{t("shippingPage.tools.history")}<ChevronRight/></button></section>
-        <section className="shipping-help" role="link" tabIndex={0} onClick={()=>window.location.assign("/help")} onKeyDown={e=>{if(e.key==="Enter")window.location.assign("/help")}}><Headphones/><div><b>{t("shippingPage.help.title")}</b><small>{t("shippingPage.help.body")}</small></div><ChevronRight/></section>
-      </aside></div>
+
+        <section
+          className="shipping-help"
+          role="link"
+          tabIndex={0}
+          onClick={() => window.location.assign("/help")}
+          onKeyDown={(e) => { if (e.key === "Enter") window.location.assign("/help"); }}
+        >
+          <Headphones aria-hidden />
+          <div>
+            <b>{t("shippingPage.help.title")}</b>
+            <small>{t("shippingPage.help.body")}</small>
+          </div>
+          <ChevronRight aria-hidden />
+        </section>
+      </aside>
+      </div>
     </section>
     {openOrderId&&shopId!=null&&<ShipmentDrawer shopId={shopId} orderId={openOrderId} carriers={carrierData?.carriers??[]} onClose={()=>setOpenOrderId(null)} onChanged={handleChanged} notify={notify}/>}
     {notice&&<div className={`merchant-toast${tone==="fail"?" om-toast-fail":""}`} role="status">{notice}</div>}

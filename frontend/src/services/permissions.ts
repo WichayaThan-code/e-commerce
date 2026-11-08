@@ -28,6 +28,7 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   '/admin/roles': { permission: 'PLATFORM_ACCOUNT_READ', scope: 'platform' }, // role catalog read (GET /api/admin/roles)
   '/admin/role-assignments': { permission: 'PLATFORM_ACCOUNT_READ', scope: 'platform' },
   '/admin/orders': { permission: 'PLATFORM_SHOP_READ', scope: 'platform' }, // Y7: no PLATFORM_ORDER_* code in the seed
+  '/admin/payouts': { permission: 'PLATFORM_PAYOUT_READ', scope: 'platform' },
   '/admin/merchants': { permission: 'PLATFORM_SHOP_READ', scope: 'platform' },
   '/admin/usage': { permission: 'PLATFORM_SHOP_READ', scope: 'platform' },
   '/admin/audit-logs': { permission: 'PLATFORM_AUDIT_READ', scope: 'platform' },
@@ -38,7 +39,7 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   '/merchant/customers': { permission: 'CUSTOMER_READ', scope: 'shop' },
   '/merchant/promotions': { permission: 'PROMOTION_READ', scope: 'shop' }, // V27
   '/merchant/reports': { permission: 'REPORT_READ', scope: 'shop' },
-  '/merchant/finance': { permission: 'REPORT_READ', scope: 'shop' }, // interim: no FINANCE_* code yet
+  '/merchant/finance': { permission: 'FINANCE_READ', scope: 'shop' },
   '/merchant/shipping': { permission: 'SHIPMENT_READ', scope: 'shop' },
   '/merchant/store': { permission: 'SHOP_READ', scope: 'shop' },
   '/merchant/store/theme': { permission: 'SHOP_READ', scope: 'shop' },

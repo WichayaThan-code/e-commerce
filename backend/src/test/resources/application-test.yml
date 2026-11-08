@@ -61,3 +61,8 @@ app:
     sms-provider: log
     frontend-url: http://localhost:5173
     reset-password-path: /reset-password
+  shop-team:
+    invite-ttl-days: 7
+    resend-cooldown-seconds: 1
+    invite-create-per-hour: 50
+    invite-path: /invite

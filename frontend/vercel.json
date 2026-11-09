@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://backend-production-a8e9d.up.railway.app/api/:path*" },
+    { "source": "/share/:path*", "destination": "https://backend-production-a8e9d.up.railway.app/share/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

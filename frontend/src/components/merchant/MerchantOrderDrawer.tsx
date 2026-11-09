@@ -14,6 +14,7 @@ import {
   PackageCheck,
   PackageOpen,
   Phone,
+  Printer,
   ShoppingBag,
   Truck,
   Undo2,
@@ -64,6 +65,7 @@ import {
   paymentTone,
   statusTone,
 } from "./orderFormat";
+import { printMerchantOrder } from "./orderPrint";
 
 type DrawerProps = {
   shopId: number;
@@ -175,6 +177,7 @@ export default function MerchantOrderDrawer({
   const [codRequest, setCodRequest] = useState(0);
   const [refundRequest, setRefundRequest] = useState<RefundDialogRequest>(null);
   const [workTab, setWorkTab] = useState<"detail" | "history">("detail");
+  const [printing, setPrinting] = useState(false);
 
   const loadAux = useCallback(async (gen: number) => {
     const [line, allowed] = await Promise.all([
@@ -413,6 +416,23 @@ export default function MerchantOrderDrawer({
     });
   };
 
+  const handlePrint = useCallback(async () => {
+    if (!order || printing) return;
+    setPrinting(true);
+    try {
+      await printMerchantOrder(shopId, order, t, localeTag);
+      notify(t("orderManagement.printDone"));
+    } catch (caught) {
+      if (caught instanceof Error && caught.message === "PRINT_POPUP_BLOCKED") {
+        notify(t("orderManagement.printBlocked"), "fail");
+      } else {
+        notify(orderErrorMessage(t, caught) || t("orderManagement.printFailed"), "fail");
+      }
+    } finally {
+      setPrinting(false);
+    }
+  }, [order, printing, shopId, t, localeTag, notify]);
+
   const awaiting = !!order && (order.awaitingAcceptance === true || order.itemsHidden === true);
   const address = order?.shippingAddress;
   const addressLines = address
@@ -518,9 +538,21 @@ export default function MerchantOrderDrawer({
                   </div>
                 ) : null}
               </div>
-              <button type="button" className="om-drawer-close" aria-label={t("orderManagement.drawer.close")} onClick={onClose}>
-                <X aria-hidden="true" />
-              </button>
+              <div className="om-drawer-head-actions">
+                <button
+                  type="button"
+                  className="om-drawer-close"
+                  aria-label={t("orderManagement.printOrder", { number: order.orderNumber })}
+                  title={printing ? t("orderManagement.printBusy") : t("orderManagement.printOrder", { number: order.orderNumber })}
+                  disabled={printing}
+                  onClick={() => void handlePrint()}
+                >
+                  <Printer aria-hidden="true" />
+                </button>
+                <button type="button" className="om-drawer-close" aria-label={t("orderManagement.drawer.close")} onClick={onClose}>
+                  <X aria-hidden="true" />
+                </button>
+              </div>
             </header>
 
             <div className="om-drawer-body cm-detail-body">

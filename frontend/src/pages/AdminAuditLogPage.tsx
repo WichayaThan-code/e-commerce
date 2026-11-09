@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ScrollText, Search, X } from 'lucide-react'
+import { ScrollText, Search } from 'lucide-react'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { LoadError, SkeletonTable } from '../components/feedback/Skeleton'
 import { Pager, Pill, errorMessage, formatCount, statusTone } from '../components/admin/PlatformBits'
+import AdminDetailDrawer from '../components/admin/AdminDetailDrawer'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../hooks/usePermissions'
 import { hasPlatformAccess } from '../services/permissions'
@@ -257,34 +258,41 @@ export default function AdminAuditLogPage() {
       </div>
 
       {selected && (
-        <div className="ap-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setSelected(null) }}>
-          <section className="ap-modal" role="dialog" aria-modal="true" aria-labelledby="audit-dialog-title">
-            <header>
-              <h2 id="audit-dialog-title">{tp('audit.detail.title')} <span className="num">#{selected.id}</span></h2>
-              <button type="button" aria-label={tp('common.close')} onClick={() => setSelected(null)}><X /></button>
-            </header>
-            {detailError && <p className="ap-error" role="alert">{detailError}</p>}
-            <dl className="ap-fields">
-              <div className="full"><dt>{tp('audit.detail.summary')}</dt><dd><b>{actionLabel(selected.action)}</b>{beforeStatus && afterStatus ? <small className="block">{tp('audit.detail.statusChange', { before: beforeStatus, after: afterStatus })}</small> : null}</dd></div>
-              <div><dt>{tp('audit.col.occurredAt')}</dt><dd className="num">{formatDateTime(selected.occurredAt)}</dd></div>
-              <div><dt>{tp('audit.col.actor')}</dt><dd>{selected.actor?.name || '—'} <small>({selected.actor?.role || selected.actor?.type || '—'})</small>{selected.actor?.email && <small className="block">{selected.actor.email}</small>}</dd></div>
-              <div><dt>{tp('audit.col.action')}</dt><dd>{actionLabel(selected.action)}<small className="block num">{selected.action}</small></dd></div>
-              <div><dt>{tp('audit.col.target')}</dt><dd>{selected.target?.type ?? '—'}{(selected.target?.name || selected.target?.shopName) ? ` · ${selected.target?.name || selected.target?.shopName}` : ''}{selected.target?.id && <small className="block num">{selected.target.id}</small>}</dd></div>
-              <div><dt>{tp('audit.col.outcome')}</dt><dd><Pill tone={statusTone(selected.outcome)}>{tp(`outcome.${selected.outcome}`, { defaultValue: selected.outcome })}</Pill></dd></div>
-              <div><dt>{tp('audit.col.reasonCode')}</dt><dd>{selected.reasonCode ? <>{reasonCodeLabel(selected.reasonCode)}<small className="block num">{selected.reasonCode}</small></> : '—'}</dd></div>
-              <div className="full"><dt>{tp('audit.detail.reason')}</dt><dd>{selected.reason || '—'}</dd></div>
-              <div><dt>{tp('audit.detail.permission')}</dt><dd className="num">{selected.permission || '—'}</dd></div>
-              <div><dt>{tp('audit.detail.authContext')}</dt><dd className="num">{selected.authContext || '—'}</dd></div>
-              <div><dt>{tp('audit.detail.requestId')}</dt><dd className="num">{selected.requestId || '—'}</dd></div>
-              <div><dt>{tp('audit.detail.ipAddress')}</dt><dd className="num">{selected.ipAddress || '—'}</dd></div>
-              <div className="full"><dt>{tp('audit.detail.userAgent')}</dt><dd className="num">{selected.userAgent || '—'}</dd></div>
-            </dl>
-            <div className="ap-diff">
-              <div><h3>{tp('audit.detail.before')}</h3><pre className="num">{json(selected.before)}</pre></div>
-              <div><h3>{tp('audit.detail.after')}</h3><pre className="num">{json(selected.after)}</pre></div>
-            </div>
-          </section>
-        </div>
+        <AdminDetailDrawer
+          className="audit-detail-drawer"
+          wide
+          title={tp('audit.detail.title')}
+          meta={
+            <>
+              <span className="om-muted num">#{selected.id}</span>
+              <Pill tone={statusTone(selected.outcome)}>{tp(`outcome.${selected.outcome}`, { defaultValue: selected.outcome })}</Pill>
+            </>
+          }
+          avatarFallback={<ScrollText />}
+          onClose={() => setSelected(null)}
+          closeLabel={tp('common.close')}
+        >
+          {detailError && <p className="ap-error" role="alert">{detailError}</p>}
+          <dl className="ap-fields">
+            <div className="full"><dt>{tp('audit.detail.summary')}</dt><dd><b>{actionLabel(selected.action)}</b>{beforeStatus && afterStatus ? <small className="block">{tp('audit.detail.statusChange', { before: beforeStatus, after: afterStatus })}</small> : null}</dd></div>
+            <div><dt>{tp('audit.col.occurredAt')}</dt><dd className="num">{formatDateTime(selected.occurredAt)}</dd></div>
+            <div><dt>{tp('audit.col.actor')}</dt><dd>{selected.actor?.name || '—'} <small>({selected.actor?.role || selected.actor?.type || '—'})</small>{selected.actor?.email && <small className="block">{selected.actor.email}</small>}</dd></div>
+            <div><dt>{tp('audit.col.action')}</dt><dd>{actionLabel(selected.action)}<small className="block num">{selected.action}</small></dd></div>
+            <div><dt>{tp('audit.col.target')}</dt><dd>{selected.target?.type ?? '—'}{(selected.target?.name || selected.target?.shopName) ? ` · ${selected.target?.name || selected.target?.shopName}` : ''}{selected.target?.id && <small className="block num">{selected.target.id}</small>}</dd></div>
+            <div><dt>{tp('audit.col.outcome')}</dt><dd><Pill tone={statusTone(selected.outcome)}>{tp(`outcome.${selected.outcome}`, { defaultValue: selected.outcome })}</Pill></dd></div>
+            <div><dt>{tp('audit.col.reasonCode')}</dt><dd>{selected.reasonCode ? <>{reasonCodeLabel(selected.reasonCode)}<small className="block num">{selected.reasonCode}</small></> : '—'}</dd></div>
+            <div className="full"><dt>{tp('audit.detail.reason')}</dt><dd>{selected.reason || '—'}</dd></div>
+            <div><dt>{tp('audit.detail.permission')}</dt><dd className="num">{selected.permission || '—'}</dd></div>
+            <div><dt>{tp('audit.detail.authContext')}</dt><dd className="num">{selected.authContext || '—'}</dd></div>
+            <div><dt>{tp('audit.detail.requestId')}</dt><dd className="num">{selected.requestId || '—'}</dd></div>
+            <div><dt>{tp('audit.detail.ipAddress')}</dt><dd className="num">{selected.ipAddress || '—'}</dd></div>
+            <div className="full"><dt>{tp('audit.detail.userAgent')}</dt><dd className="num">{selected.userAgent || '—'}</dd></div>
+          </dl>
+          <div className="ap-diff">
+            <div><h3>{tp('audit.detail.before')}</h3><pre className="num">{json(selected.before)}</pre></div>
+            <div><h3>{tp('audit.detail.after')}</h3><pre className="num">{json(selected.after)}</pre></div>
+          </div>
+        </AdminDetailDrawer>
       )}
     </main>
   )

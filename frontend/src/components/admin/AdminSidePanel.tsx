@@ -1,9 +1,9 @@
-import { useEffect, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import '../../styles/admin-side-panel.css'
+import AdminDetailDrawer, { type AdminDetailDrawerTab } from './AdminDetailDrawer'
 
-export type AdminSidePanelTab = { id: string; label: string }
+export type AdminSidePanelTab = AdminDetailDrawerTab
 
 type Props = {
   variant: 'drawer' | 'aside'
@@ -14,11 +14,16 @@ type Props = {
   activeTab?: string
   onTabChange?: (id: string) => void
   headerExtra?: ReactNode
+  meta?: ReactNode
   footer?: ReactNode
+  footerClassName?: string
   children: ReactNode
   className?: string
   /** aside without chrome — just layout slot for stacked cards */
   bare?: boolean
+  avatar?: ReactNode
+  avatarFallback?: ReactNode
+  avatarClassName?: string
 }
 
 export default function AdminSidePanel({
@@ -30,24 +35,17 @@ export default function AdminSidePanel({
   activeTab,
   onTabChange,
   headerExtra,
+  meta,
   footer,
+  footerClassName,
   children,
   className = '',
   bare = false,
+  avatar,
+  avatarFallback,
+  avatarClassName,
 }: Props) {
-  useEffect(() => {
-    if (variant !== 'drawer' || !open || !onClose) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
-    }
-  }, [variant, open, onClose])
+  const { t } = useTranslation('admin')
 
   if (variant === 'aside') {
     if (bare) {
@@ -85,52 +83,28 @@ export default function AdminSidePanel({
     )
   }
 
-  if (!open) return null
+  if (!onClose) return null
 
-  const drawer = (
-    <div
-      className="admin-side-panel-overlay"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose?.()
-      }}
+  return (
+    <AdminDetailDrawer
+      open={open}
+      onClose={onClose}
+      title={title || ''}
+      meta={meta}
+      headerActions={headerExtra}
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={onTabChange}
+      footer={footer}
+      footerClassName={footerClassName}
+      className={className}
+      avatar={avatar}
+      avatarFallback={avatarFallback}
+      avatarClassName={avatarClassName}
+      closeLabel={t('adminPlatform.common.close', { defaultValue: 'ปิด' })}
+      wide
     >
-      <aside
-        className={`admin-side-panel admin-side-panel--drawer ${className}`.trim()}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-      >
-        <header className="admin-side-panel__header">
-          <h2>{title}</h2>
-          <div className="admin-side-panel__header-actions">
-            {headerExtra}
-            {onClose ? (
-              <button type="button" className="admin-side-panel__close" aria-label="ปิดแผง" onClick={onClose}>
-                <X />
-              </button>
-            ) : null}
-          </div>
-        </header>
-        {tabs && tabs.length > 0 ? (
-          <nav className="admin-side-panel__tabs" aria-label={title}>
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={activeTab === tab.id ? 'active' : ''}
-                onClick={() => onTabChange?.(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-        ) : null}
-        <div className="admin-side-panel__body">{children}</div>
-        {footer ? <footer className="admin-side-panel__footer">{footer}</footer> : null}
-      </aside>
-    </div>
+      {children}
+    </AdminDetailDrawer>
   )
-
-  return createPortal(drawer, document.body)
 }

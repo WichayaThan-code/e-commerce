@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  AlertTriangle, CalendarDays, Check, Download, KeyRound, Mail,
+  AlertTriangle, CalendarDays, Check, Download, Mail,
   MoreVertical, Plus, Search, Settings, ShieldCheck, Store, Trash2, UserRound, UsersRound, X,
 } from 'lucide-react'
 import { Pager } from '../components/admin/PlatformBits'
@@ -127,7 +127,7 @@ export default function AdminUsersPage() {
         if (cancelled) return
         setResult(value)
         setSelectedRows([])
-        setSelectedId(current => current && value.items.some(item => item.id === current) ? current : value.items[0]?.id ?? current)
+        setSelectedId(current => (current && value.items.some(item => item.id === current) ? current : null))
       })
       .catch(error => { if (!cancelled) { setResult(null); setListError(errorText(error)) } })
       .finally(() => { if (!cancelled) setListLoading(false) })
@@ -351,65 +351,111 @@ export default function AdminUsersPage() {
     </div>
     <AdminSidePanel
       variant="drawer"
-      className="user-detail"
+      className="user-detail application-drawer"
       open={selectedId != null}
       onClose={() => setSelectedId(null)}
-      title="รายละเอียดผู้ใช้งาน"
+      title={headName || 'รายละเอียดผู้ใช้งาน'}
+      avatar={<span>{initialOf(head?.firstName ?? selectedRow?.firstName)}</span>}
+      avatarClassName={selectedRow ? avatarTone(selectedRow) : 'gray'}
+      meta={
+        <>
+          {headStatus ? (
+            <span className={`om-pill app-status-pill ${headStatus === 'ACTIVE' ? 'ok' : 'bad'}`}>
+              {headStatus === 'ACTIVE' ? <Check aria-hidden /> : <AlertTriangle aria-hidden />}
+              {STATUS_LABEL[headStatus] ?? headStatus}
+            </span>
+          ) : null}
+          {headRole ? <span className="om-muted">{headRole.nameTh ?? headRole.code}</span> : null}
+        </>
+      }
       tabs={[
-        { id: 'ข้อมูลผู้ใช้', label: 'ข้อมูลผู้ใช้' },
-        { id: 'สิทธิ์การใช้งาน', label: 'สิทธิ์การใช้งาน' },
-        { id: 'ประวัติ', label: 'ประวัติ' },
+        { id: 'ข้อมูลผู้ใช้', label: 'ข้อมูลผู้ใช้', icon: UserRound },
+        { id: 'สิทธิ์การใช้งาน', label: 'สิทธิ์การใช้งาน', icon: ShieldCheck },
+        { id: 'ประวัติ', label: 'ประวัติ', icon: CalendarDays },
       ]}
       activeTab={tab}
       onTabChange={(id) => setTab(id as Tab)}
       footer={detail ? (
         <>
-          {canUpdate && <button type="button" className="asp-secondary" onClick={openEdit} disabled={saving || detail.superAdmin}><Settings/>แก้ไขข้อมูล</button>}
-          {canAssignRole && !detail.superAdmin && (
-            <div className="user-role-assignment">
-              <span>บทบาทแพลตฟอร์ม</span>
-              <AdminSelect compact className="user-role-select" label="บทบาทแพลตฟอร์ม" value={roleChoice} onChange={setRoleChoice} disabled={saving || detail.status !== 'ACTIVE'}
-                options={[{ value: '', label: 'ไม่มีบทบาท' }, ...platformRoles.map(role => ({ value: role.code, label: role.nameTh ?? role.code }))]}/>
-              <button type="button" className="asp-primary" onClick={saveRole} disabled={saving || detail.status !== 'ACTIVE' || roleChoice === selectedPlatformRole}>บันทึกบทบาท</button>
+          <div className="application-drawer-actions__secondary">
+            {canUpdate && <button type="button" className="quiet" onClick={openEdit} disabled={saving || detail.superAdmin}><Settings aria-hidden /><span>แก้ไขข้อมูล</span></button>}
+            {canDelete && <button type="button" className="danger" onClick={() => setUserConfirm('delete')} disabled={saving || detail.superAdmin || detail.id === user.id}><Trash2 aria-hidden /><span>ลบผู้ใช้งาน</span></button>}
+          </div>
+          {(headStatus === 'ACTIVE' && canSuspend) || (headStatus === 'SUSPENDED' && canRestore) ? (
+            <div className="application-drawer-actions__primary">
+              {headStatus === 'ACTIVE' && canSuspend ? (
+                <button type="button" className="danger" onClick={() => setUserConfirm('suspend')} disabled={saving || detail.superAdmin || detail.id === user.id}><AlertTriangle aria-hidden /><span>ระงับ</span></button>
+              ) : null}
+              {headStatus === 'SUSPENDED' && canRestore ? (
+                <button type="button" className="primary" onClick={() => setUserConfirm('restore')} disabled={saving || detail.superAdmin || detail.id === user.id}><Check aria-hidden /><span>คืนสถานะ</span></button>
+              ) : null}
             </div>
-          )}
-          {headStatus === 'ACTIVE' && canSuspend && <button type="button" className="asp-danger suspend" onClick={() => setUserConfirm('suspend')} disabled={saving || detail.superAdmin || detail.id === user.id}><AlertTriangle/>ระงับการใช้งาน</button>}
-          {headStatus === 'SUSPENDED' && canRestore && <button type="button" className="asp-secondary" onClick={() => setUserConfirm('restore')} disabled={saving || detail.superAdmin || detail.id === user.id}><Check/>คืนสถานะ</button>}
-          {canDelete && <button type="button" className="asp-danger delete" onClick={() => setUserConfirm('delete')} disabled={saving || detail.superAdmin || detail.id === user.id}><Trash2/>ลบผู้ใช้งาน</button>}
+          ) : null}
         </>
       ) : null}
+      footerClassName="application-drawer-actions"
     >
-      {!selectedId ? <div className="user-detail-body user-detail-empty">เลือกผู้ใช้งานจากตารางเพื่อดูรายละเอียด</div> : <>
-        <section className="user-summary"><i className={selectedRow ? avatarTone(selectedRow) : 'gray'}>{initialOf(head?.firstName ?? selectedRow?.firstName)}</i><div><b>{headName || '…'}</b>{headStatus && <span className={`user-status ${headStatus === 'ACTIVE' ? 'active' : 'suspended'}`}><small/>{STATUS_LABEL[headStatus] ?? headStatus}</span>}{headRole && <em className={`user-role ${roleTone(headRole.context, headRole.code)}`}>{headRole.nameTh ?? headRole.code}</em>}<p>{headShops}</p></div></section>
-        {detailState === 'loading' && !detail ? <div className="user-detail-body"><SkeletonForm fields={5} /></div>
-          : detailState === 'error' ? <div className="user-detail-body" role="alert">โหลดรายละเอียดไม่สำเร็จ: {detailError}</div>
-          : !detail ? <div className="user-detail-body"/>
-          : tab === 'ข้อมูลผู้ใช้' ? <div className="user-detail-body"><dl>
-              <div><dt><UserRound/>ชื่อ-นามสกุล</dt><dd>{fullName(detail)}</dd></div>
-              <div><dt><Mail/>อีเมล</dt><dd>{detail.email}{detail.emailVerifiedAt ? '' : ' (ยังไม่ยืนยัน)'}</dd></div>
-              <div><dt><UserRound/>เบอร์โทร</dt><dd>{detail.phone}{detail.phoneVerifiedAt ? '' : ' (ยังไม่ยืนยัน)'}</dd></div>
-              <div><dt><CalendarDays/>วันที่สมัคร</dt><dd>{formatDateTime(detail.createdAt)}</dd></div>
-              <div><dt><ShieldCheck/>เข้าสู่ระบบล่าสุด</dt><dd>{detail.lastLoginAt ? formatDateTime(detail.lastLoginAt) : 'ยังไม่เคยเข้าสู่ระบบ'}</dd></div>
-              <div><dt><ShieldCheck/>บทบาท</dt><dd>{detail.roles.map(role => role.nameTh ?? role.code).join(', ')}{detail.superAdmin ? ' (super admin)' : ''}</dd></div>
-              <div><dt><UserRound/>ประเภทบัญชี</dt><dd>{detail.accountRole}</dd></div>
-            </dl></div>
-          : tab === 'สิทธิ์การใช้งาน' ? <div className="user-permissions">
-              {detail.superAdmin && <p><Check/>ผู้ดูแลแพลตฟอร์ม (super admin) — ได้รับทุกสิทธิ์ในทุกร้าน</p>}
-              <h4>สิทธิ์ระดับบัญชี/แพลตฟอร์ม ({detail.accountPermissions.length})</h4>
-              {detail.accountPermissions.map(permission => <p key={permission.code} title={permission.code}><Check/>{permission.descriptionTh ?? permission.code}</p>)}
-              {detail.shops.map(shop => <div key={shop.shopId}><h4>ร้าน {shop.shopName} · {shop.roleNameTh ?? shop.role} ({shop.permissions.length})</h4>{shop.permissions.map(permission => <p key={permission.code} title={permission.code}><Check/>{permission.descriptionTh ?? permission.code}</p>)}</div>)}
+      {!selectedId ? <p className="om-empty">เลือกผู้ใช้งานจากตารางเพื่อดูรายละเอียด</p> : <>
+        {detailState === 'loading' && !detail ? <SkeletonForm fields={5} />
+          : detailState === 'error' ? <p className="ap-error" role="alert">โหลดรายละเอียดไม่สำเร็จ: {detailError}</p>
+          : !detail ? null
+          : tab === 'ข้อมูลผู้ใช้' ? (
+            <>
+              {(headRole || headShops !== '-') ? (
+                <p className="user-drawer-shops om-muted">
+                  {headRole ? <span className={`om-pill ${roleTone(headRole.context, headRole.code)}`}>{headRole.nameTh ?? headRole.code}</span> : null}
+                  {headStatus ? <span className={`om-pill ${headStatus === 'ACTIVE' ? 'ok' : 'bad'}`}>{STATUS_LABEL[headStatus] ?? headStatus}</span> : null}
+                  {headShops !== '-' ? <span>{headShops}</span> : null}
+                </p>
+              ) : null}
+              {canAssignRole && !detail.superAdmin ? (
+                <label className="user-role-assignment">
+                  <span>บทบาทแพลตฟอร์ม</span>
+                  <AdminSelect compact className="user-role-select" label="บทบาทแพลตฟอร์ม" value={roleChoice} onChange={setRoleChoice} disabled={saving || detail.status !== 'ACTIVE'}
+                    options={[{ value: '', label: 'ไม่มีบทบาท' }, ...platformRoles.map(role => ({ value: role.code, label: role.nameTh ?? role.code }))]} />
+                </label>
+              ) : null}
+              <dl className="cm-contact">
+                <div className="cm-contact-row"><span className="cm-icon-chip" aria-hidden="true"><UserRound /></span><dt>ชื่อ-นามสกุล</dt><dd>{fullName(detail)}</dd></div>
+                <div className="cm-contact-row"><span className="cm-icon-chip" aria-hidden="true"><Mail /></span><dt>อีเมล</dt><dd>{detail.email}{detail.emailVerifiedAt ? '' : ' (ยังไม่ยืนยัน)'}</dd></div>
+                <div className="cm-contact-row"><span className="cm-icon-chip" aria-hidden="true"><UserRound /></span><dt>เบอร์โทร</dt><dd>{detail.phone}{detail.phoneVerifiedAt ? '' : ' (ยังไม่ยืนยัน)'}</dd></div>
+                <div className="cm-contact-row"><span className="cm-icon-chip" aria-hidden="true"><CalendarDays /></span><dt>วันที่สมัคร</dt><dd>{formatDateTime(detail.createdAt)}</dd></div>
+                <div className="cm-contact-row"><span className="cm-icon-chip" aria-hidden="true"><ShieldCheck /></span><dt>เข้าสู่ระบบล่าสุด</dt><dd>{detail.lastLoginAt ? formatDateTime(detail.lastLoginAt) : 'ยังไม่เคยเข้าสู่ระบบ'}</dd></div>
+                <div className="cm-contact-row"><span className="cm-icon-chip" aria-hidden="true"><ShieldCheck /></span><dt>บทบาท</dt><dd>{detail.roles.map(role => role.nameTh ?? role.code).join(', ')}{detail.superAdmin ? ' (super admin)' : ''}</dd></div>
+                <div className="cm-contact-row"><span className="cm-icon-chip" aria-hidden="true"><UsersRound /></span><dt>ประเภทบัญชี</dt><dd>{detail.accountRole}</dd></div>
+              </dl>
+            </>
+          )
+          : tab === 'สิทธิ์การใช้งาน' ? <div className="detail-documents user-permissions">
+              {detail.superAdmin && <p><Check /><span><b>ผู้ดูแลแพลตฟอร์ม (super admin)</b><small>ได้รับทุกสิทธิ์ในทุกร้าน</small></span></p>}
+              <p><ShieldCheck /><span><b>สิทธิ์ระดับบัญชี/แพลตฟอร์ม</b><small>{detail.accountPermissions.length} รายการ</small></span></p>
+              {detail.accountPermissions.map(permission => <p key={permission.code} title={permission.code}><Check /><span><b>{permission.descriptionTh ?? permission.code}</b><small>{permission.code}</small></span></p>)}
+              {detail.shops.map(shop => (
+                <div key={shop.shopId}>
+                  <p><Store /><span><b>ร้าน {shop.shopName}</b><small>{shop.roleNameTh ?? shop.role} · {shop.permissions.length} สิทธิ์</small></span></p>
+                  {shop.permissions.map(permission => <p key={permission.code} title={permission.code}><Check /><span><b>{permission.descriptionTh ?? permission.code}</b><small>{permission.code}</small></span></p>)}
+                </div>
+              ))}
             </div>
-          : <div className="user-history">
-              {!canAudit ? <p><span>ไม่มีสิทธิ์ดูประวัติ (ต้องมี PLATFORM_AUDIT_READ)</span></p>
-                : historyError ? <p><span>{historyError}</span></p>
-                : history === null ? <p><SkeletonText lines={3} /></p>
-                : history.length === 0 ? <p><span>ยังไม่มีประวัติ</span></p>
-                : history.map((event, index) => <p key={`${event.type}-${event.at}-${index}`}><span>{event.title}{event.shopName && !event.title.includes(event.shopName) ? ` · ${event.shopName}` : ''}</span><small>{formatDateTime(event.at)}{event.actorName && event.actorName !== event.subjectName ? ` · โดย ${event.actorName}` : ''}</small></p>)}
-              {canAudit && selectedId && (
+          : <div className="detail-history user-history">
+              {!canAudit ? <p><AlertTriangle /><span><b>ไม่มีสิทธิ์ดูประวัติ</b><small>ต้องมี PLATFORM_AUDIT_READ</small></span></p>
+                : historyError ? <p><AlertTriangle /><span><b>{historyError}</b></span></p>
+                : history === null ? <SkeletonText lines={3} />
+                : history.length === 0 ? <p><CalendarDays /><span><b>ยังไม่มีประวัติ</b></span></p>
+                : history.map((event, index) => (
+                  <p key={`${event.type}-${event.at}-${index}`}>
+                    <CalendarDays />
+                    <span>
+                      <b>{event.title}{event.shopName && !event.title.includes(event.shopName) ? ` · ${event.shopName}` : ''}</b>
+                      <small>{formatDateTime(event.at)}{event.actorName && event.actorName !== event.subjectName ? ` · โดย ${event.actorName}` : ''}</small>
+                    </span>
+                  </p>
+                ))}
+              {canAudit && selectedId ? (
                 <p><a href={`/admin/audit-logs?targetType=USER&targetId=${encodeURIComponent(selectedId)}&kind=BUSINESS`}>{t('adminPlatform.audit.openForTarget')}</a></p>
-              )}
+              ) : null}
             </div>}
-        {actionError && <p className="admin-action-error" role="alert">{actionError}</p>}
+        {actionError && <p className="ap-error" role="alert">{actionError}</p>}
       </>}
     </AdminSidePanel>
     {accountDialog && <div className="admin-modal-backdrop" role="presentation">

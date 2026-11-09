@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Activity, BarChart3, Bell, Building2, CircleDollarSign, ClipboardList, FileCheck2, FileText,
-  Gauge, Headphones, Home, LogOut, Megaphone, Newspaper, ReceiptText, Settings, ShoppingBag, Store, Tags,
+  Gauge, Headphones, Home, Link2, LogOut, Megaphone, Newspaper, ReceiptText, Settings, ShoppingBag, Store, Tags,
   TrendingUp, UserCog, UsersRound, WalletCards,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -19,17 +19,17 @@ export type AdminSection = 'home' | 'stores' | 'applications' | 'categories' | '
 const links: { key: AdminSection; label: string; href: string; icon: typeof Store }[] = [
   { key: 'stores', label: 'ร้านค้า', href: '/admin/stores', icon: Store },
   { key: 'merchants', label: 'ผู้ขายและแพ็กเกจ', href: '/admin/merchants', icon: Building2 },
-  { key: 'usage', label: 'การใช้งาน (Usage)', href: '/admin/usage', icon: Gauge },
+  { key: 'usage', label: 'การใช้งาน', href: '/admin/usage', icon: Gauge },
   { key: 'orders', label: 'คำสั่งซื้อทั้งหมด', href: '/admin/orders', icon: ShoppingBag },
   { key: 'payouts', label: 'คำขอถอนเงิน', href: '/admin/payouts', icon: WalletCards },
   { key: 'applications', label: 'ใบสมัครร้านค้า', href: '/admin/store-applications', icon: FileCheck2 },
   { key: 'categories', label: 'หมวดหมู่สินค้า', href: '/admin/categories', icon: Tags },
   { key: 'help-center', label: 'ศูนย์ช่วยเหลือ', href: '/admin/help-center', icon: Headphones },
   { key: 'articles', label: 'บทความ', href: '/admin/articles', icon: Newspaper },
-  { key: 'promotions', label: 'โปรโมชั่น/แคมเปญ', href: '/admin/promotions', icon: Megaphone },
+  { key: 'promotions', label: 'โปรโมชั่น', href: '/admin/promotions', icon: Megaphone },
   { key: 'users', label: 'ผู้ใช้งาน', href: '/admin/users', icon: UsersRound },
   { key: 'roles', label: 'บทบาทและสิทธิ์', href: '/admin/roles', icon: UserCog },
-  { key: 'role-assignments', label: 'ผูกผู้ใช้กับ role', href: '/admin/role-assignments', icon: UserCog },
+  { key: 'role-assignments', label: 'มอบหมายบทบาท', href: '/admin/role-assignments', icon: Link2 },
   { key: 'audit', label: 'บันทึกการใช้งาน', href: '/admin/audit-logs', icon: FileCheck2 },
   { key: 'system-status', label: 'สถานะระบบ', href: '/admin/system-status', icon: Activity },
 ]
@@ -40,8 +40,8 @@ const groups: { label: string; keys: AdminSection[] }[] = [
 ]
 
 const placeholders = [
-  { label: 'การเงิน', items: [[CircleDollarSign, 'รายได้/ค่าธรรมเนียม'], [WalletCards, 'การชำระเงิน'], [ReceiptText, 'ใบแจ้งหนี้']] },
-  { label: 'รายงาน', items: [[BarChart3, 'รายงานภาพรวม'], [TrendingUp, 'รายงานการขาย'], [FileText, 'รายงานการเงิน']] },
+  { label: 'การเงิน', items: [[CircleDollarSign, 'รายได้'], [WalletCards, 'การชำระเงิน'], [ReceiptText, 'ใบแจ้งหนี้']] },
+  { label: 'รายงาน', items: [[BarChart3, 'ภาพรวม'], [TrendingUp, 'การขาย'], [FileText, 'การเงิน']] },
 ] as const
 
 type AdminSidebarProps = {
@@ -49,6 +49,14 @@ type AdminSidebarProps = {
   className?: string
   showHelp?: boolean
   extended?: boolean
+}
+
+function NavIcon({ icon: Icon }: { icon: typeof Store }) {
+  return (
+    <span className="admin-nav-icon-slot" aria-hidden="true">
+      <Icon className="admin-nav-icon" />
+    </span>
+  )
 }
 
 export default function AdminSidebar({ active, className = '', showHelp = false, extended = false }: AdminSidebarProps) {
@@ -90,46 +98,89 @@ export default function AdminSidebar({ active, className = '', showHelp = false,
 
   return (
     <aside className={`admin-sidebar ${className}`.trim()}>
-      {canVisit('/admin/dashboard') && <a className={active === 'home' ? 'active' : ''} href="/admin/dashboard"><Home />หน้าแรก</a>}
+      {canVisit('/admin/dashboard') && (
+        <a className={active === 'home' ? 'active' : ''} href="/admin/dashboard">
+          <NavIcon icon={Home} />
+          <span className="admin-nav-label">หน้าแรก</span>
+        </a>
+      )}
       {groups.filter(group => group.keys.some(key => canVisit(item(key).href))).map(group => (
         <section key={group.label}>
           <h3>{group.label}</h3>
           {group.keys.filter(key => canVisit(item(key).href)).map(key => {
             const link = item(key)
-            const Icon = link.icon
             return (
-              <a className={active === key ? 'active' : ''} href={link.href} key={key}>
-                <Icon />{link.label}
-                {key === 'applications' && <i>{pending}</i>}
+              <a className={active === key ? 'active' : ''} href={link.href} key={key} title={link.label}>
+                <NavIcon icon={link.icon} />
+                <span className="admin-nav-label">{link.label}</span>
+                {key === 'applications' ? <i>{pending}</i> : null}
               </a>
             )
           })}
         </section>
       ))}
       {placeholders.map(group => (
-        <section key={group.label}>
+        <section key={group.label} className="admin-nav-soon-group">
           <h3>{group.label}</h3>
           {group.items.map(([Icon, label]) => (
-            <button key={label} type="button" onClick={() => unavailable(label)}><Icon />{label}</button>
+            <button
+              key={label}
+              type="button"
+              className="admin-nav-soon"
+              title={`${label} (เร็วๆ นี้)`}
+              onClick={() => unavailable(label)}
+            >
+              <NavIcon icon={Icon} />
+              <span className="admin-nav-label">{label}</span>
+              <em className="admin-nav-soon-tag">เร็วๆ นี้</em>
+            </button>
           ))}
         </section>
       ))}
       <section>
         <h3>ระบบ</h3>
-        <button type="button" onClick={() => unavailable('ตั้งค่า')}><Settings />ตั้งค่า</button>
+        <button type="button" className="admin-nav-soon" title="ตั้งค่า (เร็วๆ นี้)" onClick={() => unavailable('ตั้งค่า')}>
+          <NavIcon icon={Settings} />
+          <span className="admin-nav-label">ตั้งค่า</span>
+          <em className="admin-nav-soon-tag">เร็วๆ นี้</em>
+        </button>
         {extended && <>
-          <button type="button" onClick={() => unavailable('จัดการเนื้อหา')}><ClipboardList />จัดการเนื้อหา</button>
-          <button type="button" onClick={() => unavailable('แจ้งเตือน')}><Bell />แจ้งเตือน</button>
+          <button type="button" className="admin-nav-soon" title="จัดการเนื้อหา (เร็วๆ นี้)" onClick={() => unavailable('จัดการเนื้อหา')}>
+            <NavIcon icon={ClipboardList} />
+            <span className="admin-nav-label">จัดการเนื้อหา</span>
+            <em className="admin-nav-soon-tag">เร็วๆ นี้</em>
+          </button>
+          <button type="button" className="admin-nav-soon" title="แจ้งเตือน (เร็วๆ นี้)" onClick={() => unavailable('แจ้งเตือน')}>
+            <NavIcon icon={Bell} />
+            <span className="admin-nav-label">แจ้งเตือน</span>
+            <em className="admin-nav-soon-tag">เร็วๆ นี้</em>
+          </button>
         </>}
         {canVisit(item('audit').href) && (
-          <a className={active === 'audit' ? 'active' : ''} href={item('audit').href}><FileCheck2 />{item('audit').label}</a>
+          <a className={active === 'audit' ? 'active' : ''} href={item('audit').href} title={item('audit').label}>
+            <NavIcon icon={FileCheck2} />
+            <span className="admin-nav-label">{item('audit').label}</span>
+          </a>
         )}
         {can('PLATFORM_SYSTEM_READ') && (
-          <a className={active === 'system-status' ? 'active' : ''} href={item('system-status').href}><Activity />{item('system-status').label}</a>
+          <a className={active === 'system-status' ? 'active' : ''} href={item('system-status').href} title={item('system-status').label}>
+            <NavIcon icon={Activity} />
+            <span className="admin-nav-label">{item('system-status').label}</span>
+          </a>
         )}
       </section>
-      {showHelp && <a className="admin-help" href="/help"><Headphones />ศูนย์ช่วยเหลือ</a>}
-      <button className="admin-logout" type="button" onClick={signOut}><LogOut />ออกจากระบบ</button>
+      {showHelp && (
+        <a className="admin-help" href="/help" title="ศูนย์ช่วยเหลือ">
+          <NavIcon icon={Headphones} />
+          <span className="admin-nav-label">ศูนย์ช่วยเหลือ</span>
+        </a>
+      )}
+      <div className="admin-sidebar-foot">
+        <button className="admin-logout" type="button" onClick={signOut}>
+          <NavIcon icon={LogOut} />
+          <span className="admin-nav-label">ออกจากระบบ</span>
+        </button>
+      </div>
       {notice && <div className="admin-toast" role="status">{notice}</div>}
     </aside>
   )

@@ -226,16 +226,23 @@ function OrderDrawer({ orderId, tp, localeTag, onClose, onChanged }: { orderId: 
   const canCollectCod = !!order && order.paymentMethod === 'COD' && ['UNPAID', 'PENDING'].includes(order.paymentStatus) && !['CANCELLED', 'REFUNDED'].includes(order.status)
 
   return (
-    <Drawer title={tp('orders.detailTitle')} subtitle={order ? <span className="num">{order.orderNumber}</span> : undefined} onClose={onClose} wide>
+    <Drawer
+      title={order?.orderNumber || tp('orders.detailTitle')}
+      subtitle={order ? (
+        <>
+          <Pill tone={statusTone(order.status)}>{lab(tp, 'orderStatus', order.status)}</Pill>
+          <Pill tone={statusTone(order.paymentStatus)}>{lab(tp, 'paymentStatus', order.paymentStatus)}</Pill>
+          {order.fulfillmentStatus ? <Pill tone={statusTone(order.fulfillmentStatus)}>{lab(tp, 'fulfillment', order.fulfillmentStatus)}</Pill> : null}
+        </>
+      ) : undefined}
+      avatarFallback={<span>{(order?.orderNumber || '#').toString().slice(-2)}</span>}
+      onClose={onClose}
+      wide
+    >
       {loading && !order && <SkeletonForm fields={6} />}
       {detail.error && <LoadError message={detail.error} onRetry={() => setReloadKey(key => key + 1)} />}
       {notice && <p className="ap-note" role="status">{notice}</p>}
       {order && <>
-        <div className="ap-drawer-status">
-          <Pill tone={statusTone(order.status)}>{lab(tp, 'orderStatus', order.status)}</Pill>
-          <Pill tone={statusTone(order.paymentStatus)}>{lab(tp, 'paymentStatus', order.paymentStatus)}</Pill>
-          {order.fulfillmentStatus && <Pill tone={statusTone(order.fulfillmentStatus)}>{lab(tp, 'fulfillment', order.fulfillmentStatus)}</Pill>}
-        </div>
 
         <section className="ap-section">
           <h3>{tp('orders.summary')}</h3>
@@ -553,11 +560,20 @@ function ShipmentDrawer({ shipmentId, tp, onClose }: { shipmentId: string; tp: T
   }, [shipmentId, reloadKey])
 
   return (
-    <Drawer title={tp('orders.shipmentDetailTitle')} subtitle={shipment ? <span className="num">{shipment.orderNumber}</span> : undefined} onClose={onClose}>
+    <Drawer
+      title={shipment?.orderNumber || tp('orders.shipmentDetailTitle')}
+      subtitle={shipment ? (
+        <>
+          <Pill tone={statusTone(shipment.status)}>{lab(tp, 'shipmentStatus', shipment.status)}</Pill>
+          <Pill tone={statusTone(shipment.orderStatus)}>{lab(tp, 'orderStatus', shipment.orderStatus)}</Pill>
+        </>
+      ) : undefined}
+      avatarFallback={<span>SP</span>}
+      onClose={onClose}
+    >
       {error && <LoadError message={error} onRetry={() => setReloadKey(key => key + 1)} />}
       {!shipment && !error && <SkeletonForm fields={5} />}
       {shipment && <>
-        <div className="ap-drawer-status"><Pill tone={statusTone(shipment.status)}>{lab(tp, 'shipmentStatus', shipment.status)}</Pill><Pill tone={statusTone(shipment.orderStatus)}>{lab(tp, 'orderStatus', shipment.orderStatus)}</Pill></div>
         <section className="ap-section">
           <dl className="ap-fields">
             <div><dt>{tp('orders.carrierCode')}</dt><dd className="num">{dash(shipment.carrierName ?? shipment.carrierCode)}</dd></div>

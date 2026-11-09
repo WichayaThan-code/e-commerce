@@ -171,14 +171,26 @@ function MerchantsTab({ tp, notify, initialMerchantId }: { tp: TP; notify: Notif
     </section>
 
     {selectedId && (
-      <Drawer title={tp('merchants.detailTitle')} subtitle={merchantName || undefined} onClose={closeDrawer}>
+      <Drawer
+        title={merchantName || tp('merchants.detailTitle')}
+        subtitle={detail ? (
+          <>
+            <Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill>
+            <span className="om-muted">{tp(`ownerType.${detail.ownerType}`, { defaultValue: dash(detail.ownerType) })}</span>
+          </>
+        ) : undefined}
+        avatarFallback={<span>{(merchantName || 'M').trim().charAt(0) || 'M'}</span>}
+        onClose={closeDrawer}
+        footer={detail ? (
+          <>
+            {detail.status === 'ACTIVE' && <button type="button" className="ap-danger" disabled={!canSuspend || busy} title={deniedTitle(canSuspend)} onClick={() => { setActionError(''); setConfirm('suspend') }}>{tp('merchants.suspend')}</button>}
+            {detail.status === 'SUSPENDED' && <button type="button" className="ap-primary" disabled={!canRestore || busy} title={deniedTitle(canRestore)} onClick={() => { setActionError(''); setConfirm('reactivate') }}>{tp('merchants.reactivate')}</button>}
+          </>
+        ) : undefined}
+      >
         {detailError && <LoadError message={detailError} onRetry={() => { const id = selectedId; setSelectedId(null); window.setTimeout(() => setSelectedId(id), 0) }} />}
         {!detail && !detailError && <SkeletonForm fields={6} />}
         {detail && <>
-          <div className="ap-drawer-status">
-            <Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill>
-            <span>{tp(`ownerType.${detail.ownerType}`, { defaultValue: dash(detail.ownerType) })}</span>
-          </div>
           <section className="ap-section">
             <h3>{tp('merchants.contact')}</h3>
             <dl className="ap-fields">
@@ -218,10 +230,6 @@ function MerchantsTab({ tp, notify, initialMerchantId }: { tp: TP; notify: Notif
             </p>
           )}
           {actionError && !confirm && <p className="ap-error" role="alert">{actionError}</p>}
-          <footer className="ap-drawer-actions">
-            {detail.status === 'ACTIVE' && <button type="button" className="ap-danger" disabled={!canSuspend || busy} title={deniedTitle(canSuspend)} onClick={() => { setActionError(''); setConfirm('suspend') }}>{tp('merchants.suspend')}</button>}
-            {detail.status === 'SUSPENDED' && <button type="button" className="ap-primary" disabled={!canRestore || busy} title={deniedTitle(canRestore)} onClick={() => { setActionError(''); setConfirm('reactivate') }}>{tp('merchants.reactivate')}</button>}
-          </footer>
         </>}
       </Drawer>
     )}
@@ -348,14 +356,27 @@ function ShopsTab({ tp, notify, localeTag }: { tp: TP; notify: Notify; localeTag
     </section>
 
     {selectedId !== null && (
-      <Drawer title={tp('shops.detailTitle')} subtitle={detail?.name} onClose={closeDrawer} wide>
+      <Drawer
+        title={detail?.name || tp('shops.detailTitle')}
+        subtitle={detail ? (
+          <>
+            <Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill>
+            <span className="om-muted num">#{detail.shopId} · {detail.slug}</span>
+          </>
+        ) : undefined}
+        avatarFallback={<Building2 />}
+        onClose={closeDrawer}
+        wide
+        footer={detail ? (
+          <>
+            {detail.status === 'APPROVED' && <button type="button" className="ap-danger" disabled={!canSuspend || busy} title={deniedTitle(canSuspend)} onClick={() => { setActionError(''); setConfirm('suspend') }}>{tp('shops.suspend')}</button>}
+            {detail.status === 'SUSPENDED' && <button type="button" className="ap-primary" disabled={!canRestore || busy} title={deniedTitle(canRestore)} onClick={() => { setActionError(''); setConfirm('reactivate') }}>{tp('shops.reactivate')}</button>}
+          </>
+        ) : undefined}
+      >
         {detailError && <LoadError message={detailError} onRetry={() => { const id = selectedId; setSelectedId(null); window.setTimeout(() => setSelectedId(id), 0) }} />}
         {!detail && !detailError && <SkeletonForm fields={6} />}
         {detail && <>
-          <div className="ap-drawer-status">
-            <Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill>
-            <span className="num">#{detail.shopId} · {detail.slug}</span>
-          </div>
           <section className="ap-section">
             <h3>{tp('shops.info')}</h3>
             <dl className="ap-fields">
@@ -391,10 +412,6 @@ function ShopsTab({ tp, notify, localeTag }: { tp: TP; notify: Notify; localeTag
             </p>
           )}
           {actionError && !confirm && <p className="ap-error" role="alert">{actionError}</p>}
-          <footer className="ap-drawer-actions">
-            {detail.status === 'APPROVED' && <button type="button" className="ap-danger" disabled={!canSuspend || busy} title={deniedTitle(canSuspend)} onClick={() => { setActionError(''); setConfirm('suspend') }}>{tp('shops.suspend')}</button>}
-            {detail.status === 'SUSPENDED' && <button type="button" className="ap-primary" disabled={!canRestore || busy} title={deniedTitle(canRestore)} onClick={() => { setActionError(''); setConfirm('reactivate') }}>{tp('shops.reactivate')}</button>}
-          </footer>
         </>}
       </Drawer>
     )}

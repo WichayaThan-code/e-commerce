@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+declare module "*.css?inline" {
+  const css: string;
+  export default css;
+}
+
 interface ImportMetaEnv {
   readonly VITE_API_URL?: string
   readonly VITE_FF_TERMS_VERSION_API?: string

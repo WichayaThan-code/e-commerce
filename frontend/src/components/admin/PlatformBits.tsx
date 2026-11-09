@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from 'lucide-react'
 import { ApiError, type PlatformPage } from '../../services/api'
 import '../../styles/admin-platform.css'
 import '../../styles/admin-form-controls.css'
 import '../../styles/list-pagination.css'
 import SearchableSelect from '../SearchableSelect'
+import AdminDetailDrawer from './AdminDetailDrawer'
 
 export const PAGE_SIZES = [10, 20, 50, 100]
 
@@ -163,73 +164,27 @@ type DrawerProps = {
   /** Optional sticky footer (outside the scroll body). Omit when there are no actions. */
   footer?: ReactNode
   className?: string
+  avatar?: ReactNode
+  avatarFallback?: ReactNode
 }
 
-/** Right-hand detail drawer. Escape closes it unless a confirm dialog is open on top (that one handles Escape itself). */
-export function Drawer({ title, subtitle, onClose, children, wide = false, footer, className }: DrawerProps) {
+/** Right-hand detail drawer — same shell as /admin/store-applications. */
+export function Drawer({ title, subtitle, onClose, children, wide = false, footer, className, avatar, avatarFallback }: DrawerProps) {
   const { t } = useTranslation('admin')
-  const closeRef = useRef(onClose)
-  const panelRef = useRef<HTMLElement>(null)
-  const closeBtnRef = useRef<HTMLButtonElement>(null)
-  const previousFocus = useRef<HTMLElement | null>(null)
-  closeRef.current = onClose
-
-  useEffect(() => {
-    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    closeBtnRef.current?.focus()
-    return () => {
-      document.body.style.overflow = previousOverflow
-      previousFocus.current?.focus?.()
-    }
-  }, [])
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !document.querySelector('.pm-dialog')) {
-        closeRef.current()
-        return
-      }
-      if (event.key !== 'Tab' || !panelRef.current) return
-      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
-        'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])',
-      )
-      if (focusable.length === 0) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [])
-
   return (
-    <div className="ap-drawer-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !document.querySelector('.pm-dialog')) onClose() }}>
-      <aside
-        ref={panelRef}
-        className={`ap-drawer${wide ? ' wide' : ''}${className ? ` ${className}` : ''}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-      >
-        <header>
-          <div>
-            <h2 id="ap-drawer-title">{title}</h2>
-            {subtitle && <p>{subtitle}</p>}
-          </div>
-          <button ref={closeBtnRef} type="button" onClick={onClose} aria-label={t('adminPlatform.common.close')}><X /></button>
-        </header>
-        <div className="ap-drawer-body">{children}</div>
-        {footer ? <div className="ap-drawer-footer">{footer}</div> : null}
-      </aside>
-    </div>
+    <AdminDetailDrawer
+      title={title}
+      meta={subtitle ? <div className="cm-detail-meta-inner">{subtitle}</div> : undefined}
+      onClose={onClose}
+      wide={wide}
+      footer={footer}
+      className={className}
+      avatar={avatar}
+      avatarFallback={avatarFallback}
+      closeLabel={t('adminPlatform.common.close')}
+    >
+      {children}
+    </AdminDetailDrawer>
   )
 }
 

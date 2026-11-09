@@ -441,7 +441,7 @@ export default function ReportsPage() {
             ];
             return <>{rows.map(([icon, label, value, change]) => <p key={label}><i>{icon}</i><span>{label}</span><b>{value}</b>{growth(change, "strong")}</p>)}</>;
           })}</article>}
-        </section>
+      </section>
       )}
 
       {count("channel", "products", "customers", "promoTypes", "promoTop", "shipCarriers", "shipOps") > 0 && (
@@ -489,7 +489,7 @@ export default function ReportsPage() {
             ];
             return <>{rows.map(([icon, label, value, change]) => <p key={label}><i>{icon}</i><span>{label}</span><b>{value}</b>{growth(change, "strong")}</p>)}</>;
           })}</article>}
-        </section>
+      </section>
       )}
 
       {count("fee", "feeRate", "advice") > 0 && (

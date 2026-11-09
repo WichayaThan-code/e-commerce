@@ -494,12 +494,20 @@ export default function AdminStoresPage(){
     {selectedId !== null && (
       <Drawer
         className="store-detail-drawer"
-        title={hasAppeal ? td('reinstatementTitle') : td('title')}
+        title={detail?.name || selectedRow?.name || (hasAppeal ? td('reinstatementTitle') : td('title'))}
         subtitle={
-          <span className="store-drawer-ref">
-            <span className="num">#{selectedId}</span>
-            {(detail?.name || selectedRow?.name) ? <span className="store-drawer-ref-name">{detail?.name || selectedRow?.name}</span> : null}
-          </span>
+          <>
+            {detail ? <Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill> : null}
+            <span className="store-drawer-ref">
+              <span className="num">#{selectedId}</span>
+              {(detail?.name || selectedRow?.name) ? <span className="store-drawer-ref-name">{hasAppeal ? td('reinstatementTitle') : td('title')}</span> : null}
+            </span>
+          </>
+        }
+        avatar={
+          selectedRow?.logoUrl
+            ? <img src={mediaUrl(selectedRow.logoUrl)} alt="" />
+            : <span>{selectedRow?.logo || detail?.name?.trim().charAt(0) || 'S'}</span>
         }
         onClose={closeDrawer}
         wide

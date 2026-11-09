@@ -1,0 +1,391 @@
+/* Thermal shipping label — paper size matches common 4×6" / 100×150mm labels. */
+@page {
+  size: 100mm 150mm;
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100mm;
+  height: 150mm;
+  background: #fff;
+  color: #000;
+  font: 9.5px/1.22 "Sarabun", "Noto Sans Thai", "Segoe UI", sans-serif;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  overflow: hidden;
+}
+
+.sl-page {
+  width: 100mm;
+  height: 150mm;
+  max-width: 100mm;
+  max-height: 150mm;
+  margin: 0;
+  padding: 1.5mm;
+  overflow: hidden;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  page-break-after: avoid;
+}
+
+.sl-label {
+  width: 100%;
+  height: 100%;
+  max-height: 147mm;
+  border: 1.2px solid #000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.sl-top {
+  padding: 1.6mm 2mm 1.2mm;
+  text-align: center;
+  border-bottom: 1.2px solid #000;
+  flex: 0 0 auto;
+}
+
+.sl-route {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sl-top-barcode {
+  display: flex;
+  justify-content: center;
+  margin: 1mm auto 0.4mm;
+  max-width: 100%;
+  height: 8mm;
+  overflow: hidden;
+}
+
+.sl-top-barcode svg {
+  height: 8mm;
+  width: auto;
+  max-width: 100%;
+}
+
+.sl-track {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sl-dst {
+  margin: 0.3mm 0 0;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sl-pay {
+  padding: 1.3mm 2mm;
+  text-align: center;
+  border-bottom: 1.2px solid #000;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  flex: 0 0 auto;
+}
+
+.sl-pay.is-cod {
+  background: #000;
+  color: #fff;
+}
+
+.sl-party {
+  display: grid;
+  grid-template-columns: 1fr 22mm;
+  border-bottom: 1.2px solid #000;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 52mm;
+  overflow: hidden;
+}
+
+.sl-party-main {
+  padding: 1.4mm 2mm;
+  border-right: 1.2px solid #000;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sl-party-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1mm;
+  padding: 1.4mm 1.2mm;
+  overflow: hidden;
+}
+
+.sl-sort {
+  width: 16mm;
+  height: 12mm;
+  background: #000;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  flex: none;
+}
+
+.sl-party-side svg {
+  width: 16mm !important;
+  height: 16mm !important;
+}
+
+.sl-block {
+  margin: 0 0 1.2mm;
+}
+
+.sl-block:last-child {
+  margin-bottom: 0;
+}
+
+.sl-block-title {
+  margin: 0 0 0.2mm;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.sl-block.is-to .sl-block-title {
+  font-weight: 800;
+}
+
+.sl-name {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sl-block.is-to .sl-name {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.sl-phone,
+.sl-addr {
+  margin: 0.2mm 0 0;
+  font-size: 9px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.sl-addr {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.sl-block.is-to .sl-phone,
+.sl-block.is-to .sl-addr {
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.sl-block.is-to .sl-addr {
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.sl-ship {
+  display: grid;
+  grid-template-columns: 20mm 1fr;
+  border-bottom: 1.2px solid #000;
+  flex: 0 0 auto;
+  min-height: 14mm;
+  max-height: 17mm;
+  overflow: hidden;
+}
+
+.sl-carrier {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6mm;
+  padding: 1mm;
+  border-right: 1.2px solid #000;
+  text-align: center;
+  overflow: hidden;
+}
+
+.sl-carrier-name {
+  margin: 0;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.sl-brand {
+  margin: 0;
+  font-size: 7px;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.sl-ship-barcode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4mm;
+  padding: 1mm 2mm;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sl-ship-barcode svg {
+  max-width: 100%;
+  height: 7mm;
+}
+
+.sl-ship-no {
+  margin: 0;
+  font-size: 8px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.sl-detail {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 1.4mm 2mm;
+  border-bottom: 1.2px solid #000;
+  overflow: hidden;
+}
+
+.sl-note,
+.sl-items {
+  margin: 0 0 1mm;
+}
+
+.sl-note:last-child,
+.sl-items:last-child {
+  margin-bottom: 0;
+}
+
+.sl-detail h2 {
+  margin: 0 0 0.3mm;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.sl-detail p,
+.sl-detail li {
+  margin: 0;
+  font-size: 8.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.sl-note p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.sl-detail ol {
+  margin: 0;
+  padding-left: 3.5mm;
+  overflow: hidden;
+}
+
+.sl-detail li {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sl-detail li + li {
+  margin-top: 0.2mm;
+}
+
+.sl-more {
+  margin: 0.3mm 0 0;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.sl-warn {
+  margin: 0;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #000;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.sl-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.5mm;
+  padding: 1mm 2mm;
+  font-size: 7px;
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+@media print {
+  html,
+  body {
+    width: 100mm;
+    height: 150mm;
+    overflow: hidden;
+  }
+
+  .sl-page,
+  .sl-label {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

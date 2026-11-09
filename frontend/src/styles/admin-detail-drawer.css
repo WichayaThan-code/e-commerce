@@ -1,0 +1,318 @@
+/* Shared Admin detail drawer — matches /admin/store-applications shell */
+
+.om-drawer.admin-detail-drawer.admin-detail-drawer--wide {
+  width: min(680px, 100%);
+  max-width: min(760px, 100vw);
+}
+
+.om-drawer.admin-detail-drawer.admin-detail-drawer--no-avatar .cm-detail-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.admin-detail-drawer-header-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.admin-detail-drawer-header-actions button {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d5e4f3;
+  border-radius: 8px;
+  background: #fff;
+  color: #345b8f;
+  font: 700 12px var(--font-sans), sans-serif;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.admin-detail-drawer-header-actions button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.admin-detail-drawer-header-actions button:hover:not(:disabled) {
+  border-color: #9fc4ef;
+  background: #f7fbff;
+  color: #087bf5;
+}
+
+.admin-detail-drawer-avatar {
+  overflow: hidden;
+}
+
+.admin-detail-drawer-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.admin-detail-drawer-avatar span,
+.admin-detail-drawer-avatar > svg {
+  font-weight: 800;
+  font-size: 18px;
+  color: #0c3e91;
+}
+
+.admin-detail-drawer-avatar > svg {
+  width: 24px;
+  height: 24px;
+}
+
+.admin-detail-drawer-avatar.orange { background: #fff0df; color: #f06d00; }
+.admin-detail-drawer-avatar.purple { background: #eee4ff; color: #843de2; }
+.admin-detail-drawer-avatar.gray { background: #e1eaf2; color: #43648f; }
+.admin-detail-drawer-avatar.orange > span,
+.admin-detail-drawer-avatar.purple > span,
+.admin-detail-drawer-avatar.gray > span { color: inherit; }
+
+.user-drawer-shops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+}
+
+.user-role-assignment {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #345b8f;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-tabs {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid #d5e4f3;
+  background: #edf4fb;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-tabs button {
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #5a7091;
+  font: 700 12px var(--font-sans), sans-serif;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-tabs button svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-tabs button.active {
+  background: #fff;
+  color: #087bf5;
+  box-shadow: 0 2px 8px rgba(8, 36, 93, 0.1);
+}
+
+.om-drawer.admin-detail-drawer .cm-detail-meta .om-pill,
+.om-drawer.admin-detail-drawer .cm-detail-meta .ap-pill,
+.om-drawer.admin-detail-drawer .cm-detail-meta .app-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.om-drawer.admin-detail-drawer .cm-detail-meta .app-status-pill svg {
+  width: 12px;
+  height: 12px;
+}
+
+.om-drawer.admin-detail-drawer .cm-detail-meta .om-pill.ok,
+.om-drawer.admin-detail-drawer .cm-detail-meta .app-status-pill.ok {
+  background: #e7f8ef;
+  color: #0f9f6e;
+}
+.om-drawer.admin-detail-drawer .cm-detail-meta .om-pill.warn,
+.om-drawer.admin-detail-drawer .cm-detail-meta .app-status-pill.warn {
+  background: #fff4e5;
+  color: #c4841d;
+}
+.om-drawer.admin-detail-drawer .cm-detail-meta .om-pill.bad,
+.om-drawer.admin-detail-drawer .cm-detail-meta .app-status-pill.bad {
+  background: #ffe8ec;
+  color: #d8324e;
+}
+.om-drawer.admin-detail-drawer .cm-detail-meta .om-pill.muted,
+.om-drawer.admin-detail-drawer .cm-detail-meta .app-status-pill.muted {
+  background: #eef3f8;
+  color: #6681aa;
+}
+
+/* Force shared shell over legacy page CSS that targeted the same class names */
+.om-drawer.admin-detail-drawer.user-detail,
+.om-drawer.admin-detail-drawer.role-detail,
+.om-drawer.admin-detail-drawer.category-detail-drawer,
+.om-drawer.admin-detail-drawer.promotion-detail-drawer {
+  position: relative !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: min(680px, 100%) !important;
+  height: 100% !important;
+  max-height: 100dvh !important;
+  display: flex !important;
+  border-radius: 0 !important;
+  z-index: auto !important;
+  background: #fff !important;
+  box-shadow: -12px 0 32px rgba(8, 36, 93, 0.2) !important;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid #d5e4f3;
+  background: #f4f8fd;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions > .ap-drawer-actions,
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions > .payouts-drawer-actions,
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions > .store-drawer-actions,
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions > .application-drawer-actions__primary,
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions > .application-drawer-actions__secondary {
+  display: contents;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions.application-drawer-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.om-drawer.admin-detail-drawer .application-drawer-actions__primary,
+.om-drawer.admin-detail-drawer .application-drawer-actions__secondary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.om-drawer.admin-detail-drawer .application-drawer-actions__secondary {
+  padding-top: 8px;
+  border-top: 1px dashed #d5e4f3;
+}
+
+.om-drawer.admin-detail-drawer .application-drawer-actions__secondary:only-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions button,
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .ap-primary,
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .ap-ghost,
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .ap-danger {
+  min-height: 42px;
+  min-width: 0;
+  height: auto;
+  padding: 0 12px;
+  border-radius: 10px;
+  font: 700 13px var(--font-sans), sans-serif;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions button svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .primary,
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .ap-primary {
+  border: 1px solid #07a863;
+  background: linear-gradient(180deg, #12c57a, #08b96f);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(8, 185, 111, 0.22);
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .primary:hover:not(:disabled),
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .ap-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #18cf84, #07a863);
+  filter: none;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .danger,
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .ap-danger {
+  border: 1.5px solid #f1a0ae;
+  background: #fff;
+  color: #e23b57;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .danger:hover:not(:disabled),
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .ap-danger:hover:not(:disabled) {
+  border-color: #f43f5e;
+  background: #fff5f7;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .quiet,
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .ap-ghost {
+  min-height: 36px;
+  border: 1px solid #d5e4f3;
+  background: #fff;
+  color: #345b8f;
+  font-weight: 600;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .quiet:hover:not(:disabled),
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions .ap-ghost:hover:not(:disabled) {
+  border-color: #9fc4ef;
+  background: #f7fbff;
+  color: #087bf5;
+}
+
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 420px) {
+  .om-drawer.admin-detail-drawer .application-drawer-actions__primary,
+  .om-drawer.admin-detail-drawer .application-drawer-actions__secondary {
+    grid-template-columns: 1fr;
+  }
+
+  .om-drawer.admin-detail-drawer.admin-detail-drawer--wide {
+    width: 100%;
+    max-width: 100vw;
+  }
+}

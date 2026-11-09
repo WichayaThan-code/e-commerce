@@ -392,7 +392,7 @@ export default function FinancePage() {
       <header className="merchant-topbar"><MerchantBrand /><MerchantTopbarSearch /><MerchantTopbarActions /></header>
       <MerchantSidebar active="finance" />
 
-      <section className="pm-content finance-content">
+    <section className="pm-content finance-content">
         <header className="pm-heading finance-heading">
           <div>
             <h1><WalletCards />{t("finance.title")}</h1>
@@ -622,6 +622,6 @@ export default function FinancePage() {
         )}
       </section>
       {notice && <div className="merchant-toast" role="status">{notice}</div>}
-    </main>
+  </main>
   );
 }

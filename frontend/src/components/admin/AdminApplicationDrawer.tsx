@@ -1,5 +1,3 @@
-import { useEffect } from "react";
-import { createPortal } from "react-dom";
 import {
   Ban,
   Building2,
@@ -24,14 +22,11 @@ import {
   Phone,
   Store,
   UsersRound,
-  X,
 } from "lucide-react";
 import { mediaUrl } from "../../services/api";
 import { maskEmail, maskPhone } from "../../utils/maskContact";
-import "../../styles/order-management.css";
-import "../../styles/customer-management.css";
-import "../../styles/shipping.css";
 import "../../styles/admin-applications.css";
+import AdminDetailDrawer from "./AdminDetailDrawer";
 
 export type ApplicationDetailTab = "info" | "documents" | "history";
 
@@ -120,12 +115,11 @@ type Props = {
   socialLink: (value: string) => { href?: string; label: string };
 };
 
-function ShopAvatar({ item }: { item: ApplicationDrawerRecord }) {
-  return (
-    <div className={`cm-avatar om-avatar tone-waiting application-drawer-avatar ${item.logoClass}`} aria-hidden="true">
-      {item.logoUrl ? <img src={mediaUrl(item.logoUrl)} alt="" /> : <span>{item.logo}</span>}
-    </div>
-  );
+function StatusIcon({ status }: { status: ApplicationDrawerRecord["status"] }) {
+  if (status === "APPROVED") return <CheckCircle2 aria-hidden="true" />;
+  if (status === "PENDING_REVIEW") return <Clock3 aria-hidden="true" />;
+  if (status === "SUSPENDED") return <Ban aria-hidden="true" />;
+  return <CircleX aria-hidden="true" />;
 }
 
 export default function AdminApplicationDrawer({
@@ -152,305 +146,270 @@ export default function AdminApplicationDrawer({
   fileSizeLabel,
   socialLink,
 }: Props) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  const drawer = (
-    <div
-      className="om-drawer-overlay cm-drawer-overlay om-order-overlay"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <aside className="om-drawer cm-detail sh-detail om-detail application-drawer" role="dialog" aria-modal="true">
-        {!item ? (
-          <div className="om-drawer-body cm-detail-body">
-            <p className="om-empty">{labels.emptyDetail}</p>
-          </div>
-        ) : (
+  return (
+    <AdminDetailDrawer
+      open={open}
+      onClose={onClose}
+      className="application-drawer"
+      closeLabel={labels.close}
+      title={item?.shop || ""}
+      empty={!item ? <p className="om-empty">{labels.emptyDetail}</p> : undefined}
+      avatarClassName={item ? `application-drawer-avatar ${item.logoClass}` : undefined}
+      avatar={
+        item ? (
+          item.logoUrl ? <img src={mediaUrl(item.logoUrl)} alt="" /> : <span>{item.logo}</span>
+        ) : undefined
+      }
+      footerClassName="application-drawer-actions"
+      meta={
+        item ? (
           <>
-            <header className="cm-detail-head">
-              <ShopAvatar item={item} />
-              <div className="cm-detail-id">
-                <h2 title={item.shop}>{item.shop}</h2>
-                <div className="cm-detail-meta">
-                  <span className={`om-pill app-status-pill ${statusTone(item.status)}`}>
-                    {item.status === "APPROVED" ? <CheckCircle2 aria-hidden="true" />
-                      : item.status === "PENDING_REVIEW" ? <Clock3 aria-hidden="true" />
-                        : item.status === "SUSPENDED" ? <Ban aria-hidden="true" />
-                          : <CircleX aria-hidden="true" />}
-                    {statusLabel(item.status)}
-                  </span>
-                  <span className="om-muted">{labels.appliedAt(item.appliedAt)}</span>
-                </div>
-              </div>
-              <button type="button" className="om-drawer-close" aria-label={labels.close} onClick={onClose}>
-                <X aria-hidden="true" />
-              </button>
-            </header>
-
-            <nav className="application-drawer-tabs" aria-label={item.shop}>
-              {(
-                [
-                  ["info", labels.tabInfo, Store] as const,
-                  ["documents", labels.tabDocuments, FileText] as const,
-                  ["history", labels.tabHistory, History] as const,
-                ]
-              ).map(([id, label, Icon]) => (
+            <span className={`om-pill app-status-pill ${statusTone(item.status)}`}>
+              <StatusIcon status={item.status} />
+              {statusLabel(item.status)}
+            </span>
+            <span className="om-muted">{labels.appliedAt(item.appliedAt)}</span>
+          </>
+        ) : undefined
+      }
+      tabs={
+        item
+          ? [
+              { id: "info", label: labels.tabInfo, icon: Store },
+              { id: "documents", label: labels.tabDocuments, icon: FileText },
+              { id: "history", label: labels.tabHistory, icon: History },
+            ]
+          : undefined
+      }
+      activeTab={tab}
+      onTabChange={(id) => onTabChange(id as ApplicationDetailTab)}
+      footer={
+        item ? (
+          <>
+            {item.status === "PENDING_REVIEW" ? (
+              <div className="application-drawer-actions__primary">
                 <button
-                  key={id}
                   type="button"
-                  className={tab === id ? "active" : ""}
-                  onClick={() => onTabChange(id)}
+                  className="danger"
+                  disabled={busy || !canReview}
+                  title={deniedTitle(canReview)}
+                  onClick={onReject}
                 >
-                  <Icon aria-hidden="true" />
-                  <span>{label}</span>
+                  <CircleX aria-hidden="true" />
+                  <span>{labels.reject}</span>
                 </button>
-              ))}
-            </nav>
-
-            <div className="om-drawer-body cm-detail-body">
-              {tab === "info" ? (
-                <>
-                  <dl className="cm-contact">
-                    <div className="cm-contact-row">
-                      <span className="cm-icon-chip" aria-hidden="true"><Home /></span>
-                      <dt>{labels.fieldShopId}</dt>
-                      <dd className="num">{item.id}</dd>
-                    </div>
-                    <div className="cm-contact-row">
-                      <span className="cm-icon-chip" aria-hidden="true"><Building2 /></span>
-                      <dt>{labels.fieldShopName}</dt>
-                      <dd>{item.shop}</dd>
-                    </div>
-                    <div className="cm-contact-row">
-                      <span className="cm-icon-chip" aria-hidden="true"><UsersRound /></span>
-                      <dt>{labels.fieldOwner}</dt>
-                      <dd>
-                        {item.owner}
-                        {item.otherShops ? <small className="owner-siblings">{labels.otherShops(item.otherShops)}</small> : null}
-                      </dd>
-                    </div>
-                    <div className="cm-contact-row">
-                      <span className="cm-icon-chip" aria-hidden="true"><Mail /></span>
-                      <dt>{labels.fieldEmail}</dt>
-                      <dd>{revealedContact?.shopId === item.id ? revealedContact.email : maskEmail(item.email)}</dd>
-                    </div>
-                    <div className="cm-contact-row">
-                      <span className="cm-icon-chip" aria-hidden="true"><Phone /></span>
-                      <dt>{labels.fieldPhone}</dt>
-                      <dd>{revealedContact?.shopId === item.id ? revealedContact.phone : maskPhone(item.phone)}</dd>
-                    </div>
-                    <div className="cm-contact-row">
-                      <span className="cm-icon-chip" aria-hidden="true"><MapPin /></span>
-                      <dt>{labels.fieldProvince}</dt>
-                      <dd>{item.province}</dd>
-                    </div>
-                    <div className="cm-contact-row">
-                      <span className="cm-icon-chip" aria-hidden="true"><MapPin /></span>
-                      <dt>{labels.fieldAddress}</dt>
-                      <dd>{item.address}</dd>
-                    </div>
-                    <div className="cm-contact-row">
-                      <span className="cm-icon-chip" aria-hidden="true"><FileText /></span>
-                      <dt>{labels.fieldCategory}</dt>
-                      <dd>{item.category}</dd>
-                    </div>
-                    <div className="cm-contact-row">
-                      <span className="cm-icon-chip" aria-hidden="true"><LockKeyhole /></span>
-                      <dt>{labels.fieldDescription}</dt>
-                      <dd>{item.description}</dd>
-                    </div>
-
-                    <div className="application-social-divider" role="separator">
-                      <span>{labels.socialTitle}</span>
-                    </div>
-
-                    {(
-                      [
-                        [labels.socialWebsite, item.website, Globe2] as const,
-                        ["LINE", item.lineId, MessageCircle] as const,
-                        ["Facebook", item.facebookUrl, Facebook] as const,
-                        ["Instagram", item.instagramUrl, Instagram] as const,
-                        ["TikTok", item.tiktokUrl, Music2] as const,
-                      ]
-                    ).map(([label, raw, Icon]) => {
-                      const link = socialLink(raw || "");
-                      const filled = Boolean(raw?.trim()) && link.label !== "-";
-                      return (
-                        <div key={label} className="cm-contact-row">
-                          <span className="cm-icon-chip" aria-hidden="true"><Icon /></span>
-                          <dt>{label}</dt>
-                          <dd>
-                            {link.href ? (
-                              <a href={link.href} target="_blank" rel="noreferrer" title={labels.socialOpen}>
-                                <span>{link.label}</span>
-                                <ExternalLink aria-hidden="true" />
-                              </a>
-                            ) : filled ? (
-                              link.label
-                            ) : (
-                              <span className="cm-missing">{labels.socialEmpty}</span>
-                            )}
-                          </dd>
-                        </div>
-                      );
-                    })}
-                  </dl>
-                </>
-              ) : null}
-
-              {tab === "documents" ? (
-                <div className="detail-documents">
-                  {item.documents.length ? (
-                    item.documents.map((document) => (
-                      <p key={document.id}>
-                        <FileCheck2 />
-                        <span>
-                          <b>{document.label}</b>
-                          <small>
-                            {document.filename} · {fileSizeLabel(document.fileSize)}
-                          </small>
-                        </span>
-                        <button
-                          type="button"
-                          className="document-download"
-                          onClick={() => onDownloadDocument(document.id, document.filename)}
-                        >
-                          <Download />
-                          {labels.download}
-                        </button>
-                      </p>
-                    ))
-                  ) : (
-                    <p>
-                      <FileText />
-                      <span>
-                        <b>{labels.noDocumentsTitle}</b>
-                        <small>-</small>
-                      </span>
-                    </p>
-                  )}
-                </div>
-              ) : null}
-
-              {tab === "history" ? (
-                <div className="detail-history">
-                  <p>
-                    <Clock3 />
-                    <span>
-                      <b>{labels.historySubmitted}</b>
-                      <small>{item.appliedAt}</small>
-                    </span>
-                  </p>
-                  {item.status === "APPROVED" ? (
-                    <p>
-                      <FileCheck2 />
-                      <span>
-                        <b>{labels.historyActive}</b>
-                        <small>{item.updatedAt}</small>
-                      </span>
-                    </p>
-                  ) : null}
-                  {item.status === "REJECTED" ? (
-                    <p>
-                      <CircleX />
-                      <span>
-                        <b>{labels.historyRejected}</b>
-                        <small>{item.updatedAt}</small>
-                      </span>
-                    </p>
-                  ) : null}
-                  {item.status === "PENDING_REVIEW" ? (
-                    <p>
-                      <FileCheck2 />
-                      <span>
-                        <b>{labels.historyPending}</b>
-                        <small>{labels.historyPendingHint}</small>
-                      </span>
-                    </p>
-                  ) : null}
-                  {item.status === "SUSPENDED" ? (
-                    <p>
-                      <CircleX />
-                      <span>
-                        <b>{labels.historySuspended}</b>
-                        <small>{item.updatedAt}</small>
-                      </span>
-                    </p>
-                  ) : null}
-                  {canAudit ? (
-                    <p className="ap-muted">
-                      <a href={`/admin/audit-logs?targetType=SHOP&targetId=${item.id}&kind=BUSINESS`}>{labels.auditLink}</a>
-                    </p>
-                  ) : null}
-                </div>
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={busy || !canReview}
+                  title={deniedTitle(canReview)}
+                  onClick={onApprove}
+                >
+                  <Check aria-hidden="true" />
+                  <span>{labels.approveShop}</span>
+                </button>
+              </div>
+            ) : null}
+            <div className="application-drawer-actions__secondary">
+              <button type="button" className="quiet" onClick={onContactOwner}>
+                <Mail aria-hidden="true" />
+                <span>{labels.contactOwner}</span>
+              </button>
+              {canRevealContact ? (
+                <button
+                  type="button"
+                  className="quiet"
+                  disabled={revealBusy || revealedContact?.shopId === item.id}
+                  title={deniedTitle(canRevealContact)}
+                  onClick={onRevealContact}
+                >
+                  <Phone aria-hidden="true" />
+                  <span>{revealedContact?.shopId === item.id ? labels.revealed : labels.revealButton}</span>
+                </button>
               ) : null}
             </div>
-
-            <footer className="om-drawer-actions application-drawer-actions">
-              {item.status === "PENDING_REVIEW" ? (
-                <div className="application-drawer-actions__primary">
-                  <button
-                    type="button"
-                    className="danger"
-                    disabled={busy || !canReview}
-                    title={deniedTitle(canReview)}
-                    onClick={onReject}
-                  >
-                    <CircleX aria-hidden="true" />
-                    <span>{labels.reject}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={busy || !canReview}
-                    title={deniedTitle(canReview)}
-                    onClick={onApprove}
-                  >
-                    <Check aria-hidden="true" />
-                    <span>{labels.approveShop}</span>
-                  </button>
-                </div>
-              ) : null}
-              <div className="application-drawer-actions__secondary">
-                <button type="button" className="quiet" onClick={onContactOwner}>
-                  <Mail aria-hidden="true" />
-                  <span>{labels.contactOwner}</span>
-                </button>
-                {canRevealContact ? (
-                  <button
-                    type="button"
-                    className="quiet"
-                    disabled={revealBusy || revealedContact?.shopId === item.id}
-                    title={deniedTitle(canRevealContact)}
-                    onClick={onRevealContact}
-                  >
-                    <Phone aria-hidden="true" />
-                    <span>{revealedContact?.shopId === item.id ? labels.revealed : labels.revealButton}</span>
-                  </button>
-                ) : null}
-              </div>
-            </footer>
           </>
-        )}
-      </aside>
-    </div>
-  );
+        ) : undefined
+      }
+    >
+      {!item ? null : (
+        <>
+          {tab === "info" ? (
+            <dl className="cm-contact">
+              <div className="cm-contact-row">
+                <span className="cm-icon-chip" aria-hidden="true"><Home /></span>
+                <dt>{labels.fieldShopId}</dt>
+                <dd className="num">{item.id}</dd>
+              </div>
+              <div className="cm-contact-row">
+                <span className="cm-icon-chip" aria-hidden="true"><Building2 /></span>
+                <dt>{labels.fieldShopName}</dt>
+                <dd>{item.shop}</dd>
+              </div>
+              <div className="cm-contact-row">
+                <span className="cm-icon-chip" aria-hidden="true"><UsersRound /></span>
+                <dt>{labels.fieldOwner}</dt>
+                <dd>
+                  {item.owner}
+                  {item.otherShops ? <small className="owner-siblings">{labels.otherShops(item.otherShops)}</small> : null}
+                </dd>
+              </div>
+              <div className="cm-contact-row">
+                <span className="cm-icon-chip" aria-hidden="true"><Mail /></span>
+                <dt>{labels.fieldEmail}</dt>
+                <dd>{revealedContact?.shopId === item.id ? revealedContact.email : maskEmail(item.email)}</dd>
+              </div>
+              <div className="cm-contact-row">
+                <span className="cm-icon-chip" aria-hidden="true"><Phone /></span>
+                <dt>{labels.fieldPhone}</dt>
+                <dd>{revealedContact?.shopId === item.id ? revealedContact.phone : maskPhone(item.phone)}</dd>
+              </div>
+              <div className="cm-contact-row">
+                <span className="cm-icon-chip" aria-hidden="true"><MapPin /></span>
+                <dt>{labels.fieldProvince}</dt>
+                <dd>{item.province}</dd>
+              </div>
+              <div className="cm-contact-row">
+                <span className="cm-icon-chip" aria-hidden="true"><MapPin /></span>
+                <dt>{labels.fieldAddress}</dt>
+                <dd>{item.address}</dd>
+              </div>
+              <div className="cm-contact-row">
+                <span className="cm-icon-chip" aria-hidden="true"><FileText /></span>
+                <dt>{labels.fieldCategory}</dt>
+                <dd>{item.category}</dd>
+              </div>
+              <div className="cm-contact-row">
+                <span className="cm-icon-chip" aria-hidden="true"><LockKeyhole /></span>
+                <dt>{labels.fieldDescription}</dt>
+                <dd>{item.description}</dd>
+              </div>
 
-  return createPortal(drawer, document.body);
+              <div className="application-social-divider" role="separator">
+                <span>{labels.socialTitle}</span>
+              </div>
+
+              {(
+                [
+                  [labels.socialWebsite, item.website, Globe2] as const,
+                  ["LINE", item.lineId, MessageCircle] as const,
+                  ["Facebook", item.facebookUrl, Facebook] as const,
+                  ["Instagram", item.instagramUrl, Instagram] as const,
+                  ["TikTok", item.tiktokUrl, Music2] as const,
+                ]
+              ).map(([label, raw, Icon]) => {
+                const link = socialLink(raw || "");
+                const filled = Boolean(raw?.trim()) && link.label !== "-";
+                return (
+                  <div key={label} className="cm-contact-row">
+                    <span className="cm-icon-chip" aria-hidden="true"><Icon /></span>
+                    <dt>{label}</dt>
+                    <dd>
+                      {link.href ? (
+                        <a href={link.href} target="_blank" rel="noreferrer" title={labels.socialOpen}>
+                          <span>{link.label}</span>
+                          <ExternalLink aria-hidden="true" />
+                        </a>
+                      ) : filled ? (
+                        link.label
+                      ) : (
+                        <span className="cm-missing">{labels.socialEmpty}</span>
+                      )}
+                    </dd>
+                  </div>
+                );
+              })}
+            </dl>
+          ) : null}
+
+          {tab === "documents" ? (
+            <div className="detail-documents">
+              {item.documents.length ? (
+                item.documents.map((document) => (
+                  <p key={document.id}>
+                    <FileCheck2 />
+                    <span>
+                      <b>{document.label}</b>
+                      <small>
+                        {document.filename} · {fileSizeLabel(document.fileSize)}
+                      </small>
+                    </span>
+                    <button
+                      type="button"
+                      className="document-download"
+                      onClick={() => onDownloadDocument(document.id, document.filename)}
+                    >
+                      <Download />
+                      {labels.download}
+                    </button>
+                  </p>
+                ))
+              ) : (
+                <p>
+                  <FileText />
+                  <span>
+                    <b>{labels.noDocumentsTitle}</b>
+                    <small>-</small>
+                  </span>
+                </p>
+              )}
+            </div>
+          ) : null}
+
+          {tab === "history" ? (
+            <div className="detail-history">
+              <p>
+                <Clock3 />
+                <span>
+                  <b>{labels.historySubmitted}</b>
+                  <small>{item.appliedAt}</small>
+                </span>
+              </p>
+              {item.status === "APPROVED" ? (
+                <p>
+                  <FileCheck2 />
+                  <span>
+                    <b>{labels.historyActive}</b>
+                    <small>{item.updatedAt}</small>
+                  </span>
+                </p>
+              ) : null}
+              {item.status === "REJECTED" ? (
+                <p>
+                  <CircleX />
+                  <span>
+                    <b>{labels.historyRejected}</b>
+                    <small>{item.updatedAt}</small>
+                  </span>
+                </p>
+              ) : null}
+              {item.status === "PENDING_REVIEW" ? (
+                <p>
+                  <FileCheck2 />
+                  <span>
+                    <b>{labels.historyPending}</b>
+                    <small>{labels.historyPendingHint}</small>
+                  </span>
+                </p>
+              ) : null}
+              {item.status === "SUSPENDED" ? (
+                <p>
+                  <CircleX />
+                  <span>
+                    <b>{labels.historySuspended}</b>
+                    <small>{item.updatedAt}</small>
+                  </span>
+                </p>
+              ) : null}
+              {canAudit ? (
+                <p className="ap-muted">
+                  <a href={`/admin/audit-logs?targetType=SHOP&targetId=${item.id}&kind=BUSINESS`}>{labels.auditLink}</a>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </>
+      )}
+    </AdminDetailDrawer>
+  );
 }

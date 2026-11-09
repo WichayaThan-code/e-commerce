@@ -77,7 +77,7 @@ export default function AdminRolesPage() {
     setRolesError('')
     setStatsError('')
     adminDirectoryApi.roles()
-      .then(value => { if (cancelled) return; setRoles(value); setSelectedCode(current => current ?? value.find(role => role.superAdmin)?.code ?? value[0]?.code ?? null) })
+      .then(value => { if (cancelled) return; setRoles(value); setSelectedCode(current => (current && value.some(role => role.code === current) ? current : null)) })
       .catch(error => { if (!cancelled) setRolesError(errorText(error)) })
     adminDirectoryApi.userStats().then(value => { if (!cancelled) setStats(value) }).catch(error => { if (!cancelled) setStatsError(errorText(error)) })
     adminDirectoryApi.platformPermissions().then(value => { if (!cancelled) setPermissionCatalog(value.filter(permission => permission.active)) })

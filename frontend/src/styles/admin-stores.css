@@ -1,7 +1,7 @@
 .stores-shell{--stores-blue:#087bf5;--stores-navy:#092b72;--stores-line:#dbe8f5;--stores-muted:#6680a9}
 .stores-shell .admin-topbar{grid-template-columns:238px minmax(240px,1fr) auto;height:70px;padding:0 30px 0 28px}
 .stores-shell .admin-topbar form{height:45px;background:#edf4fb}.stores-shell .admin-topbar form button{padding:0 12px}.stores-shell .admin-topbar form input{padding-left:5px}
-.stores-sidebar{top:72px;width:228px;padding:12px 15px}.stores-sidebar>a,.stores-sidebar button{height:43px;padding:0 13px}.stores-sidebar section h3{margin:17px 12px 4px}.stores-sidebar .admin-logout{margin-top:20px}
+.stores-sidebar{top:72px;width:240px;padding:12px 10px}.stores-sidebar>a,.stores-sidebar button{min-height:40px;height:auto;padding:8px 12px}.stores-sidebar section h3{margin:17px 12px 4px}.stores-sidebar .admin-logout{margin-top:20px}
 .stores-content{padding:93px 26px 21px 248px;max-width:none;min-width:1180px}
 /* Page title uses shared .ap-heading / .ap-heading-icon (admin-platform.css). */
 .stores-heading{align-items:center}
@@ -38,30 +38,36 @@
 .store-identity>i img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 .reinstatement-flag{display:block;margin-top:2px;color:#9a6700;font-style:normal;font-size:11px;font-weight:700}
 
-/* Store detail drawer (bell deep-link + table row) — scoped so other admin drawers stay unchanged */
+/* Store detail drawer (bell deep-link + table row) — shared AdminDetailDrawer shell */
+.om-drawer.store-detail-drawer,
 .ap-drawer.store-detail-drawer{
   width:min(680px,100%);
   max-width:min(760px,100vw);
   color:#132b50;
 }
+.om-drawer.store-detail-drawer .cm-detail-head,
 .ap-drawer.store-detail-drawer>header{
   padding:14px 20px;
   align-items:center;
 }
+.om-drawer.store-detail-drawer .cm-detail-head h2,
 .ap-drawer.store-detail-drawer>header h2{
   font-size:clamp(1.125rem,1.8vw,1.375rem);
   line-height:1.25;
   color:#012667;
   font-weight:700;
 }
+.om-drawer.store-detail-drawer .cm-detail-meta,
 .ap-drawer.store-detail-drawer>header p{
   margin:4px 0 0;
   font-size:12px;
   color:#6680a9;
 }
+.om-drawer.store-detail-drawer .cm-detail-body,
 .ap-drawer.store-detail-drawer .ap-drawer-body{
   padding:20px 22px 28px;
 }
+.om-drawer.store-detail-drawer .admin-detail-drawer-actions,
 .ap-drawer.store-detail-drawer .ap-drawer-footer{
   padding:14px 22px 16px;
 }
@@ -336,18 +342,25 @@
 }
 
 @media (max-width:1024px){
+  .om-drawer.store-detail-drawer,
   .ap-drawer.store-detail-drawer{width:min(640px,92vw)}
 }
 @media (max-width:768px){
+  .om-drawer.store-detail-drawer,
   .ap-drawer.store-detail-drawer{width:100%;max-width:100vw}
+  .om-drawer.store-detail-drawer .cm-detail-body,
   .ap-drawer.store-detail-drawer .ap-drawer-body{padding:16px}
+  .om-drawer.store-detail-drawer .admin-detail-drawer-actions,
   .ap-drawer.store-detail-drawer .ap-drawer-footer{padding:12px 16px}
   .store-drawer-fields{grid-template-columns:1fr}
   .store-drawer-logo{width:48px;height:48px;font-size:18px}
 }
 @media (max-height:560px){
+  .om-drawer.store-detail-drawer .cm-detail-head,
   .ap-drawer.store-detail-drawer>header{padding:10px 16px}
+  .om-drawer.store-detail-drawer .cm-detail-head h2,
   .ap-drawer.store-detail-drawer>header h2{font-size:1.05rem}
+  .om-drawer.store-detail-drawer .cm-detail-body,
   .ap-drawer.store-detail-drawer .ap-drawer-body{padding:14px 16px 18px}
   .store-drawer{gap:12px}
 }

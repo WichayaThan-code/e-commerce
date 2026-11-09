@@ -5,6 +5,7 @@ import {
   Download,
   Eye,
   PackageCheck,
+  Printer,
   Search,
   ShoppingBag,
   SlidersHorizontal,
@@ -21,6 +22,7 @@ import OrderBulkBar, { type BulkRunPayload, type BulkSelectionItem } from "../co
 import OrderBulkResults, { type BulkResultRow } from "../components/merchant/OrderBulkResults";
 import OrderTagChips from "../components/merchant/OrderTagChips";
 import OrderTagManager from "../components/merchant/OrderTagManager";
+import { printMerchantOrder } from "../components/merchant/orderPrint";
 import { LoadError, SkeletonTable } from "../components/feedback/Skeleton";
 import DateRangePicker from "../components/form/DateRangePicker";
 import SearchableSelect from "../components/SearchableSelect";
@@ -122,6 +124,7 @@ export default function OrderManagementPage() {
     }
   });
   const [selected, setSelected] = useState<Map<string, BulkSelectionItem>>(new Map());
+  const [printingId, setPrintingId] = useState<string | null>(null);
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
   const [bulkResults, setBulkResults] = useState<BulkResultRow[] | null>(null);
@@ -309,6 +312,23 @@ export default function OrderManagementPage() {
   }, [shopId, reload]);
 
   const handleChanged = useCallback(() => setReload((n) => n + 1), []);
+
+  const printOrder = useCallback(async (orderId: string) => {
+    if (shopId == null || printingId) return;
+    setPrintingId(orderId);
+    try {
+      await printMerchantOrder(shopId, orderId, t, localeTag);
+      notify(t("orderManagement.printDone"));
+    } catch (caught) {
+      if (caught instanceof Error && caught.message === "PRINT_POPUP_BLOCKED") {
+        notify(t("orderManagement.printBlocked"), "fail");
+      } else {
+        notify(orderErrorMessage(t, caught) || t("orderManagement.printFailed"), "fail");
+      }
+    } finally {
+      setPrintingId(null);
+    }
+  }, [shopId, printingId, t, localeTag, notify]);
 
   const selectionOf = (order: OrderSummary): BulkSelectionItem => ({
     version: order.version,
@@ -676,22 +696,22 @@ export default function OrderManagementPage() {
                 onClick={() => changeTab(key)}
               >
                 {tabLabel(key)}
-              </button>
+            </button>
             ))}
           </div>
           <form className="om-filters" onSubmit={(e) => { e.preventDefault(); qRef.current = query.trim(); setQ(qRef.current); setPage(0); setReload((n) => n + 1); }}>
             <div className="om-filters-main">
               <div className="om-filter-search">
                 <span className="form-label">{t("orderManagement.filters.searchLabel")}</span>
-                <label className="om-search">
+            <label className="om-search">
                   <Search aria-hidden />
-                  <input
+              <input
                     aria-label={t("orderManagement.filters.searchLabel")}
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
                     placeholder={t("orderManagement.filters.searchPlaceholder")}
-                  />
-                </label>
+              />
+            </label>
               </div>
               <DateRangePicker
                 className="om-filter-range"
@@ -744,9 +764,9 @@ export default function OrderManagementPage() {
                   : t("orderManagement.filters.moreFilters")}
               </button>
               <div className="om-filters-actions">
-                <button type="button" onClick={reset}>
+              <button type="button" onClick={reset}>
                   {t("orderManagement.filters.reset")}
-                </button>
+              </button>
                 <button type="submit" className="primary">{t("orderManagement.filters.search")}</button>
               </div>
             </div>
@@ -938,12 +958,12 @@ export default function OrderManagementPage() {
               <SkeletonTable rows={6} cols={8} />
             ) : (
               <table className={fetching ? "is-refetching" : undefined}>
-                <thead>
-                  <tr>
-                    <th>
-                      <input
+              <thead>
+                <tr>
+                  <th>
+                    <input
                         aria-label={t("orderManagement.columns.selectAll")}
-                        type="checkbox"
+                      type="checkbox"
                         checked={allPageSelected}
                         onChange={() => {
                           setSelected((current) => {
@@ -963,8 +983,8 @@ export default function OrderManagementPage() {
                             return next;
                           });
                         }}
-                      />
-                    </th>
+                    />
+                  </th>
                     <th>{t("orderManagement.columns.order")}</th>
                     <th>{t("orderManagement.columns.customer")}</th>
                     <th>{t("orderManagement.columns.items")}</th>
@@ -973,9 +993,9 @@ export default function OrderManagementPage() {
                     <th>{t("orderManagement.columns.status")}</th>
                     <th>{t("orderManagement.columns.placedAt")}</th>
                     <th>{t("orderManagement.columns.actions")}</th>
-                  </tr>
-                </thead>
-                <tbody>
+                </tr>
+              </thead>
+              <tbody>
                   {items.map((o) => {
                     const hidden = o.awaitingAcceptance;
                     const parts = formatBangkokParts(o.placedAt, localeTag);
@@ -988,20 +1008,20 @@ export default function OrderManagementPage() {
                         onClick={() => openOrder(o.id)}
                       >
                         <td onClick={(event) => event.stopPropagation()}>
-                          <input
+                      <input
                             aria-label={o.orderNumber}
-                            type="checkbox"
+                        type="checkbox"
                             checked={selected.has(o.id)}
                             disabled={!selected.has(o.id) && selected.size >= BULK_MAX}
                             onChange={() => toggleSelect(o)}
-                          />
-                        </td>
-                        <td>
+                      />
+                    </td>
+                    <td>
                           <b className="num">{o.orderNumber}</b>
                           {hidden && <span className="om-badge warn">{t("orderManagement.awaitingBadge")}</span>}
                           {!hidden && o.paymentMethod === "COD" && <span className="om-badge cod">COD</span>}
                           {FEATURES.orderTagsApi && !hidden ? <OrderTagChips tags={o.tags} /> : null}
-                        </td>
+                    </td>
                         <td onClick={(event) => event.stopPropagation()}>
                           {hidden ? (
                             <span className="om-muted">{t("orderManagement.customer.awaiting")}</span>
@@ -1034,38 +1054,38 @@ export default function OrderManagementPage() {
                           ) : (
                             "—"
                           )}
-                        </td>
-                        <td>
+                    </td>
+                    <td>
                           {hidden || o.itemCount == null ? "—" : (
-                            <div className="om-product">
-                              <p>
+                      <div className="om-product">
+                        <p>
                                 <b>{t("orderManagement.itemsCount", { count: o.itemCount })}</b>
                                 {o.totalQuantity != null && <small>{t("orderManagement.quantityCount", { count: o.totalQuantity })}</small>}
-                              </p>
-                            </div>
+                        </p>
+                      </div>
                           )}
-                        </td>
+                    </td>
                         <td>{hidden ? "—" : <strong className="num">{money(o.grandTotal)}</strong>}</td>
                         <td>
                           {hidden ? "—" : (
                             <span className={`om-pill ${paymentTone(o.paymentStatus)}`}>
                               {t(`orderManagement.paymentStatus.${o.paymentStatus}`, { defaultValue: o.paymentStatus })}
-                            </span>
+                      </span>
                           )}
-                        </td>
-                        <td>
+                    </td>
+                    <td>
                           {hidden ? "—" : (
                             <span className={`om-pill ${statusTone(o.status)}`}>
                               {t(`orderManagement.status.${o.status}`, { defaultValue: o.status })}
-                            </span>
+                      </span>
                           )}
-                        </td>
-                        <td>
+                    </td>
+                    <td>
                           {parts ? parts.map((x) => <span key={x}>{x}</span>) : "—"}
-                        </td>
+                    </td>
                         <td onClick={(event) => event.stopPropagation()}>
-                          <div className="om-row-actions">
-                            <button
+                      <div className="om-row-actions">
+                        <button
                               type="button"
                               aria-label={t("orderManagement.viewOrder", { number: o.orderNumber })}
                               aria-haspopup="dialog"
@@ -1073,14 +1093,23 @@ export default function OrderManagementPage() {
                               onClick={(event) => openOrder(o.id, event.currentTarget)}
                             >
                               <Eye aria-hidden="true" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                        </button>
+                        <button
+                              type="button"
+                              aria-label={t("orderManagement.printOrder", { number: o.orderNumber })}
+                              disabled={printingId === o.id}
+                              title={printingId === o.id ? t("orderManagement.printBusy") : t("orderManagement.printOrder", { number: o.orderNumber })}
+                              onClick={() => void printOrder(o.id)}
+                            >
+                              <Printer aria-hidden="true" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                     );
                   })}
-                </tbody>
-              </table>
+              </tbody>
+            </table>
             )}
             {empty && <div className="om-empty">{t("orderManagement.empty")}</div>}
           </div>

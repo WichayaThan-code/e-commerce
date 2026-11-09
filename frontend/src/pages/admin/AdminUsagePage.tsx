@@ -323,7 +323,13 @@ export default function AdminUsagePage() {
       {selectedId != null && (
         <Drawer
           title={detail?.shopName || selectedRow?.shopName || tp('usage.detailTitle')}
-          subtitle={tp('usage.detailSubtitle', { id: selectedId })}
+          subtitle={detail ? (
+            <>
+              <Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill>
+              <span className="om-muted">{detail.planCode || tp('usage.noPlan')} · {tp('usage.detailSubtitle', { id: selectedId })}</span>
+            </>
+          ) : tp('usage.detailSubtitle', { id: selectedId })}
+          avatarFallback={<span>{(detail?.shopName || selectedRow?.shopName || 'U').trim().charAt(0)}</span>}
           onClose={() => setSelectedId(null)}
           wide
         >
@@ -331,10 +337,6 @@ export default function AdminUsagePage() {
             : detailLoading || !detail ? <SkeletonForm fields={4} />
             : (
               <div className="ap-quota-list">
-                <p className="ap-drawer-status">
-                  <Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill>
-                  <span>{detail.planCode || tp('usage.noPlan')}</span>
-                </p>
                 {buildUsageQuotas(detail, tp).map(row => {
                   const displayUsed = row.format ? row.format(row.used) : formatCount(row.used)
                   const displayLimit = row.limit == null

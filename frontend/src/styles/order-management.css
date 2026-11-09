@@ -463,9 +463,24 @@
   color: #0a4394;
   display: grid;
   place-items: center;
+  cursor: pointer;
+}
+.om-row-actions button:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 .om-row-actions svg {
   width: 16px;
+}
+.om-drawer-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.om-drawer-head-actions .om-drawer-close:disabled {
+  opacity: 0.55;
+  cursor: wait;
 }
 .om-empty {
   height: 150px;

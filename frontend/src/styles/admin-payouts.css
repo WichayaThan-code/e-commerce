@@ -1,0 +1,552 @@
+/* Admin payouts queue — platform shell polish */
+
+.payouts-page {
+  --payouts-ink: var(--shop-secondary, #08245d);
+  --payouts-muted: var(--shop-muted, #5b79a5);
+  --payouts-line: var(--shop-border, #dbe8f5);
+  --payouts-soft: var(--shop-primary-soft, #eaf4ff);
+  --payouts-primary: var(--shop-primary, #087bf5);
+}
+
+.payouts-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px 28px;
+  align-items: stretch;
+  margin: 0 0 16px;
+  padding: 20px 22px;
+  border: 1px solid color-mix(in srgb, var(--payouts-primary) 18%, var(--payouts-line));
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 160% at 100% 0%, #d7ebff 0%, transparent 42%),
+    radial-gradient(90% 120% at 0% 100%, #eef6ff 0%, transparent 45%),
+    linear-gradient(160deg, #ffffff 0%, #f5faff 100%);
+  box-shadow: 0 10px 28px rgba(8, 36, 93, 0.05);
+}
+
+.payouts-hero-main {
+  display: flex;
+  gap: 16px;
+  min-width: 0;
+  align-items: flex-start;
+}
+
+.payouts-hero-icon {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(145deg, #1a8cff 0%, #0665d6 100%);
+  box-shadow: 0 10px 18px rgba(8, 123, 245, 0.28);
+}
+
+.payouts-hero-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.payouts-hero-copy {
+  min-width: 0;
+}
+
+.payouts-hero-copy h1 {
+  margin: 0;
+  font-size: clamp(24px, 2.4vw, 30px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--payouts-ink);
+}
+
+.payouts-hero-copy > p:first-of-type {
+  margin: 6px 0 0;
+  color: var(--payouts-muted);
+  font-size: 14px;
+  line-height: 1.45;
+  max-width: 46ch;
+}
+
+.payouts-hero-policy {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 0;
+  max-width: 54ch;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #f0d7a4;
+  background: color-mix(in srgb, #fff8eb 88%, #fff);
+  color: #8a5a12;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.payouts-hero-policy svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-top: 2px;
+  color: #c4841d;
+}
+
+.payouts-hero-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: min(280px, 100%);
+}
+
+.payouts-hero-metric {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--payouts-line);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(6px);
+  text-align: right;
+}
+
+.payouts-hero-metric-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  color: var(--payouts-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.payouts-hero-metric-label svg {
+  width: 13px;
+  height: 13px;
+}
+
+.payouts-hero-metric strong {
+  font-size: 32px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--payouts-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.payouts-hero-metric small {
+  color: #7a93b8;
+  font-size: 11px;
+}
+
+.payouts-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.payouts-heading-actions .ap-primary,
+.payouts-heading-actions .ap-ghost,
+.payouts-drawer-actions .ap-primary,
+.payouts-drawer-actions .ap-ghost,
+.payouts-drawer-actions .ap-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.payouts-heading-actions .ap-ghost {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.payouts-heading-actions svg,
+.payouts-drawer-actions svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.payouts-heading-actions .is-spin {
+  animation: payouts-spin 1s linear infinite;
+}
+
+@keyframes payouts-spin {
+  to { transform: rotate(360deg); }
+}
+
+.payouts-filters-card {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+}
+
+.payouts-filters {
+  display: grid;
+  gap: 12px;
+}
+
+.payouts-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--payouts-line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.payouts-search svg {
+  width: 16px;
+  height: 16px;
+  color: var(--payouts-muted);
+  flex: none;
+}
+
+.payouts-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: var(--payouts-ink);
+}
+
+.payouts-search input::placeholder {
+  color: #8aa0c0;
+}
+
+.payouts-status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.payouts-status-tabs button {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--payouts-line);
+  background: #fff;
+  color: var(--payouts-muted);
+  font: 700 12px var(--font-sans), sans-serif;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.payouts-status-tabs button:hover {
+  background: var(--payouts-soft);
+  color: var(--payouts-primary);
+}
+
+.payouts-status-tabs button.is-active {
+  background: var(--payouts-primary);
+  border-color: var(--payouts-primary);
+  color: #fff;
+}
+
+.payouts-status-tabs button.is-active.is-warn {
+  background: #c4841d;
+  border-color: #c4841d;
+}
+
+.payouts-status-tabs button.is-active.is-ok {
+  background: #0f9f6e;
+  border-color: #0f9f6e;
+}
+
+.payouts-status-tabs button.is-active.is-bad {
+  background: #d8324e;
+  border-color: #d8324e;
+}
+
+.payouts-status-tabs button.is-active.is-info {
+  background: #087bf5;
+  border-color: #087bf5;
+}
+
+.payouts-status-tabs button:focus-visible {
+  outline: 2px solid var(--payouts-primary);
+  outline-offset: 2px;
+}
+
+.payouts-filter-hint {
+  color: var(--payouts-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.payouts-amount {
+  font-variant-numeric: tabular-nums;
+  color: var(--payouts-ink);
+}
+
+.payouts-account {
+  display: block;
+  font-weight: 600;
+  color: var(--payouts-ink);
+}
+
+.payouts-open-btn {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--payouts-line);
+  background: #fff;
+  color: var(--payouts-primary);
+  font: 700 12px var(--font-sans), sans-serif;
+  cursor: pointer;
+}
+
+.payouts-open-btn:hover {
+  background: var(--payouts-soft);
+}
+
+.payouts-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--payouts-muted);
+}
+
+.payouts-empty svg {
+  width: 36px;
+  height: 36px;
+  opacity: .55;
+}
+
+.payouts-empty b {
+  color: var(--payouts-ink);
+  font-size: 15px;
+}
+
+.payouts-empty p {
+  margin: 0;
+  max-width: 360px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.payouts-drawer .ap-drawer-body,
+.payouts-drawer .cm-detail-body {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+.payouts-detail-loading {
+  margin: 0;
+  color: var(--payouts-muted);
+  font-size: 13px;
+}
+
+.payouts-detail-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, #e8f3ff 0%, transparent 55%),
+    linear-gradient(180deg, #f7fbff 0%, #fff 100%);
+  border: 1px solid var(--payouts-line);
+}
+
+.payouts-detail-hero small {
+  display: block;
+  color: var(--payouts-muted);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.payouts-detail-hero b {
+  font-size: 26px;
+  line-height: 1.15;
+  color: var(--payouts-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.payouts-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 0;
+}
+
+.payouts-detail-grid > div {
+  padding: 12px;
+  border: 1px solid var(--payouts-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.payouts-detail-grid > .span-2 {
+  grid-column: 1 / -1;
+}
+
+.payouts-detail-grid dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  color: var(--payouts-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.payouts-detail-grid dt svg {
+  width: 13px;
+  height: 13px;
+}
+
+.payouts-detail-grid dd {
+  margin: 0;
+  color: var(--payouts-ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.payouts-detail-grid dd small {
+  display: block;
+  margin-top: 4px;
+  color: var(--payouts-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.payouts-timeline h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--payouts-ink);
+}
+
+.payouts-timeline ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+
+.payouts-timeline li {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 10px;
+  position: relative;
+  padding-bottom: 14px;
+}
+
+.payouts-timeline li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 14px;
+  bottom: 0;
+  width: 2px;
+  background: var(--payouts-line);
+}
+
+.payouts-timeline-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--payouts-primary);
+  box-shadow: 0 0 0 3px var(--payouts-soft);
+}
+
+.payouts-timeline b {
+  display: block;
+  color: var(--payouts-ink);
+  font-size: 13px;
+}
+
+.payouts-timeline small {
+  color: var(--payouts-muted);
+  font-size: 11px;
+}
+
+.payouts-timeline p {
+  margin: 4px 0 0;
+  color: #3d5f91;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.payouts-drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.payouts-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--payouts-ink);
+  font-weight: 600;
+}
+
+.payouts-field input,
+.payouts-field textarea {
+  width: 100%;
+  border: 1px solid var(--payouts-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  font-weight: 500;
+  color: var(--payouts-ink);
+  background: #fff;
+  resize: vertical;
+}
+
+.payouts-field input:focus,
+.payouts-field textarea:focus {
+  outline: 2px solid color-mix(in srgb, var(--payouts-primary) 35%, transparent);
+  border-color: var(--payouts-primary);
+}
+
+@media (max-width: 900px) {
+  .payouts-hero {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .payouts-hero-aside {
+    min-width: 0;
+  }
+
+  .payouts-hero-metric {
+    text-align: left;
+  }
+
+  .payouts-hero-metric-label {
+    justify-content: flex-start;
+  }
+
+  .payouts-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payouts-heading-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .payouts-heading-actions .ap-primary,
+  .payouts-heading-actions .ap-ghost {
+    flex: 1;
+    justify-content: center;
+  }
+}

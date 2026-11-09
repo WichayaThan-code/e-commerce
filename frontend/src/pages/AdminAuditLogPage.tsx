@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ScrollText, Search } from 'lucide-react'
+import { ScrollText, Search, X } from 'lucide-react'
 import AdminHeader from '../components/AdminHeader'
 import AdminSidebar from '../components/AdminSidebar'
 import { LoadError, SkeletonTable } from '../components/feedback/Skeleton'

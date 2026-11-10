@@ -93,12 +93,14 @@ backend ส่งรหัส OTP และลิงก์รีเซ็ตร�
 
 | ตัวแปร | ค่าเริ่มต้น | ความหมาย |
 |---|---|---|
-| `NOTIFICATION_EMAIL_PROVIDER` | (ว่าง) | `smtp` หรือ `log` — ว่าง = `smtp` ถ้าตั้ง `MAIL_HOST` ไว้, ไม่งั้น `log` |
+| `NOTIFICATION_EMAIL_PROVIDER` | (ว่าง) | `brevo`, `smtp` หรือ `log` — ว่าง = `brevo` ถ้าตั้ง `BREVO_API_KEY`, ไม่งั้น `smtp` ถ้าตั้ง `MAIL_HOST` ไว้, ไม่งั้น `log` (ไม่ส่งจริง) |
+| `BREVO_API_KEY` | (ว่าง) | API key ของ Brevo (ส่งอีเมลผ่าน HTTPS API — ใช้บน Railway Free/Trial/Hobby ที่บล็อก SMTP) |
+| `BREVO_API_URL` | `https://api.brevo.com` | base URL ของ Brevo API (ปกติไม่ต้องตั้ง) |
 | `MAIL_HOST` | (ว่าง) | SMTP host; ว่าง = ไม่ส่งอีเมลจริง (แอปสตาร์ทได้ปกติ) |
 | `MAIL_PORT` | `587` | SMTP port |
 | `MAIL_USERNAME` | (ว่าง) | ว่าง = ไม่ใช้ SMTP AUTH |
 | `MAIL_PASSWORD` | (ว่าง) | รหัสผ่าน / app password / API key |
-| `MAIL_FROM` | (ว่าง) | ผู้ส่ง; ว่าง = ใช้ `MAIL_USERNAME` ถ้าเป็นอีเมล, ไม่งั้น `no-reply@thaishopfun.local` |
+| `MAIL_FROM` | (ว่าง) | ผู้ส่ง; ว่าง = ใช้ `MAIL_USERNAME` ถ้าเป็นอีเมล, ไม่งั้น `no-reply@thaishopfun.local` (provider `brevo` บังคับต้องตั้ง และต้อง verify ใน Brevo แล้ว) |
 | `MAIL_FROM_NAME` | `ThaiShopFun` | ชื่อผู้ส่ง |
 | `MAIL_STARTTLS` | `true` | เปิด/บังคับ STARTTLS (port 587) |
 | `MAIL_SSL` | `false` | SMTP over SSL (port 465 — ตั้ง `MAIL_STARTTLS=false` คู่กัน) |
@@ -112,6 +114,17 @@ SMTP ตั้งค่าผ่าน `app.notification.mail.*` (ไม่ใ�
 
 ใส่ค่าจริงใน `backend/.env` (ไม่เข้า Git — อย่า commit รหัสผ่าน) ดูตัวอย่างใน `.env.example`
 หมายเหตุ: `run-local.ps1` โหลด `.env` และ **ทับ** ตัวแปรที่ตั้งไว้ใน PowerShell — ถ้าจะ override ชั่วคราวด้วย `$env:MAIL_HOST=...` อย่าใส่บรรทัดนั้นใน `.env`
+
+### Brevo (HTTP API — แนะนำสำหรับ Railway Free/Trial/Hobby)
+
+Railway แพ็กเกจ Free/Trial/Hobby บล็อก SMTP ขาออก (https://docs.railway.com/networking/outbound-networking#email-delivery) จึงใช้ Brevo ซึ่งส่งผ่าน HTTPS แทน: สมัคร Brevo → verify อีเมลผู้ส่ง (Senders) → สร้าง API key (SMTP & API → API keys)
+
+```dotenv
+NOTIFICATION_EMAIL_PROVIDER=brevo
+BREVO_API_KEY=xkeysib-xxxxxxxx
+MAIL_FROM=sender-ที่-verify-แล้ว@example.com
+MAIL_FROM_NAME=ThaiShopFun
+```
 
 ### ตัวอย่างการตั้งค่า SMTP
 

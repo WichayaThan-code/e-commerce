@@ -963,6 +963,14 @@
   background:#fff;
   box-shadow:0 0 0 3px rgba(8,123,245,.16);
 }
+.om-ship-time.is-disabled{
+  opacity:.55;
+  pointer-events:none;
+}
+.om-ship-time.is-invalid .om-ship-time-control{
+  border-color:var(--form-invalid-border,#e8a477);
+  background:var(--form-invalid-bg,var(--color-warning-bg));
+}
 .om-ship-time-panel{
   position:fixed;
   z-index:220;

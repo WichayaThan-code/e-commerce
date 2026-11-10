@@ -4,9 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Development fallback used when no SMTP server is configured: nothing leaves the machine, the
+ * Development fallback used when no e-mail provider (Brevo / SMTP) is configured: nothing leaves the machine, the
  * e-mail is only logged. The body (which contains the OTP / reset link) is logged at DEBUG only;
- * use {@code OTP_EXPOSE_CODE=true} to read codes from the API response during local testing.
+ * use {@code OTP_EXPOSE_CODE=true} (local only) or {@code DEV_LOG_OTP=true} to read codes from the API response during local testing.
  */
 public class LoggingEmailSender implements EmailSender {
     private static final Logger log = LoggerFactory.getLogger(LoggingEmailSender.class);

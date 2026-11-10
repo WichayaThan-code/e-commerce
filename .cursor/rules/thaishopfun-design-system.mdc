@@ -1,0 +1,713 @@
+---
+description: ThaiShopFun Design System - รูปแบบ UI มาตรฐานของโปรเจกต์ (สี, ตัวอักษร, ฟอร์ม/input, dropdown, date/time picker + เวลาทำการ, toggle, layout สมมาตร, dialog, alert/toast, drawer, table, empty/loading) ยึดตามหน้า /merchant/products/new ต้องอ่านทุกครั้งก่อนออกแบบหรือแก้หน้า/คอมโพเนนต์/CSS ฝั่ง frontend
+globs: frontend/src/**/*.tsx, frontend/src/**/*.css
+alwaysApply: false
+---
+
+# ThaiShopFun Design System (อ้างอิงจากโค้ดจริง)
+
+> ต้นแบบหลัก: หน้า `/merchant/products/new` → `frontend/src/pages/ProductFormPage.tsx`
+> (+ `components/merchant/VariantEditor.tsx`, `components/merchant/ProductImagesField.tsx`, `styles/product-management.css`, `styles/form-fields.css`)
+> ทุก path ในไฟล์นี้เทียบกับ `frontend/src/`
+
+## 0. กฎเหล็ก (อ่านก่อนทุกครั้ง)
+
+1. **ใช้ของที่มีอยู่ก่อนเสมอ:** ใช้คอมโพเนนต์และ class ในไฟล์นี้ ห้ามสร้าง component, dialog, drawer, dropdown, date picker, toast หรือ empty state ตัวใหม่ที่ซ้ำกับของเดิม ถ้าไม่มีจริง ให้เขียนว่า "ไม่มีในโปรเจกต์" แล้วถามก่อน **ห้ามสร้างใหม่โดยไม่ได้ขอ**
+2. **ห้ามใส่สี hex ใหม่:**
+   - ใช้ CSS variable ที่มีอยู่ (หัวข้อ 1) หรือค่า hex ที่อยู่ใน palette ของหัวข้อ 1 เท่านั้น
+   - สีสถานะ (success/warning/danger) ให้ใช้ `var(--color-*)` เสมอ
+3. **ห้าม redesign หน้าเดิม:** แก้เฉพาะส่วนที่ขอ แล้วคง layout, ระยะ และขนาดของ shell (merchant/admin/public) ไว้ตามเดิม
+4. **ข้อความทุกตัวต้องผ่าน i18n:** ใช้ `t()` และเพิ่ม key ให้ครบ 3 ภาษาใน `locales/{th,en,zh}/*.json` ยกเว้นหน้า admin บางหน้าที่เป็นภาษาไทยตรงอยู่แล้ว ให้ทำตามหน้านั้น
+5. **ไอคอนใช้ `lucide-react` เท่านั้น:**
+   - ใส่ `aria-hidden="true"` เมื่อไอคอนเป็นแค่การตกแต่ง
+   - ห้ามใส่ `size`/`strokeWidth` ให้ไอคอนใน `EmptyState` เพราะ CSS กำหนดขนาดให้แล้ว
+6. **Accessibility:**
+   - ช่องที่ผิดต้องมี `aria-invalid`
+   - dialog/drawer ใช้ `role="dialog"` คู่กับ `aria-modal="true"` และปิดได้ด้วย Esc
+   - toast ใช้ `role="status"` ส่วน error ใช้ `role="alert"`
+7. **ห้ามแก้ไฟล์ต่อไปนี้ถ้าไม่ได้สั่ง:** `CartContext.tsx`, `AuthContext.tsx`, `components/merchant/MerchantTopbarActions.tsx` (backend: `OrderCheckoutService.java`, `OrderDtos.java`)
+8. **วันที่และเวลา:** วันที่ เวลา และเวลาทำการต้องใช้ dialog picker ในหัวข้อ 4.6 ห้ามใช้ text input หรือ `<input type=date|time>` และต้องเก็บค่าเป็นโครงสร้าง
+9. **Toggle:** ใช้ `ToggleSwitch` เท่านั้น (หัวข้อ 4.5.1)
+10. **Layout:** layout หลายการ์ดต้องสมมาตรตามหัวข้อ 2.4
+11. **ตรวจทุกครั้ง:**
+   - `npx tsc --noEmit` และ `npm run build` ต้องผ่าน
+   - เปิดดูที่ความกว้าง 1440 / 1024 / 768 / 390 ต้องไม่มีอะไรล้นหรือซ้อนกัน
+
+---
+
+## 1. Design tokens (สี / ฟอนต์ / focus)
+
+### 1.1 Global variables ใน `styles/tokens.css` (`:root`)
+| Variable | ค่า | ใช้กับ |
+|---|---|---|
+| `--font-sans` | `"IBM Plex Sans Thai", "Noto Sans Thai", sans-serif` | ตัวอักษรทั้งระบบ (body/button/input/select/textarea ตั้งไว้แล้ว) |
+| `--font-mono` | `"IBM Plex Mono", ui-monospace, monospace` | ตัวเลข/รหัส ผ่าน class `.num` / `.mono` / `code` (tabular-nums) |
+| `--color-success` / `--color-success-bg` | `#0F7A4D` / `#E6F4EC` | สำเร็จ, toast ok |
+| `--color-warning` / `--color-warning-bg` | `#A75B08` / `#FDF1E3` | เตือน, พื้นช่องที่กรอกผิด |
+| `--color-danger` / `--color-danger-bg` | `#B3261E` / `#FBEAE8` | error, ปุ่มลบ, ดอกจัน required |
+| `--focus-ring` | `0 0 0 3px rgba(29, 91, 204, .35)` | focus ทุก control (ตั้ง global ใน `:focus-visible` ไว้แล้ว) |
+| `--skeleton-base` / `--skeleton-shine` | `#eef1f5` / `#f7f9fc` | skeleton |
+
+### 1.2 ตัวแปรเฉพาะ shell
+| Variable | ค่า | ประกาศที่ |
+|---|---|---|
+| `--pm-blue` | `#087bf5` (สีหลัก/ปุ่ม primary) | `.pm-shell` ใน `styles/product-management.css` (ซ้ำใน `order-management.css`, `customer-management.css`) |
+| `--pm-navy` | `#08245d` (หัวข้อ/ข้อความหลัก) | `.pm-shell` |
+| `--admin-navy` / `--admin-blue` / `--admin-line` / `--admin-muted` | `#08245d` / `#0878f5` / `#dce8f5` / `#5d7396` | `:root` ใน `styles/admin-dashboard.css` |
+| `--form-invalid-border` / `--form-invalid-bg` / `--form-invalid-error` | `#e8a477` / `var(--color-warning-bg)` / `var(--color-danger)` | `:root` ใน `styles/form-invalid.css` |
+| `--form-field-fg` | `#132b50` | `styles/form-invalid.css` |
+| `--adm-control-h` = 40px, `--adm-border` | | `.admin-shell` ใน `styles/admin-form-controls.css` |
+| `--shop-*` (`--shop-primary`, `--shop-border`, `--shop-muted`, `--shop-card-bg` ...) | ธีมของร้าน | หน้า storefront/public ให้ใช้ `var(--shop-xxx, fallback)` |
+
+### 1.3 Palette ที่ใช้จริงในหน้า /merchant/products/new (ห้ามเพิ่มนอกจากนี้)
+- **Primary blue:** `#087bf5` (= `--pm-blue`) ใช้ทั่วไป; `#0878f5` ใช้ใน tab/chip active; hover ของ primary คือ `#0871ed`
+- **Focus border:** `#1671de`
+- **Navy (หัวข้อ):** `#08245d` (h1/h2); `#08245e` และ `#09255e` ใช้กับ h3/h4 ในฟอร์ม
+- **ข้อความ input/label:** `#132b50`
+- **ข้อความรอง / hint:** `#5d7396`; ระดับอ่อนกว่าคือ `#6d84a3`; ข้อความใน dialog คือ `#4d6788`
+- **Placeholder:** `#8793a3`
+- **เส้นขอบ:**
+  - input: `#dce2eb`
+  - การ์ด: `#dce9f5` หรือ `#dce8f5`
+  - ปุ่ม/chip: `#d5e4f3`
+  - ในตาราง: `#e6eef6`
+- **พื้นหลัง:**
+  - การ์ด: `#fff`
+  - บล็อกย่อย: `#f8fbfe`
+  - หัวตาราง: `#edf6fd`
+  - icon chip: `#e7f2ff`
+  - แถวที่เลือก: `#f3f9ff`
+- **ช่องที่กรอกผิด:** ขอบ `#e8a477` และพื้น `var(--color-warning-bg)`
+- **พื้นหลังหน้า merchant:** `linear-gradient(135deg,#f8fcff 0,#eef8ff 55%,#f8fcff 100%)` จาก `.merchant-shell` | **admin:** `#f4f9fe` จาก `.admin-shell`
+
+### 1.4 Typography / Radius / Shadow / Spacing (ค่าจริง)
+- **Typography:**
+  - page h1 (`.pm-heading h1`): 24px / 800 / letter-spacing -0.3px
+  - section h3 ในฟอร์ม: 18px
+  - h4 ภายในบล็อก: 15px
+  - label: 13px / 700
+  - input: 14px (บนมือถือ input ใน `.form-field` เป็น 16px)
+  - hint: 14px
+  - toggle text: 12px / 700
+- **Radius:**
+  - input/select/textarea: 10px
+  - การ์ดฟอร์ม `.product-form-card`: 9px (มือถือ 14px)
+  - การ์ดหัวหน้า `.pm-heading`: 12px
+  - dialog: 14px
+  - ปุ่ม action: 7px
+  - chip/pill: 999px
+- **Shadow:**
+  - `.pm-heading`: `0 8px 22px rgba(8, 36, 93, 0.04)`
+  - drawer: `-12px 0 32px rgba(8,36,93,.2)`
+  - การ์ดฟอร์มไม่มีเงา
+- **Control height:**
+  - input/select (ฟอร์ม): **51px**
+  - ปุ่มหลัก: **45px**
+  - filter/admin control: 40px (`--om-control-h`, `--adm-control-h`)
+  - `.merchant-save-btn`: 40px
+- **Spacing:**
+  - label ห่างกันด้วย `margin-bottom: 17px`
+  - grid 2 คอลัมน์ (`.merchant-two`) gap 24px
+  - padding การ์ด `22px 20px 18px`
+  - gap ระหว่างปุ่ม 10px
+
+---
+
+## 2. Page layout
+
+### 2.1 หน้า Merchant (แบบ /merchant/products/new)
+```tsx
+import MerchantShell from "../components/merchant/MerchantShell";
+import "../styles/form-fields.css";
+
+<MerchantShell notice={notice} tone={tone} /* active="products" */>
+  <header className="pm-heading">
+    <div>
+      <h1>{heading}</h1>            {/* ใส่ไอคอน lucide ใน h1 ได้ จะได้ chip สีฟ้าอัตโนมัติ */}
+      <p>{t("catalog.lead")}</p>
+    </div>
+    <Link to="/merchant/products">{t("catalog.actions.back")}</Link>  {/* ปุ่มรองด้านขวา */}
+  </header>
+  <form className="product-form-card" onSubmit={...}>
+    <h3>หัวข้อส่วน</h3>
+    <p className="pm-lang-hint">คำอธิบายส่วน</p>
+    <div className="pm-lang-block"><h4>บล็อกย่อย <small>(ไม่บังคับ)</small></h4> ... </div>
+    <div className="merchant-two"> ...2 คอลัมน์... </div>
+    <div className="pm-actions"> ...ปุ่ม... </div>
+  </form>
+</MerchantShell>
+```
+- `MerchantShell` (`components/merchant/MerchantShell.tsx`) มี topbar, sidebar, `section.pm-content` และ toast (`notice`/`tone`) มาให้แล้ว ห้ามสร้าง shell ใหม่
+- **ส่วนที่พับได้:**
+  ```tsx
+  <details className="pm-translation-fold">
+    <summary>…</summary>
+    …
+  </details>
+  ```
+- **หน้า 403/404:** ใช้ `<section className="pm-state"><h1/><p/><Link/></section>`
+
+### 2.2 หน้า Admin
+```tsx
+import AdminHeader from '../components/AdminHeader'
+import AdminSidebar from '../components/AdminSidebar'
+import '../styles/admin-dashboard.css'
+import '../styles/admin-platform.css'
+import '../styles/admin-form-controls.css'
+import '../styles/form-fields.css'
+
+<main className="admin-shell category-shell">
+  <AdminHeader user={user} />
+  <AdminSidebar active="help-center" className="category-sidebar" />
+  <div className="admin-content category-content"> … <header className="ap-card-head">…</header> … </div>
+  {notice && <div className="admin-toast" role="status">{notice}</div>}
+</main>
+```
+- **Route:** เพิ่มใน `routes/appRoutes.tsx` ผ่าน `guarded("/admin/xxx", <Page />)`
+- **Permission:** เพิ่มใน `ROUTE_PERMISSIONS` ของ `services/permissions.ts`
+- **เมนู:** เพิ่ม key ใน `AdminSection` และ `links`/`groups` ของ `components/AdminSidebar.tsx`
+
+### 2.3 หน้า Public/Customer
+ใช้ `Header`/`Footer` และ CSS ของหน้านั้น (เช่น `shop-page.css`, `help.css`, `cart.css`) สีให้ใช้ `var(--shop-*, fallback)` ตามหน้าที่มีอยู่
+
+### 2.4 Layout สมมาตร (หน้า Settings/ฟอร์มที่มีหลายการ์ด)
+- **กริดการ์ด:** ใช้ `display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch;`
+  - การ์ดที่อยู่แถวเดียวกันต้องสูงเท่ากัน
+  - การ์ดเป็น `display:flex; flex-direction:column` และวาง action ล่างด้วย `margin-top:auto`
+  - ห้ามใช้ `align-items:start` กับกริดการ์ด
+- **คอลัมน์ต้องกว้างเท่ากัน:**
+  - ห้ามวางการ์ดเนื้อหาแบบเดียวกันสลับระหว่างคอลัมน์กว้างกับคอลัมน์แคบ (เช่น `1fr` กับ `360px`) โดยปล่อยให้ grid จัดวางเอง
+  - ถ้าต้องมี sidebar/preview ให้แยกเป็น 2 ชั้น:
+    ```tsx
+    <div className="xxx-layout">                {/* grid: minmax(0,1fr) 360px; align-items:start */}
+      <div className="xxx-main">…การ์ดทั้งหมด (กริด 2 คอลัมน์เท่ากัน หรือ stack)…</div>
+      <aside className="xxx-side">…preview (position: sticky; top: 88px)…</aside>
+    </div>
+    ```
+    การ์ดทุกใบต้องอยู่ใน `xxx-main` เท่านั้น
+- **การ์ดจำนวนคี่:**
+  - การ์ดใบสุดท้ายที่เหลือเดี่ยวให้ขยายเต็มแถวด้วย `grid-column: 1 / -1`
+  - หรือจัดลำดับใหม่ให้คู่กัน
+  - ห้ามปล่อยให้มีช่องว่างครึ่งแถว
+- **ช่องในการ์ด:**
+  - ใช้กริด 2 คอลัมน์ `minmax(0,1fr)` ด้วย gap 16px (admin) หรือ 24px (`.merchant-two` ในฟอร์มสินค้า)
+  - ถ้ามี 3 ช่องที่เป็นชุดเดียวกัน (เช่น th/en/zh) ให้ใช้ `repeat(3, minmax(0,1fr))` หรือแสดงทีละภาษาด้วยแท็บภาษา (`.pm-lang-tabs`) ห้ามจัดเป็นแถวละ 2 แล้วเหลือ 1
+- **ความสูงของ control:**
+  - ใน card เดียวกัน input/select/picker ต้องสูงเท่ากัน: ฟอร์ม merchant 51px, admin/filter 40px, picker แบบ dialog 44px
+  - ถ้าวางรวมกันในแถวเดียว ให้ปรับให้เท่ากันด้วยตัวแปรของ shell ห้ามผสม input กับ textarea ในกลุ่มเดียวกัน
+- **การจัดแนว:**
+  - label อยู่บน control เสมอ (ระยะห่าง 6–8px)
+  - ข้อความ helper/error อยู่ใต้ control
+  - ถ้า label บางช่องยาวจนตัดบรรทัด ให้กำหนด `min-height` ของ label ให้เท่ากันทั้งแถว
+- **หัวการ์ด:**
+  - เป็น flex `space-between` วาง icon+หัวข้อทางซ้าย และ toggle/ปุ่มทางขวา
+  - หัวการ์ดทุกใบต้องสูงเท่ากัน (min-height 40px) และมีระยะใต้หัวเท่ากัน (12px)
+- **Gap:**
+  - ใช้ค่าที่มีอยู่ (8 / 10 / 12 / 16 / 24px) ตามหัวข้อ 1.4
+  - ระยะระหว่างการ์ด = ระยะระหว่างคอลัมน์ = 16px
+  - padding การ์ด: admin `18px 16px` (`.ap-card`), merchant `17px 20px` (`.settings-card`)
+- **Responsive:**
+  - ≤1100px: การ์ดเป็น 1 คอลัมน์ และ preview/aside ไปอยู่ล่างสุด (ไม่ sticky)
+  - ≤760px: ช่องในการ์ดเป็น 1 คอลัมน์ และปุ่ม action เต็มความกว้าง
+  - ห้ามให้การ์ดหรือ picker panel ล้นแนวนอน
+
+---
+
+## 3. Buttons
+| ประเภท | Markup จริง | หมายเหตุ |
+|---|---|---|
+| Secondary (ขอบฟ้า พื้นขาว) | `<div className="pm-actions"><button type="submit">บันทึกร่าง</button></div>` | สูง 45px, ขอบ `var(--pm-blue)`, radius 7px, 700 14px |
+| Primary (พื้นฟ้า) | `<button type="button" className="primary">บันทึกและเผยแพร่</button>` (ใน `.pm-actions`) | พื้น `var(--pm-blue)` ตัวอักษรขาว |
+| ลิงก์ที่ดูเป็นปุ่ม | `<Link className="primary" to="/merchant/products/new">` ใน `.catalog-shell .pm-actions` | |
+| Danger | ใช้ใน dialog ผ่าน `ConfirmDialog danger` (`.pm-dialog-actions button.danger` สีพื้น `var(--color-danger)`) และใน row menu `.pm-row-menu button.danger` | ห้ามทำปุ่มแดงเองนอกจาก 2 จุดนี้ |
+| Ghost/back | `.pm-heading > a` (สูง 42px, พื้น `#f8fbff`, ขอบ `#d5e4f4`) | |
+| Save บนหัวการ์ด (หน้า Settings) | `import MerchantSaveButton from "../components/merchant/MerchantSaveButton"` → `<MerchantSaveButton saving={saving} onClick={save} />` | `.merchant-save-btn` |
+| Pill/chip/tab | `.pm-tabs button` / `.pm-chips button` / `.pm-lang-tabs button` + `.active` | |
+| Admin (หน้า/หัวการ์ด) | `.ap-primary` / `.ap-ghost` / `.ap-danger` (`admin-platform.css`: สูง 38px, radius 8, 700 13px) | ใช้บนหน้า admin ทุกหน้า |
+| Admin dialog footer | `.admin-management-dialog > footer button` (ปุ่ม `type="submit"` คือ primary) | |
+
+**สถานะกำลังโหลด:**
+```tsx
+<button disabled={Boolean(saving)}>
+  {saving === "publish" ? <LoaderCircle className="pm-spin" /> : null}
+  {label}
+</button>
+```
+
+---
+
+## 4. Form controls
+
+### 4.1 Label / required / helper / error (pattern ของ ProductFormPage)
+```tsx
+import FieldError from "../components/form/FieldError";   // แนะนำ (FormField re-export เป็น deprecated)
+
+<label>
+  <span className="pm-lang-label">{t("catalog.form.name")} <em>*</em></span>   {/* <em>* = required สี danger */}
+  <input
+    value={draft.nameTh}
+    aria-invalid={Boolean(errors.nameTh)}
+    onChange={(e) => setDraft({ ...draft, nameTh: e.target.value })}
+    placeholder={t("catalog.form.namePh")}
+  />
+  <FieldError text={fieldError("nameTh")} />
+</label>
+```
+- ภายใน `.product-form-card`:
+  - `label` เป็น block ขนาด 13px/700
+  - input สูง 51px, radius 10, ขอบ `#dce2eb`
+  - focus: ขอบ `#1671de` + `var(--focus-ring)`
+  - ผิด: `aria-invalid="true"` ทำให้ขอบเป็น `#e8a477` และพื้นเป็น `var(--color-warning-bg)`
+- **Helper text:** `<p className="pm-lang-hint">`
+- **Error ระดับฟอร์ม:** `<p className="form-field-error">`; ถ้าเป็นกล่องแจ้งเตือนใช้ `<p className="form-alert" role="alert">`
+- **ฟอร์มนอก `.product-form-card`** (เช่น auth, admin dialog) ให้ใช้ wrapper กลาง:
+  ```tsx
+  import FormField from "../components/form/FormField";
+  import FormSelect from "../components/form/FormSelect";
+  import FormTextarea from "../components/form/FormTextarea";
+  import FormGrid from "../components/form/FormGrid";
+  ```
+  - ตัวอย่าง: `<FormField label="อีเมล" icon={Mail} error={err} aside={count}><input … /></FormField>`
+  - class ที่ได้: `.form-field` / `.form-label` / `.form-control` (+`.is-invalid`) / `.form-field-meta` และ `FormGrid` คือ `.form-grid` (2 คอลัมน์)
+
+### 4.2 Text input / Textarea
+- **Input:** `<input>` ปกติภายในการ์ด
+- **Textarea:** `<textarea>` สูง 116px และ resize ถูกปิดทั้งระบบ (`tokens.css`)
+- **ห้าม** ใส่ inline style เรื่องความสูงหรือขอบ
+
+### 4.3 ตัวเลข / ราคา / จำนวน
+```tsx
+<input className="num" inputMode="decimal" value={draft.basePrice}
+  aria-invalid={Boolean(errors.basePrice)} onChange={...} />
+```
+- **ประเภทข้อมูล:**
+  - ราคาใช้ `inputMode="decimal"`
+  - จำนวนหรือน้ำหนักใช้ `inputMode="numeric"`
+  - ใส่ `className="num"` เสมอ เพื่อให้ได้ฟอนต์ mono แบบ tabular
+- **ห้ามใช้** `type="number"` (ฟอร์มต้นแบบเก็บค่าเป็น string แล้ว validate เอง)
+- **แสดงเงิน:** ใช้ `formatBaht` จาก `components/cart/cartFormat`
+
+### 4.4 Select / Dropdown (มีตัวค้นหา)
+**มาตรฐานคือ `SearchableSelect`** (`components/SearchableSelect.tsx`, CSS อยู่ใน `styles/thai-address.css`)
+```tsx
+import SearchableSelect from "../components/SearchableSelect";
+<SearchableSelect
+  label={t("catalog.form.category")}
+  placeholder={t("catalog.form.categoryPh")}
+  options={categories.map((c) => labelForCategory(c, locale))}   // string[] (label-based)
+  value={selectedLabel}
+  onChange={(picked) => setDraft({ ...draft, categoryId: idFromLabel(picked) })}
+  /* required, error, field, onBlur, disabled, compact, portal (ใช้ในตาราง/drawer), loading */
+/>
+```
+- **ทางเลือกอื่น:**
+  - ถ้าต้องการ select แบบ `{ value, label }` ให้ใช้ helper `labelOf` / `valueOf` / `uniqueOptions` จาก `components/merchant/selectOptions.ts`
+  - หน้า admin ใช้ `import AdminSelect from '../components/admin/AdminSelect'` (wrapper value-based ของ SearchableSelect)
+- **Native select:**
+  - `FormSelect` ใช้ได้กับรายการสั้นมากในฟอร์มแบบ `.form-field`
+  - ห้ามสร้าง dropdown/combobox ตัวใหม่
+
+### 4.5 Toggle / Switch, Checkbox, Radio
+
+#### 4.5.1 Toggle มาตรฐาน: `ToggleSwitch` (ใช้ตัวนี้ตัวเดียว)
+- **ไฟล์:** `components/form/ToggleSwitch.tsx`
+- **CSS:** `.toggle-switch`, `.toggle-switch-track`, `.toggle-switch-text` ใน `styles/form-fields.css`
+- **ขนาด:** track 36×20, ปุ่มกลม 16px, เลื่อน 16px
+- **สี:** ตอนเปิดใช้ `var(--pm-blue)`, ตอนปิดใช้ `#dce2eb`
+- **Focus:** `var(--focus-ring)`
+- **Disabled:** ใช้ `:has(input:disabled)` → opacity .55 และ cursor not-allowed
+- **ใช้ล่าสุดที่:**
+  - `/merchant/settings` แท็บการแจ้งเตือน (`SettingsNotificationsPanel.tsx`) ทั้งในตารางและใน drawer
+  - `/merchant/products/new` (`ProductFormPage`, `VariantEditor`)
+```tsx
+import ToggleSwitch from "../components/form/ToggleSwitch";
+<ToggleSwitch
+  checked={enabled}
+  disabled={!canManage || saving}          // disabled = ทั้ง track + ข้อความจางลงอัตโนมัติ
+  label="เปิดช่องทางแชท"                     // aria-label (ต้องบอกว่าเปิด/ปิดอะไร)
+  onText="เปิด" offText="ปิด"               // ข้อความข้าง track (merchant ใช้ t(...))
+  onChange={(next) => setEnabled(next)}
+/>
+```
+- **ข้อควรระวัง: `--pm-blue`**
+  - ตัวแปรนี้ประกาศไว้แค่ใน `.pm-shell`, `.om-shell`, `.cm-shell` และ `.pm-pagination` ไม่ได้อยู่ใน `.admin-shell` หรือหน้า public
+  - ถ้าใช้ `ToggleSwitch` นอก shell เหล่านี้ ตอนเปิด track จะไม่มีสีฟ้า
+  - วิธีแก้ที่ถูก: ทำ fallback ที่ `form-fields.css` เป็น `background: var(--pm-blue, #087bf5)` (แก้ครั้งเดียวที่ไฟล์กลาง)
+  - ห้ามเขียน toggle CSS ใหม่ในหน้า
+- **Layout แบบ toggle + ข้อความ/คำอธิบาย:** ใช้ pattern แถวของ `.notif-toggle-row` (ใน `styles/settings.css`, ล่าสุด)
+  ```tsx
+  <div className="notif-toggle-row">               {/* flex, space-between, gap 16, min-h 40, pad 10/12, radius 8, bg #f5faff, border #e3edf6 */}
+    <span className="notif-toggle-copy">เปิดช่องทางแชท<br/><small className="pm-lang-hint">แสดงปุ่มแชทในหน้า /help</small></span>
+    <ToggleSwitch … />
+  </div>
+  ```
+  - ข้อความอยู่ซ้าย toggle อยู่ขวาสุด และทุกแถวต้องจัดแนวขวาตรงกัน
+- **Toggle บนหัวการ์ด (เปิด/ปิดทั้งการ์ด):**
+  - วาง `ToggleSwitch` ไว้ขวาสุดของ header การ์ด ในแถวเดียวกับหัวข้อ
+  - เมื่อปิด ให้ disable ช่องในการ์ด และคงขนาดการ์ดไว้ (ห้ามซ่อนช่องจนการ์ดเตี้ยลง)
+- **ตัวเก่าที่ห้ามใช้ในงานใหม่** (ตัวที่มีอยู่แล้วคงไว้ได้ แต่ถ้าแก้หน้านั้นให้ย้ายมาใช้ `ToggleSwitch`):
+  - `<button role="switch" className={on?"on":""}><i/></button>` ใน `.toggle-row` / `.toggle-row.shop-settings-toggle` (`settings.css`; อยู่ใน `SettingsPage.tsx` `Toggle`, `PaymentSettings.tsx`, `ShippingMethodsSettings.tsx`)
+  - `.hc-switch` (`admin-help-center.css`; อยู่ใน `AdminHelpCenterPage`, `AdminArticlesPage`)
+  - `.theme-trust-toggle` / `.sh-toggle` (ใช้เฉพาะ theme editor/shipping)
+  - ห้ามสร้าง switch ใหม่ทุกกรณี
+
+#### 4.5.2 ตัวเลือกแบบการ์ด (radio card)
+ใช้ `.sale-types` จาก `styles/sale-types.css` ตามช่อง "ประเภทสินค้า":
+```tsx
+<fieldset>
+  <legend>{t("catalog.form.type")}</legend>
+  <div className="sale-types">
+    <button type="button" className={active ? "active" : ""} onClick={…}>
+      <i>{active ? <Check /> : null}</i><Package /><span><b>สินค้าเดี่ยว</b></span>
+    </button>
+  </div>
+</fieldset>
+```
+
+#### 4.5.3 Checkbox / Radio
+- **Checkbox:** ใช้ `<input type="checkbox" aria-label=…>` ปกติ
+  - ในตาราง ขนาดเป็น 16×16 radius 4 ผ่าน `.product-form-card .pm-table-scroll input[type="checkbox"]`
+  - ใน `.hours-list` ใช้ `accent-color:#087bf5`
+- **Radio:** ใช้ `.sale-types` แทน (native radio มีใช้แค่ใน Checkout/BestSeller) และห้ามสร้างคอมโพเนนต์ radio ใหม่
+
+### 4.6 วันที่ / วันที่+เวลา / เวลา / เวลาทำการ (ต้องเป็น Dialog picker เท่านั้น)
+
+**กฎ:** การเลือกวันที่ วันที่+เวลา เวลา และเวลาทำการ (เปิด–ปิด) ต้องใช้ picker แบบ dialog/popover ที่ใช้ในหน้า `/merchant/orders/:orderId` (drawer ยืนยันจัดส่ง → "วันที่จัดส่ง")
+- **ห้ามใช้:**
+  - input ข้อความธรรมดาที่ให้พิมพ์เวลาเป็นประโยค เช่น "จ.–ศ. 08:00 - 18:00"
+  - `<input type="date">`
+  - `<input type="time">`
+  - `<input type="datetime-local">`
+- **Legacy ที่ห้ามทำตาม:**
+  - `<input type="date">` ใน `AdminPayoutsPage.tsx`
+  - `<input type="time">` ใน `components/merchant/ShopHoursEditor.tsx` (`.hours-list`)
+- **ทุกอย่างที่ต้องใช้อยู่ในหัวข้อนี้แล้ว ไม่ต้องเปิดหน้า orders อ่านซ้ำ**
+
+#### 4.6.1 คอมโพเนนต์จริง
+| ใช้กับ | คอมโพเนนต์ | ไฟล์ / import |
+|---|---|---|
+| วันที่เดียว | `DatePicker` (ปุ่ม trigger + panel ปฏิทิน มีเมนูเดือน/ปี; ไทยแสดง พ.ศ.) | `import DatePicker from "../components/form/DatePicker"` (CSS `styles/date-picker.css`) |
+| **เวลาอย่างเดียว (HH:mm)** | `ShipTimePicker` (ช่องพิมพ์ HH:mm + ปุ่มนาฬิกา เปิด panel `role="dialog"`) | `import { ShipTimePicker } from "../components/merchant/ShipDateTimeFields"` |
+| วันที่ + เวลา (การ์ดครบชุด) | `OrderDateTimeField` = preset pills + `DatePicker compact` + `ShipTimePicker` + preview | `import { OrderDateTimeField, shipNowInput, splitShippedAt, joinShippedAt } from "../components/merchant/ShipDateTimeFields"` |
+| ช่วงวันที่ (filter) | `DateRangePicker` / admin ใช้ `AdminDateRange` | `components/form/DateRangePicker.tsx`, `components/admin/AdminDateRange.tsx` |
+- **CSS ของ time picker** อยู่ใน `styles/order-management.css` (class เป็น global ไม่ผูกกับ shell)
+  - ต้อง `import "../styles/order-management.css"` ในหน้าที่ใช้ ถ้าหน้านั้นยังไม่ได้ import
+  - หน้า admin ที่ใช้ `AdminDetailDrawer` มี CSS นี้อยู่แล้ว
+
+#### 4.6.2 `ShipTimePicker` (time-only): props และพฤติกรรม
+```ts
+ShipTimePicker({
+  label: string;          // ป้ายเหนือช่อง + aria-label ของ dialog
+  value: string;          // "HH:mm" (24 ชม.)
+  onChange: (time: string) => void;   // ได้ "HH:mm" เสมอ
+  hourLabel: string;      // "ชั่วโมง"
+  minuteLabel: string;    // "นาที"
+  applyLabel: string;     // "ใช้เวลานี้"
+  periodLabels: Record<"night"|"morning"|"afternoon"|"evening", string>; // ดึก/เช้า/บ่าย/เย็น
+})
+```
+- **Markup (class จริง):**
+  - wrapper `.om-ship-time` (+`.open`) → `.om-ship-time-label` → `.om-ship-time-control` ที่มีข้างใน:
+    - `input.om-ship-time-input` (placeholder `HH:mm`, inputMode numeric)
+    - `button.om-ship-time-toggle` (`aria-haspopup="dialog"`, ไอคอน `Clock3`)
+  - **Panel:** portaled ไปที่ `document.body` เป็น `.om-ship-time-panel` (`role="dialog"`, position fixed, z-index 220, กว้าง ≤300px, radius 18) ประกอบด้วย:
+    - `.om-ship-time-preview` (เวลาใหญ่ 24px mono)
+    - `.om-ship-time-periods` (แท็บ 4 ช่วง: ดึก 00–05 / เช้า 06–11 / บ่าย 12–17 / เย็น 18–23)
+    - `.om-ship-time-columns`: คอลัมน์ชั่วโมงกับนาที (`.om-ship-time-list`, ปุ่ม `.active`)
+    - `.om-ship-time-apply`
+- **ขนาดและสี:**
+  - control สูง 44px, radius 11, ขอบ `#d5e0ee`
+  - hover/open/focus: ขอบ `#087bf5` + เงา `0 0 0 3px rgba(8,123,245,.16)`
+- **นาทีเลือกได้ทีละ 15** (00/15/30/45)
+  - กดเลือกนาทีแล้วจะ commit และปิดทันที; ปุ่ม Apply ก็ commit ได้
+  - พิมพ์ในช่องได้เช่น `0930` → `09:30` (commit ตอน blur/Enter; ถ้าค่าไม่ถูกจะคืนค่าเดิม)
+- **ปิด panel ได้ด้วย** Esc หรือคลิกนอก panel
+- **ข้อจำกัดปัจจุบัน:**
+  - ไม่มี prop `disabled`, `error`, `min`
+  - ถ้าต้องใช้ ให้ **เพิ่ม optional prop ในไฟล์เดิม** (backward compatible) ห้าม copy ไปสร้าง picker ใหม่
+  - ระหว่างที่ยังไม่มี `disabled` ให้แสดงข้อความ "ปิด" แทน picker เมื่อวันนั้นปิด
+  - error ให้แสดงด้วย `<FieldError>` ใต้แถว
+
+```tsx
+import { ShipTimePicker } from "../components/merchant/ShipDateTimeFields";
+import "../styles/order-management.css";
+
+const TIME_LABELS = {
+  hourLabel: "ชั่วโมง", minuteLabel: "นาที", applyLabel: "ใช้เวลานี้",
+  periodLabels: { night: "ดึก", morning: "เช้า", afternoon: "บ่าย", evening: "เย็น" },
+};  // merchant: t("orderManagement.drawer.shippedAtHour") … / shippedAtPeriod.*
+
+<ShipTimePicker label="เวลาเปิด" value={open} onChange={setOpen} {...TIME_LABELS} />
+```
+
+#### 4.6.3 ช่วงเวลา (เปิด–ปิด)
+- วาง `ShipTimePicker` 2 ตัวในกริด `.om-ship-datetime-row` (2 คอลัมน์เท่ากัน gap 10px; ≤560px กลายเป็น 1 คอลัมน์)
+- **Validate:** `close > open` (เทียบ string "HH:mm" ได้ตรง ๆ)
+  - ไม่รองรับข้ามเที่ยงคืน และห้ามใช้ "24:00"
+  - ถ้าผิดให้ใช้ error code `TIME_RANGE_INVALID` และแสดง `<FieldError>` ใต้แถว
+```tsx
+<div className="om-ship-datetime-row">
+  <ShipTimePicker label="เปิด" value={range.open} onChange={(open) => setRange({ ...range, open })} {...TIME_LABELS} />
+  <ShipTimePicker label="ปิด" value={range.close} onChange={(close) => setRange({ ...range, close })} {...TIME_LABELS} />
+</div>
+<FieldError text={range.close <= range.open ? "เวลาปิดต้องหลังเวลาเปิด" : undefined} />
+```
+
+#### 4.6.4 วันที่ + เวลา (ทั้งการ์ด)
+```tsx
+<OrderDateTimeField
+  value={shippedAt}                         // "yyyy-MM-ddTHH:mm" (เวลาไทย); ว่าง = ""
+  onChange={setShippedAt}
+  localeTag={localeTag}
+  title="วันที่จัดส่ง" hint="เลือกด่วน หรือระบุวันและเวลาเอง (เวลาประเทศไทย)"
+  presetsLabel="เลือกเวลารวดเร็ว" nowLabel="ตอนนี้"
+  dateLabel="วันที่" timeLabel="เวลา" hourLabel="ชั่วโมง" minuteLabel="นาที"
+  applyLabel="ใช้เวลานี้" selectedLabel="จะบันทึกเป็น" datePlaceholder="เลือกวันที่จัดส่ง"
+  error={fieldErrors.shippedAt} /* maxDate="yyyy-MM-dd" (default = วันนี้) */
+  periodLabels={{ night: "ดึก", morning: "เช้า", afternoon: "บ่าย", evening: "เย็น" }}
+  presetLabels={{ "0900": "09:00", "1200": "12:00", "1500": "15:00", "1800": "18:00" }}
+/>
+```
+- **ค่าเริ่มต้นของ `maxDate` คือวันนี้** เพราะออกแบบมาสำหรับเหตุการณ์ที่เกิดขึ้นแล้ว ถ้าต้องเลือกวันในอนาคต ให้ส่ง `maxDate` เอง
+- **วันที่เดียว:** `<DatePicker label required value={iso} min max error placeholder onChange compact? className? />`
+  - ค่าเป็น `yyyy-MM-dd`
+  - ตัวอย่างจริงอยู่ใน `OwnerInfoPage.tsx`
+
+#### 4.6.5 Pattern "เวลาทำการ" (Business hours) มาตรฐาน
+**การเก็บข้อมูล:** ต้องเป็นโครงสร้าง ห้ามเก็บเป็นข้อความอิสระหรือแยกตามภาษา
+- shape เดียวกับ `ShopHour` ใน `services/api.ts`: `{ open: boolean; start: "HH:mm"; end: "HH:mm" }[7]`
+  - index 0 = จันทร์ ไปจนถึง 6 = อาทิตย์ (ตาม `DAY_NAMES` ใน `ShopHoursEditor.tsx`)
+- ข้อความที่แสดงผล (เช่น "จ.–ศ. 08:00–18:00") ให้ **format ตอนแสดง** ตามภาษา ห้ามให้ผู้ใช้พิมพ์เอง
+
+**UI** (ใช้ markup `.hours-list` จาก `styles/settings.css` แต่ช่องเวลาใช้ `ShipTimePicker`):
+```tsx
+<div className="om-ship-presets" role="group" aria-label="ตั้งค่าด่วน">     {/* pill buttons; .active = เลือกอยู่ */}
+  <button type="button" onClick={() => applyPreset("weekdays")}>จ.–ศ.</button>
+  <button type="button" onClick={() => applyPreset("everyday")}>ทุกวัน</button>
+  <button type="button" onClick={copyFirstOpenToAll}>ใช้เวลาเดียวกันทุกวัน</button>
+</div>
+<ul className="hours-list">
+  {DAY_NAMES.map((day, i) => (
+    <li key={day}>
+      <label>
+        <input type="checkbox" checked={hours[i].open} disabled={!canEdit} onChange={() => patch(i, { open: !hours[i].open })} />
+        <b>{day}</b>
+      </label>
+      {hours[i].open ? (
+        <>
+          <ShipTimePicker label={`เวลาเปิด${day}`} value={hours[i].start} onChange={(start) => patch(i, { start })} {...TIME_LABELS} />
+          <span>ถึง</span>
+          <ShipTimePicker label={`เวลาปิด${day}`} value={hours[i].end} onChange={(end) => patch(i, { end })} {...TIME_LABELS} />
+        </>
+      ) : <span className="pm-lang-hint hours-closed">ปิดทำการ</span>}   {/* CSS หน้า: .hours-list .hours-closed{grid-column:2/-1} */}
+    </li>
+  ))}
+</ul>
+```
+- **Layout แถว:** `.hours-list li` = grid `128px | 1fr | 24px | 1fr`, min-h 48, ขอบ `#e3edf6` ทำให้ช่องเปิด/ปิดกว้างเท่ากันทุกแถว
+- **ซ่อน label ซ้ำ:** ถ้าไม่ต้องการ label ของ `ShipTimePicker` ซ้ำทุกแถว ให้ซ่อน `.om-ship-time-label` ด้วย class `visually-hidden` ใน CSS ของหน้า (ยัง accessible)
+- **Validate (frontend + backend):**
+  - ทุกวันที่เปิดต้องมี `start < end` (`HH:mm` 00:00–23:59)
+  - ต้องเปิดอย่างน้อย 1 วันเมื่อช่องทางนั้นเปิดใช้งาน
+- **Day chips แบบย่อ** (ถ้าพื้นที่แคบและทุกวันใช้เวลาเดียวกัน):
+  - ใช้ pill `.om-ship-presets button` (+`.active`) 7 ปุ่ม `จ อ พ พฤ ศ ส อา` ตามด้วย range `.om-ship-datetime-row` 1 ชุด
+  - เก็บเป็น `{ days: number[] (0=จันทร์), open: "HH:mm", close: "HH:mm" }`
+
+### 4.7 อัปโหลดไฟล์ / รูป
+- **รูปสินค้า:**
+  ```tsx
+  import ProductImagesField from "../components/merchant/ProductImagesField";
+  ```
+  - class ที่ใช้: `.pm-images`, `.pm-drop` (+ `.over`), `.pm-image-grid`
+  - รับไฟล์ `accept="image/jpeg,image/png,image/webp,…"` มี drag & drop และกำหนดรูปหลักได้
+- **โดเมนอื่น:**
+  - งานธีม/แบนเนอร์ใช้ `components/merchant/ThemeMediaPicker.tsx`
+  - เอกสาร/สลิปใช้ `DocumentFilePreview.tsx` / `SlipPreview.tsx` ตามหน้าที่มีอยู่
+- **ห้าม**สร้าง dropzone ใหม่ ให้ใช้ class `.pm-drop` และ `.pm-image-grid` แทน
+
+### 4.8 Validation display (touched + save-attempt)
+- **Pattern ของ ProductFormPage:**
+  - ตอนกดบันทึกให้ `setSubmitAttempt(n+1)` แล้วเรียก `validateDraft(...)` ได้ `errors: Record<field, code>`
+  - แสดงผลด้วย `aria-invalid` + `<FieldError text={t(\`catalog.errors.${code}\`)} />`
+- **Error จาก server:**
+  - `ApiError.fieldErrors` แปลงเป็น key แบบ `skus[0].price` แล้วนำไปแสดงที่ช่องนั้น
+  - ข้อความรวมแสดงใน toast `tone="fail"`
+- **Pattern ของ VariantEditor (ระดับแถว):**
+  - error จะแสดงเมื่อ `submitAttempted` เป็นจริง **หรือ** ช่องนั้นถูก touch แล้ว (`onBlur`/`onChange` เรียก `touch(rowKey, field)`)
+  - error บางรหัส (`IMMEDIATE_CODES`) แสดงทันทีโดยไม่ต้องรอ
+- **หลังกดบันทึกแล้วไม่ผ่าน:** เลื่อนไปยังจุดแรกที่ผิดด้วย `scrollIntoView({ behavior: "smooth", block: "center" })`
+- **ออกจากหน้าระหว่างแก้:** เมื่อฟอร์มยังไม่บันทึก (dirty) ให้ใช้ `useBlocker` + `ConfirmDialog` (leaveTitle/leaveBody) และ `beforeunload`
+- **ห้าม** validate ตั้งแต่โหลดหน้า และห้ามแสดง error ก่อนผู้ใช้ touch ช่องหรือกดบันทึก
+
+---
+
+## 5. Dialog / Modal / Confirm
+```tsx
+import ConfirmDialog from "../components/form/ConfirmDialog";   // CSS: .pm-dialog ใน product-management.css
+{open && (
+  <ConfirmDialog
+    title={t("catalog.variants.confirmStockTitle")}
+    message={t("catalog.variants.confirmStockBody")}
+    cancelLabel={t("catalog.actions.cancel")}
+    confirmLabel={t("catalog.actions.confirm")}
+    danger                       /* ปุ่มยืนยันสีแดง (ลบ/ทำลายข้อมูล) */
+    confirmDisabled={busy}
+    onCancel={() => setOpen(false)}
+    onConfirm={doIt}
+  >{/* children: ช่องกรอกเหตุผล/ตารางเล็ก ได้ */}</ConfirmDialog>
+)}
+```
+- **พฤติกรรมที่มีให้แล้ว:**
+  - focus trap
+  - Esc เท่ากับยกเลิก
+  - focus เริ่มที่ปุ่มยกเลิก
+  - backdrop ใช้ `#08245d55`
+  - กล่องกว้างสูงสุด 440px, radius 14
+  - บนมือถือ ปุ่มเรียงแนวตั้งเต็มความกว้าง
+- **Admin:**
+  - ขอเหตุผลใช้ `components/admin/ReasonDialog.tsx`
+  - ฟอร์ม dialog ใช้ `.admin-management-dialog` (footer button styles อยู่ใน product-management.css)
+- **ห้ามใช้** `window.confirm`/`alert` และห้ามสร้าง modal ใหม่
+
+## 6. Alert / Inline notice / Toast
+| ใช้เมื่อ | ใช้ตัวนี้ |
+|---|---|
+| Toast หน้า merchant | `<MerchantShell notice={text} tone="ok" \| "fail">` → `.catalog-toast` (`.ok`/`.fail`/`.warning`) มุมขวาล่าง (ตั้ง timer ล้าง `notice` เอง) |
+| Toast หน้า admin | `{notice && <div className="admin-toast" role="status">{notice}</div>}` (หน้า admin-platform บางหน้าใช้ `.ap-toast`; ให้ทำตามหน้านั้น) |
+| Error ระดับฟอร์ม | `<p className="form-alert" role="alert">` (พื้น `--color-danger-bg`) หรือ `<p className="form-field-error">` |
+| Error ที่ช่อง | `<FieldError text=… />` → `.signup-field-error` + ไอคอน `CircleAlert` |
+| โหลดข้อมูลไม่สำเร็จ + ปุ่มลองใหม่ | `import { LoadError } from "../components/feedback/Skeleton"` → `<LoadError message={…} onRetry={…} retryLabel={…} />` (`.feedback-error`) |
+| Badge/สถานะ | `.pm-translation-badge`, `.om-pill` / `.om-badge` (orders), `.ap-pill ok\|warn\|info\|muted` (admin) |
+- ไม่มีคอมโพเนนต์ `Alert`/`Banner` กลางในโปรเจกต์ ให้ใช้ class ในตารางด้านบน ห้ามสร้างใหม่ถ้าไม่ได้ขอ
+- ห้ามใช้ toast สีอื่นนอกจาก `--color-success`/`--color-danger`/`--color-warning`/navy
+
+## 7. Drawer (แผงเลื่อนจากขวา)
+- **Merchant (อ้างอิง /merchant/orders/:orderId):**
+  - ใช้ `components/merchant/MerchantOrderDrawer.tsx` และ `ShipmentDrawer.tsx`
+  - CSS อยู่ใน `styles/order-management.css` + `customer-management.css` + `shipping.css`
+  ```tsx
+  createPortal(
+    <div className="om-drawer-overlay cm-drawer-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <aside className="om-drawer cm-detail" role="dialog" aria-modal="true" aria-label={title}>
+        <header className="cm-detail-head">…<button type="button" className="om-drawer-close" aria-label="ปิด" onClick={onClose}><X aria-hidden="true" /></button></header>
+        <div className="om-drawer-body cm-detail-body">…</div>
+        <div className="om-drawer-actions">…ปุ่ม…</div>
+      </aside>
+    </div>, document.body)
+  ```
+  - กว้าง `min(560px,100%)` และ overlay ใช้ `rgba(8,36,93,.38)`
+  - Esc ต้องปิด drawer (แต่ถ้ามี `.pm-dialog` เปิดอยู่ให้ข้าม) และต้องล็อก body scroll ระหว่างเปิด
+  - ตอนโหลดใช้ `Skeleton`; ตอน error ใช้ `LoadError`
+- **Admin:**
+  - ใช้ `components/admin/AdminDetailDrawer.tsx`
+    - props หลัก: `title`, `meta`, `headerActions`, `tabs`, `activeTab`, `onTabChange`, `footer`, `wide`
+  - หรือใช้ `AdminSidePanel` ซึ่งมี 2 แบบ: `variant="drawer"` และ `variant="aside"` (เป็น wrapper ของตัวเดียวกัน)
+- **ห้าม**สร้าง drawer หรือ side panel ใหม่
+
+## 8. Table
+ต้นแบบมาจากตาราง SKU ใน `/merchant/products/new` และตาราง variant ใน `/merchant/products/:productId/edit` (`VariantEditor`)
+```tsx
+<div className="pm-detail variant-sku-panel">
+  <div className="pm-table-scroll variant-sku-scroll">
+    <table className="variant-sku-table">
+      <thead><tr>
+        <th className="col-check"><input type="checkbox" aria-label="เลือกทั้งหมด" … /></th>
+        <th className="col-sku"><span className="pm-lang-label">SKU <em>*</em></span></th>
+        <th className="col-money"><span className="pm-lang-label">ราคา <em>*</em></span></th>
+        <th className="col-qty"><span className="pm-lang-label">สต็อก</span></th>
+        <th className="col-active"><span className="pm-lang-label">เปิดขาย</span></th>
+      </tr></thead>
+      <tbody>
+        <tr id={`variant-row-${i}`} className={removed ? "variant-removed" : active ? undefined : "variant-inactive"}>
+          <td className="col-money">
+            <input className="num" inputMode="decimal" aria-label={`ราคา ${rowName}`} aria-invalid={Boolean(err)} … />
+            <FieldError text={msg(err)} />
+          </td>
+          …
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+```
+- **ตารางแบบง่าย (สินค้าเดี่ยว):**
+  ```tsx
+  <div className="pm-detail">
+    <div className="pm-table-scroll">
+      <table>…</table>
+    </div>
+  </div>
+  ```
+  - หัวตารางพื้น `#edf6fd`, cell padding 12px 14px, เส้นคั่น `#e6eef6`
+  - แถวที่เลือกใช้ `tr.is-selected`; ตัวเลขขึ้น/ลงใช้ `td.is-up` / `td.is-down`
+- **กฎ:**
+  - input ในตารางต้องมี `aria-label` ที่บอกทั้งคอลัมน์และชื่อแถว
+  - หัวคอลัมน์ที่บังคับกรอกใส่ `<em>*</em>`
+  - ตารางกว้างให้เลื่อนผ่าน `.pm-table-scroll`
+- **ตารางรายการ (list page):**
+  - ใช้ `.pm-table-wrap` ตามหน้า `ProductManagementPage.tsx`
+  - บนมือถือ (≤760px) ตารางจะซ่อนแล้วแสดง `.pm-cards` แทน
+  - แบ่งหน้าด้วย `components/merchant/MerchantPagination.tsx` (`list-pagination.css`)
+- **Admin table:** ทำตามหน้า admin ที่ใกล้ที่สุด (เช่น `AdminHelpCenterPage` ที่ใช้ `ap-card` / `ap-card-head` / `ap-pill`)
+
+## 9. Empty state
+| พื้นที่ | ใช้ตัวนี้ |
+|---|---|
+| Public/Customer (/shops, /cart, บัญชีลูกค้า ฯลฯ) | `import EmptyState from "../components/feedback/EmptyState"` |
+| Merchant panel (report/finance) | `import MerchantPanelEmpty from "../components/merchant/MerchantPanelEmpty"` → `.merchant-panel-empty` |
+| Merchant list/403/404 | `.pm-state` |
+```tsx
+<EmptyState icon={ShoppingCart} title={t("cart.empty")} description={t("cart.emptyDesc")}
+  action={{ label: t("cart.shopNow"), to: "/recommendations" }}
+  actions={[{ label: "ดูร้านค้า", to: "/shops" }]}
+  variant="empty" /* "filtered" | "error" (error ใช้ AlertTriangle + role=alert อัตโนมัติ) */ />
+```
+- `EmptyState` ได้ class `.shop-list-empty .shop-list-none` จาก `shop-page.css`
+  - layout: ไอคอน 42px สี `#8aa0bd`, หัวข้อ 16px/700, คำอธิบาย `.empty-state-desc`, ปุ่ม `.empty-state-action`
+- **ห้าม**ใส่ `size`/`strokeWidth` ให้ไอคอน และห้ามสร้าง empty-state component ใหม่
+
+## 10. Loading / Skeleton
+```tsx
+import { SkeletonForm, SkeletonTable, SkeletonCard, SkeletonText, Skeleton, SkeletonBusy, LoadError } from "../components/feedback/Skeleton";
+import { useDelayedLoading } from "../hooks/useDelayedLoading";
+const { showSkeleton, markHasData } = useDelayedLoading(loading, 150, resetKey);
+{showSkeleton && loading ? <SkeletonForm fields={8} /> : error ? <LoadError … /> : <Form />}
+```
+- **ใช้ skeleton ให้ตรงกับเนื้อหา:**
+  - ฟอร์มใช้ `SkeletonForm`
+  - ตาราง/list ใช้ `SkeletonTable rows cols`
+  - การ์ดสินค้าใช้ `SkeletonCard`
+  - ตอนรีเฟรชข้อมูลเดิมใช้ `SkeletonBusy refetching`
+- **Spinner ในปุ่ม:** `<LoaderCircle className="pm-spin" />`
+- **ห้าม**ทำ spinner เต็มหน้าแบบใหม่ (หน้า admin ตอนตรวจสิทธิ์ใช้ `<main className="auth-loading">` อยู่แล้ว)
+
+## 11. Responsive
+- **breakpoint ที่ใช้จริง** (เรียงจากที่ใช้บ่อย): `720px`, `760px`, `900px`, `1100px` (นอกจากนี้มี `640px`, `1024px`, `1280px`, `1400px`)
+- **หน้า merchant ที่ใช้ `.pm-*`:** ใช้ **760px** และ **900px**
+  - ≤760px:
+    - `.product-form-card` padding 18px 14px
+    - `.merchant-two`, `.sale-types`, `.variant-group-grid`, `.variant-bulk` เปลี่ยนเป็น 1 คอลัมน์
+    - `.pm-heading` เรียงแนวตั้ง
+    - `.pm-actions` เต็มความกว้าง
+    - ปุ่ม dialog เรียงแนวตั้ง
+    - ตารางรายการเปลี่ยนเป็น `.pm-cards`
+  - ≤900px: sidebar ย่อ (`.pm-content` padding-left 84px)
+- **ปรับ responsive ใน CSS ของหน้านั้น** โดยใช้ breakpoint ด้านบน และ `@media (prefers-reduced-motion: reduce)` สำหรับ animation
+- **ห้าม**เพิ่ม breakpoint ค่าแปลกใหม่
+
+## 12. CSS conventions
+- **Prefix ตามโดเมน:** `pm-` (products/catalog), `om-` (orders), `cm-` (customers), `sh-` (shipping), `ap-`/`adm-` (admin platform), `hc-` (admin help center), `shop-` (storefront)
+- **ไฟล์ CSS:** ให้ import CSS ของโดเมนนั้นในหน้า (เช่น `import "../styles/form-fields.css"`) ถ้าต้องเพิ่ม style ให้ใส่ในไฟล์ CSS ของโดเมนเดิม หรือสร้างไฟล์ใหม่ใน `styles/` เมื่อเป็นหน้าใหม่จริง ๆ
+- **ห้าม:**
+  - inline style สำหรับสี/ขอบ/ระยะ (ยกเว้นค่า dynamic)
+  - `!important` ใหม่
+  - สร้าง design token ชุดใหม่ซ้ำกับของเดิม
+- **สีในหน้าร้าน (theme):** ใช้ `var(--shop-xxx, <fallback จาก palette เดิม>)`
+
+## 13. สิ่งที่ไม่มีในโปรเจกต์ (ห้ามสร้างเองถ้าไม่ได้ขอ)
+- **Time picker ที่ไม่ผูกกับ order** ไม่มี → ใช้ `ShipTimePicker` จาก `components/merchant/ShipDateTimeFields.tsx` (เพิ่ม optional prop ได้ ห้าม copy)
+- **Radio group component** ไม่มี → ใช้ `.sale-types` (radio card) แทน
+- **Alert/Banner component กลาง** ไม่มี → ใช้ `.form-alert` / `LoadError` / toast
+- **Tooltip และ Popover กลาง** ไม่มี → ใช้ `title=` ไปก่อน (popover ที่มีเฉพาะตัวคือ `VariantImagePicker`)
+- **Tabs component กลาง** ไม่มี → ใช้ `.pm-tabs` (merchant) หรือ `tabs` ของ `AdminDetailDrawer` (admin)
+- **Stepper** มีแค่ `components/merchant/RegisterStepper.tsx` (ใช้ใน onboarding) และ stepper ของหน้า cart/checkout

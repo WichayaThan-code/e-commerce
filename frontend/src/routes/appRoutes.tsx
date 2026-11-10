@@ -23,6 +23,7 @@ import AdminStoresPage from "../pages/AdminStoresPage";
 import AdminApplicationsPage from "../pages/AdminApplicationsPage";
 import AdminCategoriesPage from "../pages/AdminCategoriesPage";
 import AdminHelpCenterPage from "../pages/AdminHelpCenterPage";
+import AdminSettingsPage from "../pages/AdminSettingsPage";
 import AdminArticlesPage from "../pages/AdminArticlesPage";
 import AdminPromotionsPage from "../pages/AdminPromotionsPage";
 import AdminUsersPage from "../pages/AdminUsersPage";
@@ -157,6 +158,7 @@ export const routes: RouteObject[] = [
   { path: "/admin/store-applications", element: guarded("/admin/store-applications", <AdminApplicationsPage />) },
   { path: "/admin/categories", element: guarded("/admin/categories", <AdminCategoriesPage />) },
   { path: "/admin/help-center", element: guarded("/admin/help-center", <AdminHelpCenterPage />) },
+  { path: "/admin/settings", element: guarded("/admin/settings", <AdminSettingsPage />) },
   { path: "/admin/articles", element: guarded("/admin/articles", <AdminArticlesPage />) },
   { path: "/admin/promotions", element: guarded("/admin/promotions", <AdminPromotionsPage />) },
   { path: "/admin/users", element: guarded("/admin/users", <AdminUsersPage />) },

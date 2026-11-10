@@ -317,6 +317,26 @@
   gap: 10px;
   margin-top: 7px;
 }
+.contact-grid[data-count="1"] {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 360px;
+}
+.contact-grid[data-count="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.contact-grid[data-count="3"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.contact-grid[data-count="4"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 900px) {
+  .contact-grid[data-count="3"],
+  .contact-grid[data-count="4"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: none;
+  }
+}
 .contact-grid article {
   min-height: 130px;
   border: 1px solid #dfe8f2;
@@ -357,6 +377,9 @@
   margin-top: 3px;
   min-height: 35px;
 }
+.contact-grid article small.contact-hours {
+  white-space: pre-line;
+}
 .contact-grid article button,
 .contact-grid article a {
   height: 37px;
@@ -372,11 +395,14 @@
   margin-top: 6px;
   width: 100%;
 }
+.contact-grid article.line a,
 .contact-grid article.line button {
   background: #09b956;
   border-color: #09b956;
+  color: #fff;
 }
-.contact-grid article:nth-child(n + 3) a {
+.contact-grid article.email a,
+.contact-grid article.phone a {
   background: #fff;
   color: #0879f6;
 }
@@ -457,8 +483,13 @@
   .guide-photo {
     width: 100px;
   }
-  .contact-grid {
+  .contact-grid,
+  .contact-grid[data-count="1"],
+  .contact-grid[data-count="2"],
+  .contact-grid[data-count="3"],
+  .contact-grid[data-count="4"] {
     grid-template-columns: 1fr;
+    max-width: none;
   }
   .help-section-title h2 {
     font-size: 20px;

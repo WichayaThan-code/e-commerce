@@ -14,7 +14,7 @@ export function refreshAdminStoreApplications() {
   window.dispatchEvent(new Event(STORE_APPLICATIONS_CHANGED))
 }
 
-export type AdminSection = 'home' | 'stores' | 'applications' | 'categories' | 'help-center' | 'articles' | 'promotions' | 'users' | 'roles' | 'role-assignments' | 'orders' | 'payouts' | 'audit' | 'merchants' | 'usage' | 'system-status'
+export type AdminSection = 'home' | 'stores' | 'applications' | 'categories' | 'help-center' | 'articles' | 'promotions' | 'users' | 'roles' | 'role-assignments' | 'orders' | 'payouts' | 'audit' | 'merchants' | 'usage' | 'system-status' | 'settings'
 
 const links: { key: AdminSection; label: string; href: string; icon: typeof Store }[] = [
   { key: 'stores', label: 'ร้านค้า', href: '/admin/stores', icon: Store },
@@ -32,6 +32,7 @@ const links: { key: AdminSection; label: string; href: string; icon: typeof Stor
   { key: 'role-assignments', label: 'มอบหมายบทบาท', href: '/admin/role-assignments', icon: Link2 },
   { key: 'audit', label: 'บันทึกการใช้งาน', href: '/admin/audit-logs', icon: FileCheck2 },
   { key: 'system-status', label: 'สถานะระบบ', href: '/admin/system-status', icon: Activity },
+  { key: 'settings', label: 'ตั้งค่า', href: '/admin/settings', icon: Settings },
 ]
 
 const groups: { label: string; keys: AdminSection[] }[] = [
@@ -139,11 +140,12 @@ export default function AdminSidebar({ active, className = '', showHelp = false,
       ))}
       <section>
         <h3>ระบบ</h3>
-        <button type="button" className="admin-nav-soon" title="ตั้งค่า (เร็วๆ นี้)" onClick={() => unavailable('ตั้งค่า')}>
-          <NavIcon icon={Settings} />
-          <span className="admin-nav-label">ตั้งค่า</span>
-          <em className="admin-nav-soon-tag">เร็วๆ นี้</em>
-        </button>
+        {canVisit(item('settings').href) && (
+          <a className={active === 'settings' ? 'active' : ''} href={item('settings').href} title={item('settings').label}>
+            <NavIcon icon={Settings} />
+            <span className="admin-nav-label">{item('settings').label}</span>
+          </a>
+        )}
         {extended && <>
           <button type="button" className="admin-nav-soon" title="จัดการเนื้อหา (เร็วๆ นี้)" onClick={() => unavailable('จัดการเนื้อหา')}>
             <NavIcon icon={ClipboardList} />

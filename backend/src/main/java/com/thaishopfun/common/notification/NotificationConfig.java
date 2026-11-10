@@ -29,7 +29,8 @@ public class NotificationConfig {
         var provider = properties.resolvedEmailProvider();
         switch (provider) {
             case "log" -> {
-                log.info("Email provider: log (no SMTP configured; e-mails are only logged)");
+                log.warn("Email provider: log - e-mails are NOT sent, only logged. Set NOTIFICATION_EMAIL_PROVIDER=brevo "
+                    + "(BREVO_API_KEY + MAIL_FROM) or smtp (MAIL_HOST ...) to deliver real e-mail.");
                 return new LoggingEmailSender();
             }
             case "smtp" -> {
@@ -60,8 +61,23 @@ public class NotificationConfig {
                     mail.host().trim(), mail.portOrDefault(), mail.starttlsEnabled(), mail.sslEnabled(), auth, Masking.email(from));
                 return new SmtpEmailSender(sender, from, mail.fromNameOrDefault());
             }
+            case "brevo" -> {
+                var brevo = properties.brevo();
+                if (!brevo.hasApiKey()) {
+                    throw new IllegalStateException("NOTIFICATION_EMAIL_PROVIDER=brevo requires BREVO_API_KEY");
+                }
+                var mail = properties.mail();
+                var from = mail.from() == null ? "" : mail.from().trim();
+                if (!isValidAddress(from)) {
+                    throw new IllegalStateException(
+                        "NOTIFICATION_EMAIL_PROVIDER=brevo requires MAIL_FROM to be a valid sender address verified in Brevo");
+                }
+                log.info("Email provider: brevo url={} from={}", brevo.baseUrlOrDefault(), Masking.email(from));
+                return new BrevoEmailSender(BrevoEmailSender.defaultClientBuilder(), brevo.baseUrlOrDefault(),
+                    brevo.apiKey(), from, mail.fromNameOrDefault());
+            }
             default -> throw new IllegalStateException(
-                "Unknown NOTIFICATION_EMAIL_PROVIDER '" + provider + "' (supported: smtp, log)");
+                "Unknown NOTIFICATION_EMAIL_PROVIDER '" + provider + "' (supported: brevo, smtp, log)");
         }
     }
 
@@ -88,6 +104,16 @@ public class NotificationConfig {
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(15);
         return executor;
+    }
+
+    private static boolean isValidAddress(String address) {
+        if (address == null || address.isBlank()) return false;
+        try {
+            new jakarta.mail.internet.InternetAddress(address, true).validate();
+            return address.contains("@");
+        } catch (jakarta.mail.internet.AddressException exception) {
+            return false;
+        }
     }
 
     private static String resolveFrom(NotificationProperties.Mail mail) {

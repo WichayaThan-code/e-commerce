@@ -80,9 +80,10 @@ app:
     max-login-attempts: 5
     login-lockout-minutes: 15
     password-reset-ttl-minutes: 30
-    otp-expose-code: ${OTP_EXPOSE_CODE:true} 
+    otp-expose-code: ${OTP_EXPOSE_CODE:false} 
   notification:
-    # smtp | log. Blank = smtp when MAIL_HOST is set, otherwise log (only logs, sends nothing).
+    # brevo | smtp | log. Blank = brevo when BREVO_API_KEY is set, else smtp when MAIL_HOST is set,
+    # otherwise log (only logs, sends nothing). Railway Free/Trial/Hobby block SMTP -> use brevo there.
     email-provider: ${NOTIFICATION_EMAIL_PROVIDER:}
     # log (default, sends nothing). Add real gateways in NotificationConfig#smsSender.
     sms-provider: ${SMS_PROVIDER:log}
@@ -98,6 +99,10 @@ app:
       from-name: ${MAIL_FROM_NAME:ThaiShopFun}
       starttls: ${MAIL_STARTTLS:true}
       ssl: ${MAIL_SSL:false}
+    # Brevo HTTP e-mail API (HTTPS, works where SMTP ports are blocked). Sender = MAIL_FROM / MAIL_FROM_NAME.
+    brevo:
+      api-key: ${BREVO_API_KEY:}
+      base-url: ${BREVO_API_URL:https://api.brevo.com}
   shop-team:
     # Single-use invite links (SHA-256 hashed at rest). No email send in local/dev by default —
     # create/resend responses return inviteUrl once for the actor to copy.

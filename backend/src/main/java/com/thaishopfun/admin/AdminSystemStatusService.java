@@ -191,7 +191,7 @@ public class AdminSystemStatusService {
     }
 
     private ComponentStatus checkMail() {
-        boolean configured = notification.mail() != null && notification.mail().hasHost();
+        boolean configured = !"log".equals(notification.resolvedEmailProvider());
         if (!configured) {
             return ComponentStatus.of("mail", "UNKNOWN", "not configured");
         }

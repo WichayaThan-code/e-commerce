@@ -77,6 +77,9 @@ export function ShipTimePicker({
   minuteLabel,
   applyLabel,
   periodLabels,
+  disabled = false,
+  error,
+  hideLabel = false,
 }: {
   label: string;
   value: string;
@@ -85,6 +88,12 @@ export function ShipTimePicker({
   minuteLabel: string;
   applyLabel: string;
   periodLabels: Record<ShipPeriodId, string>;
+  /** When true, blocks typing and opening the panel (backward compatible optional). */
+  disabled?: boolean;
+  /** Optional invalid state for aria-invalid / CSS. */
+  error?: string;
+  /** Keep label accessible but visually hidden (hours-list rows). */
+  hideLabel?: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const controlRef = useRef<HTMLDivElement>(null);
@@ -111,6 +120,10 @@ export function ShipTimePicker({
     setDraftHour(next.hour);
     setDraftMinute(next.minute);
   }, [open, value]);
+
+  useEffect(() => {
+    if (disabled && open) setOpen(false);
+  }, [disabled, open]);
 
   useLayoutEffect(() => {
     if (!open || !controlRef.current) {
@@ -257,8 +270,8 @@ export function ShipTimePicker({
   ) : null;
 
   return (
-    <div className={`om-ship-time${open ? " open" : ""}`} ref={rootRef}>
-      <span className="om-ship-time-label">{label}</span>
+    <div className={`om-ship-time${open ? " open" : ""}${disabled ? " is-disabled" : ""}${error ? " is-invalid" : ""}`} ref={rootRef}>
+      <span className={`om-ship-time-label${hideLabel ? " visually-hidden" : ""}`}>{label}</span>
       <div className={`om-ship-time-control${open ? " open" : ""}`} ref={controlRef}>
         <input
           className="om-ship-time-input"
@@ -267,8 +280,10 @@ export function ShipTimePicker({
           spellCheck={false}
           placeholder="HH:mm"
           aria-label={label}
+          aria-invalid={Boolean(error) || undefined}
+          disabled={disabled}
           value={text}
-          onChange={(event) => setText(formatTimeTyping(event.target.value))}
+          onChange={(event) => { if (!disabled) setText(formatTimeTyping(event.target.value)); }}
           onFocus={() => setOpen(false)}
           onBlur={commitTyped}
           onKeyDown={(event) => {
@@ -286,8 +301,9 @@ export function ShipTimePicker({
           aria-expanded={open}
           aria-label={label}
           title={label}
+          disabled={disabled}
           onMouseDown={(event) => event.preventDefault()}
-          onClick={() => setOpen((prev) => !prev)}
+          onClick={() => { if (!disabled) setOpen((prev) => !prev); }}
         >
           <Clock3 aria-hidden="true" />
         </button>

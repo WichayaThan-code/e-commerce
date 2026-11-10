@@ -38,11 +38,11 @@ public class AuthNotificationListener {
             if (event.channel() == OtpChannel.EMAIL) {
                 emailSender.send(templates.otpEmail(
                     event.destination(), event.recipientName(), event.purpose(), event.code(), event.ttlMinutes(), event.verifyLinkUrl()));
-                log.info("OTP delivered id={} purpose={} channel=EMAIL provider={} to={}",
+                log.info("{} id={} purpose={} channel=EMAIL provider={} to={}", outcome("OTP", emailSender.provider()),
                     event.otpId(), event.purpose(), emailSender.provider(), Masking.email(event.destination()));
             } else {
                 smsSender.send(templates.otpSms(event.destination(), event.purpose(), event.code(), event.ttlMinutes()));
-                log.info("OTP delivered id={} purpose={} channel=SMS provider={} to={}",
+                log.info("{} id={} purpose={} channel=SMS provider={} to={}", outcome("OTP", smsSender.provider()),
                     event.otpId(), event.purpose(), smsSender.provider(), Masking.phone(event.destination()));
             }
         } catch (RuntimeException exception) {
@@ -57,11 +57,16 @@ public class AuthNotificationListener {
     public void onPasswordResetRequested(PasswordResetRequestedEvent event) {
         try {
             emailSender.send(templates.passwordResetEmail(event.email(), event.recipientName(), event.token(), event.ttlMinutes()));
-            log.info("Password reset link delivered userId={} provider={} to={}",
+            log.info("{} userId={} provider={} to={}", outcome("Password reset link", emailSender.provider()),
                 event.userId(), emailSender.provider(), Masking.email(event.email()));
         } catch (RuntimeException exception) {
             log.error("Password reset delivery FAILED userId={} to={}: {}",
                 event.userId(), Masking.email(event.email()), exception.getMessage(), exception);
         }
+    }
+
+    /** The {@code log} providers only write to the log, so never report those messages as delivered. */
+    private static String outcome(String what, String provider) {
+        return "log".equals(provider) ? what + " NOT delivered (log-only provider)" : what + " delivered";
     }
 }

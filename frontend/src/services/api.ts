@@ -2013,6 +2013,30 @@ export const helpApi = {
   guides: (lang: string) => request<HelpGuide[]>(`/api/help/guides${queryOf({ lang })}`, { cache: 'no-store' }),
 }
 
+/** Platform support hours — day 0 = Monday … 6 = Sunday (same order as merchant ShopHour[]). */
+export type SupportContactDayHours = { day: number; open: boolean; start: string; end: string }
+export type SupportContactPublic = {
+  chat?: { url?: string | null; hours?: SupportContactDayHours[] } | null
+  line?: { id?: string | null; url?: string | null } | null
+  email?: { address?: string | null } | null
+  phone?: { number?: string | null; hours?: SupportContactDayHours[] } | null
+}
+export type SupportContactAdmin = {
+  chat: { enabled: boolean; url?: string | null; hours: SupportContactDayHours[] }
+  line: { enabled: boolean; id?: string | null; url?: string | null }
+  email: { enabled: boolean; address: string }
+  phone: { enabled: boolean; number: string; hours: SupportContactDayHours[] }
+}
+
+export const platformContactApi = {
+  get: () => request<SupportContactPublic>('/api/platform/contact', { cache: 'no-store' }),
+}
+
+export const platformSettingsAdminApi = {
+  contact: () => request<SupportContactAdmin>(adminPath('/settings/contact'), { cache: 'no-store' }, true),
+  updateContact: (body: SupportContactAdmin) => request<SupportContactAdmin>(adminPath('/settings/contact'), json('PUT', body), true),
+}
+
 export type AdminHelpTopic = {
   id: string; slug: string; icon: string; sortOrder: number; active: boolean
   titleTh: string; titleEn?: string | null; titleZh?: string | null

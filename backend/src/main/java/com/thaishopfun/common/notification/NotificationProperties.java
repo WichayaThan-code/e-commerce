@@ -1,10 +1,11 @@
 package com.thaishopfun.common.notification;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 
 /**
  * {@code app.notification.*} - bound from environment variables in {@code application.yml}
- * (NOTIFICATION_EMAIL_PROVIDER, SMS_PROVIDER, APP_FRONTEND_URL, MAIL_*).
+ * (NOTIFICATION_EMAIL_PROVIDER, SMS_PROVIDER, APP_FRONTEND_URL, MAIL_*, BREVO_*).
  */
 @ConfigurationProperties("app.notification")
 public record NotificationProperties(
@@ -12,10 +13,24 @@ public record NotificationProperties(
     String smsProvider,
     String frontendUrl,
     String resetPasswordPath,
-    Mail mail
+    Mail mail,
+    Brevo brevo
 ) {
+    @ConstructorBinding
     public NotificationProperties {
         if (mail == null) mail = new Mail(null, 587, null, null, null, null, true, false);
+        if (brevo == null) brevo = new Brevo(null, null);
+    }
+
+    /** Convenience constructor without Brevo settings (tests / SMTP-only setups). */
+    public NotificationProperties(String emailProvider, String smsProvider, String frontendUrl, String resetPasswordPath, Mail mail) {
+        this(emailProvider, smsProvider, frontendUrl, resetPasswordPath, mail, null);
+    }
+
+    /** Brevo HTTP e-mail API ({@code BREVO_API_KEY}, optional {@code BREVO_API_URL}). */
+    public record Brevo(String apiKey, String baseUrl) {
+        public boolean hasApiKey() { return apiKey != null && !apiKey.isBlank(); }
+        public String baseUrlOrDefault() { return baseUrl == null || baseUrl.isBlank() ? BrevoEmailSender.DEFAULT_BASE_URL : baseUrl.trim(); }
     }
 
     public record Mail(
@@ -35,9 +50,15 @@ public record NotificationProperties(
         public String fromNameOrDefault() { return fromName == null || fromName.isBlank() ? "ThaiShopFun" : fromName.trim(); }
     }
 
-    /** {@code smtp} or {@code log}. Blank means: {@code smtp} when MAIL_HOST is set, otherwise {@code log}. */
+    /**
+     * {@code brevo}, {@code smtp} or {@code log}. Blank means: {@code brevo} when BREVO_API_KEY is set,
+     * else {@code smtp} when MAIL_HOST is set, otherwise {@code log}.
+     */
     public String resolvedEmailProvider() {
-        if (emailProvider == null || emailProvider.isBlank()) return mail.hasHost() ? "smtp" : "log";
+        if (emailProvider == null || emailProvider.isBlank()) {
+            if (brevo.hasApiKey()) return "brevo";
+            return mail.hasHost() ? "smtp" : "log";
+        }
         return emailProvider.trim().toLowerCase();
     }
 

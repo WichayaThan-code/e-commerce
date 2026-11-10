@@ -348,7 +348,7 @@
 }
 
 .toggle-switch input:checked + .toggle-switch-track {
-  background: var(--pm-blue);
+  background: var(--pm-blue, #087bf5);
 }
 
 .toggle-switch input:checked + .toggle-switch-track::after {

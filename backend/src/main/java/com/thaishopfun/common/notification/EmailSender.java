@@ -1,13 +1,14 @@
 package com.thaishopfun.common.notification;
 
 /**
- * Delivers e-mail. Implementations: {@link SmtpEmailSender} ({@code NOTIFICATION_EMAIL_PROVIDER=smtp})
- * and {@link LoggingEmailSender} ({@code log}, the default when {@code MAIL_HOST} is blank).
+ * Delivers e-mail. Implementations: {@link BrevoEmailSender} ({@code NOTIFICATION_EMAIL_PROVIDER=brevo}, HTTP API),
+ * {@link SmtpEmailSender} ({@code smtp}) and {@link LoggingEmailSender} ({@code log}, the default when neither
+ * {@code BREVO_API_KEY} nor {@code MAIL_HOST} is set).
  * Implementations throw {@link NotificationException} when delivery fails.
  */
 public interface EmailSender {
     void send(EmailMessage message);
 
-    /** Short provider name for logs, e.g. {@code smtp} or {@code log}. */
+    /** Short provider name for logs, e.g. {@code brevo}, {@code smtp} or {@code log}. */
     String provider();
 }

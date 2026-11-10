@@ -216,7 +216,33 @@ export default function CartPage() {
       })}
     </div></section></div>}
 
-    <footer className="cart-footer"><div className="cart-width"><p><Heart/><span><b>{tp("cart.footer.thai")}</b><small>{tp("cart.footer.thaiSub")}</small></span></p><p><ShieldCheck/><span><b>{tp("cart.footer.secure")}</b><small>{tp("cart.footer.secureSub")}</small></span></p><p><Truck/><span><b>{tp("cart.footer.shipping")}</b><small>{tp("cart.footer.shippingSub")}</small></span></p><p><PackageCheck/><span><b>{tp("cart.footer.returns")}</b><small>{tp("cart.footer.returnsSub")}</small></span></p><p><Headphones/><span><b>{tp("cart.footer.help")}</b><small>{tp("cart.footer.helpSub")}</small></span><Link to="/help">{tp("cart.footer.chat")}</Link></p></div></footer>
+    <footer className="cart-footer" aria-label={tp("cart.footer.thai")}>
+      <div className="cart-width cart-footer-inner">
+        <ul className="cart-trust-list">
+          <li className="cart-trust-item">
+            <span className="cart-trust-ico tone-heart" aria-hidden="true"><Heart /></span>
+            <span><b>{tp("cart.footer.thai")}</b><small>{tp("cart.footer.thaiSub")}</small></span>
+          </li>
+          <li className="cart-trust-item">
+            <span className="cart-trust-ico tone-secure" aria-hidden="true"><ShieldCheck /></span>
+            <span><b>{tp("cart.footer.secure")}</b><small>{tp("cart.footer.secureSub")}</small></span>
+          </li>
+          <li className="cart-trust-item">
+            <span className="cart-trust-ico tone-ship" aria-hidden="true"><Truck /></span>
+            <span><b>{tp("cart.footer.shipping")}</b><small>{tp("cart.footer.shippingSub")}</small></span>
+          </li>
+          <li className="cart-trust-item">
+            <span className="cart-trust-ico tone-return" aria-hidden="true"><PackageCheck /></span>
+            <span><b>{tp("cart.footer.returns")}</b><small>{tp("cart.footer.returnsSub")}</small></span>
+          </li>
+        </ul>
+        <div className="cart-trust-help">
+          <span className="cart-trust-ico tone-help" aria-hidden="true"><Headphones /></span>
+          <span><b>{tp("cart.footer.help")}</b><small>{tp("cart.footer.helpSub")}</small></span>
+          <Link className="cart-trust-chat" to="/help">{tp("cart.footer.chat")}</Link>
+        </div>
+      </div>
+    </footer>
     {notice && <div className="cart-toast" role="status">{notice}</div>}
     {confirmRemoveSelected && (
       <ConfirmDialog

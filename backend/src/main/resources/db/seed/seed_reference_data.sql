@@ -365,3 +365,65 @@ SELECT r.id, p.id, '1.0' FROM v
   JOIN auth_roles r ON r.code = v.role_code
   JOIN auth_permissions p ON p.code = v.perm_code
 ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- 4) hub_categories: marketplace product categories (master data, ADDED BY HAND 2026-11-10 - not from generate_sql.py)
+--    Source: local TSF_DB (14 rows = the 13 rows ProductCategorySeeder.java creates + OTOP from V38).
+--    Why: on a FRESH database Flyway V38 inserts 'otop-products' first, so ProductCategorySeeder sees count() > 0 and
+--    skips the other 13 categories -> a new deploy only had OTOP. This block fills the gap.
+--    Idempotent and non-destructive: matched by slug; existing rows are NEVER updated or renumbered.
+--    Missing rows keep the same id (uuid) and category_no (public numeric id used by /api/categories) as local
+--    when those are still free; otherwise a new uuid / the next category_no is used. The identity sequence is
+--    moved past MAX(category_no) so later inserts (admin UI / seeder) do not collide.
+DO $seed_hub_categories$
+DECLARE
+  r record;
+  v_added int := 0;
+BEGIN
+  CREATE TEMP TABLE tmp_seed_hub_categories (id uuid, slug varchar(100), name_th varchar(150), name_en varchar(150),
+      name_zh varchar(150), sort_order int, category_no bigint, is_active boolean) ON COMMIT DROP;
+  INSERT INTO tmp_seed_hub_categories (id, slug, name_th, name_en, name_zh, sort_order, category_no, is_active) VALUES
+    ('4e108975-98ef-42a4-a193-1bfd28552e02'::uuid, 'fashion-apparel', 'แฟชั่นและเสื้อผ้า', 'Fashion & apparel', '时尚服装', 1, 1, true),
+    ('b5346295-2a8d-4125-8840-38ef079051c0'::uuid, 'food-beverages', 'อาหารและเครื่องดื่ม', 'Food & beverages', '食品饮料', 2, 2, true),
+    ('d26ee0ac-bc0e-4366-9a65-8c0df1339a14'::uuid, 'beauty-wellness', 'ความงามและสุขภาพ', 'Beauty & wellness', '美容健康', 3, 3, true),
+    ('031060bc-8166-4c13-ab0f-3713f6f1532e'::uuid, 'home-lifestyle', 'บ้านและไลฟ์สไตล์', 'Home & lifestyle', '家居生活', 4, 4, true),
+    ('0c727dbb-2c93-43ea-b814-a6fd1019def8'::uuid, 'thai-crafts-goods', 'สินค้าและงานฝีมือไทย', 'Thai crafts & goods', '泰国手工艺', 5, 5, true),
+    ('0aaf0b48-d02b-43e1-bb98-4fa958b3e37c'::uuid, 'electronics', 'อิเล็กทรอนิกส์', 'Electronics', '电子产品', 6, 6, true),
+    ('16cc8714-08a5-4594-89b2-58efd5a30b07'::uuid, 'sports-equipment', 'อุปกรณ์กีฬา', 'Sports equipment', '体育用品', 7, 7, true),
+    ('afba1970-3d71-415f-bd70-26f9c8eaf950'::uuid, 'mom-baby', 'แม่และเด็ก', 'Mom & baby', '母婴用品', 8, 8, true),
+    ('89bd7871-39d5-4ca0-ab3e-a3603792cff8'::uuid, 'automotive-parts', 'ยานยนต์และอะไหล่', 'Automotive parts', '汽车配件', 9, 9, true),
+    ('3cb993f9-eb65-4d2d-923b-2a516c284ff3'::uuid, 'pets', 'สัตว์เลี้ยง', 'Pets', '宠物用品', 10, 10, true),
+    ('1712a374-4023-45af-bee3-44ccfaaf2c6f'::uuid, 'home-appliances', 'เครื่องใช้ไฟฟ้า', 'Home appliances', '家用电器', 11, 11, true),
+    ('9bcfb1ac-c505-4363-b325-0d2e009a0b62'::uuid, 'books-stationery', 'หนังสือและเครื่องเขียน', 'Books & stationery', '图书文具', 12, 12, true),
+    ('d087267e-4cd2-4809-ab2d-048e70fa1c01'::uuid, 'jewelry-watches', 'เครื่องประดับและนาฬิกา', 'Jewelry & watches', '珠宝手表', 13, 13, true),
+    ('d9a15aab-f61f-4fba-9907-c511d5ea0f59'::uuid, 'otop-products', 'สินค้า OTOP', 'OTOP Products', 'OTOP 一村一品', 14, 14, true);
+
+  -- pass 1: rows whose category_no is still free keep it (and their uuid, if free)
+  FOR r IN SELECT s.* FROM tmp_seed_hub_categories s
+           WHERE NOT EXISTS (SELECT 1 FROM hub_categories h WHERE h.slug = s.slug)
+             AND NOT EXISTS (SELECT 1 FROM hub_categories h WHERE h.category_no = s.category_no)
+           ORDER BY s.category_no LOOP
+    INSERT INTO hub_categories (id, slug, name_th, name_en, name_zh, parent_id, sort_order, is_active, category_no)
+    VALUES (CASE WHEN EXISTS (SELECT 1 FROM hub_categories WHERE id = r.id) THEN gen_random_uuid() ELSE r.id END,
+            r.slug, r.name_th, r.name_en, r.name_zh, NULL, r.sort_order, r.is_active, r.category_no);
+    v_added := v_added + 1;
+  END LOOP;
+
+  PERFORM setval(pg_get_serial_sequence('hub_categories', 'category_no'),
+                 GREATEST((SELECT COALESCE(MAX(category_no), 0) FROM hub_categories), 1));
+
+  -- pass 2: rows whose category_no is already used by another slug get the next number from the sequence
+  FOR r IN SELECT s.* FROM tmp_seed_hub_categories s
+           WHERE NOT EXISTS (SELECT 1 FROM hub_categories h WHERE h.slug = s.slug)
+           ORDER BY s.category_no LOOP
+    INSERT INTO hub_categories (id, slug, name_th, name_en, name_zh, parent_id, sort_order, is_active)
+    VALUES (CASE WHEN EXISTS (SELECT 1 FROM hub_categories WHERE id = r.id) THEN gen_random_uuid() ELSE r.id END,
+            r.slug, r.name_th, r.name_en, r.name_zh, NULL, r.sort_order, r.is_active);
+    v_added := v_added + 1;
+    RAISE NOTICE 'hub_categories: % got a new category_no (local number already in use)', r.slug;
+  END LOOP;
+
+  PERFORM setval(pg_get_serial_sequence('hub_categories', 'category_no'),
+                 GREATEST((SELECT COALESCE(MAX(category_no), 0) FROM hub_categories), 1));
+  RAISE NOTICE 'hub_categories: % row(s) added, % total', v_added, (SELECT count(*) FROM hub_categories);
+END
+$seed_hub_categories$;

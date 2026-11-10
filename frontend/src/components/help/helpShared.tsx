@@ -1,7 +1,6 @@
 import type { ComponentType } from "react";
 import {
   Box,
-  CircleAlert,
   CreditCard,
   Settings,
   ShieldCheck,
@@ -10,7 +9,9 @@ import {
   Truck,
   UserRound,
 } from "lucide-react";
+import EmptyState from "../feedback/EmptyState";
 import type { HelpTopic } from "../../services/api";
+import "../../styles/shop-page.css";
 
 export type IconType = ComponentType<{ className?: string }>;
 
@@ -84,15 +85,19 @@ export function Lines({ text }: { text: string }) {
   );
 }
 
-export function HelpError({ message, retryLabel, onRetry }: { message: string; retryLabel: string; onRetry: () => void }) {
+export function HelpError({
+  message,
+  retryLabel,
+  onRetry,
+  className,
+}: {
+  message: string;
+  retryLabel: string;
+  onRetry: () => void;
+  className?: string;
+}) {
   return (
-    <div className="help-error" role="alert">
-      <CircleAlert aria-hidden="true" />
-      <p>{message}</p>
-      <button type="button" onClick={onRetry}>
-        {retryLabel}
-      </button>
-    </div>
+    <EmptyState variant="error" className={className} title={message} action={{ label: retryLabel, onClick: onRetry }} />
   );
 }
 

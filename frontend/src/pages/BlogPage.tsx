@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, CircleAlert, Clock, Mail, Search, SearchX, Tag, X } from "lucide-react";
+import { ArrowRight, CircleAlert, Clock, Mail, Newspaper, Search, SearchX, Tag, X } from "lucide-react";
+import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import ArticleCardView from "../components/articles/ArticleCardView";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -16,6 +17,7 @@ import {
 } from "../services/api";
 import { formatArticleDate } from "../utils/articleFormat";
 import "../styles/blog.css";
+import "../styles/shop-page.css";
 
 const PAGE_SIZE = 9;
 const LATEST_SIZE = 5;
@@ -282,23 +284,22 @@ export default function BlogPage() {
               ))}
             </div>
           ) : error ? (
-            <div className="blog-state blog-state-error" role="alert">
-              <CircleAlert aria-hidden="true" />
-              <p>{t("articles.error")}</p>
-              <button type="button" onClick={retryList}>
-                {t("articles.retry")}
-              </button>
-            </div>
+            <EmptyState
+              variant="error"
+              title={t("articles.error")}
+              action={{ label: t("articles.retry"), onClick: retryList }}
+            />
           ) : items.length === 0 ? (
-            <div className="blog-state" role="status">
-              <SearchX aria-hidden="true" />
-              <p>{filtering ? t("articles.emptyFiltered") : t("articles.empty")}</p>
-              {filtering && (
-                <button type="button" onClick={clearFilters}>
-                  {t("articles.clearFilters")}
-                </button>
-              )}
-            </div>
+            filtering ? (
+              <EmptyState
+                variant="filtered"
+                icon={SearchX}
+                title={t("articles.emptyFiltered")}
+                action={{ label: t("articles.clearFilters"), onClick: clearFilters }}
+              />
+            ) : (
+              <EmptyState icon={Newspaper} title={t("articles.empty")} />
+            )
           ) : (
             <>
               <div className="blog-grid">

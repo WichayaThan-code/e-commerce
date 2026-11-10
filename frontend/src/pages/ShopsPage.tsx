@@ -6,40 +6,63 @@ import {
   ChevronRight,
   CircleEllipsis,
   Grid2X2,
-  Leaf,
   List,
   MapPin,
   Search,
-  Shirt,
-  Sofa,
-  Sparkles,
+  SearchX,
   Store,
-  Utensils,
+  type LucideIcon,
 } from "lucide-react";
+import EmptyState from "../components/feedback/EmptyState";
 import ShopLogo from "../components/ShopLogo";
+import { categoryIcon } from "../components/shop/categoryIcons";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import recommendReference from "../assets/images/references/storefront/recommend-product.png";
-import { ApiError, shopApi, type PublicShop } from "../services/api";
+import type { Locale } from "../i18n";
+import { ApiError, catalogApi, shopApi, type ProductCategory, type PublicShop } from "../services/api";
+import { labelForCategory } from "../services/categories";
 import "../styles/recommended-products.css";
 import "../styles/shop-page.css";
 
-const categoryIcons = [Sparkles, Store, Utensils, Shirt, Sofa, Leaf, CircleEllipsis];
 const PAGE_SIZE = 30;
 type ListState = "loading" | "empty" | "error" | "ok";
 type SortKey = "latest" | "name";
+type CategoryTab = {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  /** Thai name used to match `shop.category`; null for all/other. */
+  nameTh: string | null;
+};
+
+function localeOf(localeTag: string): Locale {
+  if (localeTag.startsWith("zh")) return "zh";
+  if (localeTag.startsWith("en")) return "en";
+  return "th";
+}
+
+function shopCategoryName(shop: PublicShop) {
+  return (shop.category ?? "").trim();
+}
+
+function matchesKnownCategory(shop: PublicShop, rows: ProductCategory[]) {
+  const name = shopCategoryName(shop);
+  if (!name) return false;
+  return rows.some((row) => row.nameTh.trim() === name);
+}
 
 export default function ShopsPage() {
   const { tp, localeTag } = usePublicTranslation();
+  const locale = localeOf(localeTag);
   const [shops, setShops] = useState<PublicShop[]>([]);
   const [listState, setListState] = useState<ListState>("loading");
-  const [activeCategory, setActiveCategory] = useState(0);
+  const [categoryRows, setCategoryRows] = useState<ProductCategory[] | null>(null);
+  const [activeKey, setActiveKey] = useState("all");
   const [provinces, setProvinces] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("latest");
   const [grid, setGrid] = useState(true);
   const [page, setPage] = useState(1);
-
-  const allLabel = tp("common.all");
 
   useEffect(() => {
     let active = true;
@@ -63,26 +86,106 @@ export default function ShopsPage() {
     };
   }, []);
 
-  const categories = useMemo(
-    () => [allLabel, ...new Set(shops.map((shop) => shop.category).filter(Boolean))],
-    [allLabel, shops],
-  );
+  useEffect(() => {
+    let active = true;
+    catalogApi
+      .categories()
+      .then((rows) => {
+        if (!active) return;
+        setCategoryRows(rows.length ? rows : []);
+      })
+      .catch(() => {
+        if (!active) return;
+        setCategoryRows([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const apiCategories = categoryRows && categoryRows.length > 0 ? categoryRows : null;
+
+  const fallbackNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const shop of shops) {
+      const name = shopCategoryName(shop);
+      if (name) names.add(name);
+    }
+    return [...names];
+  }, [shops]);
+
+  const hasOtherShops = useMemo(() => {
+    if (!apiCategories) return false;
+    return shops.some((shop) => !matchesKnownCategory(shop, apiCategories));
+  }, [apiCategories, shops]);
+
+  const categoryTabs = useMemo<CategoryTab[]>(() => {
+    const tabs: CategoryTab[] = [
+      { key: "all", label: tp("common.all"), icon: Store, nameTh: null },
+    ];
+    if (apiCategories) {
+      for (const row of apiCategories) {
+        tabs.push({
+          key: `cat-${row.id}`,
+          label: labelForCategory(row, locale),
+          icon: categoryIcon(row),
+          nameTh: row.nameTh.trim(),
+        });
+      }
+      if (hasOtherShops) {
+        tabs.push({
+          key: "other",
+          label: tp("shops.otherCategory"),
+          icon: CircleEllipsis,
+          nameTh: null,
+        });
+      }
+      return tabs;
+    }
+
+    for (const name of fallbackNames) {
+      tabs.push({
+        key: `fallback-${name}`,
+        label: name,
+        icon: categoryIcon({ nameTh: name, nameEn: name }),
+        nameTh: name,
+      });
+    }
+    return tabs;
+  }, [apiCategories, fallbackNames, hasOtherShops, locale, tp]);
+
+  useEffect(() => {
+    if (!categoryTabs.some((tab) => tab.key === activeKey)) {
+      setActiveKey("all");
+    }
+  }, [activeKey, categoryTabs]);
+
+  const activeTab = categoryTabs.find((tab) => tab.key === activeKey) ?? categoryTabs[0];
+
   const provinceOptions = useMemo(
     () => [...new Set(shops.map((shop) => shop.province).filter(Boolean))].sort((a, b) => a.localeCompare(b, localeTag)),
     [localeTag, shops],
   );
+
   const visibleShops = useMemo(() => {
     const keyword = query.trim().toLowerCase();
-    const selectedCategory = categories[activeCategory];
     const rows = shops.filter((shop) => {
-      const categoryOk = activeCategory === 0 || shop.category === selectedCategory;
+      const name = shopCategoryName(shop);
+      let categoryOk = true;
+      if (activeKey === "all") {
+        categoryOk = true;
+      } else if (activeKey === "other" && apiCategories) {
+        categoryOk = !matchesKnownCategory(shop, apiCategories);
+      } else if (activeTab?.nameTh) {
+        categoryOk = name === activeTab.nameTh;
+      }
       const provinceOk = provinces.length === 0 || provinces.includes(shop.province);
       const text = `${shop.name} ${shop.nameEn || ""} ${shop.description || ""}`.toLowerCase();
       return categoryOk && provinceOk && (!keyword || text.includes(keyword));
     });
     if (sort === "name") return [...rows].sort((a, b) => a.name.localeCompare(b.name, "th"));
     return rows;
-  }, [activeCategory, categories, provinces, query, shops, sort]);
+  }, [activeKey, activeTab, apiCategories, provinces, query, shops, sort]);
 
   const pageCount = Math.max(1, Math.ceil(visibleShops.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
@@ -90,26 +193,25 @@ export default function ShopsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [activeCategory, provinces, query, sort]);
+  }, [activeKey, provinces, query, sort]);
 
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
   }, [page, pageCount]);
-
-  const listMessage =
-    listState === "loading"
-      ? tp("shops.loading")
-      : listState === "empty"
-        ? tp("shops.empty")
-        : listState === "error"
-          ? tp("shops.loadError")
-          : "";
 
   const toggleProvince = (province: string) => {
     setProvinces((current) =>
       current.includes(province) ? current.filter((item) => item !== province) : [...current, province],
     );
   };
+
+  const hasSearchOrProvince = query.trim().length > 0 || provinces.length > 0;
+  const categoryEmpty =
+    listState === "ok" &&
+    shops.length > 0 &&
+    activeKey !== "all" &&
+    !hasSearchOrProvince &&
+    visibleShops.length === 0;
 
   return (
     <div className="recommend-page shop-directory">
@@ -129,17 +231,19 @@ export default function ShopsPage() {
       </section>
 
       <section className="recommend-categories recommend-width">
-        {categories.map((label, index) => {
-          const Icon = categoryIcons[index % categoryIcons.length];
+        {categoryTabs.map((tab) => {
+          const Icon = tab.icon;
+          const active = activeKey === tab.key;
           return (
             <button
-              className={activeCategory === index ? "active" : ""}
-              key={label}
+              className={active ? "active" : ""}
+              key={tab.key}
               type="button"
-              onClick={() => setActiveCategory(index)}
+              aria-pressed={active}
+              onClick={() => setActiveKey(tab.key)}
             >
               <Icon />
-              <span>{label}</span>
+              <span>{tab.label}</span>
             </button>
           );
         })}
@@ -214,13 +318,20 @@ export default function ShopsPage() {
                 </Link>
               ))}
             </div>
+          ) : listState === "loading" ? (
+            <article className="shop-list-empty" aria-busy="true">{tp("shops.loading")}</article>
+          ) : listState === "error" ? (
+            <EmptyState variant="error" title={tp("shops.loadError")} />
           ) : listState === "empty" || (listState === "ok" && shops.length === 0) ? (
-            <article className="shop-list-empty shop-list-none">
-              <Store aria-hidden="true" />
-              <p>{tp("shops.empty")}</p>
-            </article>
+            <EmptyState icon={Store} title={tp("shops.empty")} />
+          ) : categoryEmpty ? (
+            <EmptyState
+              icon={Store}
+              title={tp("shops.categoryEmpty", { category: activeTab?.label ?? "" })}
+              action={{ label: tp("shops.viewAllCategories"), onClick: () => setActiveKey("all") }}
+            />
           ) : (
-            <article className="shop-list-empty">{listState === "ok" ? tp("shops.filterEmpty") : listMessage}</article>
+            <EmptyState variant="filtered" icon={SearchX} title={tp("shops.filterEmpty")} />
           )}
 
           {visibleShops.length > PAGE_SIZE && (

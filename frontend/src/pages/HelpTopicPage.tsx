@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, CircleHelp, SearchX } from "lucide-react";
+import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import HelpContactPanel from "../components/help/HelpContactPanel";
 import HelpSubHeader from "../components/help/HelpSubHeader";
@@ -49,13 +50,11 @@ export default function HelpTopicPage() {
               </div>
             </>
           ) : notFound ? (
-            <div className="help-empty" role="status">
-              <SearchX aria-hidden="true" />
-              <p>{t("helpPage.topic.notFound")}</p>
-              <Link className="help-link-button" to="/help">
-                {t("helpPage.backToHelp")}
-              </Link>
-            </div>
+            <EmptyState
+              icon={SearchX}
+              title={t("helpPage.topic.notFound")}
+              action={{ label: t("helpPage.backToHelp"), to: "/help" }}
+            />
           ) : topic.error ? (
             <HelpError message={t("helpPage.topic.error")} retryLabel={t("helpPage.retry")} onRetry={topic.retry} />
           ) : topic.data ? (
@@ -75,13 +74,11 @@ export default function HelpTopicPage() {
                 </div>
               </header>
               {topic.data.faqs.length === 0 ? (
-                <div className="help-empty" role="status">
-                  <SearchX aria-hidden="true" />
-                  <p>{t("helpPage.topic.empty")}</p>
-                  <Link className="help-link-button" to="/help">
-                    {t("helpPage.backToHelp")}
-                  </Link>
-                </div>
+                <EmptyState
+                  icon={CircleHelp}
+                  title={t("helpPage.topic.empty")}
+                  action={{ label: t("helpPage.backToHelp"), to: "/help" }}
+                />
               ) : (
                 <ul className="help-faq-links">
                   {topic.data.faqs.map((faq) => (
@@ -110,7 +107,7 @@ export default function HelpTopicPage() {
               ))}
             </div>
           ) : topics.error ? (
-            <HelpError message={t("helpPage.topics.error")} retryLabel={t("helpPage.retry")} onRetry={topics.retry} />
+            <HelpError className="is-compact" message={t("helpPage.topics.error")} retryLabel={t("helpPage.retry")} onRetry={topics.retry} />
           ) : (
             <ul>
               {others.map((item, index) => {

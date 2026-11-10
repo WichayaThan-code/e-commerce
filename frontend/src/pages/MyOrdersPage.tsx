@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  AlertTriangle, ChevronLeft, ChevronRight, Package, Search, Store, Truck, Wallet, X,
+  ChevronLeft, ChevronRight, Package, Search, SearchX, Store, Truck, Wallet, X,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
+import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import DatePicker from "../components/form/DatePicker";
 import FormField from "../components/form/FormField";
@@ -16,6 +17,7 @@ import "../styles/cart.css";
 import "../styles/checkout.css";
 import "../styles/form-fields.css";
 import "../styles/orders.css";
+import "../styles/shop-page.css";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -230,11 +232,7 @@ export default function MyOrdersPage() {
     return (
       <main className="cart-page orders-page">
         <div className="cart-width">
-          <div className="cart-empty" role="status">
-            <Package />
-            <h2>{tp("orders.blocked")}</h2>
-            <Link to="/">{tp("cart.backToShopping")}</Link>
-          </div>
+          <EmptyState icon={Package} title={tp("orders.blocked")} action={{ label: tp("cart.backToShopping"), to: "/" }} />
         </div>
       </main>
     );
@@ -362,36 +360,43 @@ export default function MyOrdersPage() {
                 ))}
               </div>
             ) : failed ? (
-              <div className="cart-empty feedback-error orders-empty-panel" role="alert">
-                <AlertTriangle />
-                <h2>{tp("orders.loadError")}</h2>
-                <button type="button" onClick={() => setReload((n) => n + 1)}>{tp("cart.retry")}</button>
-              </div>
+              <EmptyState
+                variant="error"
+                title={tp("orders.loadError")}
+                action={{ label: tp("cart.retry"), onClick: () => setReload((n) => n + 1) }}
+              />
             ) : !pageData?.items.length ? (
-              <div className="cart-empty orders-empty-panel" role="status">
-                <Package />
-                <h2>{q ? tp("orders.list.searchEmpty") : tp("orders.empty")}</h2>
-                <p>{q ? tp("orders.list.searchEmptyHint") : tp("orders.list.emptyHint")}</p>
-                {q || hasExtraFilters ? (
-                  <button type="button" className="orders-empty-clear" onClick={() => {
-                    setSearchDraft("");
-                    setFilter({
-                      tab: tab.value,
-                      page: 0,
-                      q: "",
-                      paymentStatus: "",
-                      fulfillmentStatus: "",
-                      from: "",
-                      to: "",
-                      sortKey: "placedAt-desc",
-                    });
-                  }}>
-                    {tp("orders.list.clearSearch")}
-                  </button>
-                ) : (
-                  <Link to="/">{tp("cart.backToShopping")}</Link>
-                )}
-              </div>
+              q || hasExtraFilters ? (
+                <EmptyState
+                  variant="filtered"
+                  icon={SearchX}
+                  title={q ? tp("orders.list.searchEmpty") : tp("orders.empty")}
+                  description={q ? tp("orders.list.searchEmptyHint") : tp("orders.list.emptyHint")}
+                  action={{
+                    label: tp("orders.list.clearSearch"),
+                    onClick: () => {
+                      setSearchDraft("");
+                      setFilter({
+                        tab: tab.value,
+                        page: 0,
+                        q: "",
+                        paymentStatus: "",
+                        fulfillmentStatus: "",
+                        from: "",
+                        to: "",
+                        sortKey: "placedAt-desc",
+                      });
+                    },
+                  }}
+                />
+              ) : (
+                <EmptyState
+                  icon={Package}
+                  title={tp("orders.empty")}
+                  description={tp("orders.list.emptyHint")}
+                  action={{ label: tp("cart.backToShopping"), to: "/" }}
+                />
+              )
             ) : (
               <>
                 <div className="orders-list">

@@ -1,10 +1,11 @@
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  CalendarClock, Headset, Link2, RotateCcw, ScrollText, ShieldCheck, Truck, type LucideIcon,
+  CalendarClock, Headset, Link2, RotateCcw, ScrollText, SearchX, ShieldCheck, Truck, type LucideIcon,
 } from "lucide-react";
 import ShopLogo from "../../components/ShopLogo";
-import { LoadError, Skeleton, SkeletonText } from "../../components/feedback/Skeleton";
+import EmptyState from "../../components/feedback/EmptyState";
+import { Skeleton, SkeletonText } from "../../components/feedback/Skeleton";
 import { useShopPublic, useShopCrumb } from "../../contexts/ShopPublicContext";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
 import { SHOP_POLICY_TYPES, useShopPolicies, type ShopPolicy, type ShopPolicyType } from "../../hooks/useShopPolicies";
@@ -227,23 +228,26 @@ export default function ShopPoliciesPage() {
   } else if (state === "error") {
     content = (
       <section className="shop-contact-panel">
-        <LoadError message={tp("shop.loadError")} onRetry={reload} retryLabel={tp("shop.productsRetry")} />
+        <EmptyState
+          variant="error"
+          title={tp("shop.loadError")}
+          action={{ label: tp("shop.productsRetry"), onClick: reload }}
+        />
       </section>
     );
   } else if (visible.length === 0) {
     content = (
       <section className="shop-contact-panel">
-        <div className="shop-contact-empty">
-          <span className="shop-contact-icon" aria-hidden="true"><ScrollText /></span>
-          <h3>{selectedType ? tp("shop.policies.emptyOne", { type: typeLabel }) : tp("shop.policies.empty")}</h3>
-          <p>{tp("shop.policies.emptyHint")}</p>
-          <div className="shop-contact-actions">
-            <Link className="shop-contact-action" to={shopContactPath(slug)}>{tp("shop.policies.contactCta")}</Link>
-            {selectedType ? (
-              <Link className="shop-contact-action" to={shopPoliciesPath(slug)}>{tp("shop.policies.all")}</Link>
-            ) : null}
-          </div>
-        </div>
+        <EmptyState
+          variant={selectedType ? "filtered" : "empty"}
+          icon={selectedType ? SearchX : ScrollText}
+          title={selectedType ? tp("shop.policies.emptyOne", { type: typeLabel }) : tp("shop.policies.empty")}
+          description={tp("shop.policies.emptyHint")}
+          actions={[
+            { label: tp("shop.policies.contactCta"), to: shopContactPath(slug) },
+            ...(selectedType ? [{ label: tp("shop.policies.all"), to: shopPoliciesPath(slug) }] : []),
+          ]}
+        />
       </section>
     );
   } else {

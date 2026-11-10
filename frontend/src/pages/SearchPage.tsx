@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowRight, ChevronLeft, ChevronRight, MapPin, PackageSearch, Store, Tag, X } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, MapPin, PackageSearch, SearchX, Store, Tag, X } from "lucide-react";
+import EmptyState from "../components/feedback/EmptyState";
 import ProductCard from "../components/shop/ProductCard";
 import { productGridClass } from "../components/shop/sections/ProductGrid";
 import ShopLogo from "../components/ShopLogo";
@@ -128,28 +129,23 @@ export default function SearchPage() {
 
       {state === "idle" && (
         <section className="recommend-width">
-          <article className="shop-list-empty shop-list-none">
-            <PackageSearch aria-hidden="true" />
-            <p>{tp("marketplaceSearch.prompt")}</p>
-          </article>
+          <EmptyState icon={PackageSearch} title={tp("marketplaceSearch.prompt")} />
         </section>
       )}
 
       {state === "error" && (
         <section className="recommend-width">
-          <article className="shop-list-empty marketplace-search-error" role="alert">
-            <p>{tp("marketplaceSearch.error")}</p>
-            <button type="button" onClick={() => setReloadKey((key) => key + 1)}>{tp("marketplaceSearch.retry")}</button>
-          </article>
+          <EmptyState
+            variant="error"
+            title={tp("marketplaceSearch.error")}
+            action={{ label: tp("marketplaceSearch.retry"), onClick: () => setReloadKey((key) => key + 1) }}
+          />
         </section>
       )}
 
       {nothing && (
         <section className="recommend-width">
-          <article className="shop-list-empty shop-list-none">
-            <PackageSearch aria-hidden="true" />
-            <p>{tp("marketplaceSearch.empty", { q: q || brand })}</p>
-          </article>
+          <EmptyState variant="filtered" icon={SearchX} title={tp("marketplaceSearch.empty", { q: q || brand })} />
         </section>
       )}
 
@@ -238,7 +234,7 @@ export default function SearchPage() {
                   ))}
                 </div>
               ) : (
-                <article className="shop-list-empty">{tp("marketplaceSearch.noProducts", { q: q || brand })}</article>
+                <EmptyState variant="filtered" icon={PackageSearch} title={tp("marketplaceSearch.noProducts", { q: q || brand })} />
               )}
             </div>
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Skeleton, SkeletonText, LoadError } from "../components/feedback/Skeleton";
+import EmptyState from "../components/feedback/EmptyState";
+import { Skeleton, SkeletonText } from "../components/feedback/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -275,7 +276,7 @@ export default function ShopProductPage() {
       )}
       {state === "error" && (
         <section className="recommend-width">
-          <LoadError message={tp("shop.productError")} onRetry={load} retryLabel={tp("shop.productsRetry")} />
+          <EmptyState variant="error" title={tp("shop.productError")} action={{ label: tp("shop.productsRetry"), onClick: load }} />
         </section>
       )}
       {product && (state === "ok" || isRefetching) && (

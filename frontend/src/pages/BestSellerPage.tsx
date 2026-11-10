@@ -3,6 +3,7 @@ import {
   Baby,
   BarChart3,
   CircleEllipsis,
+  TrendingUp,
   Dumbbell,
   Gift,
   Grid2X2,
@@ -28,8 +29,11 @@ import {
   type ProductCategory,
 } from "../services/api";
 import bestSellerReference from "../assets/images/references/storefront/best-seller.png";
+import EmptyState from "../components/feedback/EmptyState";
+import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import "../styles/recommended-products.css";
 import "../styles/best-seller.css";
+import "../styles/shop-page.css";
 
 /** Chip icons (design order); labels come from /api/categories. Chip 0 = "ทั้งหมด". */
 const categoryIcons = [
@@ -81,6 +85,7 @@ const primaryImage = (p: BestSellerProduct) =>
 
 
 export default function BestSellerPage() {
+  const { tp } = usePublicTranslation();
   const [activeCategory, setActiveCategory] = useState(0);
   const [activeRank, setActiveRank] = useState(0);
   const cartApi = useOptionalCart();
@@ -93,7 +98,7 @@ export default function BestSellerPage() {
   const [items, setItems] = useState<BestSellerProduct[]>([]);
   const [total, setTotal] = useState(0);
   const [fetching, setFetching] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [loadError, setLoadError] = useState(false);
   const [notice, setNotice] = useState("");
   const [sort, setSort] = useState("ยอดขายสูงสุด");
   const [grid, setGrid] = useState(true);
@@ -131,7 +136,7 @@ export default function BestSellerPage() {
   useEffect(() => {
     let alive = true;
     setFetching(true);
-    setLoadError("");
+    setLoadError(false);
     bestSellerApi
       .list({
         categoryId: selectedCategory,
@@ -154,7 +159,7 @@ export default function BestSellerPage() {
         setTotal(0);
         // public endpoint: never surface auth/server messages (e.g. "please log in") here
         void error;
-        setLoadError("ยังไม่มีข้อมูลยอดขาย กรุณาลองใหม่อีกครั้งภายหลัง");
+        setLoadError(true);
       })
       .finally(() => alive && setFetching(false));
     return () => {
@@ -349,9 +354,11 @@ export default function BestSellerPage() {
             ))}
           </div>
           {fetching ? (
-            <p className="best-meta" role="status">กำลังโหลดสินค้าขายดี...</p>
+            <p className="best-meta" role="status">{tp("bestSeller.loading")}</p>
+          ) : loadError ? (
+            <EmptyState variant="error" title={tp("bestSeller.loadError")} />
           ) : products.length === 0 ? (
-            <p className="best-meta" role="status">{loadError || "ยังไม่มีข้อมูลยอดขาย"}</p>
+            <EmptyState icon={TrendingUp} title={tp("bestSeller.empty")} />
           ) : null}
           <div className={`best-product-grid ${grid ? "" : "list-view"}`}>
             {!fetching && products.map((p, index) => {

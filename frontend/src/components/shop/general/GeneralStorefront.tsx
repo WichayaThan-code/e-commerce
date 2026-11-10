@@ -6,6 +6,8 @@
 import { tsfThemeDefaults } from "../../../theme/shopTheme";
 import { useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Package } from "lucide-react";
+import EmptyState from "../../feedback/EmptyState";
 import { useAuth } from "../../../contexts/AuthContext";
 import { loginPathForCart, useOptionalCart } from "../../../contexts/CartContext";
 import { cartErrorMessage, isOwnShop } from "../../cart/cartFormat";
@@ -687,7 +689,7 @@ export function TsfCatalogPage({ shop, title, products, catalog, activeCategoryI
             </div>
           ) : null}
           {catalog.productState === "error" ? (
-            <div className="tsf-catalog-empty"><p>{tp("shop.productsError")}</p><button type="button" className="tsf-btn tsf-btn-secondary tsf-btn-s" onClick={catalog.onRetry}>{tp("shop.productsRetry")}</button></div>
+            <EmptyState variant="error" title={tp("shop.productsError")} action={{ label: tp("shop.productsRetry"), onClick: catalog.onRetry }} />
           ) : catalog.showSkeleton && !products.length ? (
             <div className="tsf-grid">{Array.from({ length: 8 }, (_, index) => <div key={index} className="tsf-img tsf-skel" style={{ aspectRatio: "4 / 5" }} />)}</div>
           ) : products.length ? (
@@ -698,7 +700,7 @@ export function TsfCatalogPage({ shop, title, products, catalog, activeCategoryI
                   favorite={catalog.favorites.includes(product.id)} onToggleFavorite={catalog.onToggleFavorite} />
               ))}
             </div>
-          ) : catalog.productState === "ok" ? <div className="tsf-catalog-empty"><p>{tp("shop.productsEmpty")}</p></div> : null}
+          ) : catalog.productState === "ok" ? <EmptyState icon={Package} title={tp("shop.productsEmpty")} /> : null}
           {pageCount > 1 ? (
             <nav className="tsf-pager" aria-label={tp("shop.productsPageAria")}>
               <button type="button" className="tsf-chip" disabled={catalog.page <= 1} onClick={() => catalog.onPage(Math.max(1, catalog.page - 1))} aria-label={tp("shops.pagePrev")}>‹</button>

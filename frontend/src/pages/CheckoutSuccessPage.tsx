@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, Copy, Landmark, MapPin, QrCode, Store, Truck, Upload } from "lucide-react";
+import { CheckCircle2, Copy, Landmark, MapPin, Package, QrCode, Store, Truck, Upload } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
+import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import { formatBaht } from "../components/cart/cartFormat";
 import { buyerOrderApi, type CheckoutResult, type OrderDetail, type OrderPaymentInfo } from "../services/api";
 import { estimateDelivery, type DeliveryEstimate } from "../services/checkoutExtensions";
 import "../styles/cart.css";
 import "../styles/checkout.css";
+import "../styles/shop-page.css";
 
 type Row = { order: OrderDetail; payment: OrderPaymentInfo | null };
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -111,9 +113,9 @@ export default function CheckoutSuccessPage() {
   return <main className="cart-page checkout-page">
     <div className="cart-heading cart-width"><Link to="/">← {tp("cart.backToShopping")}</Link><ol aria-label={tp("checkout.steps.label")}><li><span>1</span> {tp("checkout.steps.cart")}</li><li><span>2</span> {tp("checkout.steps.checkout")}</li><li aria-current="step"><span>3</span> {tp("checkout.steps.done")}</li></ol></div>
     <section className="cart-width checkout-success">
-      {failed ? <div className="cart-empty feedback-error" role="alert"><AlertTriangle/><h2>{tp("checkout.success.loadError")}</h2><button type="button" onClick={() => setReload((value) => value + 1)}>{tp("cart.retry")}</button></div>
+      {failed ? <EmptyState variant="error" title={tp("checkout.success.loadError")} action={{ label: tp("cart.retry"), onClick: () => setReload((value) => value + 1) }}/>
       : rows == null ? <div className="checkout-card" aria-busy="true"><Skeleton height={28} width="50%"/><Skeleton height={18}/><Skeleton height={18}/><Skeleton height={120}/></div>
-      : !rows.length ? <div className="cart-empty"><AlertTriangle/><h2>{tp("checkout.success.missing")}</h2><Link to="/cart">{tp("checkout.backToCart")}</Link></div>
+      : !rows.length ? <EmptyState icon={Package} title={tp("checkout.success.missing")} action={{ label: tp("checkout.backToCart"), to: "/cart" }}/>
       : <>
         <div className="checkout-success-head"><CheckCircle2/><div><h1>{tp("checkout.success.title")}</h1><p>{tp("checkout.success.subtitle", { count: rows.length })}</p></div><b className="num">{money(total)}</b></div>
 

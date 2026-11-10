@@ -4,7 +4,9 @@ import { Check, ExternalLink, Package, Search, Truck } from "lucide-react";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { ApiError, mediaUrl, moneyValue, publicOrderApi, type PublicOrderStatus } from "../services/api";
+import EmptyState from "../components/feedback/EmptyState";
 import "../styles/order-tracking.css";
+import "../styles/shop-page.css";
 
 /** AB3: public order tracking (no login). Order number + shipping phone or account e-mail; the API returns a masked view. */
 const STEPS = ["payment", "preparing", "shipping", "delivered"] as const;
@@ -124,7 +126,7 @@ export default function OrderTrackingPage() {
                   ))}
                 </ul>
               ) : null}
-            </> : <p>{tp("tracking.noShipment")}</p>}
+            </> : <EmptyState className="is-compact" icon={Truck} title={tp("tracking.noShipment")} />}
           </section>
 
           {order.items?.length ? (

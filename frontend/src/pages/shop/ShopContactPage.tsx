@@ -4,6 +4,7 @@ import {
   BadgeCheck, Check, Clock, Copy, ExternalLink, Facebook, Globe, Headset, Instagram,
   Mail, MapPin, MessageCircle, Music2, Phone, type LucideIcon,
 } from "lucide-react";
+import EmptyState from "../../components/feedback/EmptyState";
 import ShopLogo from "../../components/ShopLogo";
 import { todayHours } from "../../components/shop/shopHours";
 import { useShopPublic, useShopCrumb } from "../../contexts/ShopPublicContext";
@@ -226,15 +227,15 @@ export default function ShopContactPage() {
             <h2 id="shop-contact-channels">{tp("shop.contact.channelsTitle")}</h2>
           </header>
           {channels.length === 0 ? (
-            <div className="shop-contact-empty">
-              <span className="shop-contact-icon" aria-hidden="true"><Headset /></span>
-              <h3>{tp("shop.contact.channelsPending")}</h3>
-              <p>{tp("shop.contact.emptyHint")}</p>
-              <div className="shop-contact-actions">
-                <Link className="shop-contact-action" to={shopProductsPath(slug)}>{tp("shop.tabs.products")}</Link>
-                <Link className="shop-contact-action" to={shopPoliciesPath(slug)}>{tp("shop.tabs.policies")}</Link>
-              </div>
-            </div>
+            <EmptyState
+              icon={Headset}
+              title={tp("shop.contact.channelsPending")}
+              description={tp("shop.contact.emptyHint")}
+              actions={[
+                { label: tp("shop.tabs.products"), to: shopProductsPath(slug) },
+                { label: tp("shop.tabs.policies"), to: shopPoliciesPath(slug) },
+              ]}
+            />
           ) : (
             <ul className="shop-contact-grid">
               {channels.map((channel) => {

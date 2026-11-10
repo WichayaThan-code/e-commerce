@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/member-home.css";
+import "../styles/shop-page.css";
+import EmptyState from "../components/feedback/EmptyState";
 import { useAuth } from "../contexts/AuthContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import {
@@ -18,6 +20,7 @@ import {
   Gift,
   Headphones,
   Heart,
+  Package,
   PackageCheck,
   ShieldCheck,
   ShoppingBag,
@@ -371,19 +374,20 @@ export default function MarketplacePage() {
                 );
               })}
             {!productsLoading && productsError && (
-              <article className="product-card" style={{ gridColumn: "1 / -1", padding: 16 }}>
-                <div className="product-info">
-                  <h3>{productsError}</h3>
-                  <button type="button" onClick={() => setReloadKey((value) => value + 1)}>{tp("home.retry")}</button>
-                </div>
-              </article>
+              <EmptyState
+                className="product-grid-empty"
+                variant="error"
+                title={productsError}
+                action={{ label: tp("home.retry"), onClick: () => setReloadKey((value) => value + 1) }}
+              />
             )}
             {!productsLoading && !productsError && products && products.length === 0 && (
-              <article className="product-card" style={{ gridColumn: "1 / -1", padding: 16 }}>
-                <div className="product-info">
-                  <h3>{tp("home.emptyRecommended")}</h3>
-                </div>
-              </article>
+              <EmptyState
+                className="product-grid-empty"
+                icon={Package}
+                title={tp("home.emptyRecommended")}
+                action={{ label: tp("emptyState.browseShops"), to: "/shops" }}
+              />
             )}
             {!productsLoading && !productsError && products?.map((p, index) => {
               const price = lowestPrice(p);

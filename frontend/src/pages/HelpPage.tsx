@@ -1,7 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, Search, SearchX, Store, UserRound } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronRight, CircleHelp, Search, SearchX, Store, UserRound } from "lucide-react";
+import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import HelpContactPanel from "../components/help/HelpContactPanel";
 import {
@@ -20,6 +21,7 @@ import { helpApi, type HelpFaq, type HelpGuide, type HelpTopic } from "../servic
 import { accountKind } from "../services/permissions";
 import helpReference from "../assets/images/references/help/help.png";
 import "../styles/help.css";
+import "../styles/shop-page.css";
 
 type Audience = "CUSTOMER" | "MERCHANT";
 
@@ -259,7 +261,7 @@ export default function HelpPage() {
         ) : topics.error ? (
           <HelpError message={t("helpPage.topics.error")} retryLabel={t("helpPage.retry")} onRetry={topics.retry} />
         ) : topics.data.length === 0 ? (
-          <p className="help-empty">{t("helpPage.topics.empty")}</p>
+          <EmptyState icon={CircleHelp} title={t("helpPage.topics.empty")} />
         ) : (
           <div className="help-topics-grid">
             {sortedTopics.map((topic, index) => {
@@ -313,15 +315,16 @@ export default function HelpPage() {
           ) : faqs.error ? (
             <HelpError message={t("helpPage.faq.error")} retryLabel={t("helpPage.retry")} onRetry={faqs.retry} />
           ) : visibleFaqs.length === 0 ? (
-            <div className="help-empty" role="status">
-              <SearchX aria-hidden="true" />
-              <p>{searching ? t("helpPage.faq.emptySearch", { query: submittedQuery }) : t("helpPage.faq.empty")}</p>
-              {searching && (
-                <button type="button" onClick={clearSearch}>
-                  {t("helpPage.faq.clearFilters")}
-                </button>
-              )}
-            </div>
+            searching ? (
+              <EmptyState
+                variant="filtered"
+                icon={SearchX}
+                title={t("helpPage.faq.emptySearch", { query: submittedQuery })}
+                action={{ label: t("helpPage.faq.clearFilters"), onClick: clearSearch }}
+              />
+            ) : (
+              <EmptyState icon={CircleHelp} title={t("helpPage.faq.empty")} />
+            )
           ) : (
             <div
               className={`faq-list ${faqs.loading ? "is-refetching" : ""}`.trim()}
@@ -393,7 +396,7 @@ export default function HelpPage() {
           ) : guides.error ? (
             <HelpError message={t("helpPage.guides.error")} retryLabel={t("helpPage.retry")} onRetry={guides.retry} />
           ) : guides.data.length === 0 ? (
-            <p className="help-empty">{t("helpPage.guides.empty")}</p>
+            <EmptyState className="is-compact" icon={BookOpen} title={t("helpPage.guides.empty")} />
           ) : (
             visibleGuides.map((guide, index) => {
               const external = /^https?:\/\//i.test(guide.url);

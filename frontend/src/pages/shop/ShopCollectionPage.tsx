@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { Package } from "lucide-react";
 import ProductGrid from "../../components/shop/sections/ProductGrid";
-import { LoadError, Skeleton } from "../../components/feedback/Skeleton";
+import EmptyState from "../../components/feedback/EmptyState";
+import { Skeleton } from "../../components/feedback/Skeleton";
 import { useShopPublic, useShopCrumb } from "../../contexts/ShopPublicContext";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
 import { usePublicTranslation } from "../../hooks/usePublicTranslation";
@@ -44,7 +46,11 @@ export default function ShopCollectionPage() {
   if (state === "error") {
     return (
       <section className="recommend-width">
-        <LoadError message={tp("shop.loadError")} onRetry={() => setReloadKey((key) => key + 1)} retryLabel={tp("shop.productsRetry")} />
+        <EmptyState
+          variant="error"
+          title={tp("shop.loadError")}
+          action={{ label: tp("shop.productsRetry"), onClick: () => setReloadKey((key) => key + 1) }}
+        />
       </section>
     );
   }
@@ -75,7 +81,7 @@ export default function ShopCollectionPage() {
           onNotify={notify}
         />
       ) : (
-        <p className="shop-collection-empty">{tp("shop.blocks.collections.emptyProducts")}</p>
+        <EmptyState icon={Package} title={tp("shop.blocks.collections.emptyProducts")} />
       )}
       {pages > 1 ? (
         <nav className="shop-collection-pager" aria-label={tp("shop.productsPageAria")}>

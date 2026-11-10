@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Grid2X2, List, Search, SlidersHorizontal, Star, X } from "lucide-react";
-import { LoadError, Skeleton, SkeletonBusy, SkeletonCard } from "../../feedback/Skeleton";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Grid2X2, List, PackageOpen, Search, SearchX, SlidersHorizontal, Star, X } from "lucide-react";
+import EmptyState from "../../feedback/EmptyState";
+import { Skeleton, SkeletonBusy, SkeletonCard } from "../../feedback/Skeleton";
 import { useShopCategories } from "../../../hooks/useShopCategories";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { localizedText } from "../../../services/catalogText";
@@ -429,9 +430,24 @@ export default function CatalogSection({ shop, section, products, catalog, previ
           </div>
         )}
         {catalog.productState === "error" && (
-          <LoadError message={tp("shop.productsError")} onRetry={catalog.onRetry} retryLabel={tp("shop.productsRetry")} />
+          <EmptyState
+            variant="error"
+            title={tp("shop.productsError")}
+            action={{ label: tp("shop.productsRetry"), onClick: catalog.onRetry }}
+          />
         )}
-        {catalog.productState === "ok" && products.length === 0 && <article className="shop-list-empty">{tp("shop.productsEmpty")}</article>}
+        {catalog.productState === "ok" && products.length === 0 && (
+          chips.length > 0 ? (
+            <EmptyState
+              variant="filtered"
+              icon={SearchX}
+              title={tp("shop.productsEmpty")}
+              action={{ label: tp("shop.clearAll"), onClick: clearFilters }}
+            />
+          ) : (
+            <EmptyState icon={PackageOpen} title={tp("shop.productsEmpty")} />
+          )
+        )}
         {products.length > 0 && (
           <SkeletonBusy refetching={catalog.refetching} busy={catalog.refetching}>
             <ProductGrid

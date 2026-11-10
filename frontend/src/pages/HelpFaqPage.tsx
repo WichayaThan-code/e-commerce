@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { CalendarCheck, ChevronRight, CircleAlert, SearchX, ThumbsDown, ThumbsUp } from "lucide-react";
+import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import HelpSubHeader from "../components/help/HelpSubHeader";
 import { HelpError, helpSessionKey, splitAnswer, useHelpData } from "../components/help/helpShared";
@@ -110,13 +111,11 @@ export default function HelpFaqPage() {
               <Skeleton className="help-skeleton" height={120} radius={8} />
             </>
           ) : notFound ? (
-            <div className="help-empty" role="status">
-              <SearchX aria-hidden="true" />
-              <p>{t("helpPage.faqDetail.notFound")}</p>
-              <Link className="help-link-button" to="/help">
-                {t("helpPage.backToHelp")}
-              </Link>
-            </div>
+            <EmptyState
+              icon={SearchX}
+              title={t("helpPage.faqDetail.notFound")}
+              action={{ label: t("helpPage.backToHelp"), to: "/help" }}
+            />
           ) : faq.error ? (
             <HelpError message={t("helpPage.faqDetail.error")} retryLabel={t("helpPage.retry")} onRetry={faq.retry} />
           ) : faqData && answer ? (

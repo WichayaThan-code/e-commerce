@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { FolderOpen } from "lucide-react";
+import EmptyState from "../../feedback/EmptyState";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { isLocalizedEmpty, resolveCollectionsContent } from "../../../theme/blockContent";
 import { publicCollectionApi, type PublicCollection } from "../../../services/collectionsApi";
@@ -57,7 +59,7 @@ export default function CollectionsSection({ shop, block }: ShopNewBlockProps) {
           ))}
         </ul>
       ) : (
-        <p className="shop-collection-empty">{tp("shop.blocks.collections.empty")}</p>
+        <EmptyState className="is-compact" icon={FolderOpen} title={tp("shop.blocks.collections.empty")} />
       )}
     </section>
   );

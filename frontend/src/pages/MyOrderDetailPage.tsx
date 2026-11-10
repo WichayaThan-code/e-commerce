@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import ConfigurationSummary from "../components/cart/ConfigurationSummary";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  AlertTriangle, CheckCircle2, ChevronRight, Copy, Landmark, MapPin,
-  Package, QrCode, Store, Truck, Wallet,
+  CheckCircle2, ChevronRight, Copy, Landmark, MapPin,
+  Package, QrCode, SearchX, Store, Truck, Wallet,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
+import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import { formatBaht } from "../components/cart/cartFormat";
 import {
@@ -26,6 +27,7 @@ import OrderRefundCard from "../components/orders/OrderRefundCard";
 import "../styles/cart.css";
 import "../styles/checkout.css";
 import "../styles/orders.css";
+import "../styles/shop-page.css";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const MAX_SLIP = 5 * 1024 * 1024;
@@ -266,11 +268,7 @@ export default function MyOrderDetailPage() {
     return (
       <main className="cart-page orders-page">
         <div className="cart-width">
-          <div className="cart-empty" role="status">
-            <Package />
-            <h2>{tp("orders.blocked")}</h2>
-            <Link to="/">{tp("cart.backToShopping")}</Link>
-          </div>
+          <EmptyState icon={Package} title={tp("orders.blocked")} action={{ label: tp("cart.backToShopping"), to: "/" }} />
         </div>
       </main>
     );
@@ -280,11 +278,7 @@ export default function MyOrderDetailPage() {
     return (
       <main className="cart-page orders-page">
         <div className="cart-width">
-          <div className="cart-empty" role="status">
-            <AlertTriangle />
-            <h2>{tp("orders.notFound")}</h2>
-            <Link to="/account/orders">{tp("orders.back")}</Link>
-          </div>
+          <EmptyState icon={SearchX} title={tp("orders.notFound")} action={{ label: tp("orders.back"), to: "/account/orders" }} />
         </div>
       </main>
     );
@@ -315,11 +309,11 @@ export default function MyOrderDetailPage() {
             </div>
           </div>
         ) : failed || !order ? (
-          <div className="cart-empty feedback-error" role="alert">
-            <AlertTriangle />
-            <h2>{tp("orders.loadError")}</h2>
-            <button type="button" onClick={() => setReload((n) => n + 1)}>{tp("cart.retry")}</button>
-          </div>
+          <EmptyState
+            variant="error"
+            title={tp("orders.loadError")}
+            action={{ label: tp("cart.retry"), onClick: () => setReload((n) => n + 1) }}
+          />
         ) : (
           <div className="orders-detail-stack">
             {/* 1. Status + next action */}

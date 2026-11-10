@@ -571,6 +571,9 @@
     "pageAria": "Shop pages",
     "loadError": "Could not load shops",
     "filterEmpty": "No shops match your filters",
+    "categoryEmpty": "No shops in {{category}} yet",
+    "otherCategory": "Others",
+    "viewAllCategories": "View all shops",
     "bannerOpenTitle": "Open a shop\nwith ThaiShopFun",
     "bannerOpenText": "Register your Thai shop in a few steps",
     "bannerOpenCta": "Apply to open →",
@@ -1110,7 +1113,17 @@
     "collapse": "Collapse",
     "expand": "Expand"
   },
+  "emptyState": {
+    "browseShops": "Browse shops",
+    "retry": "Try again"
+  },
+  "bestSeller": {
+    "loading": "Loading best sellers...",
+    "empty": "No sales data yet",
+    "loadError": "Could not load best sellers. Please try again later"
+  },
   "recommend": {
+    "emptyFiltered": "No products match your filters",
     "breadcrumb": "Recommended products",
     "title": "Recommended products",
     "subtitle": "Quality picks from Thai shops, chosen for you",

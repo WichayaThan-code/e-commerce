@@ -10,7 +10,9 @@ import {
   Heart,
   Leaf,
   List,
+  Package,
   Search,
+  SearchX,
   Shirt,
   ShoppingBag,
   ShoppingCart,
@@ -33,7 +35,9 @@ import {
   type RecommendationSort,
 } from "../services/api";
 import recommendReference from "../assets/images/references/storefront/recommend-product.png";
+import EmptyState from "../components/feedback/EmptyState";
 import "../styles/recommended-products.css";
+import "../styles/shop-page.css";
 
 const categoryIcons = [Sparkles, Shirt, Wine, Sofa, ShoppingBag, Utensils, Dumbbell, Baby, Gift, Gift, Leaf, CircleEllipsis];
 const ratingStars = ["★★★★", "★★★½", "★★★", "★★"] as const;
@@ -173,6 +177,8 @@ export default function RecommendedProductsPage() {
   const shopName = (p: BestSellerProduct) => (lang !== "th" && p.shopNameEn) || p.shopName;
   const shownBrands = [...new Set([...knownBrands, ...brandChecked])].filter((x) => x.toLowerCase().includes(brandQuery.trim().toLowerCase()));
   const hasMore = items.length < total;
+  const hasActiveFilters =
+    brandChecked.length > 0 || priceChecked.length > 0 || ratingChecked.length > 0 || activeCategory > 0;
   const bannerEmojis = ["🎁", "🚚", "🌍"];
 
   return (
@@ -262,14 +268,17 @@ export default function RecommendedProductsPage() {
             </button>
           </div>
           {loadError && items.length === 0 ? (
-            <div className="recommend-product-info" role="alert">
-              <p>{t.error}</p>
-              <button type="button" onClick={() => setReload((v) => v + 1)}>{t.retry}</button>
-            </div>
+            <EmptyState
+              variant="error"
+              title={tp("home.loadError")}
+              action={{ label: tp("home.retry"), onClick: () => setReload((v) => v + 1) }}
+            />
           ) : !fetching && items.length === 0 ? (
-            <div className="recommend-product-info" role="status">
-              <p>{t.empty}</p>
-            </div>
+            hasActiveFilters ? (
+              <EmptyState variant="filtered" icon={SearchX} title={tp("recommend.emptyFiltered")} />
+            ) : (
+              <EmptyState icon={Package} title={tp("home.emptyRecommended")} />
+            )
           ) : (
             <div className={`recommend-product-grid ${grid ? "" : "list-view"}`} aria-busy={fetching}>
               {items.map((p) => {

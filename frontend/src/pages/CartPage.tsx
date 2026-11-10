@@ -6,6 +6,7 @@ import { loginPathForCart, useCart } from "../contexts/CartContext";
 import { useAuth } from "../contexts/AuthContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
+import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import ConfirmDialog from "../components/form/ConfirmDialog";
 import { cartErrorMessage, couponReasonMessage, formatBaht } from "../components/cart/cartFormat";
@@ -14,6 +15,7 @@ import { mediaUrl, moneyValue, shopApi, type CartActionResult, type CartGroup, t
 import { localizedText } from "../services/catalogText";
 import { homePath } from "../services/permissions";
 import "../styles/cart.css";
+import "../styles/shop-page.css";
 
 type Row = CartLine & { shopId: number; shopName: string; shopSlug: string };
 
@@ -127,7 +129,7 @@ export default function CartPage() {
     return <main className="cart-page">
       <section className="cart-content cart-width">
         <div className="cart-main-column">
-          <div className="cart-empty" role="status"><Store/><h2>{tp("cart.blocked.title")}</h2><p>{tp("cart.blocked.body")}</p><Link to={homePath(user)}>{tp("cart.blocked.action")}</Link></div>
+          <EmptyState icon={Store} title={tp("cart.blocked.title")} description={tp("cart.blocked.body")} action={{ label: tp("cart.blocked.action"), to: homePath(user) }}/>
         </div>
       </section>
     </main>;
@@ -157,8 +159,8 @@ export default function CartPage() {
             <strong className="cart-line-total num">{money(item.lineTotal)}</strong>
             <button className="cart-remove" aria-label={tp("cart.removeLine", { name: item.productName })} disabled={busy} onClick={() => remove([item.id])}><Trash2/></button>
           </article>)}
-          {cart.status === "error" && !data && <div className="cart-empty" role="alert"><AlertTriangle/><h2>{tp("cart.loadError")}</h2><button type="button" className="cart-retry" onClick={() => void cart.refresh()}>{tp("cart.retry")}</button></div>}
-          {cart.status === "ready" && !items.length && <div className="cart-empty"><ShoppingCart/><h2>{tp("cart.empty")}</h2><Link to="/recommendations">{tp("cart.startShopping")}</Link></div>}
+          {cart.status === "error" && !data && <EmptyState variant="error" title={tp("cart.loadError")} action={{ label: tp("cart.retry"), onClick: () => void cart.refresh() }}/>}
+          {cart.status === "ready" && !items.length && <EmptyState icon={ShoppingCart} title={tp("cart.empty")} action={{ label: tp("cart.startShopping"), to: "/recommendations" }}/>}
         </section>
       </div>
 

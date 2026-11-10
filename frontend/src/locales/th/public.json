@@ -570,6 +570,9 @@
     "pageAria": "แบ่งหน้าร้านค้า",
     "loadError": "โหลดรายการร้านค้าไม่สำเร็จ",
     "filterEmpty": "ไม่พบร้านค้าตามตัวกรอง",
+    "categoryEmpty": "ยังไม่มีร้านค้าในหมวด {{category}}",
+    "otherCategory": "อื่นๆ",
+    "viewAllCategories": "ดูร้านค้าทั้งหมด",
     "bannerOpenTitle": "เปิดร้านกับ\nThaiShopFun",
     "bannerOpenText": "สมัครร้านค้าไทยได้ในไม่กี่ขั้นตอน",
     "bannerOpenCta": "สมัครเปิดร้าน →",
@@ -1109,7 +1112,17 @@
     "collapse": "ยุบ",
     "expand": "กาง"
   },
+  "emptyState": {
+    "browseShops": "ดูร้านค้า",
+    "retry": "ลองอีกครั้ง"
+  },
+  "bestSeller": {
+    "loading": "กำลังโหลดสินค้าขายดี...",
+    "empty": "ยังไม่มีข้อมูลยอดขาย",
+    "loadError": "โหลดสินค้าขายดีไม่สำเร็จ กรุณาลองใหม่ภายหลัง"
+  },
   "recommend": {
+    "emptyFiltered": "ไม่พบสินค้าที่ตรงกับตัวกรอง",
     "breadcrumb": "สินค้าแนะนำ",
     "title": "สินค้าแนะนำ",
     "subtitle": "คัดสรรสินค้าคุณภาพ จากร้านค้าไทย เพื่อคุณโดยเฉพาะ",

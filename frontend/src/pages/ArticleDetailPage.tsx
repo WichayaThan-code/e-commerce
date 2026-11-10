@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   CalendarDays,
   ChevronRight,
-  CircleAlert,
   Clock,
   Copy,
   Eye,
@@ -14,6 +13,7 @@ import {
   Store,
   UserRound,
 } from "lucide-react";
+import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import ArticleCardView from "../components/articles/ArticleCardView";
 import ArticleMarkdown, { type TocItem } from "../components/articles/ArticleMarkdown";
@@ -34,6 +34,7 @@ import {
 import { formatArticleDate } from "../utils/articleFormat";
 import NotFoundPage from "./NotFoundPage";
 import "../styles/blog.css";
+import "../styles/shop-page.css";
 
 type Locale = "th" | "en" | "zh";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -167,16 +168,14 @@ export default function ArticleDetailPage() {
     return (
       <div className="blog-page article-page">
         <div className="article-shell page-width">
-          <div className="blog-state blog-state-error" role="alert">
-            <CircleAlert aria-hidden="true" />
-            <p>{t("articles.detail.error")}</p>
-            <button type="button" onClick={state.retry}>
-              {t("articles.retry")}
-            </button>
-            <Link className="blog-state-link" to="/articles">
-              {t("articles.detail.backToList")}
-            </Link>
-          </div>
+          <EmptyState
+            variant="error"
+            title={t("articles.detail.error")}
+            actions={[
+              { label: t("articles.retry"), onClick: state.retry },
+              { label: t("articles.detail.backToList"), to: "/articles" },
+            ]}
+          />
         </div>
       </div>
     );

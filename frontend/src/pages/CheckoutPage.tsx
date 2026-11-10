@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import ConfigurationSummary from "../components/cart/ConfigurationSummary";
 import { Link, useNavigate } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, CreditCard, MapPin, ShieldCheck, Store, Tag, Truck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CreditCard, MapPin, ShieldCheck, ShoppingCart, Store, Tag, Truck } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
+import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import ThaiAddressFields, { emptyThaiAddress, type ThaiAddressValue } from "../components/ThaiAddressFields";
 import CheckoutAddressBook from "../components/checkout/CheckoutAddressBook";
@@ -26,6 +27,7 @@ import { ApiError, checkoutApi, mediaUrl, moneyValue, type CheckoutAddress, type
 import { buildCheckoutExtras, checkShippingCoverage } from "../services/checkoutExtensions";
 import "../styles/cart.css";
 import "../styles/checkout.css";
+import "../styles/shop-page.css";
 
 type ContactFields = { recipientName: string; phone: string; addressLine1: string; addressLine2: string };
 type PayMethod = "BANK_TRANSFER" | "COD";
@@ -342,7 +344,7 @@ export default function CheckoutPage() {
     <div className="cart-page-title cart-width"><div className="cart-title"><CreditCard/><div><h1>{tp("checkout.title")}</h1><p>{tp("checkout.subtitle")}</p></div></div></div>
 
     {loading ? <section className="cart-content cart-width" aria-busy="true"><div className="cart-main-column"><div className="checkout-card"><Skeleton height={20} width="40%"/><Skeleton height={44}/><Skeleton height={44}/><Skeleton height={44}/></div><div className="checkout-card"><Skeleton height={80}/></div></div><aside className="cart-side"><div className="cart-summary"><Skeleton height={18}/><Skeleton height={18}/><Skeleton height={28}/></div></aside></section>
-    : !groups.length ? <section className="cart-content cart-width"><div className="cart-main-column"><div className="cart-empty"><AlertTriangle/><h2>{tp("checkout.nothingSelected")}</h2><Link to="/cart">{tp("checkout.backToCart")}</Link></div></div></section>
+    : !groups.length ? <section className="cart-content cart-width"><div className="cart-main-column"><EmptyState icon={ShoppingCart} title={tp("checkout.nothingSelected")} action={{ label: tp("checkout.backToCart"), to: "/cart" }}/></div></section>
     : <form className="cart-content cart-width" onSubmit={place} noValidate>
       <div className="cart-main-column">
         <section className="checkout-card" aria-labelledby="checkout-address">

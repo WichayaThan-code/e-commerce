@@ -570,6 +570,9 @@
     "pageAria": "店铺分页",
     "loadError": "加载店铺列表失败",
     "filterEmpty": "没有符合筛选条件的店铺",
+    "categoryEmpty": "{{category}} 分类暂无店铺",
+    "otherCategory": "其他",
+    "viewAllCategories": "查看全部店铺",
     "bannerOpenTitle": "在 ThaiShopFun\n开店",
     "bannerOpenText": "几步即可注册泰国店铺",
     "bannerOpenCta": "申请开店 →",
@@ -1109,7 +1112,17 @@
     "collapse": "收起",
     "expand": "展开"
   },
+  "emptyState": {
+    "browseShops": "浏览店铺",
+    "retry": "重试"
+  },
+  "bestSeller": {
+    "loading": "正在加载热销商品...",
+    "empty": "暂无销售数据",
+    "loadError": "热销商品加载失败，请稍后重试"
+  },
   "recommend": {
+    "emptyFiltered": "没有符合筛选条件的商品",
     "breadcrumb": "推荐商品",
     "title": "推荐商品",
     "subtitle": "来自泰国店铺的精选好物",

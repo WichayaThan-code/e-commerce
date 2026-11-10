@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Heart } from "lucide-react";
+import EmptyState from "../../components/feedback/EmptyState";
 import ProductCard from "../../components/shop/ProductCard";
 import { useShopPublic, useShopCrumb } from "../../contexts/ShopPublicContext";
 import { loginPathForCart } from "../../contexts/CartContext";
@@ -46,15 +47,19 @@ export default function ShopFavoritesPage() {
       <div className="tsf-wrap">
         <div className="tsf-section-head"><div><h1 className="tsf-display">{label}</h1></div></div>
         {access === "guest" ? (
-          <p className="tsf-favorites-empty">
-            {tp("shop.general.favoritesLogin")} <a className="tsf-btn tsf-btn-link" href={loginPathForCart()}>{tp("shop.general.favoritesLoginCta")}</a>
-          </p>
+          <EmptyState
+            icon={Heart}
+            title={tp("shop.general.favoritesLogin")}
+            action={{ label: tp("shop.general.favoritesLoginCta"), to: loginPathForCart() }}
+          />
         ) : !loaded ? (
           <p className="tsf-favorites-empty" aria-busy="true">{tp("shop.general.favoritesLoading")}</p>
         ) : !items.length ? (
-          <p className="tsf-favorites-empty">
-            {tp("shop.general.favoritesEmpty")} <Link className="tsf-btn tsf-btn-link" to={shopProductsPath(slug)}>{tp("shop.general.allProducts")}</Link>
-          </p>
+          <EmptyState
+            icon={Heart}
+            title={tp("shop.general.favoritesEmpty")}
+            action={{ label: tp("shop.general.allProducts"), to: shopProductsPath(slug) }}
+          />
         ) : (
           <div className="tsf-grid tsf-favorites-grid">
             {shown.map((product) => (

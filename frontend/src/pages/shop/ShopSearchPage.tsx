@@ -2,7 +2,8 @@ import { TsfCatalogPage } from "../../components/shop/general/GeneralStorefront"
 import { usesTsfTree } from "../../theme/shopTheme";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search } from "lucide-react";
+import { Search, SearchX } from "lucide-react";
+import EmptyState from "../../components/feedback/EmptyState";
 import CatalogSection from "../../components/shop/sections/CatalogSection";
 import { useShopPublic, useShopCrumb } from "../../contexts/ShopPublicContext";
 import { useDocumentMeta } from "../../hooks/useDocumentMeta";
@@ -38,10 +39,10 @@ export default function ShopSearchPage() {
       </div>
     );
     if (q.length === 0) {
-      return <main>{form}<div className="tsf-wrap"><div className="tsf-catalog-empty"><p>{tp("shop.search.prompt")}</p></div></div></main>;
+      return <main>{form}<div className="tsf-wrap"><EmptyState icon={Search} title={tp("shop.search.prompt")} /></div></main>;
     }
     if (catalog.productState === "ok" && products.length === 0) {
-      return <main>{form}<div className="tsf-wrap"><div className="tsf-catalog-empty"><p>{tp("shop.search.empty", { q })}</p></div></div></main>;
+      return <main>{form}<div className="tsf-wrap"><EmptyState variant="filtered" icon={SearchX} title={tp("shop.search.empty", { q })} /></div></main>;
     }
     return <TsfCatalogPage shop={shop} title={`${label}: “${q}”`} products={products} catalog={catalog} showRail={false} before={form} />;
   }
@@ -68,13 +69,13 @@ export default function ShopSearchPage() {
 
       {q.length === 0 && (
         <section className="recommend-width">
-          <article className="shop-list-empty">{tp("shop.search.prompt")}</article>
+          <EmptyState icon={Search} title={tp("shop.search.prompt")} />
         </section>
       )}
 
       {q.length > 0 && catalog.productState === "ok" && products.length === 0 && (
         <section className="recommend-width">
-          <article className="shop-list-empty">{tp("shop.search.empty", { q })}</article>
+          <EmptyState variant="filtered" icon={SearchX} title={tp("shop.search.empty", { q })} />
         </section>
       )}
 

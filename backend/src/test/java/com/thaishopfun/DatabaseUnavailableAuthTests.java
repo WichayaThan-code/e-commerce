@@ -86,11 +86,33 @@ class DatabaseUnavailableAuthTests {
     }
 
     @Test
-    void dataIntegrityViolationStillReturnsConflict() throws Exception {
+    void dataIntegrityWithoutSqlStateReturnsGenericBadRequest() throws Exception {
         String body = mvc.perform(get("/api/admin/_db-probe/integrity").header("Authorization", "Bearer " + adminToken()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("DATA_INTEGRITY"))
+            .andExpect(jsonPath("$.requestId").isNotEmpty())
+            .andReturn().getResponse().getContentAsString();
+        assertFalse(body.contains("ซ้ำ"));
+        assertNoSecrets(body);
+    }
+
+    @Test
+    void uniqueViolationReturns409Conflict() throws Exception {
+        String body = mvc.perform(get("/api/admin/_db-probe/integrity-unique").header("Authorization", "Bearer " + adminToken()))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("CONFLICT"))
             .andReturn().getResponse().getContentAsString();
+        assertNoSecrets(body);
+    }
+
+    @Test
+    void valueTooLongReturns400() throws Exception {
+        String body = mvc.perform(get("/api/admin/_db-probe/integrity-too-long").header("Authorization", "Bearer " + adminToken()))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALUE_TOO_LONG"))
+            .andExpect(jsonPath("$.requestId").isNotEmpty())
+            .andReturn().getResponse().getContentAsString();
+        assertFalse(body.toLowerCase().contains("varying"));
         assertNoSecrets(body);
     }
 

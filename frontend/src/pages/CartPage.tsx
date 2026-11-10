@@ -60,6 +60,7 @@ export default function CartPage() {
   const data = cart.cart;
   const groups: CartGroup[] = data?.groups ?? [];
   const items: Row[] = useMemo(() => groups.flatMap((group) => group.items.map((line) => ({ ...line, shopId: group.shopId, shopName: group.shopName, shopSlug: group.shopSlug }))), [groups]);
+  const cartEmpty = cart.status === "ready" && items.length === 0;
   const selectedItems = items.filter((item) => item.selected);
   const allSelected = items.length > 0 && selectedItems.length === items.length;
   const priceChanged = items.some((item) => item.priceChanged);
@@ -138,32 +139,45 @@ export default function CartPage() {
   return <main className="cart-page">
     <div className="cart-heading cart-width"><Link to="/">← {tp("cart.backToShopping")}</Link><ol aria-label={tp("checkout.steps.label")}><li aria-current="step"><span>1</span> {tp("checkout.steps.cart")}</li><li><span>2</span> {tp("checkout.steps.checkout")}</li><li><span>3</span> {tp("checkout.steps.done")}</li></ol></div>
     <div className="cart-page-title cart-width"><div className="cart-title"><ShoppingCart/><div><h1>{tp("cart.title")} <span>({tp("cart.lineCount", { count: items.length })})</span></h1><p>{tp("cart.subtitle")}</p></div></div></div>
-    <section className="cart-content cart-width">
+    <section className={`cart-content cart-width${cartEmpty ? " is-empty" : ""}`}>
       <div className="cart-main-column">
         {priceChanged && <div className="cart-price-notice" role="alert"><AlertTriangle size={16}/><span>{tp("cart.priceChangedBanner")}</span><button type="button" disabled={busy} onClick={() => run(cart.acceptPrices, tp("cart.pricesAccepted"))}>{tp("cart.acceptPrices")}</button></div>}
         {cart.mergeNotes.length > 0 && <div className="cart-price-notice is-info" role="status"><span>{cart.mergeNotes.map((note) => note.message).join(" · ")}</span><button type="button" onClick={cart.dismissMergeNotes}>{tp("cart.dismiss")}</button></div>}
 
-        <div className="cart-select-row"><label><input type="checkbox" checked={allSelected} disabled={busy || !items.length} onChange={() => run(() => cart.setSelected([], !allSelected))}/>{tp("cart.selectAll")}</label><button disabled={busy || !selectedItems.length} onClick={() => setConfirmRemoveSelected(true)}><Trash2/>{tp("cart.removeSelected")}</button></div>
-        <section className="cart-list" aria-busy={showSkeleton || undefined}>
-          {showSkeleton && !data && [0, 1, 2].map((key) => <article key={key} aria-hidden="true">
-            <span/><Skeleton className="cart-photo"/><div className="cart-item-copy"><Skeleton width="70%" height={16}/><Skeleton width="40%" height={13}/></div>
-          </article>)}
-          {items.map((item) => <article key={item.id} className={item.selected ? "cart-item-selected" : ""}>
-            <input aria-label={tp("cart.selectLine", { name: item.productName })} type="checkbox" checked={item.selected} disabled={busy} onChange={() => toggle(item)}/>
-            <span className="cart-photo cart-photo-real">{item.imageUrl ? <img src={mediaUrl(item.imageUrl)} alt={item.productName}/> : null}</span>
-            <div className="cart-item-copy"><h2><Link to={`/shop/${item.shopSlug}/product/${item.productSlug}`}>{item.productName}</Link></h2><p><Store/>{item.shopName}</p><em>{item.optionLabel || tp("cart.ready")}</em><ConfigurationSummary configuration={item.configuration} localeTag={localeTag}/>{lineNotice(item, tp)}</div>
-            <div className="cart-unit-price"><b className="num">{money(item.unitPrice)}</b>{item.priceChanged
-              ? <del className="num" title={tp("cart.oldPrice")}>{money(item.priceSnapshot)}</del>
-              : moneyValue(item.compareAtPrice) > moneyValue(item.unitPrice) ? <><del className="num">{money(item.compareAtPrice)}</del><em className="num">-{Math.round((1 - moneyValue(item.unitPrice) / moneyValue(item.compareAtPrice)) * 100)}%</em></> : null}</div>
-            <div className="cart-quantity"><button aria-label={tp("cart.decrease")} disabled={busy || item.quantity <= 1} onClick={() => setQuantity(item, -1)}><Minus/></button><b className="num">{item.quantity}</b><button aria-label={tp("cart.increase")} disabled={busy || item.quantity >= item.maxQuantity} onClick={() => setQuantity(item, 1)}>＋</button></div>
-            <strong className="cart-line-total num">{money(item.lineTotal)}</strong>
-            <button className="cart-remove" aria-label={tp("cart.removeLine", { name: item.productName })} disabled={busy} onClick={() => remove([item.id])}><Trash2/></button>
-          </article>)}
-          {cart.status === "error" && !data && <EmptyState variant="error" title={tp("cart.loadError")} action={{ label: tp("cart.retry"), onClick: () => void cart.refresh() }}/>}
-          {cart.status === "ready" && !items.length && <EmptyState icon={ShoppingCart} title={tp("cart.empty")} action={{ label: tp("cart.startShopping"), to: "/recommendations" }}/>}
-        </section>
+        {cartEmpty ? (
+          <EmptyState
+            className="cart-empty-state"
+            icon={ShoppingCart}
+            title={tp("cart.empty")}
+            description={tp("cart.emptyDesc")}
+            action={{ label: tp("cart.startShopping"), to: "/recommendations" }}
+            actions={[{ label: tp("emptyState.browseShops"), to: "/shops" }]}
+          />
+        ) : (
+          <>
+            <div className="cart-select-row"><label><input type="checkbox" checked={allSelected} disabled={busy || !items.length} onChange={() => run(() => cart.setSelected([], !allSelected))}/>{tp("cart.selectAll")}</label><button disabled={busy || !selectedItems.length} onClick={() => setConfirmRemoveSelected(true)}><Trash2/>{tp("cart.removeSelected")}</button></div>
+            <section className="cart-list" aria-busy={showSkeleton || undefined}>
+              {showSkeleton && !data && [0, 1, 2].map((key) => <article key={key} aria-hidden="true">
+                <span/><Skeleton className="cart-photo"/><div className="cart-item-copy"><Skeleton width="70%" height={16}/><Skeleton width="40%" height={13}/></div>
+              </article>)}
+              {items.map((item) => <article key={item.id} className={item.selected ? "cart-item-selected" : ""}>
+                <input aria-label={tp("cart.selectLine", { name: item.productName })} type="checkbox" checked={item.selected} disabled={busy} onChange={() => toggle(item)}/>
+                <span className="cart-photo cart-photo-real">{item.imageUrl ? <img src={mediaUrl(item.imageUrl)} alt={item.productName}/> : null}</span>
+                <div className="cart-item-copy"><h2><Link to={`/shop/${item.shopSlug}/product/${item.productSlug}`}>{item.productName}</Link></h2><p><Store/>{item.shopName}</p><em>{item.optionLabel || tp("cart.ready")}</em><ConfigurationSummary configuration={item.configuration} localeTag={localeTag}/>{lineNotice(item, tp)}</div>
+                <div className="cart-unit-price"><b className="num">{money(item.unitPrice)}</b>{item.priceChanged
+                  ? <del className="num" title={tp("cart.oldPrice")}>{money(item.priceSnapshot)}</del>
+                  : moneyValue(item.compareAtPrice) > moneyValue(item.unitPrice) ? <><del className="num">{money(item.compareAtPrice)}</del><em className="num">-{Math.round((1 - moneyValue(item.unitPrice) / moneyValue(item.compareAtPrice)) * 100)}%</em></> : null}</div>
+                <div className="cart-quantity"><button aria-label={tp("cart.decrease")} disabled={busy || item.quantity <= 1} onClick={() => setQuantity(item, -1)}><Minus/></button><b className="num">{item.quantity}</b><button aria-label={tp("cart.increase")} disabled={busy || item.quantity >= item.maxQuantity} onClick={() => setQuantity(item, 1)}>＋</button></div>
+                <strong className="cart-line-total num">{money(item.lineTotal)}</strong>
+                <button className="cart-remove" aria-label={tp("cart.removeLine", { name: item.productName })} disabled={busy} onClick={() => remove([item.id])}><Trash2/></button>
+              </article>)}
+              {cart.status === "error" && !data && <EmptyState variant="error" title={tp("cart.loadError")} action={{ label: tp("cart.retry"), onClick: () => void cart.refresh() }}/>}
+            </section>
+          </>
+        )}
       </div>
 
+      {!cartEmpty ? (
       <aside className="cart-side">
         <section className="cart-summary">
           <span className="cart-summary-kicker">{tp("cart.summaryKicker")}</span><h2>{tp("cart.summary")}</h2>
@@ -186,6 +200,7 @@ export default function CartPage() {
           <small className="cart-checkout-note"><ShieldCheck size={14}/> {blocked || priceChanged ? tp("cart.fixBeforeCheckout") : tp("cart.checkoutNote")}</small>
         </section>
       </aside>
+      ) : null}
     </section>
 
     {suggestions.length > 0 && <div className="cart-width cart-recommend-wrap"><section className="cart-recommend"><header><h2>{tp("cart.recommend.title")}</h2><Link to={`/shop/${groups[0]?.shopSlug}`}>{tp("cart.recommend.all")} <ArrowRight/></Link></header><div>

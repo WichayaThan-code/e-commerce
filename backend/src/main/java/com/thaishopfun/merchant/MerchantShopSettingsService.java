@@ -191,7 +191,7 @@ public class MerchantShopSettingsService {
         var shop = ownedShop(userId, shopId);
         var trimmedName = request.shopName().trim();
         if (applications.existsByShopNameIgnoreCaseAndIdNot(trimmedName, shop.getApplication().getId())) {
-            throw new AuthException(HttpStatus.CONFLICT, "SHOP_EXISTS", "ชื่อร้านนี้มีในระบบแล้ว", "shopName");
+            throw new AuthException(HttpStatus.CONFLICT, "SHOP_EXISTS", "ชื่อร้านนี้ถูกใช้แล้ว ลองเปลี่ยนชื่อ", "shopName");
         }
         categories.requireActiveOrCurrent(request.category(), shop.getCategory());
         shop.updateSettings(

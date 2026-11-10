@@ -39,6 +39,22 @@ public class DatabaseExceptionProbeController {
     @RequirePermission("PLATFORM_SYSTEM_READ")
     @GetMapping("/integrity")
     public void integrity() {
-        throw new DataIntegrityViolationException("duplicate key");
+        throw new DataIntegrityViolationException("integrity", new SQLException("generic integrity", "99999"));
+    }
+
+    @RequirePermission("PLATFORM_SYSTEM_READ")
+    @GetMapping("/integrity-unique")
+    public void integrityUnique() {
+        throw new DataIntegrityViolationException(
+            "unique",
+            new SQLException("duplicate key value violates unique constraint \"uq_demo\"", "23505"));
+    }
+
+    @RequirePermission("PLATFORM_SYSTEM_READ")
+    @GetMapping("/integrity-too-long")
+    public void integrityTooLong() {
+        throw new DataIntegrityViolationException(
+            "too long",
+            new SQLException("value too long for type character varying(50)", "22001"));
     }
 }

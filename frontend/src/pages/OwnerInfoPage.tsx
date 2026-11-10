@@ -241,13 +241,18 @@ export default function OwnerInfoPage() {
   useEffect(() => {
     if (!sameAddress || !user) return
     const draft = readMerchantDraft(user.id)
-    setHouseNo(draft.address || '')
+    const street = (draft.address || '').trim()
+    // Never dump the full shop address line into houseNo (varchar 50) — that caused SQLState 22001.
+    setHouseNo((prev) => {
+      if (prev && prev.length <= 50 && prev !== street) return prev
+      return o.sameAddressHouseNo
+    })
     setVillageNo('')
     setBuilding('')
     setAlley('')
-    setRoad('')
+    setRoad(street.slice(0, 255))
     setThaiAddress(shopAddress(user.id))
-  }, [sameAddress, user])
+  }, [sameAddress, user, o.sameAddressHouseNo])
 
   useEffect(() => {
     if (!user || saved?.firstName) return
@@ -435,10 +440,10 @@ export default function OwnerInfoPage() {
                 <div className="owner-person-grid">
                   <SearchableSelect field="title" error={fieldErrors.title} onBlur={() => blurOwner('title')} label={o.title} required options={[...o.titles]} value={title} onChange={pickOwnerField('title', setTitle)} />
                   <FormField className="flush" label={<>{o.firstName} <em>*</em></>} icon={UserRound} error={fieldErrors.firstName}>
-                    <input name="firstName" value={firstName} autoComplete="given-name" aria-invalid={Boolean(fieldErrors.firstName)} {...firstNameHandlers} onBlur={() => blurOwner('firstName')} />
+                    <input name="firstName" maxLength={100} value={firstName} autoComplete="given-name" aria-invalid={Boolean(fieldErrors.firstName)} {...firstNameHandlers} onBlur={() => blurOwner('firstName')} />
                   </FormField>
                   <FormField className="flush" label={<>{o.lastName} <em>*</em></>} error={fieldErrors.lastName}>
-                    <input name="lastName" value={lastName} autoComplete="family-name" aria-invalid={Boolean(fieldErrors.lastName)} {...lastNameHandlers} onBlur={() => blurOwner('lastName')} />
+                    <input name="lastName" maxLength={100} value={lastName} autoComplete="family-name" aria-invalid={Boolean(fieldErrors.lastName)} {...lastNameHandlers} onBlur={() => blurOwner('lastName')} />
                   </FormField>
                   <FormField className="flush" label={<>{o.citizenId} <em>*</em></>} icon={IdCard} error={fieldErrors.citizenId}>
                     <input
@@ -484,7 +489,7 @@ export default function OwnerInfoPage() {
                     />
                   </FormField>
                   <FormField className="flush" label={<>{o.email} <em>*</em></>} icon={Mail} error={fieldErrors.email}>
-                    <input name="email" type="email" autoComplete="email" value={email} aria-invalid={Boolean(fieldErrors.email)} {...emailHandlers} onBlur={() => blurOwner('email')} />
+                    <input name="email" type="email" maxLength={255} autoComplete="email" value={email} aria-invalid={Boolean(fieldErrors.email)} {...emailHandlers} onBlur={() => blurOwner('email')} />
                   </FormField>
                 </FormGrid>
               </section>
@@ -506,19 +511,76 @@ export default function OwnerInfoPage() {
                 ) : (
                 <div className="owner-address-grid">
                   <FormField className="flush" label={<>{o.houseNo} <em>*</em></>} error={fieldErrors.houseNo}>
-                    <input name="houseNo" placeholder="123/45" value={houseNo} autoComplete="address-line2" aria-invalid={Boolean(fieldErrors.houseNo)} {...houseNoHandlers} onBlur={() => blurOwner('houseNo')} />
+                    <input
+                      name="houseNo"
+                      maxLength={50}
+                      placeholder={o.houseNoPh}
+                      value={houseNo}
+                      autoComplete="off"
+                      aria-invalid={Boolean(fieldErrors.houseNo)}
+                      {...houseNoHandlers}
+                      onBlur={() => blurOwner('houseNo')}
+                    />
                   </FormField>
-                  <FormField className="flush" label={o.villageNo}>
-                    <input placeholder="5" value={villageNo} onChange={(e) => setVillageNo(e.target.value)} />
+                  <FormField className="flush" label={o.villageNo} error={fieldErrors.villageNo}>
+                    <input
+                      name="villageNo"
+                      maxLength={50}
+                      placeholder={o.villageNoPh}
+                      value={villageNo}
+                      autoComplete="off"
+                      aria-invalid={Boolean(fieldErrors.villageNo)}
+                      onChange={(e) => {
+                        setVillageNo(e.target.value)
+                        clearOwnerError('villageNo')
+                      }}
+                      onBlur={() => blurOwner('villageNo')}
+                    />
                   </FormField>
-                  <FormField className="flush wide" label={o.building}>
-                    <input placeholder="หมู่บ้านสุขสันต์" value={building} onChange={(e) => setBuilding(e.target.value)} />
+                  <FormField className="flush wide" label={o.building} error={fieldErrors.building}>
+                    <input
+                      name="building"
+                      maxLength={255}
+                      placeholder={o.buildingPh}
+                      value={building}
+                      autoComplete="off"
+                      aria-invalid={Boolean(fieldErrors.building)}
+                      onChange={(e) => {
+                        setBuilding(e.target.value)
+                        clearOwnerError('building')
+                      }}
+                      onBlur={() => blurOwner('building')}
+                    />
                   </FormField>
-                  <FormField className="flush" label={o.alley}>
-                    <input placeholder="สุขุมวิท 101" value={alley} onChange={(e) => setAlley(e.target.value)} />
+                  <FormField className="flush" label={o.alley} error={fieldErrors.alley}>
+                    <input
+                      name="alley"
+                      maxLength={255}
+                      placeholder={o.alleyPh}
+                      value={alley}
+                      autoComplete="off"
+                      aria-invalid={Boolean(fieldErrors.alley)}
+                      onChange={(e) => {
+                        setAlley(e.target.value)
+                        clearOwnerError('alley')
+                      }}
+                      onBlur={() => blurOwner('alley')}
+                    />
                   </FormField>
-                  <FormField className="flush" label={o.road}>
-                    <input placeholder="สุขุมวิท" value={road} onChange={(e) => setRoad(e.target.value)} />
+                  <FormField className="flush" label={o.road} error={fieldErrors.road}>
+                    <input
+                      name="road"
+                      maxLength={255}
+                      placeholder={o.roadPh}
+                      value={road}
+                      autoComplete="off"
+                      aria-invalid={Boolean(fieldErrors.road)}
+                      onChange={(e) => {
+                        setRoad(e.target.value)
+                        clearOwnerError('road')
+                      }}
+                      onBlur={() => blurOwner('road')}
+                    />
                   </FormField>
                   <ThaiAddressFields value={thaiAddress} onChange={patchThaiAddress} errors={fieldErrors} onBlurField={blurOwner} />
                 </div>
@@ -542,7 +604,7 @@ export default function OwnerInfoPage() {
                     />
                   </FormField>
                   <FormField className="flush wide" label={<>{o.accountName} <em>*</em></>} error={fieldErrors.bankAccountName}>
-                    <input name="bankAccountName" placeholder={o.accountNamePh} value={bankAccountName} autoComplete="off" aria-invalid={Boolean(fieldErrors.bankAccountName)} {...bankAccountNameHandlers} onBlur={() => blurOwner('bankAccountName')} />
+                    <input name="bankAccountName" maxLength={255} placeholder={o.accountNamePh} value={bankAccountName} autoComplete="off" aria-invalid={Boolean(fieldErrors.bankAccountName)} {...bankAccountNameHandlers} onBlur={() => blurOwner('bankAccountName')} />
                   </FormField>
                 </div>
               </section>

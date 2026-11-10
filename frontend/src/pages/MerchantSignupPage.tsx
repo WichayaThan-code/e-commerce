@@ -564,6 +564,7 @@ export default function MerchantSignupPage() {
               >
                 <input
                   name="address"
+                  maxLength={500}
                   placeholder={r.addressPh}
                   value={address}
                   autoComplete="street-address"

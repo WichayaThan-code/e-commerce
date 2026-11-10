@@ -25,7 +25,12 @@ let refreshInFlight: Promise<AuthResponse> | null = null
 /** Fired when the backend denies an action (403 / shop no longer reachable) so the UI re-reads its permissions. */
 export const PERMISSIONS_STALE_EVENT = 'tsf:permissions-stale'
 
-export type ApiFieldError = { field: string; code: string; message: string }
+export type ApiFieldError = {
+  field: string
+  code: string
+  message: string
+  params?: Record<string, unknown>
+}
 
 export class ApiError extends Error {
   fieldErrors: ApiFieldError[]

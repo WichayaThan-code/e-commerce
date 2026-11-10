@@ -1,16 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  CircleAlert,
   FileCheck2,
   Landmark,
-  MapPin,
   LoaderCircle,
+  MapPin,
   Send,
   Store,
   UserRound,
+  XCircle,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -18,16 +20,20 @@ import MerchantOnboardingLayout from "../components/merchant/MerchantOnboardingL
 import OnboardingAside from "../components/merchant/OnboardingAside";
 import RegisterStepper from "../components/merchant/RegisterStepper";
 import MerchantHeader from "../components/MerchantHeader";
+import ConfirmDialog from "../components/form/ConfirmDialog";
+import FieldError from "../components/form/FieldError";
 import { ApiError, merchantApi, type MerchantApplication, type MerchantOwnerPayload, type MerchantShopPayload } from "../services/api";
-import { showApiFailure } from "../services/apiErrors";
+import { describeApiError, showApiFailure } from "../services/apiErrors";
 import { clearMerchantDraft, readMerchantDraft } from "../services/merchantDraft";
 import { reviewGap } from "../services/merchantApplicationValidation";
-import FieldError from "../components/form/FieldError";
 import i18n from "../i18n";
 import "../styles/doc-confirm.css";
 import "../styles/verify-send.css";
 import "../styles/form-fields.css";
 import "../styles/form-invalid.css";
+import "../styles/product-management.css";
+
+type ReviewSectionKey = "shop" | "social" | "owner" | "docs" | "address" | "payout";
 
 function ReviewSection({
   icon: Icon,
@@ -35,7 +41,9 @@ function ReviewSection({
   status,
   edit,
   locked = false,
+  needsFix = false,
   labels,
+  onEdit,
   children,
 }: {
   icon: typeof Store;
@@ -43,27 +51,108 @@ function ReviewSection({
   status?: string;
   edit?: string;
   locked?: boolean;
-  labels: { complete: string; edit: string; locked: string };
+  needsFix?: boolean;
+  labels: { complete: string; edit: string; locked: string; needsFix: string };
+  onEdit?: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <section className="review-section">
+    <section className={`review-section${needsFix ? " is-needs-fix" : ""}`}>
       <div className="review-section-icon">
         <Icon />
       </div>
       <div className="review-section-content">
         <div className="review-section-head">
           <h2>{title}</h2>
-          <span>
-            <CheckCircle2 />
-            {status ?? labels.complete}
+          <span className={needsFix ? "is-needs-fix" : undefined}>
+            {needsFix ? <CircleAlert aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
+            {needsFix ? labels.needsFix : (status ?? labels.complete)}
           </span>
         </div>
         {children}
       </div>
-      {locked ? <span className="review-locked">{labels.locked}</span> : edit ? <a href={edit}>{labels.edit}</a> : null}
+      {locked ? (
+        <span className="review-locked">{labels.locked}</span>
+      ) : edit ? (
+        <a
+          href={edit}
+          onClick={() => onEdit?.()}
+        >
+          {labels.edit}
+        </a>
+      ) : null}
     </section>
   );
+}
+
+function sectionLabel(section: ReviewSectionKey | null) {
+  if (!section) return "";
+  const key =
+    section === "shop" ? "sectionShop"
+      : section === "social" ? "sectionSocial"
+        : section === "owner" ? "sectionOwner"
+          : section === "docs" ? "sectionDocs"
+            : section === "address" ? "sectionAddress"
+              : "sectionPayout";
+  return i18n.t(`review.${key}`, { ns: "merchant" });
+}
+
+function fieldSection(field: string): ReviewSectionKey | null {
+  if (field === "shopName" || field === "shopNameEn" || field === "category" || field === "description" || field === "saleType") return "shop";
+  if (field === "website" || field === "lineId" || field === "facebookUrl" || field === "instagramUrl" || field === "tiktokUrl") return "social";
+  if (field === "address" || field === "province" || field === "district" || field === "subdistrict" || field === "postalCode") return "address";
+  if (field === "houseNo" || field === "villageNo" || field === "building" || field === "alley" || field === "road") return "address";
+  if (field === "bankAccountNumber" || field === "bankAccountName" || field === "bankName") return "payout";
+  if (field === "citizenId" || field === "phone" || field === "email" || field === "firstName" || field === "lastName" || field === "title" || field === "birthDate" || field === "nationality") return "owner";
+  return null;
+}
+
+function resolveErrorTarget(error: unknown): { href: string; section: ReviewSectionKey | null } {
+  if (!(error instanceof ApiError)) return { href: "", section: null };
+  const code = error.code;
+  const apiSection = typeof error.details.section === "string" ? error.details.section : "";
+  const field = error.fieldErrors[0]?.field || "";
+  const mapped = fieldSection(field);
+
+  if (code === "SHOP_EXISTS" || mapped === "shop") {
+    return { href: "/merchant/register", section: "shop" };
+  }
+  if (mapped === "social") {
+    return { href: "/merchant/register", section: "social" };
+  }
+  if (mapped === "address") {
+    // Owner address fields live on owner-info; shop address on register.
+    if (field === "houseNo" || field === "villageNo" || field === "building" || field === "alley" || field === "road") {
+      return { href: "/merchant/owner-info", section: "address" };
+    }
+    return { href: "/merchant/register", section: "address" };
+  }
+  if (code === "CITIZEN_ID_TAKEN" || code === "OWNER_EXISTS" || mapped === "owner" || apiSection === "owner") {
+    return { href: "/merchant/owner-info", section: "owner" };
+  }
+  if (mapped === "payout" || apiSection === "bank") {
+    return { href: "/merchant/owner-info", section: "payout" };
+  }
+  if (code === "FILE_TOO_LARGE" || code === "INVALID_FILE" || apiSection === "documents") {
+    return { href: "/merchant/documents", section: "docs" };
+  }
+  if (code === "VALUE_TOO_LONG" || code === "VALIDATION_FAILED") {
+    if (apiSection === "shop") return { href: "/merchant/register", section: "shop" };
+    if (apiSection === "owner" || apiSection === "bank" || apiSection === "address") {
+      return { href: "/merchant/owner-info", section: apiSection === "bank" ? "payout" : apiSection === "address" ? "address" : "owner" };
+    }
+  }
+  if (code === "APPLICATION_INCOMPLETE") {
+    return { href: "", section: null };
+  }
+  return { href: "", section: null };
+}
+
+function hrefToSection(href: string): ReviewSectionKey | null {
+  if (href.includes("/merchant/documents")) return "docs";
+  if (href.includes("/merchant/owner-info")) return "owner";
+  if (href.includes("/merchant/register")) return "shop";
+  return null;
 }
 
 export default function VerifySendPage() {
@@ -74,9 +163,7 @@ export default function VerifySendPage() {
   const { onboarding: ob } = useLanguage();
   const rv = ob.review;
   const soc = ob.social;
-  const [application, setApplication] = useState<MerchantApplication | null>(
-    null,
-  );
+  const [application, setApplication] = useState<MerchantApplication | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [confirmError, setConfirmError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -84,9 +171,19 @@ export default function VerifySendPage() {
   const [applyResult, setApplyResult] = useState<"success" | "error" | null>(null);
   const [message, setMessage] = useState(rv.loading);
   const [stepHref, setStepHref] = useState("");
+  const [errorSection, setErrorSection] = useState<ReviewSectionKey | null>(null);
+
+  const clearSubmitError = () => {
+    setMessage("");
+    setStepHref("");
+    setErrorSection(null);
+    setApplyResult(null);
+  };
+
   useEffect(() => () => {
     if (redirectTimer.current) window.clearTimeout(redirectTimer.current);
   }, []);
+
   useEffect(() => {
     merchantApi
       .getDraft()
@@ -96,6 +193,7 @@ export default function VerifySendPage() {
       })
       .catch((error) => showApiFailure(error, setMessage));
   }, []);
+
   const [localDraft] = useState(() => readMerchantDraft(user?.id));
   const owner = localDraft.owner;
   const shown = (saved?: string | null, drafted?: string) => saved || drafted || rv.empty;
@@ -106,18 +204,38 @@ export default function VerifySendPage() {
       : localDraft.saleType === "owner"
         ? "OWNER"
         : undefined);
-  const uploadedTypes = [
-    ...Object.keys(localDraft.documentNames || {}),
-    ...(application?.documents.map((document) => document.type) || []),
-  ];
+  const uploadedTypes = useMemo(() => ([
+    ...new Set([
+      ...Object.keys(localDraft.documentNames || {}),
+      ...(application?.documents.map((document) => document.type) || []),
+    ]),
+  ]), [application?.documents, localDraft.documentNames]);
   const docsGap = application
     ? reviewGap({ ...localDraft, ownerId: localDraft.ownerId || application.ownerId || undefined }, uploadedTypes)
     : null;
+
   useEffect(() => {
     if (!application || !docsGap) return;
     setMessage(docsGap.message);
     setStepHref(docsGap.href);
+    setErrorSection(hrefToSection(docsGap.href));
   }, [application, docsGap?.href, docsGap?.message]);
+
+  const shopName = shown(application?.shopName, localDraft.shopName);
+  const shopCategory = shown(application?.category, localDraft.category);
+  const shopAddressSummary = [
+    application?.shopAddress || localDraft.address,
+    application?.shopSubdistrict || localDraft.subdistrict,
+    application?.shopDistrict || localDraft.district,
+    application?.shopProvince || localDraft.province,
+  ].filter(Boolean).join(" ") || rv.empty;
+  const ownerName = application?.firstName || owner
+    ? `${application?.firstName || owner?.firstName || ""} ${application?.lastName || owner?.lastName || ""}`.trim()
+    : rv.empty;
+  const ownerEditHref = localDraft.ownerId ? `/merchant/owner-info?ownerId=${localDraft.ownerId}` : "/merchant/owner-info";
+  const sectionLabels = { ...rv, needsFix: i18n.t("review.needsFix", { ns: "merchant" }) };
+  const showBanner = Boolean(message) && !(confirmOpen && (submitting || applyResult));
+
   const submit = async () => {
     if (submittingRef.current || submitted) return;
     if (!confirmed) {
@@ -143,11 +261,13 @@ export default function VerifySendPage() {
       setApplyResult("error");
       setMessage(gap.message);
       setStepHref(gap.href);
+      setErrorSection(hrefToSection(gap.href));
       submittingRef.current = false;
       setSubmitting(false);
       return;
     }
     setStepHref("");
+    setErrorSection(null);
     const shop: MerchantShopPayload = {
       shopName: draft.shopName || "",
       shopNameEn: draft.shopNameEnglish || "",
@@ -203,23 +323,71 @@ export default function VerifySendPage() {
       setMessage(rv.success);
       submittingRef.current = false;
       setSubmitting(false);
-      redirectTimer.current = window.setTimeout(() => navigate("/"), 1600);
+      if (redirectTimer.current) window.clearTimeout(redirectTimer.current);
+      redirectTimer.current = window.setTimeout(() => navigate("/"), 5000);
     } catch (error) {
+      const described = describeApiError(error);
+      const target = resolveErrorTarget(error);
+      let href = target.href;
+      let section = target.section;
+      if (!href && error instanceof ApiError) {
+        const field = error.fieldErrors[0]?.field || "";
+        const mapped = fieldSection(field);
+        if (mapped === "shop" || mapped === "social" || (mapped === "address" && field === "address")) {
+          href = "/merchant/register";
+          section = mapped === "social" ? "social" : mapped === "address" ? "address" : "shop";
+        } else if (mapped === "owner" || mapped === "payout" || mapped === "address") {
+          href = ownerEditHref;
+          section = mapped;
+        }
+      }
+      const fieldLines = error instanceof ApiError && error.fieldErrors.length > 0
+        ? error.fieldErrors.map((item) => item.message).filter(Boolean)
+        : [];
+      const banner = fieldLines.length > 1
+        ? `${described.message}\n${fieldLines.map((line) => `• ${line}`).join("\n")}`
+        : fieldLines.length === 1
+          ? fieldLines[0]
+          : described.message;
       setApplyResult("error");
-      const field = error instanceof ApiError ? error.fieldErrors[0]?.field : "";
-      setStepHref(field === "shopName" || field === "category" || field === "postalCode" || field === "address"
-        ? "/merchant/register"
-        : field === "citizenId" || field === "phone" || field === "email" || field === "bankAccountNumber" || field === "bankAccountName" || field === "bankName"
-          ? "/merchant/owner-info"
-          : "");
-      showApiFailure(error, setMessage);
+      setStepHref(href);
+      setErrorSection(section);
+      setMessage(banner);
       submittingRef.current = false;
       setSubmitting(false);
     }
   };
+
+  const closeConfirm = () => {
+    if (submitting) return;
+    setConfirmOpen(false);
+    if (applyResult !== "error") setApplyResult(null);
+  };
+
+  const finishSuccess = () => {
+    if (redirectTimer.current) {
+      window.clearTimeout(redirectTimer.current);
+      redirectTimer.current = null;
+    }
+    setConfirmOpen(false);
+    navigate("/");
+  };
+
+  const closeError = () => {
+    setConfirmOpen(false);
+  };
+
+  const goFix = () => {
+    const href = stepHref || ownerEditHref;
+    clearSubmitError();
+    setConfirmOpen(false);
+    window.location.assign(href);
+  };
+
   const submitted = application?.status === "SUBMITTED";
   const hasDoc = (type: string) =>
     application?.documents.some((document) => document.type === type);
+
   return (
     <main className="doc-page verify-page onboard-page">
       <MerchantHeader />
@@ -250,11 +418,13 @@ export default function VerifySendPage() {
               edit="/merchant/register"
               locked={submitted}
               status={rv.complete}
-              labels={rv}
+              needsFix={errorSection === "shop"}
+              labels={sectionLabels}
+              onEdit={clearSubmitError}
             >
               <dl>
                 <dt>{rv.shopNameTh}</dt>
-                <dd>{shown(application?.shopName, localDraft.shopName)}</dd>
+                <dd>{shopName}</dd>
                 <dt>{rv.shopNameEn}</dt>
                 <dd>{shown(application?.shopNameEn, localDraft.shopNameEnglish)}</dd>
                 <dt>{rv.saleType}</dt>
@@ -285,7 +455,9 @@ export default function VerifySendPage() {
               edit="/merchant/register"
               locked={submitted}
               status={rv.complete}
-              labels={rv}
+              needsFix={errorSection === "social"}
+              labels={sectionLabels}
+              onEdit={clearSubmitError}
             >
               <dl>
                 <dt>{soc.website}</dt>
@@ -300,14 +472,18 @@ export default function VerifySendPage() {
                 <dd>{shown(application?.tiktokUrl, localDraft.tiktokUrl)}</dd>
               </dl>
             </ReviewSection>
-            <ReviewSection icon={UserRound} title={rv.sectionOwner} edit={localDraft.ownerId ? `/merchant/owner-info?ownerId=${localDraft.ownerId}` : "/merchant/owner-info"} locked={submitted} labels={rv}>
+            <ReviewSection
+              icon={UserRound}
+              title={rv.sectionOwner}
+              edit={ownerEditHref}
+              locked={submitted}
+              needsFix={errorSection === "owner"}
+              labels={sectionLabels}
+              onEdit={clearSubmitError}
+            >
               <dl>
                 <dt>{rv.ownerName}</dt>
-                <dd>
-                  {application?.firstName || owner
-                    ? `${application?.firstName || owner?.firstName || ""} ${application?.lastName || owner?.lastName || ""}`.trim()
-                    : rv.empty}
-                </dd>
+                <dd>{ownerName || rv.empty}</dd>
                 <dt>{rv.ownerPhone}</dt>
                 <dd>{shown(application?.phone, owner?.phone)}</dd>
                 <dt>{rv.ownerEmail}</dt>
@@ -326,18 +502,28 @@ export default function VerifySendPage() {
               status={localDraft.ownerId || (hasDoc("IDENTITY") && hasDoc("ADDRESS")) ? rv.uploaded : rv.incomplete}
               edit="/merchant/documents"
               locked={submitted}
-              labels={rv}
+              needsFix={errorSection === "docs"}
+              labels={sectionLabels}
+              onEdit={clearSubmitError}
             >
               <dl>
                 <dt>{rv.idDoc}</dt>
-                <dd>{localDraft.ownerId || hasDoc("IDENTITY") ? (<><CheckCircle2 />{rv.uploadedOk}</>) : rv.empty}</dd>
+                <dd>{localDraft.ownerId || hasDoc("IDENTITY") ? (<><CheckCircle2 aria-hidden="true" />{rv.uploadedOk}</>) : rv.empty}</dd>
                 <dt>{rv.homeDoc}</dt>
-                <dd>{localDraft.ownerId || hasDoc("ADDRESS") ? (<><CheckCircle2 />{rv.uploadedOk}</>) : rv.empty}</dd>
+                <dd>{localDraft.ownerId || hasDoc("ADDRESS") ? (<><CheckCircle2 aria-hidden="true" />{rv.uploadedOk}</>) : rv.empty}</dd>
                 <dt>{rv.businessDoc}</dt>
-                <dd>{hasDoc("BUSINESS") ? (<><CheckCircle2 />{rv.uploadedOk}</>) : rv.empty}</dd>
+                <dd>{hasDoc("BUSINESS") ? (<><CheckCircle2 aria-hidden="true" />{rv.uploadedOk}</>) : rv.empty}</dd>
               </dl>
             </ReviewSection>
-            <ReviewSection icon={MapPin} title={rv.sectionAddress} edit="/merchant/register" locked={submitted} labels={rv}>
+            <ReviewSection
+              icon={MapPin}
+              title={rv.sectionAddress}
+              edit="/merchant/register"
+              locked={submitted}
+              needsFix={errorSection === "address"}
+              labels={sectionLabels}
+              onEdit={clearSubmitError}
+            >
               <p className="review-address">
                 {application?.shopAddress || localDraft.address || rv.empty}
                 <br />
@@ -345,7 +531,15 @@ export default function VerifySendPage() {
                 {application?.shopPostalCode || localDraft.postalCode || ""}
               </p>
             </ReviewSection>
-            <ReviewSection icon={Landmark} title={rv.sectionPayout} edit={localDraft.ownerId ? `/merchant/owner-info?ownerId=${localDraft.ownerId}` : "/merchant/owner-info"} locked={submitted} labels={rv}>
+            <ReviewSection
+              icon={Landmark}
+              title={rv.sectionPayout}
+              edit={ownerEditHref}
+              locked={submitted}
+              needsFix={errorSection === "payout"}
+              labels={sectionLabels}
+              onEdit={clearSubmitError}
+            >
               <dl>
                 <dt>{rv.bank}</dt>
                 <dd>{shown(application?.bankName, owner?.bankName)}</dd>
@@ -378,15 +572,28 @@ export default function VerifySendPage() {
               text={confirmError ? i18n.t("review.confirmRequired", { ns: "merchant" }) : undefined}
               id="field-error-verify-confirm"
             />
-            {message && (
-              <p className={stepHref || applyResult === "error" ? "form-alert" : "doc-message"} role={stepHref || applyResult === "error" ? "alert" : "status"}>
-                {message}
-                {stepHref ? <> <a href={stepHref}>{i18n.t("validation.goFix", { ns: "merchant" })}</a></> : null}
+            {showBanner ? (
+              <p className={stepHref || applyResult === "error" || errorSection ? "form-alert" : "doc-message"} role={stepHref || applyResult === "error" || errorSection ? "alert" : "status"}>
+                {(stepHref || applyResult === "error" || errorSection) ? <CircleAlert aria-hidden="true" /> : null}
+                <span>
+                  {message}
+                  {stepHref ? (
+                    <>
+                      {" "}
+                      <a href={stepHref} onClick={clearSubmitError}>
+                        {i18n.t("review.goFixSection", {
+                          ns: "merchant",
+                          section: sectionLabel(errorSection) || i18n.t("validation.goFix", { ns: "merchant" }),
+                        })}
+                      </a>
+                    </>
+                  ) : null}
+                </span>
               </p>
-            )}
+            ) : null}
             <div className="verify-actions">
               <a href="/merchant/documents">
-                <ArrowLeft />
+                <ArrowLeft aria-hidden="true" />
                 {ob.common.back}
               </a>
               <button
@@ -410,30 +617,30 @@ export default function VerifySendPage() {
                   if (gap) {
                     setMessage(gap.message);
                     setStepHref(gap.href);
+                    setErrorSection(hrefToSection(gap.href));
+                    setApplyResult("error");
                     return;
                   }
-                  setStepHref("");
-                  setMessage("");
+                  clearSubmitError();
                   setConfirmOpen(true);
                 }}
                 disabled={!confirmed || submitted || submitting || !application || Boolean(docsGap)}
               >
-                {submitting ? <LoaderCircle className="login-spinner" size={18} /> : <Send />}
+                {submitting ? <LoaderCircle className="login-spinner" size={18} aria-hidden="true" /> : <Send aria-hidden="true" />}
                 {submitted ? rv.submitted : submitting ? rv.submitting : rv.submit}
               </button>
             </div>
             {submitted && (
               <div className="verify-success">
-                <CheckCircle2 />
+                <CheckCircle2 aria-hidden="true" />
                 <span>
-                  <b>ส่งใบสมัครสำเร็จ</b>
+                  <b>{rv.success}</b>
                   <small>
-                    เลขอ้างอิง {application?.referenceNo} ·
-                    ทีมงานจะตรวจสอบและแจ้งผลภายใน 1–3 วันทำการ
+                    {i18n.t("review.successRef", { ns: "merchant", ref: application?.referenceNo || "—" })}
                   </small>
                   {application?.shopPath && (
                     <a className="shop-entry-link" href={application.shopPath}>
-                      เข้าดูร้าน {application.shopPath}
+                      {i18n.t("review.visitShop", { ns: "merchant", path: application.shopPath })}
                     </a>
                   )}
                 </span>
@@ -441,46 +648,81 @@ export default function VerifySendPage() {
             )}
           </div>
       </MerchantOnboardingLayout>
-      {confirmOpen && (
-        <div className="confirm-dialog-backdrop" onClick={() => { if (!submitting && applyResult !== "success") { setConfirmOpen(false); setApplyResult(null); } }}>
-          <div
-            className="confirm-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="confirm-apply-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {submitting ? (
-              <div className="apply-status" role="status">
-                <span className="apply-spinner" />
-                <h2 id="confirm-apply-title">กำลังส่งใบสมัคร</h2>
-                <p>กรุณารอสักครู่ ระบบกำลังบันทึกข้อมูลร้านค้า</p>
+
+      {confirmOpen && applyResult === "success" ? (
+        <ConfirmDialog
+          icon={<CheckCircle2 />}
+          tone="success"
+          title={i18n.t("review.success", { ns: "merchant" })}
+          message={i18n.t("review.successRedirect", { ns: "merchant" })}
+          cancelLabel={i18n.t("review.dialogClose", { ns: "merchant" })}
+          confirmLabel={i18n.t("review.dialogClose", { ns: "merchant" })}
+          hideCancel
+          focusPrimary
+          onCancel={finishSuccess}
+          onConfirm={finishSuccess}
+        />
+      ) : null}
+
+      {confirmOpen && applyResult === "error" ? (
+        <ConfirmDialog
+          icon={<XCircle />}
+          tone="danger"
+          title={i18n.t("review.dialogFail", { ns: "merchant" })}
+          message={message || i18n.t("review.errSubmit", { ns: "merchant" })}
+          cancelLabel={i18n.t("review.dialogClose", { ns: "merchant" })}
+          confirmLabel={
+            stepHref
+              ? i18n.t("review.goFixSection", { ns: "merchant", section: sectionLabel(errorSection) })
+              : i18n.t("review.dialogClose", { ns: "merchant" })
+          }
+          hideCancel={!stepHref}
+          focusPrimary
+          onCancel={closeError}
+          onConfirm={() => {
+            if (stepHref) goFix();
+            else closeError();
+          }}
+        />
+      ) : null}
+
+      {confirmOpen && applyResult !== "success" && applyResult !== "error" ? (
+        <ConfirmDialog
+          icon={submitting ? <LoaderCircle className="pm-spin" /> : <Send />}
+          title={submitting ? i18n.t("review.dialogSending", { ns: "merchant" }) : i18n.t("review.dialogTitle", { ns: "merchant" })}
+          message={submitting ? i18n.t("review.dialogSendingHint", { ns: "merchant" }) : i18n.t("review.dialogBody", { ns: "merchant" })}
+          cancelLabel={i18n.t("review.dialogCancel", { ns: "merchant" })}
+          confirmLabel={submitting ? i18n.t("review.dialogSending", { ns: "merchant" }) : i18n.t("review.dialogConfirm", { ns: "merchant" })}
+          confirmIcon={submitting ? <LoaderCircle className="pm-spin" aria-hidden="true" /> : undefined}
+          focusPrimary
+          confirmDisabled={submitting}
+          cancelDisabled={submitting}
+          escapeDisabled={submitting}
+          onCancel={closeConfirm}
+          onConfirm={() => void submit()}
+        >
+          {submitting ? null : (
+            <div className="pm-dialog-summary">
+              <div>
+                <span>{i18n.t("review.summaryShop", { ns: "merchant" })}</span>
+                <b>{shopName}</b>
               </div>
-            ) : applyResult === "success" ? (
-              <div className="apply-status ok" role="status">
-                <CheckCircle2 />
-                <h2 id="confirm-apply-title">สมัครร้านค้าสำเร็จ</h2>
-                <p>กำลังพาคุณไปหน้าแรก</p>
+              <div>
+                <span>{i18n.t("review.summaryCategory", { ns: "merchant" })}</span>
+                <b>{shopCategory}</b>
               </div>
-            ) : applyResult === "error" ? (
-              <div className="apply-status bad" role="alert">
-                <h2 id="confirm-apply-title">สมัครร้านค้าไม่สำเร็จ</h2>
-                <p>{message}{stepHref ? <> <a href={stepHref}>{i18n.t("validation.goFix", { ns: "merchant" })}</a></> : null}</p>
-                <button type="button" onClick={() => { setConfirmOpen(false); setApplyResult(null); }}>ปิด</button>
+              <div>
+                <span>{i18n.t("review.summaryAddress", { ns: "merchant" })}</span>
+                <b>{shopAddressSummary}</b>
               </div>
-            ) : (
-              <>
-                <h2 id="confirm-apply-title">ยืนยันการสมัครร้านค้า</h2>
-                <p>หากกดยืนยัน ระบบจะส่งใบสมัครทันที และจะไม่สามารถแก้ไขข้อมูลได้อีก</p>
-                <div>
-                  <button type="button" onClick={() => setConfirmOpen(false)}>ยกเลิก</button>
-                  <button type="button" disabled={submitting} onClick={() => void submit()}>ยืนยัน</button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+              <div>
+                <span>{i18n.t("review.summaryOwner", { ns: "merchant" })}</span>
+                <b>{ownerName || rv.empty}</b>
+              </div>
+            </div>
+          )}
+        </ConfirmDialog>
+      ) : null}
     </main>
   );
 }

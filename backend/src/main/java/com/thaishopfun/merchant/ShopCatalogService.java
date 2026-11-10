@@ -206,6 +206,8 @@ public class ShopCatalogService {
             shop.getDistrict(),
             shop.getSubdistrict(),
             shop.getPostalCode(),
+            shop.getLatitude(),
+            shop.getLongitude(),
             shop.getSlug(),
             shop.path(),
             shop.getStatus(),

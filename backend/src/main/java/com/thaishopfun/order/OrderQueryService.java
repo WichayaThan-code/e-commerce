@@ -462,9 +462,17 @@ public class OrderQueryService {
         if (MerchantVisibility.restricted(order, actor)) {
             return new OrderDtos.OrderSummary(order.getId(), order.getOrderNumber(), shop == null ? null : shop.getId(),
                 shop == null ? null : shop.getName(), null, null, null, null, null, null, null, order.getPlacedAt(), null,
-                order.getRowVersion(), true, null, null, null, null, null, null);
+                order.getRowVersion(), true, null, null, null, null, null, null, null);
         }
         int qty = order.getItems().stream().mapToInt(OrderItem::getQuantity).sum();
+        List<OrderDtos.OrderLinePreview> previews = order.getItems().isEmpty() ? null
+            : order.getItems().stream()
+                .map(item -> new OrderDtos.OrderLinePreview(
+                    item.getProductNameSnapshot(),
+                    item.getOptionLabelSnapshot(),
+                    item.getImageUrlSnapshot(),
+                    item.getQuantity()))
+                .toList();
         return new OrderDtos.OrderSummary(order.getId(), order.getOrderNumber(), shop == null ? null : shop.getId(),
             shop == null ? null : shop.getName(), order.getStatus().name(), order.getPaymentStatus().name(),
             order.getFulfillmentStatus().name(), order.getGrandTotal(), order.getCurrency(), order.getItems().size(), qty,
@@ -473,7 +481,8 @@ public class OrderQueryService {
             shipment == null ? null : shipment.getCarrierCode(),
             shipment == null ? null : shipment.getTrackingNumber(),
             merchant ? customerName : null,
-            merchant ? customerKey : null);
+            merchant ? customerKey : null,
+            previews);
     }
 
     private Map<UUID, String> recipientNames(Collection<UUID> orderIds) {

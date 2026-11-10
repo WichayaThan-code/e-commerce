@@ -261,6 +261,10 @@
   box-shadow:var(--shop-card-shadow,none);
   overflow:hidden;
   transition:transform .15s ease,border-color .15s ease;
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  min-width:0;
 }
 .shop-mall-card .shop-card-hit{position:absolute;inset:0;z-index:1}
 .shop-mall-card:not(.is-menu-row) .recommend-photo,
@@ -298,8 +302,13 @@
 .shop-mall-card .recommend-photo>button.liked{color:var(--color-danger)}
 .shop-mall-card .recommend-photo>button.liked svg{fill:var(--color-danger)}
 .shop-mall-card .shop-discount-badge{position:absolute;z-index:3}
-.shop-mall-card .recommend-product-info{position:relative;z-index:2}
-.shop-mall-card .shop-cart-btn{position:relative;z-index:2}
+.shop-mall-card .recommend-product-info,
+.shop-themed .shop-featured .recommend-product .recommend-product-info,
+.shop-themed .shop-rail .recommend-product .recommend-product-info,
+.shop-themed .recommend-results .recommend-product.is-catalog .recommend-product-info{
+  position:relative;z-index:2;display:flex;flex-direction:column;flex:1;min-width:0
+}
+.shop-mall-card .shop-cart-btn{position:relative;z-index:2;margin-top:auto}
 .shop-mall-badge{
   left:8px;top:8px;min-height:22px;padding:0 8px;border-radius:6px;
   background:var(--shop-primary);color:var(--shop-on-primary,#fff);font-size:11px;font-weight:700;display:inline-flex;align-items:center;
@@ -322,10 +331,11 @@
   left:8px;right:auto;top:auto;bottom:8px;z-index:3;pointer-events:none;
   min-height:22px;display:inline-flex;align-items:center;
 }
-.shop-product-title,.shop-mall-card .recommend-product-info h2{
-  margin:0;font-size:14px;font-weight:500;line-height:1.35;min-height:calc(1.35em * 2);color:var(--shop-text);
+.shop-product-title,.shop-mall-card .recommend-product-info h2,.shop-themed .recommend-product-info h2{
+  margin:0;font-size:14px;font-weight:500;line-height:1.35;height:calc(1.35em * 2);min-height:calc(1.35em * 2);color:var(--shop-text);
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;word-break:break-word;
 }
-.shop-mall-card .recommend-product-info{display:flex;flex-direction:column;gap:6px;padding:10px;flex:1}
+.shop-mall-card .recommend-product-info{display:flex;flex-direction:column;gap:6px;padding:10px;flex:1;min-width:0}
 .shop-mall-card .shop-price-catalog b,.shop-mall-card .shop-price-featured b{
   font-size:18px;font-weight:700;color:var(--shop-primary);font-family:var(--font-mono),ui-monospace,monospace;
 }

@@ -94,6 +94,10 @@ public final class OrderDtos {
      * are filled; status / money / counts / paidAt are null (MerchantVisibility).
      * tags / carrierCode / trackingNumber: merchant list only; buyer paths leave tags null.
      */
+    /** Line item preview for list cards (buyer “My orders”). */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record OrderLinePreview(String productName, String optionLabel, String imageUrl, int quantity) {}
+
     public record OrderSummary(UUID id, String orderNumber, Long shopId, String shopName, String status, String paymentStatus,
                                String fulfillmentStatus, BigDecimal grandTotal, String currency, Integer itemCount, Integer totalQuantity,
                                Instant placedAt, Instant paidAt, int version, boolean awaitingAcceptance,
@@ -103,7 +107,9 @@ public final class OrderDtos {
                                List<TagView> tags, String carrierCode, String trackingNumber,
                                /* merchant + accepted only; omitted when null so buyer JSON unchanged */
                                @JsonInclude(JsonInclude.Include.NON_NULL) String customerName,
-                               @JsonInclude(JsonInclude.Include.NON_NULL) String customerKey) {}
+                               @JsonInclude(JsonInclude.Include.NON_NULL) String customerKey,
+                               /* all line previews for expand-under-thumb UI; null while awaitingAcceptance / empty */
+                               @JsonInclude(JsonInclude.Include.NON_NULL) List<OrderLinePreview> previewItems) {}
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record OrderDetail(

@@ -64,6 +64,7 @@ public final class MerchantDtos {
         Long shopId,
         String name,String nameEn,String nameZh,String description,String descriptionEn,String descriptionZh,String category,
         String address,String province,String district,String subdistrict,String postalCode,
+        Double latitude, Double longitude,
         String slug,String path,ShopStatus status,String logoUrl,String coverUrl,
         List<ShopHour> openingHours,
         ShopThemeResponse theme,
@@ -112,6 +113,7 @@ public final class MerchantDtos {
         String phone, String email,
         String website, String lineId, String facebookUrl, String instagramUrl, String tiktokUrl,
         String address, String province, String district, String subdistrict, String postalCode,
+        Double latitude, Double longitude,
         String coverUrl, String logoUrl, String slug, Instant createdAt, List<ShopHour> openingHours,
         String publicPhone, String publicEmail
     ) {}
@@ -139,6 +141,8 @@ public final class MerchantDtos {
         @NotBlank @Size(max=100) String district,
         @NotBlank @Size(max=100) String subdistrict,
         @NotBlank @Pattern(regexp="^[0-9]{5}$") String postalCode,
+        @DecimalMin(value = "-90.0") @DecimalMax(value = "90.0") Double latitude,
+        @DecimalMin(value = "-180.0") @DecimalMax(value = "180.0") Double longitude,
         @Pattern(regexp="^$|^[0-9+ -]{9,20}$") String publicPhone,
         @Email @Size(max=255) String publicEmail
     ) {}

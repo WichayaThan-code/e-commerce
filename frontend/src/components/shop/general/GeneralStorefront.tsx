@@ -30,6 +30,7 @@ import {
 } from "../../../services/shopRoutes";
 import type { ThemeConfig } from "../../../theme/shopTheme";
 import { parseShopSortKey, type ShopCatalogControls } from "../sections/types";
+import StoreMiniMap from "../../maps/StoreMiniMap";
 import "../../../styles/tsf-general.css";
 
 const ICON_PATHS: Record<string, string> = {
@@ -366,9 +367,20 @@ export function TsfHoursCard({ shop }: { shop: PublicShop }) {
         </div>
         {address ? (
           <div className="tsf-hours-card" style={{ display: "grid", gap: 12, alignContent: "start" }}>
-            <a className="tsf-hours-map" href={mapHref ?? undefined} target="_blank" rel="noopener noreferrer" aria-label={tp("shop.general.mapOpen")}>
-              <span className="tsf-map-pin"><TsfIcon name="pin" size={28} /></span>
-            </a>
+            {mapHref ? (
+              <StoreMiniMap
+                address={address}
+                mapUrl={mapHref}
+                latitude={shop.latitude}
+                longitude={shop.longitude}
+                className="tsf-hours-map"
+                showLink={false}
+                title={tp("shop.general.mapOpen")}
+                loadingLabel={tp("shop.general.mapLoading")}
+                emptyLabel={tp("shop.general.mapEmpty")}
+                errorLabel={tp("shop.general.mapError")}
+              />
+            ) : null}
             <div style={{ display: "flex", gap: 8 }}><TsfIcon name="pin" /><span>{address}</span></div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {mapHref ? <TsfButton variant="secondary" size="s" href={mapHref}>{tp("shop.general.mapOpen")}</TsfButton> : null}

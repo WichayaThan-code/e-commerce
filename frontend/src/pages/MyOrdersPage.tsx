@@ -12,7 +12,8 @@ import { Skeleton } from "../components/feedback/Skeleton";
 import DatePicker from "../components/form/DatePicker";
 import FormField from "../components/form/FormField";
 import { formatBaht } from "../components/cart/cartFormat";
-import { buyerOrderApi, type OrderPage, type OrderSummary } from "../services/api";
+import { buyAgainFromItems } from "../components/orders/buyAgain";
+import { buyerOrderApi, mediaUrl, type OrderPage, type OrderSummary } from "../services/api";
 import "../styles/cart.css";
 import "../styles/checkout.css";
 import "../styles/form-fields.css";
@@ -94,6 +95,9 @@ export default function MyOrdersPage() {
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
   const [searchDraft, setSearchDraft] = useState(params.get("q") ?? "");
+  const [buyingAgainId, setBuyingAgainId] = useState<string | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [listNotice, setListNotice] = useState("");
   const debouncedDraft = useDebouncedValue(searchDraft, SEARCH_DEBOUNCE_MS);
 
   const legacyStatus = params.get("status") ?? "";
@@ -144,6 +148,31 @@ export default function MyOrdersPage() {
   useEffect(() => {
     setSearchDraft(q);
   }, [q]);
+
+  const onBuyAgain = async (orderId: string) => {
+    if (buyingAgainId || cart.access !== "buyer") return;
+    setBuyingAgainId(orderId);
+    setListNotice("");
+    try {
+      const detail = await buyerOrderApi.get(orderId);
+      const result = await buyAgainFromItems(cart, detail.items);
+      if (result.added < 1) {
+        setListNotice(tp("orders.detail.buyAgainFailed"));
+        window.setTimeout(() => setListNotice(""), 2800);
+        return;
+      }
+      navigate("/cart", {
+        state: result.failed > 0 || result.adjusted > 0
+          ? { buyAgainPartial: true, added: result.added, failed: result.failed, adjusted: result.adjusted }
+          : undefined,
+      });
+    } catch {
+      setListNotice(tp("orders.detail.buyAgainFailed"));
+      window.setTimeout(() => setListNotice(""), 2800);
+    } finally {
+      setBuyingAgainId(null);
+    }
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -241,6 +270,7 @@ export default function MyOrdersPage() {
   return (
     <main className="cart-page orders-page">
       <div className="cart-width orders-shell">
+        {listNotice ? <div className="cart-toast" role="alert">{listNotice}</div> : null}
         <section className="orders-panel">
           <div className="orders-panel-head">
             <div className="orders-panel-title">
@@ -403,8 +433,12 @@ export default function MyOrdersPage() {
                   {pageData.items.map((order) => {
                     const tone = statusTone(order.status);
                     const cta = primaryAction(order, tp);
+                    const lines = order.previewItems ?? [];
+                    const first = lines[0];
+                    const multiItem = lines.length > 1 || (order.itemCount ?? 0) > 1;
+                    const expanded = expandedOrderId === order.id;
                     return (
-                      <article key={order.id} className={`orders-card is-${tone}`}>
+                      <article key={order.id} className={`orders-card is-${tone}${expanded ? " is-expanded" : ""}`}>
                         <div className="orders-card-top">
                           <Link className="orders-shop-link" to={`/account/orders/${order.id}`}>
                             <Store size={16} aria-hidden="true" />
@@ -416,18 +450,55 @@ export default function MyOrdersPage() {
                           </span>
                         </div>
 
-                        <Link className="orders-card-body" to={`/account/orders/${order.id}`}>
-                          <span className="orders-card-thumb" aria-hidden="true">
-                            {tone === "ship" || tone === "deliver" ? <Truck size={26} /> : tone === "pay" ? <Wallet size={26} /> : <Package size={26} />}
-                          </span>
-                          <div className="orders-card-copy">
-                            <p className="checkout-order-number num">{order.orderNumber}</p>
+                        <div className="orders-card-body">
+                          <div className="orders-card-media">
+                            <Link
+                              className={`orders-card-thumb${first?.imageUrl ? " has-image" : ""}`}
+                              to={`/account/orders/${order.id}`}
+                              aria-label={first?.productName ?? order.orderNumber}
+                            >
+                              {first?.imageUrl ? (
+                                <img src={mediaUrl(first.imageUrl)} alt="" />
+                              ) : tone === "ship" || tone === "deliver" ? (
+                                <Truck size={26} aria-hidden="true" />
+                              ) : tone === "pay" ? (
+                                <Wallet size={26} aria-hidden="true" />
+                              ) : (
+                                <Package size={26} aria-hidden="true" />
+                              )}
+                            </Link>
+                            {multiItem ? (
+                              <button
+                                type="button"
+                                className="orders-card-see-more"
+                                aria-expanded={expanded}
+                                onClick={() => setExpandedOrderId((current) => (current === order.id ? null : order.id))}
+                              >
+                                {expanded ? tp("orders.list.seeLess") : tp("orders.list.seeMore")}
+                              </button>
+                            ) : null}
+                          </div>
+                          <Link className="orders-card-copy" to={`/account/orders/${order.id}`}>
+                            <p className="orders-card-product">
+                              {first?.productName ?? order.orderNumber}
+                            </p>
                             <p className="orders-card-meta">
-                              {order.placedAt
-                                ? new Date(order.placedAt).toLocaleString(localeTag, { dateStyle: "medium", timeStyle: "short" })
-                                : null}
-                              {order.itemCount != null || order.totalQuantity != null ? (
-                                <span>· {tp("orders.items", { count: order.totalQuantity ?? order.itemCount ?? 0 })}</span>
+                              {first?.optionLabel ? <span>{first.optionLabel}</span> : null}
+                              {first ? (
+                                <span>{first.optionLabel ? "· " : ""}x{first.quantity}</span>
+                              ) : null}
+                              {multiItem && !expanded ? (
+                                <span className="orders-card-more-count">
+                                  · {tp("orders.list.moreItems", { count: Math.max(1, (order.itemCount ?? lines.length) - 1) })}
+                                </span>
+                              ) : null}
+                            </p>
+                            <p className="orders-card-meta is-secondary">
+                              <span className="num">{order.orderNumber}</span>
+                              {order.placedAt ? (
+                                <span>
+                                  · {new Date(order.placedAt).toLocaleString(localeTag, { dateStyle: "medium", timeStyle: "short" })}
+                                </span>
                               ) : null}
                             </p>
                             <div className="orders-card-badges">
@@ -442,12 +513,31 @@ export default function MyOrdersPage() {
                                 </span>
                               ) : null}
                             </div>
-                          </div>
-                          <div className="orders-card-price">
+                          </Link>
+                          <Link className="orders-card-price" to={`/account/orders/${order.id}`}>
                             <small>{tp("orders.total")}</small>
                             <b className="num">{money(order.grandTotal)}</b>
-                          </div>
-                        </Link>
+                          </Link>
+                        </div>
+
+                        {expanded && lines.length > 1 ? (
+                          <ul className="orders-card-lines">
+                            {lines.slice(1).map((line, index) => (
+                              <li key={`${order.id}-${index + 1}`}>
+                                <span className={`orders-card-line-thumb${line.imageUrl ? " has-image" : ""}`}>
+                                  {line.imageUrl ? <img src={mediaUrl(line.imageUrl)} alt="" /> : <Package size={18} aria-hidden="true" />}
+                                </span>
+                                <div>
+                                  <p className="orders-card-product">{line.productName}</p>
+                                  <p className="orders-card-meta">
+                                    {line.optionLabel ? <span>{line.optionLabel}</span> : null}
+                                    <span>{line.optionLabel ? " · " : ""}x{line.quantity}</span>
+                                  </p>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
 
                         <footer className="orders-card-foot">
                           <span className="orders-card-hint">
@@ -455,11 +545,26 @@ export default function MyOrdersPage() {
                               ? tp("orders.list.hintPay")
                               : order.status === "DISPATCHED"
                                 ? tp("orders.list.hintShip")
-                                : tp("orders.list.hintDetail")}
+                                : order.status === "COMPLETED"
+                                  ? tp("orders.list.hintBuyAgain")
+                                  : tp("orders.list.hintDetail")}
                           </span>
-                          <Link className="orders-card-cta" to={`/account/orders/${order.id}`}>
-                            {cta}
-                          </Link>
+                          <div className="orders-card-actions">
+                            {order.status === "COMPLETED" ? (
+                              <button
+                                type="button"
+                                className="orders-card-cta"
+                                disabled={buyingAgainId === order.id || cart.access !== "buyer"}
+                                onClick={() => void onBuyAgain(order.id)}
+                              >
+                                {buyingAgainId === order.id ? tp("orders.detail.buyAgainBusy") : cta}
+                              </button>
+                            ) : (
+                              <Link className="orders-card-cta" to={`/account/orders/${order.id}`}>
+                                {cta}
+                              </Link>
+                            )}
+                          </div>
                         </footer>
                       </article>
                     );

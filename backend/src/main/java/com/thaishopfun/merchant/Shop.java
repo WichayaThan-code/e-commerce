@@ -44,6 +44,9 @@ public class Shop {
     @Column(length = 100) private String district;
     @Column(length = 100) private String subdistrict;
     @Column(name = "postal_code", length = 10) private String postalCode;
+    /** Optional map pin (WGS84); set from merchant My Store drag-pin UI. */
+    @Column private Double latitude;
+    @Column private Double longitude;
     @Column(nullable = false, length = 100) private String slug;
     /** Optional plan from {@code plans.code}; null = no plan assigned. */
     @Column(name = "plan_code", length = 50) private String planCode;
@@ -146,7 +149,9 @@ public class Shop {
         String province,
         String district,
         String subdistrict,
-        String postalCode
+        String postalCode,
+        Double latitude,
+        Double longitude
     ) {
         this.name = name;
         this.nameEn = nameEn;
@@ -162,6 +167,8 @@ public class Shop {
         this.district = district;
         this.subdistrict = subdistrict;
         this.postalCode = postalCode;
+        this.latitude = latitude;
+        this.longitude = longitude;
         this.updatedAt = Instant.now();
     }
 
@@ -196,6 +203,8 @@ public class Shop {
     public String getDistrict() { return district; }
     public String getSubdistrict() { return subdistrict; }
     public String getPostalCode() { return postalCode; }
+    public Double getLatitude() { return latitude; }
+    public Double getLongitude() { return longitude; }
     public String getSlug() { return slug; }
     public String getPlanCode() { return planCode; }
     public void assignPlanCode(String code) {

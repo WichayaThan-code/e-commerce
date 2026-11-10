@@ -72,6 +72,8 @@ public class MerchantShopSettingsService {
             shop.getDistrict(),
             shop.getSubdistrict(),
             shop.getPostalCode(),
+            shop.getLatitude(),
+            shop.getLongitude(),
             coverUrl(shop),
             logoUrl(shop),
             shop.getSlug(),
@@ -194,6 +196,11 @@ public class MerchantShopSettingsService {
             throw new AuthException(HttpStatus.CONFLICT, "SHOP_EXISTS", "ชื่อร้านนี้มีในระบบแล้ว", "shopName");
         }
         categories.requireActiveOrCurrent(request.category(), shop.getCategory());
+        Double latitude = request.latitude();
+        Double longitude = request.longitude();
+        if ((latitude == null) != (longitude == null)) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "INVALID_COORDS", "ต้องระบุละติจูดและลองจิจูดพร้อมกัน");
+        }
         shop.updateSettings(
             trimmedName,
             trimToNull(request.shopNameEn()),
@@ -208,7 +215,9 @@ public class MerchantShopSettingsService {
             request.province().trim(),
             request.district().trim(),
             request.subdistrict().trim(),
-            request.postalCode().trim()
+            request.postalCode().trim(),
+            latitude,
+            longitude
         );
         if (request.publicPhone() != null || request.publicEmail() != null) {
             shop.updatePublicContact(

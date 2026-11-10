@@ -251,12 +251,78 @@
 
 .orders-card-body {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) auto;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
   gap: 12px;
-  align-items: center;
+  align-items: start;
   padding: 14px;
   text-decoration: none;
   color: inherit;
+}
+
+.orders-card-media {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.orders-card-see-more {
+  border: 0;
+  background: transparent;
+  color: var(--shop-primary, #1268d7);
+  font: 700 11px var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.orders-card-see-more:hover {
+  color: #0c55b4;
+}
+
+.orders-card-copy,
+.orders-card-price {
+  text-decoration: none;
+  color: inherit;
+}
+
+.orders-card-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0 14px 12px;
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid #eef2f7;
+}
+
+.orders-card-lines li {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.orders-card-line-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #f3f6fa;
+  border: 1px solid #e1e7ef;
+  color: var(--shop-primary, #1268d7);
+}
+
+.orders-card-line-thumb.has-image {
+  background: #eef2f7;
+}
+
+.orders-card-line-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .orders-card-thumb {
@@ -268,6 +334,51 @@
   background: #f3f6fa;
   border: 1px solid #e1e7ef;
   color: var(--shop-primary, #1268d7);
+  overflow: hidden;
+  flex: none;
+}
+
+.orders-card-thumb.has-image {
+  background: #eef2f7;
+  border-color: #e1e7ef;
+  color: inherit;
+}
+
+.orders-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.orders-card-product {
+  margin: 0 0 4px;
+  font: 700 14px/1.35 var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  color: var(--shop-text, #08245d);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+  min-height: calc(1.35em * 1);
+}
+
+.orders-card-meta.is-secondary {
+  margin-top: 4px;
+  opacity: 0.92;
+}
+
+.orders-card-more-count {
+  color: var(--shop-primary, #1268d7);
+  font-weight: 600;
+}
+
+.orders-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .orders-card.is-pay .orders-card-thumb { color: #c45f12; background: #fff8f0; border-color: #f0dcc4; }
@@ -363,15 +474,34 @@
   justify-content: center;
   min-height: 34px;
   padding: 0 14px;
+  border: 0;
   border-radius: 7px;
   background: var(--shop-primary, #1268d7);
   color: #fff;
   font: 700 12px var(--font-sans), "IBM Plex Sans Thai", sans-serif;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .orders-card-cta:hover {
   background: #0c55b4;
+}
+
+.orders-card-cta.is-secondary {
+  background: #fff;
+  color: var(--shop-primary, #1268d7);
+  border: 1px solid #c5d7ef;
+}
+
+.orders-card-cta.is-secondary:hover {
+  background: #eef6ff;
+  border-color: #087bf5;
+  color: #0669d6;
+}
+
+.orders-card-cta:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .orders-card.is-pay .orders-card-cta {
@@ -484,13 +614,17 @@
   }
 
   .orders-card-body {
-    grid-template-columns: 52px minmax(0, 1fr);
+    grid-template-columns: 60px minmax(0, 1fr);
     gap: 10px;
   }
 
   .orders-card-thumb {
     width: 52px;
     height: 52px;
+  }
+
+  .orders-card-see-more {
+    font-size: 10px;
   }
 
   .orders-card-price {

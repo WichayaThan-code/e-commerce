@@ -3,7 +3,7 @@ import ConfigurationSummary from "../components/cart/ConfigurationSummary";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2, ChevronRight, Copy, Landmark, MapPin,
-  Package, QrCode, SearchX, Store, Truck, Wallet,
+  Package, QrCode, SearchX, ShoppingCart, Store, Truck, Wallet,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
@@ -24,6 +24,7 @@ import {
 import OrderShipmentCard, { shouldShowShipmentCard } from "../components/orders/OrderShipmentCard";
 import OrderPaymentsCard from "../components/orders/OrderPaymentsCard";
 import OrderRefundCard from "../components/orders/OrderRefundCard";
+import { buyAgainFromItems } from "../components/orders/buyAgain";
 import { readSlipQrFromFile } from "../components/orders/slipQr";
 import "../styles/cart.css";
 import "../styles/checkout.css";
@@ -95,6 +96,7 @@ export default function MyOrderDetailPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [buyingAgain, setBuyingAgain] = useState(false);
   const [actionError, setActionError] = useState("");
   const [slipBusy, setSlipBusy] = useState(false);
   const [slipError, setSlipError] = useState("");
@@ -161,6 +163,7 @@ export default function MyOrderDetailPage() {
   const transitions = order?.allowedTransitions ?? [];
   const canCancel = transitions.includes("CANCELLED");
   const canComplete = transitions.includes("COMPLETED");
+  const canBuyAgain = order?.status === "COMPLETED" && (order.items?.length ?? 0) > 0;
   const needPayNow = order?.status === "PENDING_PAYMENT" && order.paymentMethod !== "COD";
   const showShipment = order ? shouldShowShipmentCard(order) : false;
   const tone = statusTone(order?.status);
@@ -248,6 +251,28 @@ export default function MyOrderDetailPage() {
       setActionError(error instanceof ApiError ? error.message : tp("orders.loadError"));
     } finally {
       setConfirming(false);
+    }
+  };
+
+  const onBuyAgain = async () => {
+    if (!order || buyingAgain) return;
+    setBuyingAgain(true);
+    setActionError("");
+    try {
+      const result = await buyAgainFromItems(cart, order.items);
+      if (result.added < 1) {
+        setActionError(tp("orders.detail.buyAgainFailed"));
+        return;
+      }
+      navigate("/cart", {
+        state: result.failed > 0 || result.adjusted > 0
+          ? { buyAgainPartial: true, added: result.added, failed: result.failed, adjusted: result.adjusted }
+          : undefined,
+      });
+    } catch {
+      setActionError(tp("orders.detail.buyAgainFailed"));
+    } finally {
+      setBuyingAgain(false);
     }
   };
 
@@ -386,7 +411,7 @@ export default function MyOrderDetailPage() {
 
               <p className="orders-detail-hint">{statusHint(order, tp)}</p>
 
-              {(canComplete || needPayNow || canCancel) ? (
+              {(canComplete || needPayNow || canCancel || canBuyAgain) ? (
                 <div className="orders-detail-cta">
                   {needPayNow ? (
                     <button
@@ -405,6 +430,16 @@ export default function MyOrderDetailPage() {
                       onClick={() => void onConfirmReceived()}
                     >
                       <CheckCircle2 size={16} /> {tp("orders.confirmReceived")}
+                    </button>
+                  ) : null}
+                  {canBuyAgain ? (
+                    <button
+                      type="button"
+                      className="orders-detail-cta-primary"
+                      disabled={buyingAgain || cart.access !== "buyer"}
+                      onClick={() => void onBuyAgain()}
+                    >
+                      <ShoppingCart size={16} /> {buyingAgain ? tp("orders.detail.buyAgainBusy") : tp("orders.detail.buyAgain")}
                     </button>
                   ) : null}
                   {canCancel ? (

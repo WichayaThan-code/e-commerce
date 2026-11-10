@@ -2459,6 +2459,7 @@
       "history": "付款记录",
       "confirmSlip": "确认凭证",
       "rejectSlip": "拒绝凭证",
+      "slipSummary": "凭证摘要",
       "confirmTitle": "确认转账凭证",
       "confirmMessage": "已核对凭证并收到 {{amount}}？",
       "rejectTitle": "拒绝转账凭证",

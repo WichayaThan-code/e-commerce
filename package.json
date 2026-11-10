@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "pdfjs-dist": "^6.5.438",
+    "qrcode.react": "^4.2.0",
+    "react-markdown": "^10.1.0"
+  }
+}

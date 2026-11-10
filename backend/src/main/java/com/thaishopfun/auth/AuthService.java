@@ -397,7 +397,8 @@ public class AuthService {
         otpVerifications.findRecent(destinationHash, purpose, OtpStatus.PENDING).forEach(OtpVerification::markExpired);
     }
 
-    private Session createSession(UserAccount user) {
+    /** Issues access + refresh tokens for an already-authenticated account (password or OAuth). */
+    Session createSession(UserAccount user) {
         var now = Instant.now();
         var accessDuration = Duration.ofMinutes(properties.accessTokenMinutes());
         var claims = JwtClaimsSet.builder()

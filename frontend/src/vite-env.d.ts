@@ -7,6 +7,8 @@ declare module "*.css?inline" {
 
 interface ImportMetaEnv {
   readonly VITE_API_URL?: string
+  readonly VITE_OAUTH_GOOGLE_CLIENT_ID?: string
+  readonly VITE_OAUTH_FACEBOOK_APP_ID?: string
   readonly VITE_FF_TERMS_VERSION_API?: string
   readonly VITE_FF_ADDRESS_ID_CHECKOUT?: string
   readonly VITE_FF_SHIPPING_COVERAGE_API?: string

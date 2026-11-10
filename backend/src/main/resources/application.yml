@@ -37,6 +37,10 @@ app:
     # Set DEV_LOG_OTP=true in backend/.env, or use profile local/dev (application-local.yml / application-dev.yml).
     dev-log-otp: ${DEV_LOG_OTP:false}
     require-email-verification: ${REQUIRE_EMAIL_VERIFICATION:true}
+    oauth:
+      google-client-id: ${OAUTH_GOOGLE_CLIENT_ID:}
+      facebook-app-id: ${OAUTH_FACEBOOK_APP_ID:}
+      facebook-app-secret: ${OAUTH_FACEBOOK_APP_SECRET:}
   features:
     configurator:
       # V42: product configurator (ตัวออกแบบสินค้าเอง) — off until Supitcha wires cart/order (see AB2 handoff note)

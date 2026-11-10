@@ -15,6 +15,10 @@ app:
     dev-log-otp: false
     # Existing suite registers users then hits business APIs; dedicated EmailVerification* tests turn this on.
     require-email-verification: false
+    oauth:
+      google-client-id: test-google-client-id
+      facebook-app-id:
+      facebook-app-secret:
   features:
     configurator:
       # V42: product configurator (ตัวออกแบบสินค้าเอง) — off until Supitcha wires cart/order (see AB2 handoff note)

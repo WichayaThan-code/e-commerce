@@ -7,6 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { Skeleton } from "../components/feedback/Skeleton";
+import ConfirmDialog from "../components/form/ConfirmDialog";
 import { cartErrorMessage, couponReasonMessage, formatBaht } from "../components/cart/cartFormat";
 import CartCouponOffers from "../components/cart/CartCouponOffers";
 import { mediaUrl, moneyValue, shopApi, type CartActionResult, type CartGroup, type CartLine, type PublicProduct } from "../services/api";
@@ -50,6 +51,7 @@ export default function CartPage() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [liked, setLiked] = useState<string[]>([]);
+  const [confirmRemoveSelected, setConfirmRemoveSelected] = useState(false);
   const { showSkeleton, markHasData } = useDelayedLoading(cart.status === "loading");
   const money = (value: unknown) => formatBaht(value as number, localeTag);
 
@@ -139,7 +141,7 @@ export default function CartPage() {
         {priceChanged && <div className="cart-price-notice" role="alert"><AlertTriangle size={16}/><span>{tp("cart.priceChangedBanner")}</span><button type="button" disabled={busy} onClick={() => run(cart.acceptPrices, tp("cart.pricesAccepted"))}>{tp("cart.acceptPrices")}</button></div>}
         {cart.mergeNotes.length > 0 && <div className="cart-price-notice is-info" role="status"><span>{cart.mergeNotes.map((note) => note.message).join(" · ")}</span><button type="button" onClick={cart.dismissMergeNotes}>{tp("cart.dismiss")}</button></div>}
 
-        <div className="cart-select-row"><label><input type="checkbox" checked={allSelected} disabled={busy || !items.length} onChange={() => run(() => cart.setSelected([], !allSelected))}/>{tp("cart.selectAll")}</label><button disabled={busy || !selectedItems.length} onClick={() => remove(selectedItems.map((item) => item.id))}><Trash2/>{tp("cart.removeSelected")}</button></div>
+        <div className="cart-select-row"><label><input type="checkbox" checked={allSelected} disabled={busy || !items.length} onChange={() => run(() => cart.setSelected([], !allSelected))}/>{tp("cart.selectAll")}</label><button disabled={busy || !selectedItems.length} onClick={() => setConfirmRemoveSelected(true)}><Trash2/>{tp("cart.removeSelected")}</button></div>
         <section className="cart-list" aria-busy={showSkeleton || undefined}>
           {showSkeleton && !data && [0, 1, 2].map((key) => <article key={key} aria-hidden="true">
             <span/><Skeleton className="cart-photo"/><div className="cart-item-copy"><Skeleton width="70%" height={16}/><Skeleton width="40%" height={13}/></div>
@@ -201,5 +203,21 @@ export default function CartPage() {
 
     <footer className="cart-footer"><div className="cart-width"><p><Heart/><span><b>{tp("cart.footer.thai")}</b><small>{tp("cart.footer.thaiSub")}</small></span></p><p><ShieldCheck/><span><b>{tp("cart.footer.secure")}</b><small>{tp("cart.footer.secureSub")}</small></span></p><p><Truck/><span><b>{tp("cart.footer.shipping")}</b><small>{tp("cart.footer.shippingSub")}</small></span></p><p><PackageCheck/><span><b>{tp("cart.footer.returns")}</b><small>{tp("cart.footer.returnsSub")}</small></span></p><p><Headphones/><span><b>{tp("cart.footer.help")}</b><small>{tp("cart.footer.helpSub")}</small></span><Link to="/help">{tp("cart.footer.chat")}</Link></p></div></footer>
     {notice && <div className="cart-toast" role="status">{notice}</div>}
+    {confirmRemoveSelected && (
+      <ConfirmDialog
+        title={tp("cart.confirmRemoveSelectedTitle")}
+        message={tp("cart.confirmRemoveSelectedBody", { count: selectedItems.length })}
+        cancelLabel={tp("cart.dismiss")}
+        confirmLabel={tp("cart.removeSelected")}
+        danger
+        confirmDisabled={busy || !selectedItems.length}
+        onCancel={() => setConfirmRemoveSelected(false)}
+        onConfirm={() => {
+          const ids = selectedItems.map((item) => item.id);
+          setConfirmRemoveSelected(false);
+          void remove(ids);
+        }}
+      />
+    )}
   </main>;
 }

@@ -15,6 +15,8 @@ export type OtpPurpose = 'SIGNUP'|'LOGIN'|'PHONE_VERIFY'|'EMAIL_VERIFY'|'PASSWOR
 export type SendOtpResponse = { otpId:string; expiresIn:number; destinationMasked:string; channel:string; code:string|null }
 export type VerifyOtpResponse = { verified:boolean; purpose:string; resetToken:string|null }
 export type ForgotPasswordResponse = { message:string; resetToken:string|null }
+export type OAuthProviderId = 'google' | 'facebook'
+export type OAuthProviders = { google: boolean; facebook: boolean }
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8081').replace(/\/$/, '')
 let accessToken: string | null = null
@@ -99,6 +101,12 @@ function refreshSession() {
 export const authApi = {
   login: (identity:string, password:string) => request<AuthResponse>('/api/auth/login', {method:'POST', body:JSON.stringify({identity,password})}).then(remember),
   register: (payload:RegisterPayload) => request<AuthResponse>('/api/auth/register', {method:'POST', body:JSON.stringify(payload)}).then(remember),
+  oauthProviders: () => request<OAuthProviders>('/api/auth/oauth/providers'),
+  oauthLogin: (provider: OAuthProviderId, idToken: string, fullName?: string) =>
+    request<AuthResponse>(`/api/auth/oauth/${provider}`, {
+      method: 'POST',
+      body: JSON.stringify({ idToken, fullName: fullName || undefined }),
+    }).then(remember),
   sendOtp: (destination:string, purpose:OtpPurpose, authenticate = false) => request<SendOtpResponse>('/api/auth/otp/send', {method:'POST', body:JSON.stringify({destination,purpose})}, authenticate),
   verifyOtp: (otpId:string, code:string) => request<VerifyOtpResponse>('/api/auth/otp/verify', {method:'POST', body:JSON.stringify({otpId,code})}),
   verifyOtpLink: (otpId:string, token:string) => request<VerifyOtpResponse>('/api/auth/otp/verify-link', {method:'POST', body:JSON.stringify({otpId,token})}),

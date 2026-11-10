@@ -2461,6 +2461,7 @@
       "history": "Payment history",
       "confirmSlip": "Confirm slip",
       "rejectSlip": "Reject slip",
+      "slipSummary": "Slip summary",
       "confirmTitle": "Confirm transfer slip",
       "confirmMessage": "Slip checked and {{amount}} received?",
       "rejectTitle": "Reject transfer slip",

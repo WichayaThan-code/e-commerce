@@ -59,6 +59,8 @@
     "selectAll": "全选",
     "selectLine": "选择 {{name}}",
     "removeSelected": "删除所选",
+    "confirmRemoveSelectedTitle": "删除所选商品？",
+    "confirmRemoveSelectedBody": "确定要从购物车删除所选的 {{count}} 件商品吗？",
     "removeLine": "删除 {{name}}",
     "removed": "已从购物车删除",
     "decrease": "减少",
@@ -457,7 +459,10 @@
       "provider": "支付方式",
       "submit": "提交凭证",
       "submitting": "提交中…",
-      "tooLarge": "文件不能超过 5MB"
+      "tooLarge": "文件不能超过 5MB",
+      "qrReading": "正在读取凭证二维码…",
+      "qrFilled": "已从凭证二维码填入参考号 — 提交前仍可修改",
+      "qrMiss": "无法读取凭证二维码，请手动填写参考号"
     },
     "timeline": "时间线",
     "placed": "已下单",

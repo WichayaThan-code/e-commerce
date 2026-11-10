@@ -23,6 +23,7 @@ import {
 import OrderShipmentCard, { shouldShowShipmentCard } from "../components/orders/OrderShipmentCard";
 import OrderPaymentsCard from "../components/orders/OrderPaymentsCard";
 import OrderRefundCard from "../components/orders/OrderRefundCard";
+import { readSlipQrFromFile } from "../components/orders/slipQr";
 import "../styles/cart.css";
 import "../styles/checkout.css";
 import "../styles/orders.css";
@@ -102,8 +103,10 @@ export default function MyOrderDetailPage() {
   const [slipRef, setSlipRef] = useState("");
   const [slipBank, setSlipBank] = useState("");
   const [slipProvider, setSlipProvider] = useState("BANK_TRANSFER");
+  const [slipQrHint, setSlipQrHint] = useState<"reading" | "filled" | "miss" | "">("");
   const payRef = useRef<HTMLElement | null>(null);
   const blobUrls = useRef<string[]>([]);
+  const slipQrToken = useRef(0);
   const money = (value: unknown) => formatBaht(value as number, localeTag);
   const idOk = UUID.test(orderId);
 
@@ -185,6 +188,33 @@ export default function MyOrderDetailPage() {
 
   const refreshAfterAction = () => setReload((n) => n + 1);
 
+  const onSlipFileChange = (file: File | null) => {
+    const token = ++slipQrToken.current;
+    setSlipFile(file);
+    setSlipQrHint("");
+    if (!file) return;
+    if (file.size > MAX_SLIP) {
+      setSlipError(tp("orders.slipForm.tooLarge"));
+      return;
+    }
+    setSlipError("");
+    if (!file.type.startsWith("image/")) return;
+    setSlipQrHint("reading");
+    void readSlipQrFromFile(file).then((fields) => {
+      if (token !== slipQrToken.current) return;
+      if (!fields?.reference) {
+        setSlipQrHint("miss");
+        return;
+      }
+      setSlipRef(fields.reference);
+      if (fields.bankName) setSlipBank((current) => current.trim() || fields.bankName!);
+      setSlipQrHint("filled");
+    }).catch(() => {
+      if (token !== slipQrToken.current) return;
+      setSlipQrHint("miss");
+    });
+  };
+
   const onCancel = async () => {
     const reason = cancelReason.trim();
     if (reason.length < 1 || reason.length > 500) {
@@ -245,6 +275,7 @@ export default function MyOrderDetailPage() {
       setSlipFile(null);
       setSlipRef("");
       setSlipBank("");
+      setSlipQrHint("");
       refreshAfterAction();
     } catch (error) {
       if (error instanceof ApiError && (error.code === "VALIDATION_ERROR" || error.code === "VALIDATION_FAILED")) {
@@ -489,12 +520,7 @@ export default function MyOrderDetailPage() {
                       <input
                         type="file"
                         accept={SLIP_ACCEPT}
-                        onChange={(event) => {
-                          const file = event.target.files?.[0] ?? null;
-                          setSlipFile(file);
-                          if (file && file.size > MAX_SLIP) setSlipError(tp("orders.slipForm.tooLarge"));
-                          else setSlipError("");
-                        }}
+                        onChange={(event) => onSlipFileChange(event.target.files?.[0] ?? null)}
                       />
                       {fieldErrors.file ? <small role="alert">{fieldErrors.file}</small> : null}
                     </label>
@@ -510,7 +536,20 @@ export default function MyOrderDetailPage() {
                     </label>
                     <label className={fieldErrors.reference ? "has-error" : ""}>
                       <span>{tp("orders.slipForm.reference")}</span>
-                      <input className="num" value={slipRef} onChange={(event) => setSlipRef(event.target.value)} minLength={4} maxLength={120} required />
+                      <input
+                        className="num"
+                        value={slipRef}
+                        onChange={(event) => {
+                          setSlipRef(event.target.value);
+                          if (slipQrHint) setSlipQrHint("");
+                        }}
+                        minLength={4}
+                        maxLength={120}
+                        required
+                      />
+                      {slipQrHint === "reading" ? <small>{tp("orders.slipForm.qrReading")}</small> : null}
+                      {slipQrHint === "filled" ? <small role="status">{tp("orders.slipForm.qrFilled")}</small> : null}
+                      {slipQrHint === "miss" ? <small>{tp("orders.slipForm.qrMiss")}</small> : null}
                       {fieldErrors.reference ? <small role="alert">{fieldErrors.reference}</small> : null}
                     </label>
                     <label className={fieldErrors.bankName ? "has-error" : ""}>

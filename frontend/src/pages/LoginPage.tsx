@@ -4,6 +4,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import AuthSplitLayout from '../components/auth/AuthSplitLayout'
+import SocialLoginButtons from '../components/auth/SocialLoginButtons'
 import { AsciiPasswordInput, PasswordInputHints } from '../components/form/AsciiPasswordInput'
 import { useAuth } from '../contexts/AuthContext'
 import { AUTOFILL_ANIMATION } from '../hooks/autofillSync'
@@ -16,15 +17,17 @@ export default function LoginPage() {
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [socialBusy, setSocialBusy] = useState(false)
   const passwordField = useAsciiPasswordInput()
   const { login } = useAuth()
+  const formBusy = submitting || socialBusy
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const identity = String(form.get('identity') ?? '').trim()
     const password = String(form.get('password') ?? '')
-    if (submitting) return
+    if (formBusy) return
     if (!identity || !password) {
       setMessage(p('form.errorIncomplete'))
       event.currentTarget.querySelector<HTMLInputElement>(!identity ? '#identity' : '#password')?.focus()
@@ -51,8 +54,6 @@ export default function LoginPage() {
     }
   }
 
-  const socialLogin = (provider: string) => setMessage(p('form.socialUnavailable', { provider }))
-
   return (
     <AuthSplitLayout navAriaLabel={p('navAria')}>
       <div className="login-title">
@@ -64,7 +65,7 @@ export default function LoginPage() {
       <form
         onSubmit={submit}
         noValidate
-        aria-busy={submitting}
+        aria-busy={formBusy}
         onInput={() => setMessage('')}
         onAnimationStart={(event) => {
           if (!(event.target instanceof HTMLInputElement)) return
@@ -96,20 +97,18 @@ export default function LoginPage() {
         </div>
         <PasswordInputHints asciiWarning={passwordField.asciiWarning} capsLockOn={passwordField.capsLockOn} className="password-field-hint" />
         <a className="forgot" href="/forgot-password">{p('form.forgotPassword')}</a>
-        <button className="login-submit" type="submit" disabled={submitting}>
+        <button className="login-submit" type="submit" disabled={formBusy}>
           {submitting ? <><LoaderCircle className="login-spinner" size={19} /> {p('form.submitting')}</> : <>{p('form.submit')} <ArrowRight size={19} /></>}
         </button>
         {message && <p id="login-message" className="login-message" role="alert"><CircleAlert size={18} /><span>{message}</span></p>}
       </form>
       <div className="login-divider"><span />{p('dividerSocial')}<span /></div>
-      <div className="social-logins">
-        <button type="button" disabled={submitting} onClick={() => socialLogin(p('socialGoogle'))}><i className="google-g">G</i>{p('socialGoogle')}</button>
-        <button type="button" disabled={submitting} onClick={() => socialLogin(p('socialFacebook'))}><i className="facebook-f">f</i>{p('socialFacebook')}</button>
-        <button type="button" disabled={submitting} onClick={() => socialLogin(p('socialApple'))}>
-          <svg className="apple-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M17.1 12.5c0-2 1.6-3 1.7-3.1-1-1.4-2.5-1.6-3-1.6-1.3-.1-2.5.8-3.2.8-.6 0-1.6-.8-2.7-.7-1.4 0-2.7.8-3.4 2-1.5 2.5-.4 6.3 1 8.3.6 1 1.4 2 2.5 1.9 1-.1 1.4-.6 2.7-.6 1.2 0 1.6.6 2.7.6 1.1 0 1.8-1 2.4-1.9.8-1.1 1.1-2.2 1.2-2.3-.1 0-2.3-.9-2.3-3.4ZM15 6.4c.5-.7 1-1.7.9-2.7-.9 0-2 .6-2.6 1.3-.5.6-1 1.6-.9 2.5 1 .1 1.9-.5 2.6-1.1Z" /></svg>
-          {p('socialApple')}
-        </button>
-      </div>
+      <SocialLoginButtons
+        i18nPrefix="loginPage"
+        disabled={submitting}
+        onMessage={setMessage}
+        onBusyChange={setSocialBusy}
+      />
       <p className="login-security"><ShieldCheck size={15} /> {p('securityNote')}</p>
       <p className="signup-line">{p('noAccountPrompt')} <a href="/signup">{p('signupLink')}</a></p>
     </AuthSplitLayout>

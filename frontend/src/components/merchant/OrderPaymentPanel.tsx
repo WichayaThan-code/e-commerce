@@ -301,17 +301,46 @@ export default function OrderPaymentPanel({ shopId, order, canUpdate, deniedTitl
       {dialog?.kind === "confirm" && (() => {
         const proof = dialog.proof;
         const mismatch = !!proof?.amountMismatch || mismatchNeeded;
+        const amountLabel = money(proof?.amountDeclared ?? dialog.payment.amount);
         return (
           <ConfirmDialog
+            className="om-slip-decide"
             title={t("orderManagement.payment.confirmTitle")}
-            message={t("orderManagement.payment.confirmMessage", { amount: money(proof?.amountDeclared ?? dialog.payment.amount) })}
+            message={t("orderManagement.payment.confirmMessage", { amount: amountLabel })}
             confirmLabel={t("orderManagement.payment.confirmSlip")}
             cancelLabel={t("orderManagement.drawer.cancel")}
             confirmDisabled={busy || (mismatch && (!acceptMismatch || !reason.trim()))}
             onCancel={close}
             onConfirm={() => confirmSlip(dialog.payment)}
           >
-            <div className="om-dialog-fields">
+            <div className="om-dialog-fields om-slip-decide-fields">
+              <div className="om-slip-summary">
+                <b>{t("orderManagement.payment.slipSummary")}</b>
+                <dl className="om-slip-summary-grid">
+                  <div>
+                    <dt>{t("orderManagement.payment.amountDeclared")}</dt>
+                    <dd className="num">{amountLabel}</dd>
+                  </div>
+                  {proof?.transferredAt ? (
+                    <div>
+                      <dt>{t("orderManagement.payment.transferredAt")}</dt>
+                      <dd>{formatBangkokDateTime(proof.transferredAt, localeTag)}</dd>
+                    </div>
+                  ) : null}
+                  {proof?.referenceNo ? (
+                    <div className="om-slip-summary-wide">
+                      <dt>{t("orderManagement.payment.reference")}</dt>
+                      <dd className="num">{proof.referenceNo}</dd>
+                    </div>
+                  ) : null}
+                  {proof?.bankName ? (
+                    <div className="om-slip-summary-wide">
+                      <dt>{t("orderManagement.payment.bank")}</dt>
+                      <dd>{proof.bankName}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </div>
               {mismatch && (
                 <div className="om-warn" role="alert">
                   <b>{t("orderManagement.payment.mismatchTitle")}</b>
@@ -335,6 +364,7 @@ export default function OrderPaymentPanel({ shopId, order, canUpdate, deniedTitl
 
       {dialog?.kind === "reject" && (
         <ConfirmDialog
+          className="om-slip-decide"
           title={t("orderManagement.payment.rejectTitle")}
           message={t("orderManagement.payment.rejectMessage")}
           confirmLabel={t("orderManagement.payment.rejectSlip")}
@@ -344,7 +374,7 @@ export default function OrderPaymentPanel({ shopId, order, canUpdate, deniedTitl
           onCancel={close}
           onConfirm={() => rejectSlip(dialog.payment)}
         >
-          <div className="om-dialog-fields">
+          <div className="om-dialog-fields om-slip-decide-fields">
             <label className="om-field">
               <span>{t("orderManagement.payment.reasonRequiredLabel")}</span>
               <textarea rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -357,6 +387,7 @@ export default function OrderPaymentPanel({ shopId, order, canUpdate, deniedTitl
 
       {dialog?.kind === "cod" && (
         <ConfirmDialog
+          className="om-slip-decide"
           title={t("orderManagement.payment.codTitle")}
           message={t("orderManagement.payment.codMessage", { total: money(order.grandTotal) })}
           confirmLabel={t("orderManagement.payment.collectCod")}
@@ -365,7 +396,7 @@ export default function OrderPaymentPanel({ shopId, order, canUpdate, deniedTitl
           onCancel={close}
           onConfirm={collectCod}
         >
-          <div className="om-dialog-fields">
+          <div className="om-dialog-fields om-slip-decide-fields">
             <label className="om-field">
               <span>{t("orderManagement.payment.codAmount")}</span>
               <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />

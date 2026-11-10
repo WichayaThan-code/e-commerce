@@ -12,6 +12,7 @@ import { AsciiPasswordInput, PasswordInputHints } from '../components/form/Ascii
 import FieldError from '../components/form/FieldError'
 import FormField from '../components/form/FormField'
 import FormGrid from '../components/form/FormGrid'
+import SocialLoginButtons from '../components/auth/SocialLoginButtons'
 import SignupAgreement, { type AgreementStep } from '../components/SignupAgreement'
 import { useAuth } from '../contexts/AuthContext'
 import LanguageSwitcher from '../components/LanguageSwitcher'
@@ -41,6 +42,8 @@ export default function SignupPage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [socialBusy, setSocialBusy] = useState(false)
+  const formBusy = submitting || socialBusy
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({})
   const formRef = useRef<HTMLFormElement>(null)
   const submitRef = useRef<HTMLButtonElement>(null)
@@ -129,7 +132,7 @@ export default function SignupPage() {
 
   const submit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (registrationPending.current) return
+    if (registrationPending.current || socialBusy) return
     void createAccount(false)
   }
 
@@ -212,7 +215,7 @@ export default function SignupPage() {
             ref={formRef}
             onSubmit={submit}
             noValidate
-            aria-busy={submitting}
+            aria-busy={formBusy}
             onChange={(event) => {
               if (!(event.target instanceof HTMLInputElement)) return
               syncAutofillField(event.target)
@@ -294,22 +297,18 @@ export default function SignupPage() {
               {fieldError('confirmPassword')}
             </label>
             <p className="signup-agreement-note"><ShieldCheck size={17} aria-hidden="true" /><span>{p('form.agreementNote')}</span></p>
-            <button ref={submitRef} className="login-submit signup-submit" type="submit" disabled={submitting}>
+            <button ref={submitRef} className="login-submit signup-submit" type="submit" disabled={formBusy}>
               {submitting ? <><LoaderCircle className="login-spinner" size={19} /> {p('form.submitting')}</> : <>{p('form.submit')} <ArrowRight size={19} /></>}
             </button>
             {message && <p className="login-message" role="alert"><CircleAlert size={18} /><span>{message}</span></p>}
           </form>
           <div className="login-divider"><span />{p('dividerSocial')}<span /></div>
-          <div className="social-logins">
-            {[p('socialGoogle'), p('socialFacebook'), p('socialApple')].map((provider) => (
-              <button key={provider} type="button" disabled={submitting} onClick={() => setMessage(p('form.socialUnavailable', { provider }))}>
-                {provider === p('socialGoogle') ? <i className="google-g" aria-hidden="true">G</i> : provider === p('socialFacebook') ? <i className="facebook-f" aria-hidden="true">f</i> : (
-                  <svg className="apple-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M17.1 12.5c0-2 1.6-3 1.7-3.1-1-1.4-2.5-1.6-3-1.6-1.3-.1-2.5.8-3.2.8-.6 0-1.6-.8-2.7-.7-1.4 0-2.7.8-3.4 2-1.5 2.5-.4 6.3 1 8.3.6 1 1.4 2 2.5 1.9 1-.1 1.4-.6 2.7-.6 1.2 0 1.6.6 2.7.6 1.1 0 1.8-1 2.4-1.9.8-1.1 1.1-2.2 1.2-2.3-.1 0-2.3-.9-2.3-3.4ZM15 6.4c.5-.7 1-1.7.9-2.7-.9 0-2 .6-2.6 1.3-.5.6-1 1.6-.9 2.5 1 .1 1.9-.5 2.6-1.1Z" /></svg>
-                )}
-                {provider}
-              </button>
-            ))}
-          </div>
+          <SocialLoginButtons
+            i18nPrefix="signupPage"
+            disabled={submitting}
+            onMessage={setMessage}
+            onBusyChange={setSocialBusy}
+          />
           <p className="signup-line">{p('hasAccountPrompt')} <a href="/login">{p('loginLink')}</a></p>
         </div>
         <div className="login-merchant">

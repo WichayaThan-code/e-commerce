@@ -2461,6 +2461,7 @@
       "history": "ประวัติการชำระเงิน",
       "confirmSlip": "ยืนยันสลิป",
       "rejectSlip": "ปฏิเสธสลิป",
+      "slipSummary": "สรุปสลิป",
       "confirmTitle": "ยืนยันสลิปโอนเงิน",
       "confirmMessage": "ตรวจสอบสลิปแล้วและได้รับเงิน {{amount}} ใช่หรือไม่",
       "rejectTitle": "ปฏิเสธสลิปโอนเงิน",

@@ -59,6 +59,8 @@
     "selectAll": "Select all",
     "selectLine": "Select {{name}}",
     "removeSelected": "Remove selected",
+    "confirmRemoveSelectedTitle": "Remove selected items?",
+    "confirmRemoveSelectedBody": "Remove {{count}} selected item(s) from your cart?",
     "removeLine": "Remove {{name}}",
     "removed": "Removed from cart",
     "decrease": "Decrease",
@@ -459,7 +461,10 @@
       "provider": "Payment method",
       "submit": "Submit slip",
       "submitting": "Submitting…",
-      "tooLarge": "File must be 5MB or smaller"
+      "tooLarge": "File must be 5MB or smaller",
+      "qrReading": "Reading QR from slip…",
+      "qrFilled": "Reference filled from the slip QR — you can still edit it",
+      "qrMiss": "Couldn’t read a QR from this slip. Please enter the reference manually"
     },
     "timeline": "Timeline",
     "placed": "Order placed",

@@ -677,6 +677,91 @@
 .om-refund-file-copy small{font:500 12px var(--font-sans),sans-serif;color:#6780a3}
 .om-refund-proof-fields .om-ship-datetime{margin-top:2px}
 
+/* Slip confirm / reject / COD dialogs */
+.pm-dialog.om-slip-decide{z-index:110;background:rgba(8,36,93,.48);backdrop-filter:blur(2px)}
+.pm-dialog.om-slip-decide section{
+  width:min(480px,100%);
+  padding:24px 24px 18px;
+  border:1px solid #d9e6f5;
+  border-radius:18px;
+  box-shadow:0 28px 60px rgba(8,36,93,.24);
+  overflow:visible;
+}
+.pm-dialog.om-slip-decide h2{
+  margin:0 0 6px;
+  font-size:21px;
+  font-weight:800;
+  letter-spacing:-.02em;
+  color:#08245d;
+}
+.pm-dialog.om-slip-decide > section > p{
+  margin:0 0 2px;
+  font-size:13px;
+  line-height:1.5;
+  color:#5a7091;
+}
+.pm-dialog.om-slip-decide .pm-dialog-actions{
+  margin-top:8px;
+  padding-top:16px;
+  border-top:1px solid #e8eef6;
+}
+.pm-dialog.om-slip-decide .pm-dialog-actions button{
+  min-height:44px;
+  padding:0 18px;
+  border-radius:11px;
+  font:700 13px var(--font-sans),sans-serif;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.pm-dialog.om-slip-decide .pm-dialog-actions button.secondary:hover:not(:disabled){
+  background:#eef6ff;color:#0669d6;border-color:#087bf5
+}
+.om-slip-decide-fields{gap:14px;margin:16px 0 4px}
+.om-slip-decide-fields .om-field span{font:700 12px var(--font-sans),sans-serif;color:#132b50}
+.om-slip-decide-fields .om-field input,
+.om-slip-decide-fields .om-field textarea{
+  box-sizing:border-box;width:100%;min-height:44px;margin:0;
+  border-radius:11px;border:1px solid #d5e0ee;background:#f8fbfe;
+  color:#132b50;font:500 14px var(--font-sans),sans-serif;padding:10px 14px
+}
+.om-slip-decide-fields .om-field input{height:44px;padding:0 14px}
+.om-slip-decide-fields .om-field textarea{
+  min-height:72px;resize:vertical;line-height:1.45
+}
+.om-slip-decide-fields .om-field input:focus,
+.om-slip-decide-fields .om-field textarea:focus{
+  outline:none;border-color:#087bf5;background:#fff;box-shadow:0 0 0 3px rgba(8,123,245,.16)
+}
+.om-slip-summary{
+  display:grid;gap:10px;padding:14px 16px;border-radius:14px;
+  border:1px solid #d9e6f5;
+  background:
+    radial-gradient(120% 90% at 100% 0%,rgba(8,123,245,.08),transparent 55%),
+    linear-gradient(180deg,#f5faff,#fff);
+}
+.om-slip-summary > b{
+  margin:0;font:800 12px var(--font-sans),sans-serif;letter-spacing:.02em;
+  text-transform:uppercase;color:#5a7091
+}
+.om-slip-summary-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px 14px
+}
+.om-slip-summary-grid div{display:grid;gap:2px;min-width:0}
+.om-slip-summary-grid dt{
+  margin:0;font:600 11px var(--font-sans),sans-serif;color:#6780a3
+}
+.om-slip-summary-grid dd{
+  margin:0;font:700 13px var(--font-sans),sans-serif;color:#08245d;
+  overflow-wrap:anywhere
+}
+.om-slip-summary-grid dd.num{font-variant-numeric:tabular-nums}
+.om-slip-summary-grid .om-slip-summary-wide{grid-column:1 / -1}
+@media (max-width:480px){
+  .om-slip-summary-grid{grid-template-columns:1fr}
+}
+
 /* Ship confirm dialog */
 .pm-dialog.om-ship-confirm{z-index:100;background:rgba(8,36,93,.48);backdrop-filter:blur(2px)}
 .pm-dialog.om-ship-confirm section{

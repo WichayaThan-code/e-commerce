@@ -48,6 +48,17 @@ public class UserAccount {
         return account;
     }
 
+    /** Social-signup account: synthetic unique phone, random unusable password hash, optional pre-verified email. */
+    public static UserAccount socialAccount(
+        String firstName, String lastName, String email, String phonePlaceholder, String passwordHash, boolean emailVerified
+    ) {
+        var account = new UserAccount(firstName, lastName, email, phonePlaceholder, passwordHash);
+        if (emailVerified) {
+            account.emailVerifiedAt = Instant.now();
+        }
+        return account;
+    }
+
     public UUID getId() { return id; }
     public String getFirstName() { return firstName; }
     public String getLastName() { return lastName; }

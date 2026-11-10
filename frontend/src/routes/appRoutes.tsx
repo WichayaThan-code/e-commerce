@@ -12,6 +12,7 @@ import { ROUTE_PERMISSIONS } from "../services/permissions";
 
 import MarketplacePage from "../pages/MarketplacePage";
 import LoginPage from "../pages/LoginPage";
+import GoogleOAuthCallbackPage from "../pages/GoogleOAuthCallbackPage";
 import PasswordResetPages from "../pages/PasswordResetPages";
 import SignupPage from "../pages/SignupPage";
 import VerifyEmailPage from "../pages/VerifyEmailPage";
@@ -144,6 +145,7 @@ export const routes: RouteObject[] = [
 
   // 2. กลุ่มหน้า Auth (ไม่มี Header หน้าร้าน)
   { path: "/login", element: <LoginPage /> },
+  { path: "/oauth/google/callback", element: <GoogleOAuthCallbackPage /> },
   { path: "/forgot-password", element: <PasswordResetPages /> },
   { path: "/reset-password", element: <PasswordResetPages /> },
   { path: "/signup", element: <SignupPage /> },

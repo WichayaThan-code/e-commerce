@@ -169,7 +169,7 @@ public class SecurityConfig {
         var config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(properties.allowedOrigin()));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Cart-Token", "X-View-Session"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Cart-Token", "X-View-Session", "Idempotency-Key"));
         config.setAllowCredentials(true);
         var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

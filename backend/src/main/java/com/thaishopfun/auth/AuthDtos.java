@@ -18,6 +18,13 @@ public final class AuthDtos {
 
     public record LoginRequest(@NotBlank String identity, @NotBlank String password) {}
 
+    public record OAuthLoginRequest(
+        @NotBlank String idToken,
+        @Size(max = 200) String fullName
+    ) {}
+
+    public record OAuthProvidersResponse(boolean google, boolean facebook) {}
+
     public record ForgotPasswordRequest(@NotBlank @Email @Size(max = 255) String email) {}
 
     public record ResetPasswordRequest(

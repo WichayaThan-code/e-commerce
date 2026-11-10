@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { authApi, PERMISSIONS_STALE_EVENT, type AuthUser, type RegisterPayload } from '../services/api'
+import { authApi, PERMISSIONS_STALE_EVENT, type AuthUser, type OAuthProviderId, type RegisterPayload } from '../services/api'
 import { permissionFingerprint } from '../services/permissions'
 
 type AuthContextValue = {
   user: AuthUser | null
   loading: boolean
   login(identity:string, password:string): Promise<AuthUser>
+  loginWithOAuth(provider: OAuthProviderId, idToken: string, fullName?: string): Promise<AuthUser>
   register(payload:RegisterPayload): Promise<AuthUser>
   logout(): Promise<void>
   reload(): Promise<AuthUser>
@@ -55,6 +56,11 @@ export function AuthProvider({children}:{children:React.ReactNode}) {
   const value:AuthContextValue = {
     user, loading,
     login: async (identity,password) => { const authenticated=await authApi.login(identity,password); setUser(authenticated); return authenticated },
+    loginWithOAuth: async (provider, idToken, fullName) => {
+      const authenticated = await authApi.oauthLogin(provider, idToken, fullName)
+      setUser(authenticated)
+      return authenticated
+    },
     register: async payload => { const next = await authApi.register(payload); setUser(next); return next },
     logout: async () => { await authApi.logout(); setUser(null) },
     reload,

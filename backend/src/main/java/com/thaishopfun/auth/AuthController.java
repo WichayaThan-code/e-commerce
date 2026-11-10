@@ -22,10 +22,12 @@ import java.util.UUID;
 public class AuthController {
     private static final String REFRESH_COOKIE = "tsf_refresh";
     private final AuthService auth;
+    private final OAuthAuthService oauth;
     private final SecurityProperties properties;
 
-    public AuthController(AuthService auth, SecurityProperties properties) {
+    public AuthController(AuthService auth, OAuthAuthService oauth, SecurityProperties properties) {
         this.auth = auth;
+        this.oauth = oauth;
         this.properties = properties;
     }
 
@@ -39,6 +41,21 @@ public class AuthController {
     @PostMapping("/login")
     ResponseEntity<AuthDtos.AuthResponse> login(@Valid @RequestBody AuthDtos.LoginRequest request) {
         return session(auth.login(request), HttpStatus.OK);
+    }
+
+    @PublicEndpoint
+    @GetMapping("/oauth/providers")
+    AuthDtos.OAuthProvidersResponse oauthProviders() {
+        return oauth.providers();
+    }
+
+    @PublicEndpoint
+    @PostMapping("/oauth/{provider}")
+    ResponseEntity<AuthDtos.AuthResponse> oauthLogin(
+        @PathVariable String provider,
+        @Valid @RequestBody AuthDtos.OAuthLoginRequest request
+    ) {
+        return session(oauth.login(OAuthProvider.fromPath(provider), request), HttpStatus.OK);
     }
 
     @PublicEndpoint

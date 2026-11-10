@@ -167,6 +167,17 @@
     "tiktokPh": "https://tiktok.com/@yourshop"
   },
   "owner": {
+    "reuseLabel": "使用已有店主资料",
+    "reuseHint": "选择您账户中的店主后，可跳过填写和上传文件",
+    "reuseCard": "使用此店主",
+    "addOwner": "添加新店主",
+    "sameAddressEmpty": "上一步还没有填写店铺地址",
+    "sameAddressHouseNo": "同店铺地址",
+    "houseNoPh": "例如 2078/452",
+    "villageNoPh": "例如 5",
+    "buildingPh": "例如 幸福村",
+    "alleyPh": "例如 素坤逸 101 巷",
+    "roadPh": "例如 素坤逸路",
     "pageTitle": "店主信息",
     "pageLead": "请完整填写店主信息以便验证身份与联系",
     "ownerType": "Owner type",

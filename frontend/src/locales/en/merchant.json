@@ -167,6 +167,17 @@
     "tiktokPh": "https://tiktok.com/@yourshop"
   },
   "owner": {
+    "reuseLabel": "Use an existing owner",
+    "reuseHint": "Choose an owner on your account and skip the form and document upload",
+    "reuseCard": "Use this owner",
+    "addOwner": "Add another owner",
+    "sameAddressEmpty": "The shop address from the previous step is still empty",
+    "sameAddressHouseNo": "Same as shop",
+    "houseNoPh": "e.g. 2078/452",
+    "villageNoPh": "e.g. 5",
+    "buildingPh": "e.g. Happy Village",
+    "alleyPh": "e.g. Sukhumvit 101",
+    "roadPh": "e.g. Sukhumvit",
     "pageTitle": "Shop owner details",
     "pageLead": "Complete owner information for identity verification and contact",
     "ownerType": "Owner type",

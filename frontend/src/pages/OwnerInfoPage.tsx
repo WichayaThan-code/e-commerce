@@ -245,7 +245,7 @@ export default function OwnerInfoPage() {
     // Never dump the full shop address line into houseNo (varchar 50) — that caused SQLState 22001.
     setHouseNo((prev) => {
       if (prev && prev.length <= 50 && prev !== street) return prev
-      return o.sameAddressHouseNo
+      return o.sameAddressHouseNo || ''
     })
     setVillageNo('')
     setBuilding('')

@@ -195,15 +195,15 @@
 @container store (min-width: 1024px) { .tsf-section-head { margin-bottom: 32px; } }
 
 /* ---------- ProductCard ---------- */
-.tsf-card { position: relative; display: flex; flex-direction: column; background: var(--shop-bg); border: var(--tsf-card-border); box-shadow: var(--tsf-card-shadow); border-radius: var(--tsf-radius); overflow: hidden; text-align: var(--tsf-title-align); }
+.tsf-card { position: relative; display: flex; flex-direction: column; height: 100%; min-width: 0; background: var(--shop-bg); border: var(--tsf-card-border); box-shadow: var(--tsf-card-shadow); border-radius: var(--tsf-radius); overflow: hidden; text-align: var(--tsf-title-align); }
 .tsf-card .tsf-img { border-radius: 0; }
-.tsf-card-body { padding: var(--tsf-card-pad); padding-top: 10px; display: grid; gap: 2px; }
+.tsf-card-body { padding: var(--tsf-card-pad); padding-top: 10px; display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .tsf-card-badges { position: absolute; top: 10px; left: 10px; z-index: 1; display: flex; gap: 6px; }
 .tsf-card-fav { position: absolute; top: 6px; right: 6px; z-index: 1; width: 36px; height: 36px; border-radius: 999px; border: 0; background: var(--shop-bg); display: grid; place-items: center; cursor: pointer; color: var(--shop-text); }
 .tsf-card-fav svg { width: 18px; height: 18px; }
 .tsf-card-fav[aria-pressed="true"] { color: var(--shop-sale); }
 .tsf-card-meta { font-size: 12px; line-height: 18px; color: var(--shop-muted); }
-.tsf-card-name { font-size: 14px; line-height: 22px; font-weight: 500; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tsf-card-name { font-size: 14px; line-height: 22px; height: 44px; font-weight: 500; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
 .tsf-card-price { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-weight: 700; font-size: 15px; line-height: 22px; margin-top: 2px; font-variant-numeric: tabular-nums; }
 .tsf-card-price .is-sale { color: var(--shop-sale); }
 .tsf-card-price s { color: var(--shop-muted); font-weight: 400; font-size: 13px; }
@@ -288,9 +288,16 @@
 .tsf-hours-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--shop-border); font-size: 14px; }
 .tsf-hours-row:last-child { border-bottom: 0; }
 .tsf-hours-row.is-today { font-weight: 700; }
-.tsf-hours-map { border-radius: var(--tsf-radius); overflow: hidden; min-height: 200px; position: relative; }
-.tsf-hours-map { background-color: var(--shop-bg); background-image: linear-gradient(var(--shop-border) 2px, transparent 2px), linear-gradient(90deg, var(--shop-border) 2px, transparent 2px), linear-gradient(35deg, transparent 48%, var(--shop-border-strong) 48%, var(--shop-border-strong) 52%, transparent 52%); background-size: 48px 48px, 48px 48px, 100% 100%; display: grid; place-items: center; }
-.tsf-map-pin { width: 48px; height: 48px; border-radius: 999px; background: var(--shop-primary); color: var(--shop-on-primary); display: grid; place-items: center; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+.tsf-hours-map.store-mini-map {
+  height: 220px;
+  min-height: 200px;
+  border-radius: var(--tsf-radius);
+  border-color: var(--shop-border);
+  background: var(--shop-bg);
+}
+.tsf-hours-map .store-mini-map-empty {
+  color: color-mix(in srgb, var(--shop-text) 55%, transparent);
+}
 
 /* ---------- StoreFooter ---------- */
 .tsf-footer { background: var(--shop-secondary); color: var(--shop-on-secondary); padding-block: 40px 24px; font-size: 14px; line-height: 22px; }
@@ -384,7 +391,7 @@
 .tsf-cats .tsf-cat-icon { display: grid; place-items: center; }
 .tsf-cats .tsf-cat-icon svg { width: 42%; height: 42%; stroke: currentColor; fill: none; }
 /* Product card add-to-cart */
-.tsf-card-add { margin-top: 8px; width: 100%; justify-content: center; gap: 6px; display: inline-flex; align-items: center; }
+.tsf-card-add { margin-top: auto; width: 100%; justify-content: center; gap: 6px; display: inline-flex; align-items: center; }
 .tsf-card-add svg { flex: none; }
 
 /* Mobile/tablet overflow guard: nothing inside the store may widen the page; rails scroll inside their own box. */
@@ -482,7 +489,6 @@
 [data-theme="food"] .tsf-hero-strip .tsf-hero-media .tsf-img { border-radius: var(--tsf-media-radius); background: var(--shop-accent); color: var(--shop-on-accent); }
 [data-theme="food"] .tsf-hero-strip .tsf-btn-link { color: inherit; }
 /* StoryBlock / HoursCard extras (all tsf themes) */
-a.tsf-hours-map { display: grid; color: inherit; text-decoration: none; }
 .tsf-story > * { min-width: 0; }
 .tsf-hours > * { min-width: 0; }
 .tsf-hours-card h3 .tsf-open { margin-left: auto; }

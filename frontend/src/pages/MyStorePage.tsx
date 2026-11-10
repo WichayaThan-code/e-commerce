@@ -33,7 +33,7 @@ import SearchableSelect from "../components/SearchableSelect";
 import ShopThemeEditor, { type ShopThemeShopInfo } from "../components/merchant/ShopThemeEditor";
 import ShopHoursEditor from "../components/merchant/ShopHoursEditor";
 import ShopCollectionsManager from "../components/merchant/ShopCollectionsManager";
-import StoreMiniMap from "../components/merchant/StoreMiniMap";
+import ShopMapPinEditor from "../components/maps/ShopMapPinEditor";
 import MerchantSaveButton from "../components/merchant/MerchantSaveButton";
 import { ApiError, catalogApi, mediaUrl, merchantApi, type MerchantSettings, type MerchantSettingsPayload, type ShopHour } from "../services/api";
 import { MERCHANT_CATEGORY_VALUES } from "../i18n/merchantOnboardingCopy";
@@ -80,6 +80,7 @@ function emptyForm(): StoreForm {
     shopName: "", shopNameEn: "", description: "", category: "",
     phone: "", email: "", website: "", lineId: "", facebookUrl: "", instagramUrl: "", tiktokUrl: "",
     address: "", province: "", district: "", subdistrict: "", postalCode: "",
+    latitude: null, longitude: null,
     publicPhone: "", publicEmail: "",
     coverUrl: null, logoUrl: null, slug: "", status: "PENDING_REVIEW", createdAt: "", openingHours: undefined,
   }
@@ -109,6 +110,8 @@ function fromSettings(data: MerchantSettings): StoreForm {
     district: data.district || "",
     subdistrict: data.subdistrict || "",
     postalCode: data.postalCode || "",
+    latitude: data.latitude ?? null,
+    longitude: data.longitude ?? null,
     publicPhone: data.publicPhone || "",
     publicEmail: data.publicEmail || "",
     coverUrl: data.coverUrl || null,
@@ -229,6 +232,8 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
         phone:form.phone.trim(), email:form.email.trim(),
         website:form.website, lineId:form.lineId, facebookUrl:form.facebookUrl, instagramUrl:form.instagramUrl, tiktokUrl:form.tiktokUrl,
         address:form.address.trim(), province:form.province.trim(), district:form.district.trim(), subdistrict:form.subdistrict.trim(), postalCode:form.postalCode.trim(),
+        latitude: form.latitude ?? null,
+        longitude: form.longitude ?? null,
         publicPhone, publicEmail,
       };
       const saved=fromSettings(await merchantApi.saveSettings(payload, shopId));
@@ -418,9 +423,19 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
                         <small>{addressLine ? [form.district, form.province].filter(Boolean).join(" · ") || "ที่อยู่ร้านค้า" : "กดแก้ไขเพื่อเพิ่มที่อยู่ร้าน"}</small>
                       </div>
                     </div>
-                    <StoreMiniMap address={addressLine} mapUrl={mapUrl} />
                   </div>
                 )}
+                <ShopMapPinEditor
+                  address={addressLine}
+                  latitude={form.latitude}
+                  longitude={form.longitude}
+                  editable={canUpdate}
+                  onChange={({ latitude, longitude }) => patch({ latitude, longitude })}
+                  hint={canUpdate ? "ลากหมุดหรือคลิกบนแผนที่เพื่อกำหนดตำแหน่งร้าน แล้วกดบันทึก" : undefined}
+                />
+                <a className="store-maps-link is-inline" href={mapUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink aria-hidden />เปิดใน Google Maps
+                </a>
               </div>
             </aside>
           </div>

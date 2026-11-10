@@ -260,6 +260,10 @@
   white-space:nowrap;
 }
 .store-section-body{padding:14px 16px 16px}
+.store-address-block .store-section-body{
+  display:grid;
+  gap:12px;
+}
 .store-address-panel{
   display:grid;
   gap:10px;
@@ -304,52 +308,6 @@
   font-size:12px;
   color:#6d86aa;
 }
-.store-mini-map{
-  position:relative;
-  height:190px;
-  border:1px solid #d7e5f3;
-  border-radius:12px;
-  overflow:hidden;
-  background:
-    radial-gradient(circle at 30% 35%,#d9ecff 0 2px,transparent 3px),
-    radial-gradient(circle at 70% 60%,#d9ecff 0 2px,transparent 3px),
-    linear-gradient(135deg,#eaf3fb,#dfeaf5);
-}
-.store-mini-map iframe{
-  display:block;
-  width:100%;
-  height:100%;
-  border:0;
-}
-.store-mini-map-empty{
-  height:100%;
-  display:grid;
-  place-content:center;
-  justify-items:center;
-  gap:8px;
-  color:#7d92b0;
-  font-size:12px;
-}
-.store-mini-map-empty svg{width:22px;height:22px;color:#9bb0c9}
-.store-maps-link{
-  position:absolute;
-  right:10px;
-  bottom:10px;
-  z-index:1;
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  min-height:34px;
-  padding:0 12px;
-  border:0;
-  border-radius:8px;
-  background:rgba(255,255,255,.96);
-  box-shadow:0 6px 16px rgba(8,36,93,.14);
-  color:#087bf5;
-  font:700 12px var(--font-sans),sans-serif;
-  text-decoration:none;
-}
-.store-maps-link svg{width:14px;height:14px}
 .store-policy-grid{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
@@ -542,7 +500,6 @@
   .store-info-head .store-head-actions .merchant-save-btn,
   .store-info-head .store-cancel{flex:1}
   .store-policy-grid{grid-template-columns:1fr 1fr}
-  .store-mini-map{height:160px}
 }
 
 /* ---- Shop theme tab (Phase 1) ---- */

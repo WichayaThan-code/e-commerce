@@ -168,6 +168,8 @@ export type ShopPolicyDto = {
 export type PublicShop = {
   name:string;nameEn?:string;nameZh?:string;description?:string;descriptionEn?:string;descriptionZh?:string;category:string
   address:string;province:string;district:string;subdistrict:string;postalCode:string
+  latitude?: number | null
+  longitude?: number | null
   slug:string;path:string;status:'PENDING_REVIEW'|'APPROVED'|'REJECTED'|'SUSPENDED';logoUrl?:string|null;coverUrl?:string|null
   shopId:number
   openingHours?: ShopHour[]
@@ -200,6 +202,8 @@ export type MerchantSettings = {
   phone:string; email:string
   website?:string|null; lineId?:string|null; facebookUrl?:string|null; instagramUrl?:string|null; tiktokUrl?:string|null
   address:string; province:string; district:string; subdistrict:string; postalCode:string
+  latitude?: number | null
+  longitude?: number | null
   coverUrl?:string|null; logoUrl?:string|null; slug?:string|null; createdAt?:string|null
   openingHours?: ShopHour[]
   publicPhone?: string | null
@@ -211,6 +215,8 @@ export type MerchantSettingsPayload = {
   phone:string; email:string
   website:string; lineId:string; facebookUrl:string; instagramUrl:string; tiktokUrl:string
   address:string; province:string; district:string; subdistrict:string; postalCode:string
+  latitude?: number | null
+  longitude?: number | null
   publicPhone:string; publicEmail:string
 }
 export type MerchantChannelsPayload = {
@@ -1095,6 +1101,12 @@ export type OrderDetail = {
   internalNote?: string | null
   tags?: { id: string; name: string; color: string | null; usageCount?: number }[] | null
 }
+export type OrderLinePreview = {
+  productName: string
+  optionLabel?: string | null
+  imageUrl?: string | null
+  quantity: number
+}
 export type OrderSummary = {
   id: string; orderNumber: string; shopId: number; shopName: string; status: string; paymentStatus: string
   fulfillmentStatus?: string | null; grandTotal: Money; currency: string; itemCount?: number | null
@@ -1105,6 +1117,8 @@ export type OrderSummary = {
   trackingNumber?: string | null; carrierCode?: string | null
   /** Merchant + accepted only (AD3). */
   customerName?: string | null; customerKey?: string | null
+  /** Line previews for list cards (image + name); expand under thumb shows all. */
+  previewItems?: OrderLinePreview[] | null
 }
 export type OrderPage = { items: OrderSummary[]; page: number; size: number; totalItems: number; totalPages: number }
 export type OrderTimelineEntry = { id: number; event: string; fromStatus?: string | null; toStatus?: string | null; actorType?: string | null; reason?: string | null; at: string }

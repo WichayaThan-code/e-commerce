@@ -80,9 +80,22 @@ export default function CartPage() {
 
   useEffect(() => { if (data) markHasData(); }, [data, markHasData]);
   useEffect(() => {
-    const state = location.state as { checkoutIssues?: boolean } | null;
+    const state = location.state as {
+      checkoutIssues?: boolean;
+      buyAgainPartial?: boolean;
+      added?: number;
+      failed?: number;
+      adjusted?: number;
+    } | null;
     if (state?.checkoutIssues) setNotice(tp("cart.checkoutBlocked"));
-  }, [location.state, tp]);
+    else if (state?.buyAgainPartial) {
+      setNotice(tp("cart.buyAgainPartial", {
+        added: state.added ?? 0,
+        failed: state.failed ?? 0,
+      }));
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state, location.pathname, navigate, tp]);
 
   const notify = (message: string) => {
     setNotice(message);

@@ -890,11 +890,33 @@
       "saving": "正在保存...",
       "cancel": "取消"
     },
+    "editor": {
+      "toolbar": "文本格式",
+      "bold": "加粗",
+      "alignLeft": "左对齐",
+      "alignCenter": "居中",
+      "insertImage": "插入图片",
+      "imageType": "仅支持 JPG、PNG 或 WEBP",
+      "imageFailed": "图片上传失败",
+      "imageSize": {
+        "s": "图 S",
+        "m": "图 M",
+        "l": "图 L",
+        "full": "图全宽"
+      },
+      "size": {
+        "sm": "小",
+        "md": "正常",
+        "lg": "大",
+        "heading": "标题"
+      }
+    },
     "errors": {
       "required": "此项为必填",
       "slugInvalid": "仅可使用 a-z、0-9 和连字符（例如 order-help）",
       "urlInvalid": "链接必须以 http://、https:// 或 / 开头",
       "topicRequired": "请选择主题",
+      "tooLong": "最多 {{max}} 个字符",
       "invalid": "输入无效"
     },
     "delete": {
@@ -1023,7 +1045,7 @@
       "fields": {
         "title": "标题",
         "excerpt": "摘要",
-        "body": "正文 (Markdown)",
+        "body": "正文",
         "slug": "Slug（仅限 a-z、0-9 和 -）",
         "category": "分类",
         "categoryNone": "无分类",
@@ -1048,6 +1070,26 @@
       "write": "编辑",
       "previewTab": "预览",
       "previewEmpty": "暂无可预览的内容",
+      "bodyImage": {
+        "insert": "插入图片",
+        "hint": "可格式化文本、插入图片并拖动边角调整大小（与帮助中心相同）",
+        "failed": "正文图片上传失败",
+        "sizeLabel": "正文图片尺寸",
+        "sizeNeedImage": "请先选中正文中的图片再调整尺寸",
+        "size": {
+          "s": "S",
+          "m": "M",
+          "l": "L",
+          "full": "全宽"
+        }
+      },
+      "rich": {
+        "italic": "斜体",
+        "h2": "大标题",
+        "h3": "小标题",
+        "bulletList": "项目符号列表",
+        "orderedList": "编号列表"
+      },
       "fallbackHint": "留空时将显示泰语内容",
       "seo": "SEO",
       "related": "相关店铺与商品",

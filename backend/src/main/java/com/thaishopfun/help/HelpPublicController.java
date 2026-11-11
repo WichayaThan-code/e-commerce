@@ -8,6 +8,8 @@ import com.thaishopfun.help.HelpDtos.FeedbackResult;
 import com.thaishopfun.help.HelpDtos.GuideView;
 import com.thaishopfun.help.HelpDtos.TopicDetailView;
 import com.thaishopfun.help.HelpDtos.TopicView;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -64,5 +66,10 @@ public class HelpPublicController {
     @GetMapping("/guides")
     public List<GuideView> guides(@RequestParam(required = false) String lang) {
         return help.listGuides(lang);
+    }
+
+    @GetMapping("/images/{mediaId}")
+    public ResponseEntity<Resource> image(@PathVariable UUID mediaId) {
+        return help.serveImage(mediaId);
     }
 }

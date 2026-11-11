@@ -53,4 +53,12 @@ public interface HelpFaqRepository extends JpaRepository<HelpFaq, UUID> {
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update HelpFaq f set f.helpfulNo = f.helpfulNo + 1 where f.id = :id")
     int incrementHelpfulNo(@Param("id") UUID id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update HelpFaq f set f.helpfulYes = f.helpfulYes - 1 where f.id = :id and f.helpfulYes > 0")
+    int decrementHelpfulYes(@Param("id") UUID id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update HelpFaq f set f.helpfulNo = f.helpfulNo - 1 where f.id = :id and f.helpfulNo > 0")
+    int decrementHelpfulNo(@Param("id") UUID id);
 }

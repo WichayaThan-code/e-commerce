@@ -65,6 +65,7 @@
     "removed": "Removed from cart",
     "decrease": "Decrease",
     "increase": "Increase",
+    "quantity": "Quantity of {{name}}",
     "oldPrice": "Previous price",
     "empty": "Your cart is empty",
     "emptyDesc": "Pick products you like and add them to your cart — they will show up here",
@@ -344,6 +345,9 @@
       "copyOrder": "Copy no.",
       "copyAccount": "Copy",
       "copied": "Copied",
+      "accountNumber": "Account number",
+      "accountName": "Account name",
+      "promptPayId": "PromptPay",
       "nextPayTitle": "Next: pay for your order",
       "nextPayBody": "Transfer the amount, then upload your slip on the order page",
       "payAndSlip": "Pay / upload slip",
@@ -368,6 +372,8 @@
       "clearSearch": "Clear search",
       "emptyHint": "Shop Thai stores, then come back here to track your orders",
       "hintPay": "Please pay so the shop can process your order",
+      "hintPayWithin": "Pay by {{deadline}}",
+      "hintPayExpired": "Payment deadline has passed",
       "hintShip": "Your parcel is on the way — open details to track",
       "hintDetail": "View items, payment, and shipping details",
       "actionPay": "Pay now",
@@ -478,6 +484,19 @@
     "placed": "Order placed",
     "cancel": "Cancel order",
     "cancelReason": "Cancellation reason",
+    "cancelReasonHint": "Please select a cancellation reason",
+    "cancelReasonOther": "Other",
+    "cancelReasonOtherPlaceholder": "Tell us more",
+    "cancelReasonOtherRequired": "Please enter your reason",
+    "cancelReasons": {
+      "CHANGE_ADDRESS": "Need to change delivery address",
+      "CHANGE_VOUCHER": "Need to input / change voucher code",
+      "MODIFY_ORDER": "Need to modify order (color, size, quantity, etc.)",
+      "PAYMENT_TROUBLE": "Payment procedure too troublesome",
+      "FOUND_CHEAPER": "Found cheaper elsewhere",
+      "DONT_WANT": "Don't want to buy anymore",
+      "OTHER": "Other"
+    },
     "cancelConfirm": "Confirm cancellation",
     "cancelling": "Cancelling…",
     "confirmReceived": "I received the order",
@@ -1316,8 +1335,9 @@
   "helpPage": {
     "retry": "Try again",
     "hero": {
-      "title": "ThaiShopFun Help Center",
+      "title": "Help Center",
       "alt": "ThaiShopFun Help Center",
+      "lead": "Choose your role, then search or browse FAQs to find answers quickly.",
       "searchLabel": "Search questions",
       "suggestions": "Suggested questions",
       "searching": "Searching...",
@@ -1349,8 +1369,9 @@
       "empty": "No user guides yet"
     },
     "contact": {
-      "title": "Contact us",
-      "subtitle": "Still need an answer? Our team is ready to help.",
+      "title": "Contact channels",
+      "supportLabel": "Support:",
+      "marketingLabel": "Business / advertising:",
       "dayShort": {
         "0": "Mon",
         "1": "Tue",
@@ -1387,7 +1408,11 @@
     "audience": {
       "label": "Choose user type",
       "buyer": "Buyer",
-      "seller": "Seller"
+      "seller": "Seller",
+      "sellerHint": "Showing seller FAQs only",
+      "buyerPageTitle": "For buyers",
+      "sellerPageTitle": "For sellers",
+      "emptyAudience": "No questions for this audience yet"
     },
     "quickLinks": {
       "title": "Quick links",
@@ -1414,6 +1439,17 @@
       "alreadyVoted": "You already rated this answer",
       "feedbackError": "Could not send feedback. Please try again.",
       "helpfulCount": "{{count}} people found this helpful",
+      "reasonTitle": "Sorry about that experience. Where did we fall short?",
+      "reasonClose": "Close",
+      "reasonCancel": "Cancel",
+      "reasonSubmit": "Send",
+      "reasons": {
+        "HARD_TO_UNDERSTAND": "The content is hard to understand",
+        "INCORRECT_OR_INCOMPLETE": "The information is incorrect or incomplete",
+        "DID_NOT_SOLVE": "This content did not solve my problem",
+        "BAD_LINKS": "Links in the article are incorrect",
+        "POLICY_FRICTION": "Policies or steps make things difficult"
+      },
       "related": "Related questions",
       "relatedEmpty": "No related questions yet",
       "contactTitle": "Still need help?",
@@ -1447,6 +1483,9 @@
     "loading": "Loading...",
     "loadMoreError": "Could not load more articles",
     "readingMinutes": "{{count}} min read",
+    "views": "{{count}} views",
+    "views_one": "{{count}} view",
+    "views_other": "{{count}} views",
     "sidebarLabel": "More",
     "breadcrumbRoot": "Articles",
     "status": {

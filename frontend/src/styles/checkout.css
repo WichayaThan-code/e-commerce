@@ -48,9 +48,21 @@
 .checkout-order .cart-shop-head{padding:0}
 .checkout-order-number{font-weight:700;color:#0b4cc2}
 .checkout-order-number-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.checkout-accounts{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.checkout-accounts{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .checkout-accounts li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border:1px solid #e1e7f0;border-radius:10px}
 .checkout-accounts small{width:100%;color:#5b6b85}
+.pay-account-card{display:grid!important;grid-template-columns:52px minmax(0,1fr);gap:12px 14px;align-items:start;padding:14px!important;border:1px solid #d7e4f3!important;border-radius:14px!important;background:linear-gradient(180deg,#fbfcff,#fff)}
+.pay-account-logo{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;flex:none;box-shadow:inset 0 0 0 1px #00000014;font:800 11px/1.05 var(--font-sans),"IBM Plex Sans Thai",sans-serif;letter-spacing:-.02em;text-align:center;padding:4px}
+.pay-account-logo span{display:block;max-width:100%;overflow:hidden}
+.pay-account-body{min-width:0;display:grid;gap:8px}
+.pay-account-bank{margin:0;font:700 15px/1.3 var(--font-sans),"IBM Plex Sans Thai",sans-serif;color:#08245d}
+.pay-account-row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.pay-account-field{display:grid;gap:2px;min-width:0}
+.pay-account-field>span{font:600 11px/1.2 var(--font-sans),"IBM Plex Sans Thai",sans-serif;color:#6b7f99}
+.pay-account-field>b{font:700 16px/1.25 var(--font-sans),"IBM Plex Sans Thai",sans-serif;color:#0b2f5c;word-break:break-word}
+.pay-account-field>b.num{font-size:18px;letter-spacing:.02em;font-variant-numeric:tabular-nums}
+.pay-account-copy{display:inline-flex;align-items:center;gap:5px;min-height:34px;padding:0 12px;border:1px solid #c9d8ec;border-radius:9px;background:#fff;color:#0b4cc2;font:700 12px var(--font-sans),"IBM Plex Sans Thai",sans-serif;cursor:pointer;flex:none}
+.pay-account-copy:hover{background:#f3f7ff;border-color:#9db8de}
 .checkout-success-note{color:#5b6b85;font-size:14px}
 .checkout-success-actions{display:flex;gap:10px;flex-wrap:wrap}
 .checkout-secondary{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border:1px solid #0b4cc2;border-radius:999px;color:#0b4cc2;text-decoration:none;font-weight:600}

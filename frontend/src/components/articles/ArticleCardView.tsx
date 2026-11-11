@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CalendarDays, Clock, Newspaper } from "lucide-react";
+import { CalendarDays, Eye, Newspaper } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { mediaUrl, type ArticleCard } from "../../services/api";
 import { formatArticleDate } from "../../utils/articleFormat";
@@ -33,8 +33,8 @@ export default function ArticleCardView({ article }: { article: ArticleCard }) {
               </span>
             )}
             <span>
-              <Clock aria-hidden="true" />
-              {t("articles.readingMinutes", { count: article.readingMinutes })}
+              <Eye aria-hidden="true" />
+              {t("articles.views", { count: article.viewCount ?? 0 })}
             </span>
           </span>
         </span>

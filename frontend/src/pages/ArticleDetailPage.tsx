@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   CalendarDays,
   ChevronRight,
-  Clock,
   Copy,
   Eye,
   ListTree,
@@ -53,6 +52,7 @@ function toDetail(article: AdminArticle, categories: AdminArticleCategory[], loc
     category: article.categoryId && article.categorySlug ? { id: article.categoryId, slug: article.categorySlug, name: categoryName ?? article.categorySlug } : null,
     coverUrl: article.coverUrl,
     readingMinutes: article.readingMinutes,
+    viewCount: article.viewCount ?? 0,
     tags: article.tags ?? [],
     audience: article.audience,
     featured: article.featured,
@@ -236,8 +236,8 @@ export default function ArticleDetailPage() {
                   </span>
                 )}
                 <span>
-                  <Clock aria-hidden="true" />
-                  {t("articles.readingMinutes", { count: article.readingMinutes })}
+                  <Eye aria-hidden="true" />
+                  {t("articles.views", { count: article.viewCount ?? 0 })}
                 </span>
               </p>
             </header>

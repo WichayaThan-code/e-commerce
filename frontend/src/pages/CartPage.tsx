@@ -52,6 +52,7 @@ export default function CartPage() {
   const [couponShop, setCouponShop] = useState<number | null>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [qtyDrafts, setQtyDrafts] = useState<Record<string, string>>({});
   const [liked, setLiked] = useState<string[]>([]);
   const [confirmRemoveSelected, setConfirmRemoveSelected] = useState(false);
   const { showSkeleton, markHasData } = useDelayedLoading(cart.status === "loading");
@@ -115,7 +116,28 @@ export default function CartPage() {
       setBusy(false);
     }
   };
-  const setQuantity = (item: Row, difference: number) => run(() => cart.update(item.id, { quantity: item.quantity + difference }));
+  const setQuantity = (item: Row, difference: number) => {
+    setQtyDrafts((prev) => {
+      if (!(item.id in prev)) return prev;
+      const next = { ...prev };
+      delete next[item.id];
+      return next;
+    });
+    return run(() => cart.update(item.id, { quantity: item.quantity + difference }));
+  };
+  const commitQuantity = (item: Row, raw: string) => {
+    const parsed = Number.parseInt(raw.replace(/[^\d]/g, ""), 10);
+    const max = Math.max(1, item.maxQuantity || 1);
+    const next = Number.isFinite(parsed) ? Math.min(max, Math.max(1, parsed)) : 1;
+    setQtyDrafts((prev) => {
+      if (!(item.id in prev)) return prev;
+      const copy = { ...prev };
+      delete copy[item.id];
+      return copy;
+    });
+    if (next === item.quantity) return;
+    void run(() => cart.update(item.id, { quantity: next }));
+  };
   const remove = (ids: string[]) => run(() => cart.remove(ids), tp("cart.removed"));
   const toggle = (item: Row) => run(() => cart.update(item.id, { selected: !item.selected }));
   const applyCoupon = async () => {
@@ -180,7 +202,34 @@ export default function CartPage() {
                 <div className="cart-unit-price"><b className="num">{money(item.unitPrice)}</b>{item.priceChanged
                   ? <del className="num" title={tp("cart.oldPrice")}>{money(item.priceSnapshot)}</del>
                   : moneyValue(item.compareAtPrice) > moneyValue(item.unitPrice) ? <><del className="num">{money(item.compareAtPrice)}</del><em className="num">-{Math.round((1 - moneyValue(item.unitPrice) / moneyValue(item.compareAtPrice)) * 100)}%</em></> : null}</div>
-                <div className="cart-quantity"><button aria-label={tp("cart.decrease")} disabled={busy || item.quantity <= 1} onClick={() => setQuantity(item, -1)}><Minus/></button><b className="num">{item.quantity}</b><button aria-label={tp("cart.increase")} disabled={busy || item.quantity >= item.maxQuantity} onClick={() => setQuantity(item, 1)}>＋</button></div>
+                <div className="cart-quantity">
+                  <button type="button" aria-label={tp("cart.decrease")} disabled={busy || item.quantity <= 1} onClick={() => void setQuantity(item, -1)}><Minus/></button>
+                  <input
+                    className="num"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    aria-label={tp("cart.quantity", { name: item.productName })}
+                    value={qtyDrafts[item.id] ?? String(item.quantity)}
+                    disabled={busy}
+                    onChange={(event) => {
+                      const digits = event.target.value.replace(/[^\d]/g, "");
+                      setQtyDrafts((prev) => ({ ...prev, [item.id]: digits }));
+                    }}
+                    onBlur={(event) => commitQuantity(item, event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "-" || event.key === "e" || event.key === "E" || event.key === "+" || event.key === ".") {
+                        event.preventDefault();
+                        return;
+                      }
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        (event.target as HTMLInputElement).blur();
+                      }
+                    }}
+                  />
+                  <button type="button" aria-label={tp("cart.increase")} disabled={busy || item.quantity >= item.maxQuantity} onClick={() => void setQuantity(item, 1)}>＋</button>
+                </div>
                 <strong className="cart-line-total num">{money(item.lineTotal)}</strong>
                 <button className="cart-remove" aria-label={tp("cart.removeLine", { name: item.productName })} disabled={busy} onClick={() => remove([item.id])}><Trash2/></button>
               </article>)}

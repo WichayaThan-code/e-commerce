@@ -3,6 +3,7 @@ package com.thaishopfun.order;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.common.FieldViolation;
 import com.thaishopfun.common.ValidationException;
+import com.thaishopfun.order.carrier.CarrierDeliveryVerifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -85,14 +86,16 @@ public class OrderTransitionService {
     private final MerchantOrderConfirmationRepository confirmations;
     private final CarrierService carriers;
     private final ShipmentTimeline timeline;
+    private final CarrierDeliveryVerifier carrierDelivery;
 
     public OrderTransitionService(OrderRepository orders, OrderStatusHistoryRepository history, OrderInventoryService inventory,
                                   ShipmentRepository shipments, PaymentRepository payments, RefundRepository refunds,
                                   OrderPromotionUsageRepository usages, OrderMoneyLedger ledger, OrderItemRevealLogRepository revealLogs,
                                   PaymentProofRepository proofs, MerchantOrderConfirmationRepository confirmations,
-                                  CarrierService carriers, ShipmentTimeline timeline) {
+                                  CarrierService carriers, ShipmentTimeline timeline, CarrierDeliveryVerifier carrierDelivery) {
         this.carriers = carriers;
         this.timeline = timeline;
+        this.carrierDelivery = carrierDelivery;
         this.confirmations = confirmations;
         this.ledger = ledger;
         this.revealLogs = revealLogs;
@@ -194,6 +197,8 @@ public class OrderTransitionService {
                 throw new ShipmentTransitionException("SHIPMENT_RETURNED", "พัสดุถูกตีกลับแล้ว ไม่สามารถตั้งเป็นจัดส่งสำเร็จได้",
                     ShipmentStatus.RETURNED, ShipmentStatus.DELIVERED, List.of());
             }
+            // Merchant/admin must match carrier delivery status; SYSTEM / carrier webhook-poll skip inside the verifier
+            carrierDelivery.requireDelivered(current, actor, opts.detail());
         }
         String provider = null;
         if (to == OrderStatus.PAID_AWAITING_MERCHANT_CONFIRM) {

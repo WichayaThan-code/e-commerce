@@ -14,14 +14,14 @@ public final class ContentDtos {
     public record CategoryView(UUID id, String slug, String name, String description, long articleCount) {}
 
     public record ArticleCard(UUID id, String slug, String title, String excerpt, CategoryRef category, String coverUrl,
-                              int readingMinutes, List<String> tags, String audience, boolean featured, Instant publishedAt) {}
+                              int readingMinutes, long viewCount, List<String> tags, String audience, boolean featured, Instant publishedAt) {}
 
     public record RelatedShop(Long id, String slug, String name) {}
     public record RelatedProduct(UUID id, String slug, String name, String shopSlug) {}
 
     /** author is the display name only (never e-mail / phone). */
     public record ArticleDetail(UUID id, String slug, String title, String excerpt, String bodyMd, CategoryRef category,
-                                String coverUrl, int readingMinutes, List<String> tags, String audience, boolean featured,
+                                String coverUrl, int readingMinutes, long viewCount, List<String> tags, String audience, boolean featured,
                                 Instant publishedAt, String author, String metaTitle, String metaDescription,
                                 List<ArticleCard> related, RelatedShop relatedShop, List<RelatedProduct> relatedProducts) {}
 
@@ -33,7 +33,7 @@ public final class ContentDtos {
 
     public record AdminArticleSummary(UUID id, String slug, String status, String audience, boolean featured,
                                       UUID categoryId, String categorySlug, String titleTh, String titleEn, String titleZh,
-                                      String coverUrl, int readingMinutes, List<String> tags,
+                                      String coverUrl, int readingMinutes, long viewCount, List<String> tags,
                                       Instant publishedAt, Instant createdAt, Instant updatedAt) {}
 
     public record AdminArticle(UUID id, String slug, String status, String audience, boolean featured,
@@ -41,7 +41,7 @@ public final class ContentDtos {
                                String titleTh, String titleEn, String titleZh,
                                String excerptTh, String excerptEn, String excerptZh,
                                String bodyMdTh, String bodyMdEn, String bodyMdZh,
-                               String coverUrl, int readingMinutes, List<String> tags,
+                               String coverUrl, int readingMinutes, long viewCount, List<String> tags,
                                String metaTitle, String metaDescription,
                                Long relatedShopId, List<UUID> relatedProductIds,
                                UUID authorId, String authorName,
@@ -65,4 +65,7 @@ public final class ContentDtos {
 
     public record ActiveRequest(Boolean active) {}
     public record ReorderRequest(List<UUID> ids) {}
+
+    /** Public URL for an uploaded inline article image (Markdown body). */
+    public record ArticleImageUpload(UUID id, String url) {}
 }

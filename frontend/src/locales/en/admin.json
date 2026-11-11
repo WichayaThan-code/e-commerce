@@ -890,11 +890,33 @@
       "saving": "Saving...",
       "cancel": "Cancel"
     },
+    "editor": {
+      "toolbar": "Text formatting",
+      "bold": "Bold",
+      "alignLeft": "Align left",
+      "alignCenter": "Align center",
+      "insertImage": "Insert image",
+      "imageType": "Only JPG, PNG, or WEBP are supported",
+      "imageFailed": "Could not upload the image",
+      "imageSize": {
+        "s": "Img S",
+        "m": "Img M",
+        "l": "Img L",
+        "full": "Img full"
+      },
+      "size": {
+        "sm": "Small",
+        "md": "Normal",
+        "lg": "Large",
+        "heading": "Heading"
+      }
+    },
     "errors": {
       "required": "This field is required",
       "slugInvalid": "Use only a-z, 0-9 and hyphens (e.g. order-help)",
       "urlInvalid": "The link must start with http://, https:// or /",
       "topicRequired": "Please select a topic",
+      "tooLong": "Must be at most {{max}} characters",
       "invalid": "Invalid value"
     },
     "delete": {
@@ -1023,7 +1045,7 @@
       "fields": {
         "title": "Title",
         "excerpt": "Excerpt",
-        "body": "Body (Markdown)",
+        "body": "Body",
         "slug": "Slug (a-z, 0-9 and - only)",
         "category": "Category",
         "categoryNone": "No category",
@@ -1048,6 +1070,26 @@
       "write": "Write",
       "previewTab": "Preview",
       "previewEmpty": "Nothing to preview yet",
+      "bodyImage": {
+        "insert": "Insert image",
+        "hint": "Format text, insert images, and drag image corners to resize — same as Help Center",
+        "failed": "Could not upload the body image",
+        "sizeLabel": "Body image size",
+        "sizeNeedImage": "Select an image in the body before resizing",
+        "size": {
+          "s": "S",
+          "m": "M",
+          "l": "L",
+          "full": "Full"
+        }
+      },
+      "rich": {
+        "italic": "Italic",
+        "h2": "Heading",
+        "h3": "Subheading",
+        "bulletList": "Bullet list",
+        "orderedList": "Numbered list"
+      },
       "fallbackHint": "If left empty, the Thai content is shown instead",
       "seo": "SEO",
       "related": "Related shop & products",

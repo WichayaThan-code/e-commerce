@@ -1,8 +1,8 @@
 // src/pages/BlogPage.tsx
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, CircleAlert, Clock, Mail, Newspaper, Search, SearchX, Tag, X } from "lucide-react";
+import { ArrowRight, CircleAlert, Eye, Newspaper, Search, SearchX, Tag, X } from "lucide-react";
 import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import ArticleCardView from "../components/articles/ArticleCardView";
@@ -51,18 +51,7 @@ export default function BlogPage() {
   const [attempt, setAttempt] = useState(0);
   const requestId = useRef(0);
 
-  const [email, setEmail] = useState("");
-  const [notice, setNotice] = useState("");
-  const noticeTimer = useRef<number | undefined>(undefined);
-
   useDocumentMeta({ title: t("articles.metaTitle"), description: t("articles.metaDescription") });
-
-  const notify = useCallback((message: string) => {
-    setNotice(message);
-    window.clearTimeout(noticeTimer.current);
-    noticeTimer.current = window.setTimeout(() => setNotice(""), 2400);
-  }, []);
-  useEffect(() => () => window.clearTimeout(noticeTimer.current), []);
 
   // Featured + categories are independent of the main list so a list 500 still leaves the hero/tabs usable.
   useEffect(() => {
@@ -176,16 +165,6 @@ export default function BlogPage() {
     setTag("");
   };
 
-  const subscribe = (event: FormEvent) => {
-    event.preventDefault();
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
-      notify(t("articles.newsletter.invalid"));
-      return;
-    }
-    notify(t("articles.newsletter.success"));
-    setEmail("");
-  };
-
   const featuredDate = featured ? formatArticleDate(featured.publishedAt, localeTag) : "";
   const hasMore = page + 1 < totalPages;
 
@@ -205,8 +184,8 @@ export default function BlogPage() {
                 {featured.category && <b>{featured.category.name}</b>}
                 {featuredDate && <span>{featuredDate}</span>}
                 <span>
-                  <Clock aria-hidden="true" />
-                  {t("articles.readingMinutes", { count: featured.readingMinutes })}
+                  <Eye aria-hidden="true" />
+                  {t("articles.views", { count: featured.viewCount ?? 0 })}
                 </span>
               </span>
               <span className="blog-hero-cta">
@@ -366,30 +345,8 @@ export default function BlogPage() {
               </div>
             </section>
           )}
-
-          <form className="blog-side-card blog-newsletter" onSubmit={subscribe} noValidate>
-            <h2>
-              <Mail aria-hidden="true" /> {t("articles.newsletter.title")}
-            </h2>
-            <p>{t("articles.newsletter.body")}</p>
-            <input
-              type="email"
-              aria-label={t("articles.newsletter.label")}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder={t("articles.newsletter.placeholder")}
-              autoComplete="email"
-            />
-            <button type="submit">{t("articles.newsletter.action")}</button>
-          </form>
         </aside>
       </section>
-
-      {notice && (
-        <div className="blog-toast" role="status">
-          {notice}
-        </div>
-      )}
     </div>
   );
 }

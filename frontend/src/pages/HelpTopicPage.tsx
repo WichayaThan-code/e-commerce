@@ -5,6 +5,7 @@ import { ChevronRight, CircleHelp, SearchX } from "lucide-react";
 import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import HelpContactPanel from "../components/help/HelpContactPanel";
+import HelpRichText from "../components/help/HelpRichText";
 import HelpSubHeader from "../components/help/HelpSubHeader";
 import { HelpError, Lines, TONES, iconFor, sortTopics, splitAnswer, useHelpData } from "../components/help/helpShared";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
@@ -31,14 +32,14 @@ export default function HelpTopicPage() {
   const Icon = topic.data ? iconFor(topic.data.icon, 0) : CircleHelp;
 
   return (
-    <main className="help-page">
+    <main className="help-page help-page--detail">
       <HelpSubHeader
         crumbs={[
           { label: t("helpPage.breadcrumbHome"), to: "/help" },
           { label: topic.data?.title ?? t("helpPage.topic.crumb") },
         ]}
       />
-      <div className="help-width help-detail">
+      <div className="help-detail-width help-detail">
         <section className="help-detail-main" aria-busy={loading}>
           {loading ? (
             <>
@@ -65,11 +66,7 @@ export default function HelpTopicPage() {
                 </span>
                 <div>
                   <h1>{topic.data.title}</h1>
-                  {topic.data.description && (
-                    <p>
-                      <Lines text={topic.data.description} />
-                    </p>
-                  )}
+                  {topic.data.description && <HelpRichText html={topic.data.description} className="help-topic-desc" />}
                   <small>{t("helpPage.topic.faqCount", { count: topic.data.faqs.length })}</small>
                 </div>
               </header>
@@ -128,8 +125,8 @@ export default function HelpTopicPage() {
           )}
         </aside>
       </div>
-      <div className="help-width help-detail-contact">
-        <HelpContactPanel />
+      <div className="help-detail-width help-detail-contact">
+        <HelpContactPanel variant="home" />
       </div>
     </main>
   );

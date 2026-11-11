@@ -58,6 +58,7 @@ import ThaiBrandsPage from "../pages/ThaiBrandsPage";
 import BlogPage from "../pages/BlogPage";
 import ArticleDetailPage from "../pages/ArticleDetailPage";
 import HelpPage from "../pages/HelpPage";
+import HelpAudiencePage from "../pages/HelpAudiencePage";
 import HelpTopicPage from "../pages/HelpTopicPage";
 import HelpFaqPage from "../pages/HelpFaqPage";
 import CartPage from "../pages/CartPage";
@@ -111,6 +112,8 @@ export const routes: RouteObject[] = [
       { path: "/articles", element: <BlogPage /> },
       { path: "/articles/:slug", element: <ArticleDetailPage /> },
       { path: "/help", element: <HelpPage /> },
+      { path: "/help/buyer", element: <HelpAudiencePage /> },
+      { path: "/help/seller", element: <HelpAudiencePage /> },
       { path: "/help/topics/:slug", element: <HelpTopicPage /> },
       { path: "/help/faqs/:id", element: <HelpFaqPage /> },
       { path: "/cart", element: <CartPage /> },

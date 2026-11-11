@@ -22,6 +22,10 @@ public interface BlogPostRepository extends JpaRepository<BlogPost, UUID> {
     @Query("update BlogPost p set p.category = null where p.category.id = :categoryId")
     int detachCategory(@Param("categoryId") UUID categoryId);
 
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update BlogPost p set p.viewCount = p.viewCount + 1 where p.id = :id")
+    int incrementViewCount(@Param("id") UUID id);
+
     /**
      * Public list (PUBLISHED, not deleted, published_at reached). Native SQL so PostgreSQL text[] tag filter works
      * ({@code = any(tags)}); Hibernate's JPQL {@code array_contains} compiles to {@code text[] @> varchar[]} which

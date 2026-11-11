@@ -39,6 +39,15 @@ type Dialog =
 
 const MAX_FILE = 5 * 1024 * 1024;
 const REFUND_STATUSES = new Set(["REFUND_REQUESTED", "REFUNDED", "CANCELLED"]);
+const REJECT_REASON_KEYS = [
+  "NO_RETURN_RECEIVED",
+  "RETURN_DAMAGED",
+  "NO_ISSUE_AS_CLAIMED",
+  "INSUFFICIENT_EVIDENCE",
+  "OUTSIDE_POLICY",
+  "OTHER",
+] as const;
+type RejectReasonKey = (typeof REJECT_REASON_KEYS)[number];
 
 export function showsRefundPanel(order: OrderDetail) {
   return REFUND_STATUSES.has(order.status)
@@ -56,7 +65,8 @@ export default function OrderRefundPanel({ shopId, order, canRefund, deniedTitle
   const [dialog, setDialog] = useState<Dialog>(null);
   const [busy, setBusy] = useState(false);
   const [restock, setRestock] = useState(true);
-  const [reason, setReason] = useState("");
+  const [rejectReasonKey, setRejectReasonKey] = useState<RejectReasonKey | "">("");
+  const [rejectReasonOther, setRejectReasonOther] = useState("");
   const [reference, setReference] = useState("");
   const [transferredAt, setTransferredAt] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -80,13 +90,20 @@ export default function OrderRefundPanel({ shopId, order, canRefund, deniedTitle
 
   const reset = () => {
     setRestock(true);
-    setReason("");
+    setRejectReasonKey("");
+    setRejectReasonOther("");
     setReference("");
     setTransferredAt(shipNowInput());
     setFile(null);
     setErrors({});
     setFormError("");
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const resolvedRejectReason = () => {
+    if (!rejectReasonKey) return "";
+    if (rejectReasonKey === "OTHER") return rejectReasonOther.trim();
+    return t(`orderManagement.refund.rejectReasons.${rejectReasonKey}`);
   };
 
   const lastNonce = useRef(0);
@@ -136,11 +153,23 @@ export default function OrderRefundPanel({ shopId, order, canRefund, deniedTitle
   );
 
   const reject = (refund?: RefundView) => {
-    if (!reason.trim()) { setErrors({ reason: t("orderManagement.refund.reasonRequired") }); return; }
+    if (!rejectReasonKey) {
+      setErrors({ reason: t("orderManagement.refund.reasonRequired") });
+      return;
+    }
+    const text = resolvedRejectReason();
+    if (rejectReasonKey === "OTHER" && !text) {
+      setErrors({ reason: t("orderManagement.refund.reasonOtherRequired") });
+      return;
+    }
+    if (!text || text.length > 500) {
+      setErrors({ reason: t("orderManagement.refund.reasonRequired") });
+      return;
+    }
     return run(
       () => (refund
-        ? merchantPaymentApi.rejectRefund(shopId, order.id, refund.id, { reason: reason.trim() })
-        : merchantOrderApi.rejectRefund(shopId, order.id, { reason: reason.trim() })),
+        ? merchantPaymentApi.rejectRefund(shopId, order.id, refund.id, { reason: text })
+        : merchantOrderApi.rejectRefund(shopId, order.id, { reason: text })),
       "orderManagement.refund.toast.rejected",
     );
   };
@@ -203,16 +232,6 @@ export default function OrderRefundPanel({ shopId, order, canRefund, deniedTitle
               <SlipPreview path={refund.proofFileUrl} alt={t("orderManagement.refund.proofAlt")} />
             </div>
           )}
-          {refund.status === "REQUESTED" && (
-            <div className="om-btn-row">
-              <button type="button" className="om-btn primary" disabled={!canRefund} title={deniedTitle} onClick={() => { reset(); setDialog({ kind: "approve", refund }); }}>
-                {t("orderManagement.refund.approve")}
-              </button>
-              <button type="button" className="om-btn danger" disabled={!canRefund} title={deniedTitle} onClick={() => { reset(); setDialog({ kind: "reject", refund }); }}>
-                {t("orderManagement.refund.reject")}
-              </button>
-            </div>
-          )}
           {refund.status === "APPROVED" && (
             <div className="om-btn-row">
               <button type="button" className="om-btn primary" disabled={!canRefund} title={deniedTitle} onClick={() => { reset(); setDialog({ kind: "proof", refund }); }}>
@@ -225,18 +244,34 @@ export default function OrderRefundPanel({ shopId, order, canRefund, deniedTitle
 
       {dialog?.kind === "approve" && (
         <ConfirmDialog
+          className="om-refund-approve"
           title={t("orderManagement.refund.approveTitle")}
-          message={t("orderManagement.refund.approveMessage", { amount: money(dialog.refund?.amount ?? summary?.refundableAmount) })}
+          message={t("orderManagement.refund.approveMessage")}
           confirmLabel={t("orderManagement.refund.approve")}
           cancelLabel={t("orderManagement.drawer.cancel")}
           confirmDisabled={busy}
           onCancel={close}
           onConfirm={() => void approve(dialog.refund)}
         >
-          <div className="om-dialog-fields">
-            <label className="om-check">
-              <input type="checkbox" checked={restock} onChange={(e) => setRestock(e.target.checked)} />
-              {t("orderManagement.refund.restockLabel")}
+          <div className="om-dialog-fields om-refund-approve-fields">
+            <div className="om-refund-approve-amount">
+              <span>{t("orderManagement.refund.approveAmountLabel")}</span>
+              <b className="num">{money(dialog.refund?.amount ?? summary?.refundableAmount)}</b>
+            </div>
+            {dialog.refund?.reason ? (
+              <div className="om-refund-approve-reason">
+                <span>{t("orderManagement.refund.approveBuyerReason")}</span>
+                <p>{dialog.refund.reason}</p>
+              </div>
+            ) : null}
+            <p className="om-refund-approve-next">{t("orderManagement.refund.approveNextSteps")}</p>
+            <label className={`om-refund-approve-restock${restock ? " is-on" : ""}`}>
+              <input type="checkbox" checked={restock} disabled={busy} onChange={(e) => setRestock(e.target.checked)} />
+              <i aria-hidden="true" />
+              <span>
+                <b>{t("orderManagement.refund.restockLabel")}</b>
+                <small>{t("orderManagement.refund.restockHint")}</small>
+              </span>
             </label>
             {formError && <p className="om-error" role="alert">{formError}</p>}
           </div>
@@ -245,21 +280,64 @@ export default function OrderRefundPanel({ shopId, order, canRefund, deniedTitle
 
       {dialog?.kind === "reject" && (
         <ConfirmDialog
+          className="om-refund-reject"
           title={t("orderManagement.refund.rejectTitle")}
           message={t("orderManagement.refund.rejectMessage")}
           confirmLabel={t("orderManagement.refund.reject")}
           cancelLabel={t("orderManagement.drawer.cancel")}
           danger
-          confirmDisabled={busy || !reason.trim()}
+          confirmDisabled={
+            busy
+            || !rejectReasonKey
+            || (rejectReasonKey === "OTHER" && !rejectReasonOther.trim())
+          }
           onCancel={close}
           onConfirm={() => void reject(dialog.refund)}
         >
-          <div className="om-dialog-fields">
-            <label className="om-field">
+          <div className="om-dialog-fields om-refund-reject-fields">
+            <div className={`om-field${errors.reason ? " invalid" : ""}`}>
               <span>{t("orderManagement.refund.reasonLabel")}</span>
-              <textarea rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+              <div className="om-reason-list" role="radiogroup" aria-label={t("orderManagement.refund.reasonLabel")}>
+                {REJECT_REASON_KEYS.map((key) => {
+                  const selected = rejectReasonKey === key;
+                  return (
+                    <label key={key} className={`om-reason-option${selected ? " is-selected" : ""}`}>
+                      <input
+                        type="radio"
+                        name="refund-reject-reason"
+                        value={key}
+                        checked={selected}
+                        disabled={busy}
+                        onChange={() => {
+                          setRejectReasonKey(key);
+                          setErrors({});
+                          setFormError("");
+                          if (key !== "OTHER") setRejectReasonOther("");
+                        }}
+                      />
+                      <i aria-hidden="true" />
+                      <span>{t(`orderManagement.refund.rejectReasons.${key}`)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {rejectReasonKey === "OTHER" ? (
+                <textarea
+                  className="om-reason-other"
+                  rows={3}
+                  maxLength={500}
+                  value={rejectReasonOther}
+                  disabled={busy}
+                  placeholder={t("orderManagement.refund.reasonOtherPlaceholder")}
+                  aria-label={t("orderManagement.refund.reasonOtherPlaceholder")}
+                  onChange={(e) => {
+                    setRejectReasonOther(e.target.value);
+                    setErrors({});
+                  }}
+                />
+              ) : null}
               {fieldError("reason")}
-            </label>
+            </div>
             {formError && <p className="om-error" role="alert">{formError}</p>}
           </div>
         </ConfirmDialog>

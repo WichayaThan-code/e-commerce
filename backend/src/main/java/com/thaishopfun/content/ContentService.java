@@ -51,12 +51,15 @@ public class ContentService {
     static final String COVER_PURPOSE = "BLOG";
     static final String COVER_FOLDER = "article-covers";
     static final String COVER_URL_PREFIX = "/api/article-covers/";
+    static final String INLINE_PURPOSE = "ARTICLE_IMAGE";
+    static final String INLINE_FOLDER = "article-images";
+    static final String INLINE_URL_PREFIX = "/api/article-images/";
     private static final Pattern SLUG = Pattern.compile("[a-z0-9-]+");
     /** Collides with GET /api/articles/featured. */
     private static final String RESERVED_SLUG = "featured";
     private static final int MAX_ARTICLE_SLUG = 150, MAX_CATEGORY_SLUG = 100, MAX_TITLE = 255, MAX_EXCERPT = 500,
         MAX_BODY = 200_000, MAX_NAME = 150, MAX_DESCRIPTION = 500, MAX_META_TITLE = 120, MAX_META_DESCRIPTION = 200,
-        MAX_TAGS = 10, MAX_TAG = 50, MAX_RELATED_PRODUCTS = 10, MAX_READING_MINUTES = 240;
+        MAX_TAGS = 10, MAX_TAG = 50, MAX_RELATED_PRODUCTS = 10;
     private static final int DEFAULT_PAGE_SIZE = 12, MAX_PAGE_SIZE = 50, FEATURED_LIMIT = 6, RELATED_LIMIT = 3, MAX_QUERY = 100;
 
     private final BlogPostRepository posts;
@@ -107,11 +110,13 @@ public class ContentService {
         return posts.findFeatured(Instant.now(), PageRequest.of(0, FEATURED_LIMIT)).stream().map(p -> toCard(p, l)).toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public ArticleDetail articleDetail(String slug, String lang) {
         String l = normalizeLang(lang);
         var now = Instant.now();
         var post = posts.findPublicBySlug(blankToEmpty(slug), now).orElseThrow(ContentService::notFound);
+        posts.incrementViewCount(post.getId());
+        long views = post.getViewCount() + 1;
 
         var related = new ArrayList<BlogPost>();
         if (post.getCategory() != null) {
@@ -130,7 +135,7 @@ public class ContentService {
             pick(l, post.getTitle(), post.getTitleEn(), post.getTitleZh()),
             pick(l, post.getExcerpt(), post.getExcerptEn(), post.getExcerptZh()),
             pick(l, post.getBodyMd(), post.getBodyMdEn(), post.getBodyMdZh()),
-            categoryRef(post.getCategory(), l), coverUrl(post), post.getReadingMinutes(), List.copyOf(post.getTags()),
+            categoryRef(post.getCategory(), l), coverUrl(post), post.getReadingMinutes(), views, List.copyOf(post.getTags()),
             post.getAudience(), post.isFeatured(), post.getPublishedAt(), authorName(post.getAuthorId()),
             blankToDefault(post.getMetaTitle(), pick(l, post.getTitle(), post.getTitleEn(), post.getTitleZh())),
             blankToDefault(post.getMetaDescription(), pick(l, post.getExcerpt(), post.getExcerptEn(), post.getExcerptZh())),
@@ -156,6 +161,48 @@ public class ContentService {
             .filter(m -> COVER_PURPOSE.equals(m.getPurpose()) && "PUBLIC".equals(m.getVisibility()))
             .orElseThrow(ContentService::coverNotFound);
         var path = storage.openPublicImage(file.getStorageKey()).orElseThrow(ContentService::coverNotFound);
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(file.getContentType()))
+            .header("X-Content-Type-Options", "nosniff")
+            .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
+            .body(new FileSystemResource(path));
+    }
+
+    /** Inline body image for Markdown articles (independent of a specific article id). */
+    @Transactional
+    public ArticleImageUpload uploadInlineImage(MultipartFile file, UUID actorId) {
+        if (file == null || file.isEmpty()) throw bad("FILE_REQUIRED", "กรุณาเลือกรูป (JPG, PNG หรือ WEBP)", "file");
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "INVALID_FILE", "ไม่สามารถอ่านไฟล์ได้", "file");
+        }
+        var stored = storage.storePlatformImage(INLINE_FOLDER, bytes, INLINE_PURPOSE);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCompletion(int status) {
+                    if (status != STATUS_COMMITTED) storage.deleteQuietly(stored.path());
+                }
+            });
+        }
+        var name = file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()
+            ? stored.storedName() : file.getOriginalFilename();
+        if (name.length() > 255) name = name.substring(name.length() - 255);
+        var row = new MediaFile(null, actorId, INLINE_PURPOSE, stored.path(), name, stored.contentType(), stored.size(), stored.sha256(), null);
+        row.makePublic();
+        row.stamp(actorId);
+        media.save(row);
+        recordAudit(actorId, "ARTICLE_IMAGE_UPLOAD", "ARTICLE_IMAGE", row.getId());
+        return new ArticleImageUpload(row.getId(), INLINE_URL_PREFIX + row.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<Resource> serveInlineImage(UUID mediaId) {
+        var file = media.findById(mediaId)
+            .filter(m -> INLINE_PURPOSE.equals(m.getPurpose()) && "PUBLIC".equals(m.getVisibility()))
+            .orElseThrow(ContentService::imageNotFound);
+        var path = storage.openPublicImage(file.getStorageKey()).orElseThrow(ContentService::imageNotFound);
         return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(file.getContentType()))
             .header("X-Content-Type-Options", "nosniff")
@@ -369,7 +416,7 @@ public class ContentService {
             throw slugTaken();
         }
         String title = requiredText(r.titleTh(), "titleTh", MAX_TITLE);
-        String body = requiredText(r.bodyMdTh(), "bodyMdTh", MAX_BODY);
+        String body = ArticleHtml.required(r.bodyMdTh(), "bodyMdTh");
         BlogCategory category = null;
         if (r.categoryId() != null) {
             category = categories.findById(r.categoryId())
@@ -382,11 +429,6 @@ public class ContentService {
         }
         var productIds = normalizeProductIds(r.relatedProductIds());
         String audience = r.audience() == null || r.audience().isBlank() ? (create ? "ALL" : post.getAudience()) : parseAudience(r.audience());
-        Integer minutes = r.readingMinutes();
-        if (minutes != null && (minutes < 1 || minutes > MAX_READING_MINUTES)) {
-            throw bad("ARTICLE_READING_MINUTES_INVALID", "readingMinutes must be between 1 and " + MAX_READING_MINUTES, "readingMinutes");
-        }
-
         post.setSlug(slug);
         post.setTitle(title);
         post.setBodyMd(body);
@@ -396,8 +438,8 @@ public class ContentService {
         post.setExcerpt(optionalText(r.excerptTh(), "excerptTh", MAX_EXCERPT));
         post.setExcerptEn(optionalText(r.excerptEn(), "excerptEn", MAX_EXCERPT));
         post.setExcerptZh(optionalText(r.excerptZh(), "excerptZh", MAX_EXCERPT));
-        post.setBodyMdEn(optionalText(r.bodyMdEn(), "bodyMdEn", MAX_BODY));
-        post.setBodyMdZh(optionalText(r.bodyMdZh(), "bodyMdZh", MAX_BODY));
+        post.setBodyMdEn(ArticleHtml.optional(r.bodyMdEn(), "bodyMdEn"));
+        post.setBodyMdZh(ArticleHtml.optional(r.bodyMdZh(), "bodyMdZh"));
         post.setMetaTitle(optionalText(r.metaTitle(), "metaTitle", MAX_META_TITLE));
         post.setMetaDescription(optionalText(r.metaDescription(), "metaDescription", MAX_META_DESCRIPTION));
         post.setTags(tags);
@@ -405,8 +447,11 @@ public class ContentService {
         post.setRelatedProductIds(productIds);
         post.setAudience(audience);
         if (r.featured() != null) post.setFeatured(r.featured());
-        if (minutes != null) post.setReadingMinutes(minutes);
-        else if (create) post.setReadingMinutes(Math.max(1, (int) Math.ceil(body.length() / 1000.0)));
+        // readingMinutes is no longer edited in admin; keep a stable default for the NOT NULL column.
+        if (create) {
+            int plainLen = Math.max(1, ArticleHtml.plainText(body).length());
+            post.setReadingMinutes(Math.max(1, (int) Math.ceil(plainLen / 1000.0)));
+        }
     }
 
     private void applyCategory(BlogCategory category, CategoryRequest r) {
@@ -469,7 +514,7 @@ public class ContentService {
         return new ArticleCard(p.getId(), p.getSlug(),
             pick(l, p.getTitle(), p.getTitleEn(), p.getTitleZh()),
             pick(l, p.getExcerpt(), p.getExcerptEn(), p.getExcerptZh()),
-            categoryRef(p.getCategory(), l), coverUrl(p), p.getReadingMinutes(), List.copyOf(p.getTags()),
+            categoryRef(p.getCategory(), l), coverUrl(p), p.getReadingMinutes(), p.getViewCount(), List.copyOf(p.getTags()),
             p.getAudience(), p.isFeatured(), p.getPublishedAt());
     }
 
@@ -516,7 +561,7 @@ public class ContentService {
         var c = p.getCategory();
         return new AdminArticleSummary(p.getId(), p.getSlug(), p.getStatus(), p.getAudience(), p.isFeatured(),
             c == null ? null : c.getId(), c == null ? null : c.getSlug(), p.getTitle(), p.getTitleEn(), p.getTitleZh(),
-            coverUrl(p), p.getReadingMinutes(), List.copyOf(p.getTags()),
+            coverUrl(p), p.getReadingMinutes(), p.getViewCount(), List.copyOf(p.getTags()),
             p.getPublishedAt(), p.getCreatedDateTime(), p.getModifiedDateTime());
     }
 
@@ -527,7 +572,7 @@ public class ContentService {
             p.getTitle(), p.getTitleEn(), p.getTitleZh(),
             p.getExcerpt(), p.getExcerptEn(), p.getExcerptZh(),
             p.getBodyMd(), p.getBodyMdEn(), p.getBodyMdZh(),
-            coverUrl(p), p.getReadingMinutes(), List.copyOf(p.getTags()),
+            coverUrl(p), p.getReadingMinutes(), p.getViewCount(), List.copyOf(p.getTags()),
             p.getMetaTitle(), p.getMetaDescription(),
             p.getRelatedShopId(), List.copyOf(p.getRelatedProductIds()),
             p.getAuthorId(), authorName(p.getAuthorId()),
@@ -633,5 +678,9 @@ public class ContentService {
 
     private static AuthException coverNotFound() {
         return new AuthException(HttpStatus.NOT_FOUND, "ARTICLE_COVER_NOT_FOUND", "Cover image not found");
+    }
+
+    private static AuthException imageNotFound() {
+        return new AuthException(HttpStatus.NOT_FOUND, "ARTICLE_IMAGE_NOT_FOUND", "Article image not found");
     }
 }

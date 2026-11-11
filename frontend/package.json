@@ -15,6 +15,11 @@
   },
   "dependencies": {
     "@amiearth/thai-address-finder": "^0.0.16",
+    "@tiptap/extension-image": "^3.33.1",
+    "@tiptap/extension-text-align": "^3.33.1",
+    "@tiptap/pm": "^3.33.1",
+    "@tiptap/react": "^3.33.1",
+    "@tiptap/starter-kit": "^3.33.1",
     "@vitejs/plugin-react": "latest",
     "i18next": "^26.4.2",
     "i18next-browser-languagedetector": "^8.2.1",

@@ -121,6 +121,10 @@ app:
     account-number: ${PLATFORM_BILLING_ACCOUNT_NUMBER:1234567890}
     promptpay: ${PLATFORM_BILLING_PROMPTPAY:}
     display-name: ${PLATFORM_BILLING_DISPLAY_NAME:ThaiShopFun — ค่าแพ็กเกจร้านค้า}
+  shipping:
+    # Merchant/admin "ส่งถึงลูกค้าแล้ว" must match carrier delivery (poll / prior CARRIER_* events).
+    # SYSTEM webhook/poll transitions skip the gate. Set false only for offline demos without carrier APIs.
+    require-carrier-delivery-confirmation: ${REQUIRE_CARRIER_DELIVERY_CONFIRMATION:true}
 
 # SMTP is configured by app.notification.mail (not spring.mail), so Boot's mail auto-config never
 # runs; keep the actuator mail health check off in case actuator is added later.

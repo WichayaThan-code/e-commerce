@@ -47,6 +47,7 @@ public class BlogPost extends AuditedEntity {
     @Column(nullable = false, length = 16) private String audience = "ALL";
     @Column(name = "is_featured", nullable = false) private boolean featured;
     @Column(name = "reading_minutes", nullable = false) private int readingMinutes = 3;
+    @Column(name = "view_count", nullable = false) private long viewCount;
     @JdbcTypeCode(SqlTypes.ARRAY)
     @Column(name = "tags", nullable = false)
     private List<String> tags = new ArrayList<>();
@@ -101,6 +102,8 @@ public class BlogPost extends AuditedEntity {
     public void setFeatured(boolean featured) { this.featured = featured; }
     public int getReadingMinutes() { return readingMinutes; }
     public void setReadingMinutes(int readingMinutes) { this.readingMinutes = readingMinutes; }
+    public long getViewCount() { return viewCount; }
+    public void setViewCount(long viewCount) { this.viewCount = viewCount; }
     public List<String> getTags() { return tags == null ? List.of() : tags; }
     public void setTags(List<String> tags) { this.tags = new ArrayList<>(tags); }
     public String getMetaTitle() { return metaTitle; }

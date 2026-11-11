@@ -771,6 +771,14 @@
   margin: 1.2em auto;
   border-radius: 10px;
 }
+.article-markdown .hc-size-sm { font-size: 14px; }
+.article-markdown .hc-size-md { font-size: 17px; }
+.article-markdown .hc-size-lg { font-size: 20px; }
+.article-markdown .hc-size-heading {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
 .article-markdown hr {
   margin: 2em 0;
   border: 0;

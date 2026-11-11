@@ -5,7 +5,7 @@ import DatePicker from "../form/DatePicker";
 import { bangkokNowInput, formatBangkokDateTime } from "./orderFormat";
 
 const SHIP_HOURS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
-const SHIP_MINUTES = ["00", "15", "30", "45"] as const;
+const SHIP_MINUTES = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
 const SHIP_PERIODS = [
   { id: "night", hours: ["00", "01", "02", "03", "04", "05"] },
   { id: "morning", hours: ["06", "07", "08", "09", "10", "11"] },
@@ -24,16 +24,9 @@ function normalizeShipTime(time: string) {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
-function snapShipTime(time: string) {
-  const normalized = normalizeShipTime(time) ?? "12:00";
-  const [rawHour = "12", rawMinute = "00"] = normalized.split(":");
-  const hour = Number(rawHour);
-  const minute = Number(rawMinute);
-  const snapped = Math.round(minute / 15) * 15;
-  if (snapped === 60) {
-    return `${String((hour + 1) % 24).padStart(2, "0")}:00`;
-  }
-  return `${String(hour).padStart(2, "0")}:${String(snapped).padStart(2, "0")}`;
+/** Keep exact minute (00–59); no quarter-hour snapping. */
+function normalizeExactShipTime(time: string) {
+  return normalizeShipTime(time) ?? "12:00";
 }
 
 function formatTimeTyping(raw: string) {
@@ -56,7 +49,11 @@ export function joinShippedAt(date: string, time: string) {
 export function shipNowInput() {
   const now = bangkokNowInput();
   const date = now.slice(0, 10);
-  return joinShippedAt(date, snapShipTime(now.slice(11, 16)));
+  return joinShippedAt(date, normalizeExactShipTime(now.slice(11, 16)));
+}
+
+export function shipNowTime() {
+  return normalizeExactShipTime(bangkokNowInput().slice(11, 16));
 }
 
 export function shipPreviewValue(value: string) {
@@ -65,7 +62,7 @@ export function shipPreviewValue(value: string) {
 }
 
 function parseShipClock(value: string) {
-  const time = snapShipTime(value || "12:00");
+  const time = normalizeExactShipTime(value || "12:00");
   return { hour: time.slice(0, 2), minute: time.slice(3, 5) };
 }
 
@@ -77,6 +74,7 @@ export function ShipTimePicker({
   minuteLabel,
   applyLabel,
   periodLabels,
+  nowLabel,
   disabled = false,
   error,
   hideLabel = false,
@@ -88,6 +86,8 @@ export function ShipTimePicker({
   minuteLabel: string;
   applyLabel: string;
   periodLabels: Record<ShipPeriodId, string>;
+  /** Optional “Now” action inside the picker panel. */
+  nowLabel?: string;
   /** When true, blocks typing and opening the panel (backward compatible optional). */
   disabled?: boolean;
   /** Optional invalid state for aria-invalid / CSS. */
@@ -99,6 +99,7 @@ export function ShipTimePicker({
   const controlRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const hourListRef = useRef<HTMLDivElement>(null);
+  const minuteListRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(value || "");
   const [panelPos, setPanelPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -175,6 +176,12 @@ export function ShipTimePicker({
     active?.scrollIntoView({ block: "center" });
   }, [open, draftHour, activePeriod]);
 
+  useEffect(() => {
+    if (!open || !minuteListRef.current) return;
+    const active = minuteListRef.current.querySelector<HTMLElement>('[data-active="true"]');
+    active?.scrollIntoView({ block: "center" });
+  }, [open, draftMinute]);
+
   const commitTyped = () => {
     const next = normalizeShipTime(text);
     if (!next) {
@@ -193,6 +200,16 @@ export function ShipTimePicker({
     setOpen(false);
   };
 
+  const useNow = () => {
+    const now = shipNowTime();
+    const clock = parseShipClock(now);
+    setDraftHour(clock.hour);
+    setDraftMinute(clock.minute);
+    setText(now);
+    onChange(now);
+    setOpen(false);
+  };
+
   const panel = open && panelPos ? createPortal(
     <div
       className="om-ship-time-panel"
@@ -205,6 +222,12 @@ export function ShipTimePicker({
         <Clock3 aria-hidden="true" />
         <strong>{draftValue}</strong>
       </div>
+      {nowLabel ? (
+        <button type="button" className="om-ship-time-now" onClick={useNow}>
+          <Clock3 aria-hidden="true" />
+          {nowLabel}
+        </button>
+      ) : null}
       <div className="om-ship-time-periods" role="tablist" aria-label={label}>
         {SHIP_PERIODS.map((period) => (
           <button
@@ -243,18 +266,16 @@ export function ShipTimePicker({
         </div>
         <div className="om-ship-time-col">
           <span>{minuteLabel}</span>
-          <div className="om-ship-time-list om-ship-time-minutes" role="listbox" aria-label={minuteLabel}>
+          <div className="om-ship-time-list om-ship-time-minutes" ref={minuteListRef} role="listbox" aria-label={minuteLabel}>
             {SHIP_MINUTES.map((minute) => (
               <button
                 key={minute}
                 type="button"
                 role="option"
                 aria-selected={minute === draftMinute}
+                data-active={minute === draftMinute ? "true" : undefined}
                 className={minute === draftMinute ? "active" : undefined}
-                onClick={() => {
-                  setDraftMinute(minute);
-                  commit(draftHour, minute);
-                }}
+                onClick={() => setDraftMinute(minute)}
               >
                 :{minute}
               </button>
@@ -356,7 +377,8 @@ export function OrderDateTimeField({
   presetLabels,
 }: OrderDateTimeFieldProps) {
   const parts = splitShippedAt(value);
-  const today = bangkokNowInput().slice(0, 10);
+  const nowValue = shipNowInput();
+  const today = nowValue.slice(0, 10);
   const limit = maxDate ?? today;
 
   return (
@@ -369,7 +391,11 @@ export function OrderDateTimeField({
         <small>{hint}</small>
       </div>
       <div className="om-ship-presets" role="group" aria-label={presetsLabel}>
-        <button type="button" onClick={() => onChange(shipNowInput())}>
+        <button
+          type="button"
+          className={value.slice(0, 16) === nowValue.slice(0, 16) ? "active" : undefined}
+          onClick={() => onChange(shipNowInput())}
+        >
           <Clock3 aria-hidden="true" />
           {nowLabel}
         </button>
@@ -397,7 +423,7 @@ export function OrderDateTimeField({
           placeholder={datePlaceholder}
           error={error}
           onChange={(date) => {
-            onChange(joinShippedAt(date, parts.time || shipNowInput().slice(11, 16)));
+            onChange(joinShippedAt(date, parts.time || shipNowTime()));
           }}
         />
         <ShipTimePicker
@@ -406,6 +432,7 @@ export function OrderDateTimeField({
           hourLabel={hourLabel}
           minuteLabel={minuteLabel}
           applyLabel={applyLabel}
+          nowLabel={nowLabel}
           periodLabels={periodLabels}
           onChange={(time) => {
             const date = parts.date || today;

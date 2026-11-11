@@ -909,18 +909,11 @@ export default function MerchantOrderDrawer({
           }
           title={t(actionLabelKey(dialog), { defaultValue: dialog.action })}
           message={t(`orderManagement.dialogs.${dialog.action}`, { defaultValue: t("orderManagement.dialogs.generic"), number: order.orderNumber })}
-          confirmLabel={
-            needsTracking ? (
-              <>
-                <Truck aria-hidden="true" />
-                {t(actionLabelKey(dialog), { defaultValue: dialog.action })}
-              </>
-            ) : dialog.action === "DELIVER" ? (
-              <>
-                <PackageCheck aria-hidden="true" />
-                {t(actionLabelKey(dialog), { defaultValue: dialog.action })}
-              </>
-            ) : t(actionLabelKey(dialog), { defaultValue: dialog.action })
+          confirmLabel={t(actionLabelKey(dialog), { defaultValue: dialog.action })}
+          confirmIcon={
+            needsTracking ? <Truck aria-hidden="true" />
+              : dialog.action === "DELIVER" ? <PackageCheck aria-hidden="true" />
+                : undefined
           }
           cancelLabel={t("orderManagement.drawer.cancel")}
           danger={ACTIONS[dialog.action]?.tone === "danger"}

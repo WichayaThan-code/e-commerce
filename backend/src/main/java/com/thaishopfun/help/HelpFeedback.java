@@ -17,17 +17,24 @@ public class HelpFeedback {
     @Column(nullable = false) private boolean helpful;
     @Column(name = "user_id") private UUID userId;
     @Column(name = "session_key", length = 64) private String sessionKey;
+    @Column(name = "reason_code", length = 64) private String reasonCode;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
 
     protected HelpFeedback() {}
 
-    public HelpFeedback(UUID faqId, boolean helpful, UUID userId, String sessionKey) {
+    public HelpFeedback(UUID faqId, boolean helpful, UUID userId, String sessionKey, String reasonCode) {
         this.id = UUID.randomUUID();
         this.faqId = faqId;
         this.helpful = helpful;
         this.userId = userId;
         this.sessionKey = userId == null ? sessionKey : null;
+        this.reasonCode = reasonCode;
         this.createdAt = Instant.now();
+    }
+
+    public void updateVote(boolean helpful, String reasonCode) {
+        this.helpful = helpful;
+        this.reasonCode = reasonCode;
     }
 
     public UUID getId() { return id; }
@@ -35,5 +42,6 @@ public class HelpFeedback {
     public boolean isHelpful() { return helpful; }
     public UUID getUserId() { return userId; }
     public String getSessionKey() { return sessionKey; }
+    public String getReasonCode() { return reasonCode; }
     public Instant getCreatedAt() { return createdAt; }
 }

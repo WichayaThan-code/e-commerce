@@ -632,58 +632,15 @@ export default function ShipmentDrawer({ shopId, orderId, carriers, onClose, onC
                 </div>
               ) : null}
 
-              {!awaitingDispatch && forwardActions.length > 0 ? (
-                <div className="sh-actions-flow" role="group" aria-label={t("shippingPage.drawer.nextSteps")}>
-                  {(() => {
-                    const [next, ...rest] = forwardActions;
-                    const NextIcon = actionIcon(next);
-                    return (
-                      <>
-                        <button
-                          type="button"
-                          className={`sh-action-btn ${actionTone(next, true)} is-next`}
-                          disabled={busy || !canUpdate}
-                          title={deniedTitle(canUpdate)}
-                          onClick={() => onStatusClick(next)}
-                        >
-                          <NextIcon aria-hidden="true" />
-                          <span>{t(`shippingPage.actions.${next}`)}</span>
-                        </button>
-                        {rest.length > 0 ? (
-                          <div className="sh-actions-rest">
-                            {rest.map((status) => {
-                              const Icon = actionIcon(status);
-                              return (
-                                <button
-                                  key={status}
-                                  type="button"
-                                  className={`sh-action-btn ${actionTone(status, false)}`}
-                                  disabled={busy || !canUpdate}
-                                  title={deniedTitle(canUpdate)}
-                                  onClick={() => onStatusClick(status)}
-                                >
-                                  <Icon aria-hidden="true" />
-                                  <span>{t(`shippingPage.actions.${status}`)}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ) : null}
-                      </>
-                    );
-                  })()}
-                </div>
-              ) : null}
-
-              {!awaitingDispatch && exceptionActions.length > 0 ? (
-                <div className="sh-actions-exception" role="group" aria-label={t("shippingPage.drawer.exceptionSteps")}>
-                  {exceptionActions.map((status) => {
+              {!awaitingDispatch && forwardActions.length + exceptionActions.length === 2 ? (
+                <div className="sh-actions-pair" role="group" aria-label={t("shippingPage.drawer.nextSteps")}>
+                  {[...forwardActions, ...exceptionActions].map((status, index) => {
                     const Icon = actionIcon(status);
                     return (
                       <button
                         key={status}
                         type="button"
-                        className={`sh-action-btn ${actionTone(status, false)}`}
+                        className={`sh-action-btn ${actionTone(status, index === 0)}${index === 0 ? " is-next" : ""}`}
                         disabled={busy || !canUpdate}
                         title={deniedTitle(canUpdate)}
                         onClick={() => onStatusClick(status)}
@@ -694,7 +651,73 @@ export default function ShipmentDrawer({ shopId, orderId, carriers, onClose, onC
                     );
                   })}
                 </div>
-              ) : null}
+              ) : (
+                <>
+                  {!awaitingDispatch && forwardActions.length > 0 ? (
+                    <div className="sh-actions-flow" role="group" aria-label={t("shippingPage.drawer.nextSteps")}>
+                      {(() => {
+                        const [next, ...rest] = forwardActions;
+                        const NextIcon = actionIcon(next);
+                        return (
+                          <>
+                            <button
+                              type="button"
+                              className={`sh-action-btn ${actionTone(next, true)} is-next`}
+                              disabled={busy || !canUpdate}
+                              title={deniedTitle(canUpdate)}
+                              onClick={() => onStatusClick(next)}
+                            >
+                              <NextIcon aria-hidden="true" />
+                              <span>{t(`shippingPage.actions.${next}`)}</span>
+                            </button>
+                            {rest.length > 0 ? (
+                              <div className="sh-actions-rest">
+                                {rest.map((status) => {
+                                  const Icon = actionIcon(status);
+                                  return (
+                                    <button
+                                      key={status}
+                                      type="button"
+                                      className={`sh-action-btn ${actionTone(status, false)}`}
+                                      disabled={busy || !canUpdate}
+                                      title={deniedTitle(canUpdate)}
+                                      onClick={() => onStatusClick(status)}
+                                    >
+                                      <Icon aria-hidden="true" />
+                                      <span>{t(`shippingPage.actions.${status}`)}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  ) : null}
+
+                  {!awaitingDispatch && exceptionActions.length > 0 ? (
+                    <div className="sh-actions-exception" role="group" aria-label={t("shippingPage.drawer.exceptionSteps")}>
+                      {exceptionActions.map((status) => {
+                        const Icon = actionIcon(status);
+                        return (
+                          <button
+                            key={status}
+                            type="button"
+                            className={`sh-action-btn ${actionTone(status, false)}`}
+                            disabled={busy || !canUpdate}
+                            title={deniedTitle(canUpdate)}
+                            onClick={() => onStatusClick(status)}
+                          >
+                            <Icon aria-hidden="true" />
+                            <span>{t(`shippingPage.actions.${status}`)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </>
+              )}
 
               {!awaitingDispatch && !shipment.trackingUrl && forwardActions.length === 0 && exceptionActions.length === 0 ? (
                 <p className="sh-actions-done">{t("shippingPage.drawer.noMoreActions")}</p>

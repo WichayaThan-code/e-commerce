@@ -72,6 +72,8 @@ function statusTone(status: string | null | undefined) {
   }
 }
 
+const BANK_PAY_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 function primaryAction(order: OrderSummary, tp: (key: string, o?: Record<string, unknown>) => string) {
   if (order.status === "PENDING_PAYMENT") {
     return order.paymentMethod === "COD"
@@ -81,6 +83,22 @@ function primaryAction(order: OrderSummary, tp: (key: string, o?: Record<string,
   if (order.status === "DISPATCHED" || order.status === "DELIVERED") return tp("orders.list.actionTrack");
   if (order.status === "COMPLETED") return tp("orders.list.actionBuyAgain");
   return tp("orders.viewDetail");
+}
+
+/** Bank transfer: pay by placedAt + 24h (replaces generic “please pay” hint). */
+function bankTransferPayHint(
+  placedAt: string | null | undefined,
+  tp: (key: string, o?: Record<string, unknown>) => string,
+  localeTag: string,
+  nowMs = Date.now(),
+) {
+  if (!placedAt) return tp("orders.list.hintPay");
+  const placedMs = new Date(placedAt).getTime();
+  if (Number.isNaN(placedMs)) return tp("orders.list.hintPay");
+  const deadlineMs = placedMs + BANK_PAY_WINDOW_MS;
+  if (deadlineMs <= nowMs) return tp("orders.list.hintPayExpired");
+  const deadline = new Date(deadlineMs).toLocaleString(localeTag, { dateStyle: "medium", timeStyle: "short" });
+  return tp("orders.list.hintPayWithin", { deadline });
 }
 
 export default function MyOrdersPage() {
@@ -542,7 +560,7 @@ export default function MyOrdersPage() {
                         <footer className="orders-card-foot">
                           <span className="orders-card-hint">
                             {order.status === "PENDING_PAYMENT" && order.paymentMethod !== "COD"
-                              ? tp("orders.list.hintPay")
+                              ? bankTransferPayHint(order.placedAt, tp, localeTag)
                               : order.status === "DISPATCHED"
                                 ? tp("orders.list.hintShip")
                                 : order.status === "COMPLETED"

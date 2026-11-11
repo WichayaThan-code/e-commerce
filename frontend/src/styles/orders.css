@@ -721,21 +721,80 @@
 
 .orders-cancel-box {
   margin-top: 12px;
-  padding: 12px;
+  padding: 14px 14px 12px;
   border: 1px solid var(--shop-border, #d7e5f3);
   border-radius: 12px;
   background: var(--shop-card-bg, #fff);
 }
 
-.orders-cancel-box textarea {
+.orders-cancel-title {
+  margin: 0 0 10px;
+  font: 700 14px var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  color: var(--shop-text, #08245d);
+}
+
+.orders-cancel-reasons {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--shop-border, #d7e5f3);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.orders-cancel-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid #e8eef6;
+  background: #fff;
+  color: var(--shop-text, #132b50);
+  font: 500 13px/1.4 var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  cursor: pointer;
+}
+
+.orders-cancel-reason:last-child {
+  border-bottom: 0;
+}
+
+.orders-cancel-reason.is-selected {
+  background: #f3f8ff;
+}
+
+.orders-cancel-reason input {
+  margin: 2px 0 0;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--shop-primary, #0879f6);
+}
+
+.orders-cancel-reason span {
+  flex: 1;
+  min-width: 0;
+}
+
+.orders-cancel-other {
   width: 100%;
   min-height: 88px;
-  margin: 8px 0;
+  margin: 10px 0 0;
   padding: 10px;
   border: 1px solid var(--shop-border, #d7e5f3);
   border-radius: 8px;
   font: 500 14px var(--font-sans), "IBM Plex Sans Thai", sans-serif;
-  resize:none;
+  color: var(--shop-text, #132b50);
+  background: #fff;
+  resize: none;
+}
+
+.orders-cancel-other:focus,
+.orders-cancel-other:focus-visible {
+  outline: none;
+  border-color: #9aafc0;
+  box-shadow: none;
 }
 
 .orders-slip-form {

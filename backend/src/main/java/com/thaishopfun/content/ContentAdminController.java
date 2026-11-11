@@ -4,6 +4,7 @@ import com.thaishopfun.auth.RequestUser;
 import com.thaishopfun.auth.authz.RequirePermission;
 import com.thaishopfun.content.ContentDtos.*;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -60,6 +61,14 @@ public class ContentAdminController {
     @PatchMapping("/articles/{id}/featured")
     public AdminArticle setFeatured(@PathVariable UUID id, @RequestBody FeaturedRequest request, @AuthenticationPrincipal Jwt jwt) {
         return content.setFeatured(id, request == null ? null : request.featured(), RequestUser.id(jwt));
+    }
+
+    /** Inline Markdown body image (no article id required). JPG / PNG / WEBP up to 5 MB. */
+    @RequirePermission("PLATFORM_CONTENT_MANAGE")
+    @PostMapping(value = "/articles/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public ArticleImageUpload uploadInlineImage(@RequestPart("file") MultipartFile file, @AuthenticationPrincipal Jwt jwt) {
+        return content.uploadInlineImage(file, RequestUser.id(jwt));
     }
 
     /** Cover image: JPG / PNG / WEBP up to 5 MB, content-sniffed; stored as a PUBLIC media file (purpose BLOG). */

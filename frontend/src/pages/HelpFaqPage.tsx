@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { CalendarCheck, ChevronRight, CircleAlert, SearchX, ThumbsDown, ThumbsUp } from "lucide-react";
 import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
+import HelpFeedbackReasonDialog, { type HelpNotHelpfulReason } from "../components/help/HelpFeedbackReasonDialog";
+import HelpRichText from "../components/help/HelpRichText";
 import HelpSubHeader from "../components/help/HelpSubHeader";
 import { HelpError, helpSessionKey, splitAnswer, useHelpData } from "../components/help/helpShared";
 import { useAuth } from "../contexts/AuthContext";
@@ -14,11 +16,21 @@ import "../styles/help.css";
 
 type Vote = "yes" | "no";
 const voteKey = (id: string) => `tsf_help_vote_${id}`;
+const reasonKey = (id: string) => `tsf_help_vote_reason_${id}`;
 
 function readVote(id: string): Vote | null {
   try {
     const value = window.localStorage.getItem(voteKey(id));
     return value === "yes" || value === "no" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function readReason(id: string): HelpNotHelpfulReason | null {
+  try {
+    const value = window.localStorage.getItem(reasonKey(id));
+    return value ? (value as HelpNotHelpfulReason) : null;
   } catch {
     return null;
   }
@@ -40,16 +52,20 @@ export default function HelpFaqPage() {
   );
 
   const [vote, setVote] = useState<Vote | null>(null);
+  const [reasonCode, setReasonCode] = useState<HelpNotHelpfulReason | null>(null);
   const [counts, setCounts] = useState<{ yes: number; no: number } | null>(null);
   const [sending, setSending] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackFailed, setFeedbackFailed] = useState(false);
+  const [reasonOpen, setReasonOpen] = useState(false);
 
   useEffect(() => {
     setVote(readVote(id));
+    setReasonCode(readReason(id));
     setCounts(null);
     setFeedbackMessage("");
     setFeedbackFailed(false);
+    setReasonOpen(false);
   }, [id]);
 
   const faqData = faq.data;
@@ -59,7 +75,6 @@ export default function HelpFaqPage() {
   });
 
   const related = useMemo(() => (topic.data?.faqs ?? []).filter((item) => item.id !== id).slice(0, 5), [topic.data, id]);
-  const answer = faqData ? splitAnswer(faqData.answer) : null;
   const reviewed = useMemo(() => {
     if (!faqData?.lastReviewedAt) return "";
     const date = new Date(faqData.lastReviewedAt);
@@ -67,21 +82,30 @@ export default function HelpFaqPage() {
     return new Intl.DateTimeFormat(localeTag, { dateStyle: "long" }).format(date);
   }, [faqData?.lastReviewedAt, localeTag]);
 
-  const send = async (helpful: boolean) => {
-    if (sending || vote) return;
+  const persistLocal = (next: Vote, reason: HelpNotHelpfulReason | null) => {
+    try {
+      window.localStorage.setItem(voteKey(id), next);
+      if (next === "no" && reason) window.localStorage.setItem(reasonKey(id), reason);
+      else window.localStorage.removeItem(reasonKey(id));
+    } catch {
+      /* storage unavailable */
+    }
+  };
+
+  const send = async (helpful: boolean, reason?: HelpNotHelpfulReason) => {
+    if (sending) return;
+    if (!helpful && !reason) return;
     setSending(true);
     setFeedbackFailed(false);
     try {
-      const result = await helpApi.submitFeedback(id, helpful, helpSessionKey(), Boolean(user));
+      const result = await helpApi.submitFeedback(id, helpful, helpSessionKey(), Boolean(user), reason);
       const next: Vote = helpful ? "yes" : "no";
       setVote(next);
+      setReasonCode(helpful ? null : reason ?? null);
       setCounts({ yes: result.helpfulYes, no: result.helpfulNo });
-      setFeedbackMessage(result.counted ? t("helpPage.faqDetail.thanks") : t("helpPage.faqDetail.alreadyVoted"));
-      try {
-        window.localStorage.setItem(voteKey(id), next);
-      } catch {
-        /* storage unavailable: the server still de-duplicates */
-      }
+      setFeedbackMessage(t("helpPage.faqDetail.thanks"));
+      persistLocal(next, helpful ? null : reason ?? null);
+      setReasonOpen(false);
     } catch {
       setFeedbackFailed(true);
       setFeedbackMessage(t("helpPage.faqDetail.feedbackError"));
@@ -90,12 +114,22 @@ export default function HelpFaqPage() {
     }
   };
 
+  const onHelpful = () => {
+    if (sending) return;
+    void send(true);
+  };
+
+  const onNotHelpful = () => {
+    if (sending) return;
+    setReasonOpen(true);
+  };
+
   const loading = faq.loading && !faqData;
   const notFound = faq.error && faq.status === 404;
   const helpfulYes = counts?.yes ?? faqData?.helpfulYes ?? 0;
 
   return (
-    <main className="help-page">
+    <main className="help-page help-page--detail">
       <HelpSubHeader
         crumbs={[
           { label: t("helpPage.breadcrumbHome"), to: "/help" },
@@ -103,7 +137,7 @@ export default function HelpFaqPage() {
           { label: t("helpPage.faqDetail.crumb") },
         ]}
       />
-      <div className="help-width help-detail">
+      <div className="help-detail-width help-detail">
         <article className="help-detail-main help-answer" aria-busy={loading}>
           {loading ? (
             <>
@@ -118,7 +152,7 @@ export default function HelpFaqPage() {
             />
           ) : faq.error ? (
             <HelpError message={t("helpPage.faqDetail.error")} retryLabel={t("helpPage.retry")} onRetry={faq.retry} />
-          ) : faqData && answer ? (
+          ) : faqData ? (
             <>
               <h1>{faqData.question}</h1>
               {reviewed && (
@@ -127,10 +161,7 @@ export default function HelpFaqPage() {
                   {t("helpPage.faqDetail.lastReviewed", { date: reviewed })}
                 </p>
               )}
-              <div className="help-answer-body">
-                <p className="faq-lead">{answer.lead}</p>
-                {answer.rest && <p>{answer.rest}</p>}
-              </div>
+              <HelpRichText html={faqData.answer} className="help-answer-body" />
 
               <section className="help-feedback" aria-labelledby="help-feedback-title">
                 <h2 id="help-feedback-title">{t("helpPage.faqDetail.helpfulTitle")}</h2>
@@ -138,8 +169,8 @@ export default function HelpFaqPage() {
                   <button
                     type="button"
                     aria-pressed={vote === "yes"}
-                    disabled={sending || vote !== null}
-                    onClick={() => void send(true)}
+                    disabled={sending}
+                    onClick={onHelpful}
                   >
                     <ThumbsUp aria-hidden="true" />
                     {t("helpPage.faqDetail.yes")}
@@ -147,13 +178,18 @@ export default function HelpFaqPage() {
                   <button
                     type="button"
                     aria-pressed={vote === "no"}
-                    disabled={sending || vote !== null}
-                    onClick={() => void send(false)}
+                    disabled={sending}
+                    onClick={onNotHelpful}
                   >
                     <ThumbsDown aria-hidden="true" />
                     {t("helpPage.faqDetail.no")}
                   </button>
                 </div>
+                {vote === "no" && reasonCode ? (
+                  <p className="help-feedback-reason" role="status">
+                    {t(`helpPage.faqDetail.reasons.${reasonCode}`)}
+                  </p>
+                ) : null}
                 <p className={`help-feedback-status ${feedbackFailed ? "error" : ""}`.trim()} role="status">
                   {feedbackFailed && <CircleAlert aria-hidden="true" />}
                   {feedbackMessage}
@@ -198,6 +234,14 @@ export default function HelpFaqPage() {
           )}
         </aside>
       </div>
+
+      {reasonOpen ? (
+        <HelpFeedbackReasonDialog
+          busy={sending}
+          onCancel={() => setReasonOpen(false)}
+          onSubmit={(code) => void send(false, code)}
+        />
+      ) : null}
     </main>
   );
 }

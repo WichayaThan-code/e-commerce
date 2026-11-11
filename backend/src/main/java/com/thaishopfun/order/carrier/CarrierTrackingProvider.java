@@ -26,7 +26,10 @@ public interface CarrierTrackingProvider {
      */
     List<ShipmentService.CarrierUpdate> verifyWebhook(Map<String, String> headers, byte[] body);
 
-    /** Future polling (CARRIER_POLL): current events for a tracking number. Default: not supported. */
+    /** Whether {@link #poll(String)} talks to the carrier (used before merchant marks DELIVERED). Default: no. */
+    default boolean supportsPoll() { return false; }
+
+    /** Poll current events for a tracking number (CARRIER_POLL). Default: not supported. */
     default List<ShipmentService.CarrierUpdate> poll(String trackingNumber) { return List.of(); }
 
     class WebhookSignatureException extends RuntimeException {

@@ -70,3 +70,6 @@ app:
     resend-cooldown-seconds: 1
     invite-create-per-hour: 50
     invite-path: /invite
+  shipping:
+    # Existing suite marks delivered without a live carrier poll; dedicated carrier-confirm tests turn this on.
+    require-carrier-delivery-confirmation: false

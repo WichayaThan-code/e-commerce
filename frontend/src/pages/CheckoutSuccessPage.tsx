@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
-import { CheckCircle2, Copy, Landmark, MapPin, Package, QrCode, Store, Truck, Upload } from "lucide-react";
+import { CheckCircle2, Copy, MapPin, Package, Store, Truck, Upload } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
+import PaymentTransferAccount from "../components/payments/PaymentTransferAccount";
 import { formatBaht } from "../components/cart/cartFormat";
 import { buyerOrderApi, type CheckoutResult, type OrderDetail, type OrderPaymentInfo } from "../services/api";
 import { estimateDelivery, type DeliveryEstimate } from "../services/checkoutExtensions";
@@ -191,23 +192,21 @@ export default function CheckoutSuccessPage() {
                   })}
                 </b>
               </p>
-            ) : accounts.length ? <ul className="checkout-accounts">
-              {accounts.map((account, index) => {
-                const value = account.promptPayId || account.accountNumber || "";
-                const copyKey = `acc-${order.id}-${index}`;
-                return <li key={`${account.provider}-${index}`}>
-                  {account.provider === "PROMPTPAY" ? <QrCode size={16}/> : <Landmark size={16}/>}
-                  <span>{account.displayName || account.bankName || tp(`checkout.provider.${account.provider}`, { defaultValue: account.provider })}</span>
-                  <b className="num">{value}</b>
-                  {account.accountName ? <small>{account.accountName}</small> : null}
-                  {value ? (
-                    <button type="button" className="checkout-copy-btn" onClick={() => void copyText(copyKey, value)}>
-                      <Copy size={14} /> {copied === copyKey ? tp("checkout.success.copied") : tp("checkout.success.copyAccount")}
-                    </button>
-                  ) : null}
-                </li>;
-              })}
-            </ul> : <p className="checkout-meta muted">{tp("checkout.success.noAccounts")}</p>}
+            ) : accounts.length ? (
+              <ul className="checkout-accounts">
+                {accounts.map((account, index) => (
+                  <PaymentTransferAccount
+                    key={`${account.provider}-${index}`}
+                    account={account}
+                    copyKey={`acc-${order.id}-${index}`}
+                    copiedKey={copied}
+                    onCopy={(key, value) => void copyText(key, value)}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="checkout-meta muted">{tp("checkout.success.noAccounts")}</p>
+            )}
 
             <div className="checkout-success-order-actions">
               {canSlip || (!isCod && order.status === "PENDING_PAYMENT") ? (

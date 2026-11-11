@@ -9,6 +9,7 @@ import AdminSidebar from '../components/AdminSidebar'
 import AdminSelect from '../components/admin/AdminSelect'
 import AdminSidePanel from '../components/admin/AdminSidePanel'
 import ArticleMarkdown from '../components/articles/ArticleMarkdown'
+import ArticleRichTextEditor from '../components/articles/ArticleRichTextEditor'
 import ConfirmDialog from '../components/form/ConfirmDialog'
 import FormField from '../components/form/FormField'
 import FormSelect from '../components/form/FormSelect'
@@ -52,7 +53,6 @@ type ArticleDraft = {
   categoryId: string
   audience: string
   tags: string
-  readingMinutes: string
   titleTh: string; titleEn: string; titleZh: string
   excerptTh: string; excerptEn: string; excerptZh: string
   bodyMdTh: string; bodyMdEn: string; bodyMdZh: string
@@ -80,7 +80,7 @@ const PAGE_SIZE = 10
 const SEARCH_DEBOUNCE_MS = 300
 const LIMITS = {
   title: 255, excerpt: 500, body: 200000, metaTitle: 120, metaDescription: 200, name: 150, description: 500,
-  tags: 10, tag: 50, products: 10, minutes: 240, slug: 150,
+  tags: 10, tag: 50, products: 10, slug: 150,
 }
 const META_TITLE_HINT = 60
 const META_DESCRIPTION_HINT = 160
@@ -88,7 +88,7 @@ const COVER_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const COVER_MAX_BYTES = 5 * 1024 * 1024
 
 const emptyArticleDraft = (): ArticleDraft => ({
-  slug: '', categoryId: '', audience: 'ALL', tags: '', readingMinutes: '',
+  slug: '', categoryId: '', audience: 'ALL', tags: '',
   titleTh: '', titleEn: '', titleZh: '', excerptTh: '', excerptEn: '', excerptZh: '',
   bodyMdTh: '', bodyMdEn: '', bodyMdZh: '', metaTitle: '', metaDescription: '',
   relatedShopId: '', relatedProductIds: '', featured: false, publishAt: '',
@@ -104,8 +104,6 @@ function slugify(value: string): string {
   return value.toLowerCase().normalize('NFKD').replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
 }
 
-const autoMinutes = (body: string) => Math.max(1, Math.ceil(body.length / 1000))
-
 const parseTags = (value: string) => [...new Set(value.split(/[,\n]/).map(item => item.trim()).filter(Boolean))]
 const parseIds = (value: string) => [...new Set(value.split(/[\s,]+/).map(item => item.trim()).filter(Boolean))]
 
@@ -120,7 +118,7 @@ function toLocalInput(value: string | null): string {
 function draftFromArticle(article: AdminArticle): ArticleDraft {
   return {
     slug: article.slug, categoryId: text(article.categoryId), audience: article.audience || 'ALL',
-    tags: (article.tags ?? []).join(', '), readingMinutes: String(article.readingMinutes ?? ''),
+    tags: (article.tags ?? []).join(', '),
     titleTh: text(article.titleTh), titleEn: text(article.titleEn), titleZh: text(article.titleZh),
     excerptTh: text(article.excerptTh), excerptEn: text(article.excerptEn), excerptZh: text(article.excerptZh),
     bodyMdTh: text(article.bodyMdTh), bodyMdEn: text(article.bodyMdEn), bodyMdZh: text(article.bodyMdZh),
@@ -172,7 +170,6 @@ export default function AdminArticlesPage() {
   const [editorTab, setEditorTab] = useState<EditorTab>('Th')
   const [bodyMode, setBodyMode] = useState<BodyMode>('write')
   const [slugEdited, setSlugEdited] = useState(false)
-  const [minutesEdited, setMinutesEdited] = useState(false)
   const [fallbackSlug, setFallbackSlug] = useState('')
   const [errors, setErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState('')
@@ -274,7 +271,6 @@ export default function AdminArticlesPage() {
     setErrors({})
     setFormError('')
     setSlugEdited(state.id !== null)
-    setMinutesEdited(state.id !== null)
     setFallbackSlug(`article-${Date.now().toString(36)}`)
     resetCover()
   }
@@ -304,7 +300,6 @@ export default function AdminArticlesPage() {
   const setField = <K extends keyof ArticleDraft>(name: K, value: ArticleDraft[K]) => {
     setDraft(current => {
       const next = { ...current, [name]: value }
-      if (name === 'bodyMdTh' && !minutesEdited) next.readingMinutes = String(autoMinutes(String(value)))
       if ((name === 'titleEn' || name === 'titleTh') && !slugEdited) {
         const base = slugify(name === 'titleEn' ? String(value) : next.titleEn) || slugify(name === 'titleTh' ? String(value) : next.titleTh)
         next.slug = base
@@ -355,10 +350,6 @@ export default function AdminArticlesPage() {
     const tags = parseTags(draft.tags)
     if (tags.length > LIMITS.tags) found.tags = t('articlesCms.errors.tagsTooMany', { max: LIMITS.tags })
     else if (tags.some(tag => tag.length > LIMITS.tag)) found.tags = t('articlesCms.errors.tagTooLong', { max: LIMITS.tag })
-    if (draft.readingMinutes.trim()) {
-      const minutes = Number(draft.readingMinutes)
-      if (!Number.isInteger(minutes) || minutes < 1 || minutes > LIMITS.minutes) found.readingMinutes = t('articlesCms.errors.minutesInvalid', { max: LIMITS.minutes })
-    }
     if (draft.metaTitle.length > LIMITS.metaTitle) found.metaTitle = tooLong(LIMITS.metaTitle)
     if (draft.metaDescription.length > LIMITS.metaDescription) found.metaDescription = tooLong(LIMITS.metaDescription)
     if (draft.relatedShopId.trim() && !/^[1-9]\d{0,17}$/.test(draft.relatedShopId.trim())) found.relatedShopId = t('articlesCms.errors.shopInvalid')
@@ -371,13 +362,11 @@ export default function AdminArticlesPage() {
 
   const buildRequest = (): ArticleRequest => {
     const value = (name: keyof ArticleDraft) => String(draft[name]).trim()
-    const minutes = draft.readingMinutes.trim()
     return {
       slug: draft.slug.trim() || fallbackSlug,
       categoryId: draft.categoryId || null,
       audience: draft.audience,
       featured: draft.featured,
-      readingMinutes: minutes ? Number(minutes) : undefined,
       titleTh: value('titleTh'), titleEn: value('titleEn'), titleZh: value('titleZh'),
       excerptTh: value('excerptTh'), excerptEn: value('excerptEn'), excerptZh: value('excerptZh'),
       bodyMdTh: draft.bodyMdTh, bodyMdEn: draft.bodyMdEn, bodyMdZh: draft.bodyMdZh,
@@ -413,7 +402,7 @@ export default function AdminArticlesPage() {
     setRows(current => current.map(row => row.id === article.id ? {
       ...row, slug: article.slug, status: article.status, audience: article.audience, featured: article.featured,
       categoryId: article.categoryId, categorySlug: article.categorySlug, titleTh: article.titleTh, titleEn: article.titleEn,
-      titleZh: article.titleZh, coverUrl: article.coverUrl, readingMinutes: article.readingMinutes, tags: article.tags,
+      titleZh: article.titleZh, coverUrl: article.coverUrl, readingMinutes: article.readingMinutes, viewCount: article.viewCount, tags: article.tags,
       publishedAt: article.publishedAt, updatedAt: article.updatedAt,
     } : row))
   }
@@ -693,27 +682,28 @@ export default function AdminArticlesPage() {
           disabled={readOnly || !!saving}
           onChange={event => setField(excerptName, event.target.value)}
         />
-        <div className="ar-body-tabs" role="group" aria-label={t('articlesCms.editor.fields.body')}>
-          <button type="button" aria-pressed={bodyMode === 'write'} onClick={() => setBodyMode('write')}>{t('articlesCms.editor.write')}</button>
-          <button type="button" aria-pressed={bodyMode === 'preview'} onClick={() => setBodyMode('preview')}>{t('articlesCms.editor.previewTab')}</button>
+        <div className="ar-body-toolbar">
+          <div className="ar-body-tabs" role="group" aria-label={t('articlesCms.editor.fields.body')}>
+            <button type="button" aria-pressed={bodyMode === 'write'} onClick={() => setBodyMode('write')}>{t('articlesCms.editor.write')}</button>
+            <button type="button" aria-pressed={bodyMode === 'preview'} onClick={() => setBodyMode('preview')}>{t('articlesCms.editor.previewTab')}</button>
+          </div>
         </div>
         {bodyMode === 'write' ? (
-          <FormTextarea
+          <ArticleRichTextEditor
             label={<>{t('articlesCms.editor.fields.body')} ({langLabel}){isTh && <em className="hc-required"> *</em>}</>}
-            rows={16}
-            className="ar-mono"
             value={bodyValue}
+            onChange={html => setField(bodyName, html)}
             error={errors[bodyName]}
             errorId={`ar-${bodyName}-error`}
             disabled={readOnly || !!saving}
-            spellCheck={false}
-            onChange={event => setField(bodyName, event.target.value)}
+            maxLength={LIMITS.body}
           />
         ) : (
           <div className="ar-preview blog-page">
             {bodyValue.trim() ? <ArticleMarkdown markdown={bodyValue} /> : <p className="ar-preview-empty">{t('articlesCms.editor.previewEmpty')}</p>}
           </div>
         )}
+        {bodyMode === 'write' && <p className="hc-hint">{t('articlesCms.editor.bodyImage.hint')}</p>}
         {!isTh && <p className="hc-hint">{t('articlesCms.editor.fallbackHint')}</p>}
       </>
     )
@@ -721,9 +711,7 @@ export default function AdminArticlesPage() {
 
   const coverSrc = coverPreview || (!coverRemoved && editor?.coverUrl ? mediaUrl(editor.coverUrl) : '')
 
-  const renderSettings = () => {
-    const minutesAuto = !minutesEdited
-    return (
+  const renderSettings = () => (
       <>
         <div className="ar-form-grid">
           <FormField
@@ -758,23 +746,6 @@ export default function AdminArticlesPage() {
               aria-invalid={Boolean(errors.tags)}
               aria-describedby={errors.tags ? 'ar-tags-error' : undefined}
               onChange={event => setField('tags', event.target.value)}
-            />
-          </FormField>
-          <FormField
-            label={t('articlesCms.editor.fields.readingMinutes')}
-            error={errors.readingMinutes}
-            errorId="ar-minutes-error"
-            aside={<span className="ar-counter">{minutesAuto ? t('articlesCms.editor.fields.readingAuto') : t('articlesCms.editor.fields.readingManual')}</span>}
-          >
-            <input
-              type="number"
-              min={1}
-              max={LIMITS.minutes}
-              value={draft.readingMinutes}
-              disabled={readOnly || !!saving}
-              aria-invalid={Boolean(errors.readingMinutes)}
-              aria-describedby={errors.readingMinutes ? 'ar-minutes-error' : undefined}
-              onChange={event => { setMinutesEdited(event.target.value !== ''); setField('readingMinutes', event.target.value) }}
             />
           </FormField>
           <label className="hc-check ar-featured">
@@ -862,8 +833,7 @@ export default function AdminArticlesPage() {
         />
         <p className="hc-hint">{t('articlesCms.editor.relatedHint')}</p>
       </>
-    )
-  }
+  )
 
   const renderArticleForm = () => (
     <form id="ar-form" className="ar-form" onSubmit={event => void submit('save', event)} noValidate>

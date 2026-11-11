@@ -786,11 +786,14 @@
 .merchant-notify-panel ul { margin: 0; padding: 0; list-style: none; max-height: 120px; overflow: auto; }
 .merchant-notify-panel li { padding: 6px 0; border-top: 1px solid #f3d5cc; color: var(--color-danger); font-size: 12px; }
 .merchant-notify-panel article > button { height: 36px; border: 0; border-radius: 8px; background: #1268d7; color: #fff; font-weight: 700; cursor: pointer; }
-.pm-dialog { position: fixed; inset: 0; z-index: 40; background: #08245d55; display: grid; place-items: center; padding: 16px; }
+/* Above admin side panels (z-index 80) so discard/confirm prompts are never covered by drawers. */
+.pm-dialog { position: fixed; inset: 0; z-index: 100; background: #08245d55; display: grid; place-items: center; padding: 16px; }
 .pm-dialog section { width: min(440px, 100%); background: #fff; border-radius: 14px; padding: 20px; }
 .pm-dialog h2 { margin: 0 0 8px; color: #08245d; }
 .pm-dialog p { color: #4d6788; }
 .pm-dialog-actions, .pm-form-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.pm-dialog-actions:has(> :nth-child(2):last-child) { display: grid; grid-template-columns: 1fr 1fr; justify-content: stretch; }
+.pm-dialog-actions:has(> :nth-child(2):last-child) > * { width: 100%; min-width: 0; }
 .pm-dialog-actions button,
 .admin-management-dialog > footer button {
   height: 45px;
@@ -1304,13 +1307,23 @@
 .pm-cards .pm-status { width: fit-content; }
 .pm-cards .pm-row-actions { margin-top: 6px; }
 @media (max-width: 760px) {
-  .pm-dialog-actions,
-  .admin-management-dialog > footer {
+  .pm-dialog-actions:not(:has(> :nth-child(2):last-child)),
+  .admin-management-dialog > footer:not(:has(> :nth-child(2):last-child)) {
     flex-direction: column-reverse;
     align-items: stretch;
   }
-  .pm-dialog-actions button,
-  .admin-management-dialog > footer button {
+  .pm-dialog-actions:not(:has(> :nth-child(2):last-child)) button,
+  .admin-management-dialog > footer:not(:has(> :nth-child(2):last-child)) button {
+    width: 100%;
+  }
+  .pm-dialog-actions:has(> :nth-child(2):last-child),
+  .admin-management-dialog > footer:has(> :nth-child(2):last-child) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .pm-dialog-actions:has(> :nth-child(2):last-child) button,
+  .admin-management-dialog > footer:has(> :nth-child(2):last-child) button {
     width: 100%;
   }
   .catalog-shell .pm-content { padding: 78px 12px 24px 78px; }

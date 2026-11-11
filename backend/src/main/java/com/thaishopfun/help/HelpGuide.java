@@ -19,9 +19,9 @@ public class HelpGuide {
     @Column(name = "title_th", nullable = false, length = 200) private String titleTh;
     @Column(name = "title_en", length = 200) private String titleEn;
     @Column(name = "title_zh", length = 200) private String titleZh;
-    @Column(name = "summary_th", nullable = false, length = 500) private String summaryTh;
-    @Column(name = "summary_en", length = 500) private String summaryEn;
-    @Column(name = "summary_zh", length = 500) private String summaryZh;
+    @Column(name = "summary_th", nullable = false, columnDefinition = "text") private String summaryTh;
+    @Column(name = "summary_en", columnDefinition = "text") private String summaryEn;
+    @Column(name = "summary_zh", columnDefinition = "text") private String summaryZh;
     @Column(length = 500) private String url;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;

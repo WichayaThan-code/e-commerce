@@ -2007,9 +2007,15 @@ export const helpApi = {
   topicBySlug: (slug: string, lang: string) => request<HelpTopicDetail>(`/api/help/topics/${encodeURIComponent(slug)}${queryOf({ lang })}`, { cache: 'no-store' }),
   faqs: (params: HelpFaqParams) => request<HelpFaq[]>(`/api/help/faqs${queryOf(params)}`, { cache: 'no-store' }),
   faqById: (id: string, lang: string) => request<HelpFaq>(`/api/help/faqs/${encodeURIComponent(id)}${queryOf({ lang })}`, { cache: 'no-store' }),
-  /** Anonymous callers pass a stable sessionKey; a signed-in token (sent when available) takes precedence server-side. */
-  submitFeedback: (id: string, helpful: boolean, sessionKey?: string, signedIn = false) =>
-    request<HelpFeedbackResult>(`/api/help/faqs/${encodeURIComponent(id)}/feedback`, json('POST', { helpful, sessionKey }), signedIn, true, { redirectOn401: false }),
+  /** Anonymous callers pass a stable sessionKey; a signed-in token takes precedence. reasonCode required when helpful=false. */
+  submitFeedback: (id: string, helpful: boolean, sessionKey?: string, signedIn = false, reasonCode?: string) =>
+    request<HelpFeedbackResult>(
+      `/api/help/faqs/${encodeURIComponent(id)}/feedback`,
+      json('POST', { helpful, sessionKey, reasonCode: reasonCode || undefined }),
+      signedIn,
+      true,
+      { redirectOn401: false },
+    ),
   guides: (lang: string) => request<HelpGuide[]>(`/api/help/guides${queryOf({ lang })}`, { cache: 'no-store' }),
 }
 
@@ -2095,6 +2101,12 @@ export const helpAdminApi = {
   deleteGuide: (id: string) => request<void>(helpAdmin(`/guides/${id}`), json('DELETE'), true),
   setGuideActive: (id: string, active: boolean) => request<AdminHelpGuide>(helpAdmin(`/guides/${id}/active`), json('PATCH', { active }), true),
   reorderGuides: (ids: string[]) => request<AdminHelpGuide[]>(helpAdmin('/guides/reorder'), json('PUT', { ids }), true),
+
+  uploadImage: (file: File, onProgress?: (ratio: number) => void) => {
+    const body = new FormData()
+    body.append('file', file)
+    return uploadForm<{ id: string; url: string }>(helpAdmin('/images'), body, onProgress)
+  },
 }
 
 /* ---------------------------------------------------------------- Articles CMS (public + admin) */
@@ -2103,13 +2115,13 @@ export type ArticleCategoryRef = { id: string; slug: string; name: string }
 export type ArticleCategoryView = { id: string; slug: string; name: string; description: string | null; articleCount: number }
 export type ArticleCard = {
   id: string; slug: string; title: string; excerpt: string | null; category: ArticleCategoryRef | null; coverUrl: string | null
-  readingMinutes: number; tags: string[]; audience: string; featured: boolean; publishedAt: string | null
+  readingMinutes: number; viewCount: number; tags: string[]; audience: string; featured: boolean; publishedAt: string | null
 }
 export type ArticleRelatedShop = { id: number; slug: string; name: string }
 export type ArticleRelatedProduct = { id: string; slug: string; name: string; shopSlug: string }
 export type ArticleDetail = {
   id: string; slug: string; title: string; excerpt: string | null; bodyMd: string; category: ArticleCategoryRef | null
-  coverUrl: string | null; readingMinutes: number; tags: string[]; audience: string; featured: boolean
+  coverUrl: string | null; readingMinutes: number; viewCount: number; tags: string[]; audience: string; featured: boolean
   publishedAt: string | null; author: string | null; metaTitle: string | null; metaDescription: string | null
   related: ArticleCard[]; relatedShop: ArticleRelatedShop | null; relatedProducts: ArticleRelatedProduct[]
 }
@@ -2127,7 +2139,7 @@ export type ArticleAudience = 'ALL' | 'CUSTOMER' | 'MERCHANT'
 export type AdminArticleSummary = {
   id: string; slug: string; status: ArticleStatus; audience: string; featured: boolean
   categoryId: string | null; categorySlug: string | null; titleTh: string; titleEn: string | null; titleZh: string | null
-  coverUrl: string | null; readingMinutes: number; tags: string[]
+  coverUrl: string | null; readingMinutes: number; viewCount: number; tags: string[]
   publishedAt: string | null; createdAt: string; updatedAt: string
 }
 export type AdminArticle = {
@@ -2136,7 +2148,7 @@ export type AdminArticle = {
   titleTh: string; titleEn: string | null; titleZh: string | null
   excerptTh: string | null; excerptEn: string | null; excerptZh: string | null
   bodyMdTh: string | null; bodyMdEn: string | null; bodyMdZh: string | null
-  coverUrl: string | null; readingMinutes: number; tags: string[]
+  coverUrl: string | null; readingMinutes: number; viewCount: number; tags: string[]
   metaTitle: string | null; metaDescription: string | null
   relatedShopId: number | null; relatedProductIds: string[]
   authorId: string | null; authorName: string | null
@@ -2149,7 +2161,7 @@ export type AdminArticleCategory = {
   articleCount: number; createdAt: string; updatedAt: string
 }
 export type ArticleRequest = {
-  slug?: string; categoryId?: string | null; audience?: string; featured?: boolean; readingMinutes?: number
+  slug?: string; categoryId?: string | null; audience?: string; featured?: boolean
   titleTh: string; titleEn?: string; titleZh?: string
   excerptTh?: string; excerptEn?: string; excerptZh?: string
   bodyMdTh?: string; bodyMdEn?: string; bodyMdZh?: string
@@ -2178,6 +2190,11 @@ export const articleAdminApi = {
     return uploadForm<AdminArticle>(adminPath(`/articles/${id}/cover`), body, onProgress)
   },
   removeCover: (id: string) => request<AdminArticle>(adminPath(`/articles/${id}/cover`), json('DELETE'), true),
+  uploadInlineImage: (file: File, onProgress?: (ratio: number) => void) => {
+    const body = new FormData()
+    body.append('file', file)
+    return uploadForm<{ id: string; url: string }>(adminPath('/articles/images'), body, onProgress)
+  },
 
   categories: () => request<AdminArticleCategory[]>(adminPath('/article-categories'), { cache: 'no-store' }, true),
   createCategory: (body: ArticleCategoryRequest) => request<AdminArticleCategory>(adminPath('/article-categories'), json('POST', body), true),

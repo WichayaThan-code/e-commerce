@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import ConfigurationSummary from "../cart/ConfigurationSummary";
 import { useTranslation } from "react-i18next";
 import {
+  AlertTriangle,
   Ban,
   Banknote,
   CheckCircle2,
@@ -853,25 +854,42 @@ export default function MerchantOrderDrawer({
             {actions.length > 0 ? (
               <div className="sh-actions" aria-label={t("orderManagement.drawer.actions")}>
                 {(() => {
+                  const ordered = [...primaryActions, ...secondaryActions, ...dangerActions];
+                  if (ordered.length === 2) {
+                    return (
+                      <div className="sh-actions-pair" role="group">
+                        {ordered.map((action, index) => renderActionButton(action, index === 0))}
+                      </div>
+                    );
+                  }
                   const forward = [...primaryActions, ...secondaryActions];
-                  if (forward.length === 0) return null;
-                  const [next, ...rest] = forward;
                   return (
-                    <div className="sh-actions-flow" role="group">
-                      {renderActionButton(next, true)}
-                      {rest.length > 0 ? (
-                        <div className="sh-actions-rest">
-                          {rest.map((action) => renderActionButton(action, false))}
+                    <>
+                      {forward.length > 0 ? (
+                        <div className="sh-actions-flow" role="group">
+                          {(() => {
+                            const [next, ...rest] = forward;
+                            return (
+                              <>
+                                {renderActionButton(next, true)}
+                                {rest.length > 0 ? (
+                                  <div className="sh-actions-rest">
+                                    {rest.map((action) => renderActionButton(action, false))}
+                                  </div>
+                                ) : null}
+                              </>
+                            );
+                          })()}
                         </div>
                       ) : null}
-                    </div>
+                      {dangerActions.length > 0 ? (
+                        <div className="sh-actions-exception" role="group">
+                          {dangerActions.map((action) => renderActionButton(action, false))}
+                        </div>
+                      ) : null}
+                    </>
                   );
                 })()}
-                {dangerActions.length > 0 ? (
-                  <div className="sh-actions-exception" role="group">
-                    {dangerActions.map((action) => renderActionButton(action, false))}
-                  </div>
-                ) : null}
               </div>
             ) : null}
           </>
@@ -884,13 +902,22 @@ export default function MerchantOrderDrawer({
 
       {dialog && order ? (
         <ConfirmDialog
-          className={needsTracking ? "om-ship-confirm" : undefined}
+          className={
+            needsTracking ? "om-ship-confirm"
+              : dialog.action === "DELIVER" ? "om-deliver-confirm"
+                : undefined
+          }
           title={t(actionLabelKey(dialog), { defaultValue: dialog.action })}
           message={t(`orderManagement.dialogs.${dialog.action}`, { defaultValue: t("orderManagement.dialogs.generic"), number: order.orderNumber })}
           confirmLabel={
             needsTracking ? (
               <>
                 <Truck aria-hidden="true" />
+                {t(actionLabelKey(dialog), { defaultValue: dialog.action })}
+              </>
+            ) : dialog.action === "DELIVER" ? (
+              <>
+                <PackageCheck aria-hidden="true" />
                 {t(actionLabelKey(dialog), { defaultValue: dialog.action })}
               </>
             ) : t(actionLabelKey(dialog), { defaultValue: dialog.action })
@@ -901,7 +928,22 @@ export default function MerchantOrderDrawer({
           onCancel={() => { if (!busy) setDialog(null); }}
           onConfirm={confirmDialog}
         >
-          <div className={`om-dialog-fields${needsTracking ? " om-ship-dialog" : ""}`}>
+          <div className={`om-dialog-fields${needsTracking ? " om-ship-dialog" : ""}${dialog.action === "DELIVER" ? " om-deliver-fields" : ""}`}>
+            {dialog.action === "DELIVER" ? (
+              <>
+                <div className="om-deliver-order">
+                  <span>{t("orderManagement.dialogs.DELIVER_ORDER")}</span>
+                  <b className="num">{order.orderNumber}</b>
+                </div>
+                <div className="om-deliver-verify">
+                  <span className="om-deliver-verify-icon" aria-hidden="true"><Truck /></span>
+                  <span>
+                    <b>{t("orderManagement.dialogs.DELIVER_VERIFY_TITLE")}</b>
+                    <small>{t("orderManagement.dialogs.DELIVER_VERIFY_HINT")}</small>
+                  </span>
+                </div>
+              </>
+            ) : null}
             {dialog.action === "MARK_PAID" ? (
               <label className="om-field">
                 <span>{t("orderManagement.drawer.paymentReference")}</span>
@@ -1014,7 +1056,16 @@ export default function MerchantOrderDrawer({
                 <textarea rows={3} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
               </label>
             ) : null}
-            {formError && Object.keys(fieldErrors).length === 0 ? <p className="om-error" role="alert">{formError}</p> : null}
+            {formError && Object.keys(fieldErrors).length === 0 ? (
+              dialog.action === "DELIVER" ? (
+                <p className="om-deliver-alert" role="alert">
+                  <AlertTriangle aria-hidden="true" />
+                  <span>{formError}</span>
+                </p>
+              ) : (
+                <p className="om-error" role="alert">{formError}</p>
+              )
+            ) : null}
           </div>
         </ConfirmDialog>
       ) : null}

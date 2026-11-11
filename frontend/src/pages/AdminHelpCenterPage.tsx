@@ -9,6 +9,8 @@ import ConfirmDialog from '../components/form/ConfirmDialog'
 import FormField from '../components/form/FormField'
 import FormSelect from '../components/form/FormSelect'
 import FormTextarea from '../components/form/FormTextarea'
+import HelpRichTextEditor from '../components/help/HelpRichTextEditor'
+import { helpPlainText } from '../components/help/helpHtml'
 import { SkeletonTable } from '../components/feedback/Skeleton'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -60,9 +62,15 @@ const ICON_NAMES = ['shopping-cart', 'credit-card', 'truck', 'box', 'store', 'us
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const TITLE_FIELD: Record<Kind, string> = { topics: 'title', faqs: 'question', guides: 'title' }
 const BODY_FIELD: Record<Kind, string> = { topics: 'description', faqs: 'answer', guides: 'summary' }
-const BODY_REQUIRED: Record<Kind, boolean> = { topics: true, faqs: true, guides: false }
+const BODY_REQUIRED: Record<Kind, boolean> = { topics: true, faqs: true, guides: true }
 const TITLE_MAX = 200
-const BODY_MAX = 2000
+const BODY_MAX = 10_000
+
+const isBlankBody = (value: string) => {
+  if (!value.trim()) return true
+  if (/<img\b/i.test(value)) return false
+  return !helpPlainText(value)
+}
 
 const emptyDraft = (kind: Kind): Draft => {
   const draft: Draft = { slug: '', icon: ICON_NAMES[0], topicId: '', audience: 'ALL', url: '' }
@@ -248,7 +256,11 @@ export default function AdminHelpCenterPage() {
     const titleTh = `${TITLE_FIELD[kind]}Th`
     const bodyTh = `${BODY_FIELD[kind]}Th`
     if (!draft[titleTh].trim()) found[titleTh] = required
-    if (BODY_REQUIRED[kind] && !draft[bodyTh].trim()) found[bodyTh] = required
+    if (BODY_REQUIRED[kind] && isBlankBody(draft[bodyTh])) found[bodyTh] = required
+    for (const lang of LANGS) {
+      const bodyName = `${BODY_FIELD[kind]}${lang}`
+      if (draft[bodyName].length > BODY_MAX) found[bodyName] = t('helpCenter.errors.tooLong', { max: BODY_MAX })
+    }
     if (kind !== 'faqs') {
       const slug = draft.slug.trim()
       if (!slug) found.slug = required
@@ -463,16 +475,15 @@ export default function AdminHelpCenterPage() {
             />
           </FormField>
         )}
-        <FormTextarea
+        <HelpRichTextEditor
           key={bodyName}
           label={<>{bodyLabel}{isTh && BODY_REQUIRED[kind] && <em className="hc-required"> *</em>}</>}
-          rows={kind === 'faqs' ? 7 : 4}
-          maxLength={BODY_MAX}
           value={draft[bodyName]}
           error={errors[bodyName]}
           errorId={`hc-${bodyName}-error`}
           disabled={saving}
-          onChange={event => setField(bodyName, event.target.value)}
+          maxLength={BODY_MAX}
+          onChange={html => setField(bodyName, html)}
         />
         {!isTh && <p className="hc-hint">{t('helpCenter.form.fallbackHint')}</p>}
       </>

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import ConfigurationSummary from "../components/cart/ConfigurationSummary";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
-  CheckCircle2, ChevronRight, Copy, Landmark, MapPin,
-  Package, QrCode, SearchX, ShoppingCart, Store, Truck, Wallet,
+  CheckCircle2, ChevronRight, Copy, MapPin,
+  Package, SearchX, ShoppingCart, Store, Truck, Wallet,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
@@ -11,6 +11,7 @@ import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
 import { formatBaht } from "../components/cart/cartFormat";
+import PaymentTransferAccount from "../components/payments/PaymentTransferAccount";
 import {
   ApiError,
   authorizedBlob,
@@ -34,6 +35,16 @@ import "../styles/shop-page.css";
 const UUID = /^[0-9a-f-]{36}$/i;
 const MAX_SLIP = 5 * 1024 * 1024;
 const SLIP_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+const CANCEL_REASON_KEYS = [
+  "CHANGE_ADDRESS",
+  "CHANGE_VOUCHER",
+  "MODIFY_ORDER",
+  "PAYMENT_TROUBLE",
+  "FOUND_CHEAPER",
+  "DONT_WANT",
+  "OTHER",
+] as const;
+type CancelReasonKey = (typeof CANCEL_REASON_KEYS)[number];
 
 function when(value: string | null | undefined, localeTag: string) {
   if (!value) return "";
@@ -91,9 +102,10 @@ export default function MyOrderDetailPage() {
   const [missing, setMissing] = useState(false);
   const [failed, setFailed] = useState(false);
   const [reload, setReload] = useState(0);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState("");
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [cancelReason, setCancelReason] = useState("");
+  const [cancelReasonKey, setCancelReasonKey] = useState<CancelReasonKey | "">("");
+  const [cancelReasonOther, setCancelReasonOther] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [buyingAgain, setBuyingAgain] = useState(false);
@@ -183,11 +195,11 @@ export default function MyOrderDetailPage() {
     }
   };
 
-  const copyText = async (value: string) => {
+  const copyText = async (key: string, value: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      setCopied(key);
+      window.setTimeout(() => setCopied((current) => (current === key ? "" : current)), 1500);
     } catch { /* clipboard unavailable */ }
   };
 
@@ -220,18 +232,34 @@ export default function MyOrderDetailPage() {
     });
   };
 
+  const resetCancelForm = () => {
+    setCancelOpen(false);
+    setCancelReasonKey("");
+    setCancelReasonOther("");
+  };
+
   const onCancel = async () => {
-    const reason = cancelReason.trim();
+    if (!cancelReasonKey) {
+      setActionError(tp("orders.cancelReasonHint"));
+      return;
+    }
+    const reason =
+      cancelReasonKey === "OTHER"
+        ? cancelReasonOther.trim()
+        : tp(`orders.cancelReasons.${cancelReasonKey}`);
+    if (cancelReasonKey === "OTHER" && reason.length < 1) {
+      setActionError(tp("orders.cancelReasonOtherRequired"));
+      return;
+    }
     if (reason.length < 1 || reason.length > 500) {
-      setActionError(tp("orders.cancelReason"));
+      setActionError(tp("orders.cancelReasonHint"));
       return;
     }
     setCancelling(true);
     setActionError("");
     try {
       await buyerOrderApi.cancel(orderId, reason);
-      setCancelOpen(false);
-      setCancelReason("");
+      resetCancelForm();
       refreshAfterAction();
     } catch (error) {
       setActionError(error instanceof ApiError ? error.message : tp("orders.loadError"));
@@ -393,10 +421,10 @@ export default function MyOrderDetailPage() {
                       type="button"
                       className="orders-detail-icon-btn"
                       aria-label={tp("orders.copy")}
-                      onClick={() => void copyText(order.orderNumber)}
+                      onClick={() => void copyText("order", order.orderNumber)}
                     >
                       <Copy size={14} />
-                      {copied ? tp("orders.copied") : null}
+                      {copied === "order" ? tp("orders.copied") : null}
                     </button>
                   </p>
                   {order.placedAt ? (
@@ -447,7 +475,12 @@ export default function MyOrderDetailPage() {
                       type="button"
                       className="orders-detail-cta-ghost"
                       disabled={cancelling}
-                      onClick={() => setCancelOpen(true)}
+                      onClick={() => {
+                        setCancelReasonKey("");
+                        setCancelReasonOther("");
+                        setActionError("");
+                        setCancelOpen(true);
+                      }}
                     >
                       {tp("orders.cancel")}
                     </button>
@@ -457,20 +490,53 @@ export default function MyOrderDetailPage() {
 
               {cancelOpen ? (
                 <div className="orders-cancel-box">
-                  <label>
-                    <span>{tp("orders.cancelReason")}</span>
+                  <p className="orders-cancel-title">{tp("orders.cancelReason")}</p>
+                  <div className="orders-cancel-reasons" role="radiogroup" aria-label={tp("orders.cancelReason")}>
+                    {CANCEL_REASON_KEYS.map((key) => {
+                      const selected = cancelReasonKey === key;
+                      return (
+                        <label key={key} className={`orders-cancel-reason${selected ? " is-selected" : ""}`}>
+                          <input
+                            type="radio"
+                            name="cancel-reason"
+                            value={key}
+                            checked={selected}
+                            disabled={cancelling}
+                            onChange={() => {
+                              setCancelReasonKey(key);
+                              setActionError("");
+                              if (key !== "OTHER") setCancelReasonOther("");
+                            }}
+                          />
+                          <span>{tp(`orders.cancelReasons.${key}`)}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {cancelReasonKey === "OTHER" ? (
                     <textarea
-                      value={cancelReason}
-                      onChange={(event) => setCancelReason(event.target.value)}
+                      className="orders-cancel-other"
+                      value={cancelReasonOther}
+                      onChange={(event) => setCancelReasonOther(event.target.value)}
                       maxLength={500}
-                      required
+                      placeholder={tp("orders.cancelReasonOtherPlaceholder")}
+                      disabled={cancelling}
+                      aria-label={tp("orders.cancelReasonOtherPlaceholder")}
                     />
-                  </label>
+                  ) : null}
                   <div className="orders-actions">
                     <button type="button" disabled={cancelling} onClick={() => void onCancel()}>
                       {cancelling ? tp("orders.cancelling") : tp("orders.cancelConfirm")}
                     </button>
-                    <button type="button" className="is-danger" disabled={cancelling} onClick={() => setCancelOpen(false)}>
+                    <button
+                      type="button"
+                      className="is-danger"
+                      disabled={cancelling}
+                      onClick={() => {
+                        resetCancelForm();
+                        setActionError("");
+                      }}
+                    >
                       {tp("cart.dismiss")}
                     </button>
                   </div>
@@ -508,12 +574,13 @@ export default function MyOrderDetailPage() {
                 {payment.accounts?.length ? (
                   <ul className="checkout-accounts orders-detail-accounts">
                     {payment.accounts.filter((account) => account.active).map((account, index) => (
-                      <li key={`${account.provider}-${index}`}>
-                        {account.provider === "PROMPTPAY" ? <QrCode size={16} /> : <Landmark size={16} />}
-                        <span>{account.displayName || account.bankName || tp(`checkout.provider.${account.provider}`, { defaultValue: account.provider })}</span>
-                        <b className="num">{account.promptPayId || account.accountNumber}</b>
-                        {account.accountName ? <small>{account.accountName}</small> : null}
-                      </li>
+                      <PaymentTransferAccount
+                        key={`${account.provider}-${index}`}
+                        account={account}
+                        copyKey={`acc-${index}`}
+                        copiedKey={copied}
+                        onCopy={(key, value) => void copyText(key, value)}
+                      />
                     ))}
                   </ul>
                 ) : needPayNow ? (

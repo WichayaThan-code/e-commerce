@@ -45,11 +45,17 @@ public final class HelpDtos {
                                String titleTh, String titleEn, String titleZh,
                                String summaryTh, String summaryEn, String summaryZh, String url) {}
 
-    /** helpful is required; sessionKey identifies an anonymous browser (ignored when the caller is signed in). */
-    public record FeedbackRequest(Boolean helpful, String sessionKey) {}
-    /** counted=false when this user / session had already voted (counters unchanged). */
+    /**
+     * helpful is required; sessionKey identifies an anonymous browser (ignored when signed in).
+     * reasonCode is required when helpful=false (HARD_TO_UNDERSTAND|INCORRECT_OR_INCOMPLETE|DID_NOT_SOLVE|BAD_LINKS|POLICY_FRICTION).
+     */
+    public record FeedbackRequest(Boolean helpful, String sessionKey, String reasonCode) {}
+    /** counted=true for a new vote or a changed vote; false when the same vote is submitted again. */
     public record FeedbackResult(UUID faqId, boolean counted, int helpfulYes, int helpfulNo) {}
 
     public record ActiveRequest(Boolean active) {}
     public record ReorderRequest(List<UUID> ids) {}
+
+    /** Public URL for an uploaded help inline image. */
+    public record HelpImageUpload(UUID id, String url) {}
 }

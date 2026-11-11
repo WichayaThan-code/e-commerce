@@ -54,4 +54,9 @@ public class ContentPublicController {
     public ResponseEntity<Resource> cover(@PathVariable UUID mediaId) {
         return content.serveCover(mediaId);
     }
+
+    @GetMapping("/article-images/{mediaId}")
+    public ResponseEntity<Resource> inlineImage(@PathVariable UUID mediaId) {
+        return content.serveInlineImage(mediaId);
+    }
 }

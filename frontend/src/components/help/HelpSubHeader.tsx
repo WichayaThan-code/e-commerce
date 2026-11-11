@@ -5,7 +5,7 @@ import { ChevronRight, Search } from "lucide-react";
 
 export type HelpCrumb = { label: string; to?: string };
 
-/** Compact help hero (CSS atmosphere, no artwork) with a search box that hands off to /help?q= and a breadcrumb. */
+/** Full-bleed help banner aligned with the Help home look: centered title, search, breadcrumb. */
 export default function HelpSubHeader({ crumbs }: { crumbs: HelpCrumb[] }) {
   const { t } = useTranslation("public");
   const navigate = useNavigate();
@@ -18,19 +18,20 @@ export default function HelpSubHeader({ crumbs }: { crumbs: HelpCrumb[] }) {
   };
 
   return (
-    <section className="help-hero help-hero--compact">
-      <div className="help-width help-subhero">
-        <nav className="help-breadcrumb" aria-label={t("helpPage.breadcrumb")}>
+    <section className="help-banner help-banner--sub" aria-labelledby="help-sub-title">
+      <div className="help-banner-inner">
+        <nav className="help-breadcrumb help-breadcrumb--center" aria-label={t("helpPage.breadcrumb")}>
           <ol>
             {crumbs.map((crumb, index) => (
               <li key={`${crumb.label}-${index}`}>
                 {crumb.to ? <Link to={crumb.to}>{crumb.label}</Link> : <span aria-current="page">{crumb.label}</span>}
-                {index < crumbs.length - 1 && <ChevronRight aria-hidden="true" />}
+                {index < crumbs.length - 1 ? <ChevronRight aria-hidden="true" /> : null}
               </li>
             ))}
           </ol>
         </nav>
-        <form className="help-subsearch" onSubmit={submit} role="search">
+        <h1 id="help-sub-title">{t("helpPage.hero.title")}</h1>
+        <form className="help-banner-search" onSubmit={submit} role="search">
           <Search aria-hidden="true" />
           <input
             value={query}

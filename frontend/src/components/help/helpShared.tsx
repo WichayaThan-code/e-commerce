@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import EmptyState from "../feedback/EmptyState";
 import type { HelpTopic } from "../../services/api";
+import { helpPlainText } from "./helpHtml";
 import "../../styles/shop-page.css";
 
 export type IconType = ComponentType<{ className?: string }>;
@@ -121,13 +122,15 @@ export function helpSessionKey(): string {
 
 /** Splits an answer into a lead sentence (answers the question straight away) and the remaining detail. */
 export function splitAnswer(answer: string): { lead: string; rest: string } {
-  const text = answer.trim();
+  const text = helpPlainText(answer);
   if (!text) return { lead: "", rest: "" };
-  const newline = text.indexOf("\n");
-  const firstLine = newline === -1 ? text : text.slice(0, newline);
-  const sentence = firstLine.match(/^(.+?[.!?。！？])(?=\s|$)/);
-  if (sentence && sentence[1].length < firstLine.length) {
+  const sentence = text.match(/^(.+?[.!?。！？])(?=\s|$)/);
+  if (sentence && sentence[1].length < text.length) {
     return { lead: sentence[1].trim(), rest: text.slice(sentence[1].length).trim() };
   }
-  return { lead: firstLine.trim(), rest: newline === -1 ? "" : text.slice(newline + 1).trim() };
+  const space = text.indexOf(" ");
+  if (space > 0 && space < 120) {
+    return { lead: text.slice(0, Math.min(text.length, 160)).trim(), rest: "" };
+  }
+  return { lead: text.length > 160 ? `${text.slice(0, 157).trim()}…` : text, rest: "" };
 }

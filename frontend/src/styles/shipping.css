@@ -508,16 +508,24 @@
 }
 .om-drawer.sh-detail .sh-actions-flow,
 .om-drawer.sh-detail .sh-actions-exception,
-.om-drawer.sh-detail .sh-actions-rest {
+.om-drawer.sh-detail .sh-actions-rest,
+.om-drawer.sh-detail .sh-actions-pair {
   display: grid;
   gap: 8px;
 }
 .om-drawer.sh-detail .sh-actions-flow {
   grid-template-columns: 1fr;
 }
+.om-drawer.sh-detail .sh-actions-pair {
+  grid-template-columns: 1fr 1fr;
+}
 .om-drawer.sh-detail .sh-actions-flow .sh-action-btn.is-next {
   min-height: 48px;
   font-size: 14px;
+}
+.om-drawer.sh-detail .sh-actions-pair .sh-action-btn {
+  min-height: 44px;
+  width: 100%;
 }
 .om-drawer.sh-detail .sh-actions-rest {
   grid-template-columns: 1fr 1fr;
@@ -526,6 +534,9 @@
   grid-template-columns: 1fr 1fr;
   padding-top: 8px;
   border-top: 1px dashed #d5e4f3;
+}
+.om-drawer.sh-detail .sh-actions-exception:has(> :only-child) {
+  grid-template-columns: 1fr;
 }
 .om-drawer.sh-detail .sh-action-btn {
   min-height: 42px;

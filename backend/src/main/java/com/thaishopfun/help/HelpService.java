@@ -3,37 +3,69 @@ package com.thaishopfun.help;
 import com.thaishopfun.audit.PlatformAuditService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.help.HelpDtos.*;
+import com.thaishopfun.merchant.MerchantStorageService;
+import com.thaishopfun.order.MediaFile;
+import com.thaishopfun.order.MediaFileRepository;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
+import static org.springframework.transaction.support.TransactionSynchronization.STATUS_COMMITTED;
+
+import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
+
 /** Help center: localized public reads and permission-guarded admin CRUD / ordering (audited). */
 @Service
 public class HelpService {
     static final String MANAGE = "PLATFORM_HELP_MANAGE";
+    static final String IMAGE_PURPOSE = "HELP_IMAGE";
+    static final String IMAGE_FOLDER = "help-images";
+    static final String IMAGE_URL_PREFIX = "/api/help/images/";
     static final int FAQ_SEARCH_LIMIT = 50;
     static final int TOPIC_FAQ_LIMIT = 200;
     private static final int MAX_SESSION_KEY = 64;
-    private static final int MAX_SLUG = 80, MAX_ICON = 64, MAX_TITLE = 200, MAX_SHORT = 500, MAX_ANSWER = 10_000;
+    private static final int MAX_SLUG = 80, MAX_ICON = 64, MAX_TITLE = 200, MAX_SHORT = 500;
+    private static final Set<String> NOT_HELPFUL_REASONS = Set.of(
+        "HARD_TO_UNDERSTAND",
+        "INCORRECT_OR_INCOMPLETE",
+        "DID_NOT_SOLVE",
+        "BAD_LINKS",
+        "POLICY_FRICTION"
+    );
 
     private final HelpTopicRepository topics;
     private final HelpFaqRepository faqs;
     private final HelpGuideRepository guides;
     private final HelpFeedbackRepository feedback;
+    private final MediaFileRepository media;
+    private final MerchantStorageService storage;
     private final PlatformAuditService audit;
 
     public HelpService(HelpTopicRepository topics, HelpFaqRepository faqs, HelpGuideRepository guides,
-                       HelpFeedbackRepository feedback, PlatformAuditService audit) {
+                       HelpFeedbackRepository feedback, MediaFileRepository media,
+                       MerchantStorageService storage, PlatformAuditService audit) {
         this.topics = topics;
         this.faqs = faqs;
         this.guides = guides;
         this.feedback = feedback;
+        this.media = media;
+        this.storage = storage;
         this.audit = audit;
     }
 
@@ -75,25 +107,57 @@ public class HelpService {
         return toView(faqs.findPublicById(id).orElseThrow(HelpService::notFound), normalizeLang(lang));
     }
 
-    /** Counts one vote per signed-in user, or per anonymous session key; a repeat vote leaves the counters untouched. */
+    /**
+     * One vote per signed-in user or anonymous session. Repeating the same vote is a no-op.
+     * Changing the vote adjusts counters. Not-helpful votes require a reason code.
+     */
     @Transactional
     public FeedbackResult submitFeedback(UUID faqId, FeedbackRequest r, UUID userId) {
         if (r == null || r.helpful() == null) throw bad("HELP_HELPFUL_REQUIRED", "helpful is required", "helpful");
-        var faq = faqs.findPublicById(faqId).orElseThrow(HelpService::notFound);
+        faqs.findPublicById(faqId).orElseThrow(HelpService::notFound);
         String session = r.sessionKey() == null ? null : r.sessionKey().trim();
         if (session != null && session.isEmpty()) session = null;
         if (userId == null) {
             if (session == null) throw bad("HELP_FEEDBACK_IDENTITY_REQUIRED", "sessionKey is required when not signed in", "sessionKey");
             if (session.length() > MAX_SESSION_KEY) throw bad("HELP_FIELD_TOO_LONG", "sessionKey must be at most " + MAX_SESSION_KEY + " characters", "sessionKey");
         }
-        boolean already = userId != null
-            ? feedback.existsByFaqIdAndUserId(faqId, userId)
-            : feedback.existsByFaqIdAndSessionKeyAndUserIdIsNull(faqId, session);
-        if (already) return new FeedbackResult(faqId, false, faq.getHelpfulYes(), faq.getHelpfulNo());
-        feedback.saveAndFlush(new HelpFeedback(faqId, r.helpful(), userId, session));
-        if (r.helpful()) faqs.incrementHelpfulYes(faqId); else faqs.incrementHelpfulNo(faqId);
+        String reason = normalizeReason(r.helpful(), r.reasonCode());
+        var existing = userId != null
+            ? feedback.findByFaqIdAndUserId(faqId, userId)
+            : feedback.findByFaqIdAndSessionKeyAndUserIdIsNull(faqId, session);
+        if (existing.isPresent()) {
+            var row = existing.get();
+            boolean sameVote = row.isHelpful() == r.helpful();
+            boolean sameReason = (row.getReasonCode() == null && reason == null)
+                || (row.getReasonCode() != null && row.getReasonCode().equals(reason));
+            if (sameVote && sameReason) {
+                var faq = faqs.findById(faqId).orElseThrow(HelpService::notFound);
+                return new FeedbackResult(faqId, false, faq.getHelpfulYes(), faq.getHelpfulNo());
+            }
+            if (!sameVote) {
+                if (row.isHelpful()) faqs.decrementHelpfulYes(faqId); else faqs.decrementHelpfulNo(faqId);
+                if (r.helpful()) faqs.incrementHelpfulYes(faqId); else faqs.incrementHelpfulNo(faqId);
+            }
+            row.updateVote(r.helpful(), reason);
+            feedback.saveAndFlush(row);
+        } else {
+            feedback.saveAndFlush(new HelpFeedback(faqId, r.helpful(), userId, session, reason));
+            if (r.helpful()) faqs.incrementHelpfulYes(faqId); else faqs.incrementHelpfulNo(faqId);
+        }
         var fresh = faqs.findById(faqId).orElseThrow(HelpService::notFound);
         return new FeedbackResult(faqId, true, fresh.getHelpfulYes(), fresh.getHelpfulNo());
+    }
+
+    private static String normalizeReason(boolean helpful, String reasonCode) {
+        if (helpful) return null;
+        if (reasonCode == null || reasonCode.isBlank()) {
+            throw bad("HELP_REASON_REQUIRED", "reasonCode is required when helpful=false", "reasonCode");
+        }
+        String code = reasonCode.trim().toUpperCase(Locale.ROOT);
+        if (!NOT_HELPFUL_REASONS.contains(code)) {
+            throw bad("HELP_REASON_INVALID", "reasonCode is not allowed", "reasonCode");
+        }
+        return code;
     }
 
     private static FaqView toView(HelpFaq f, String l) {
@@ -287,6 +351,49 @@ public class HelpService {
         return adminGuides();
     }
 
+    // ===================== Images =====================
+
+    @Transactional
+    public HelpImageUpload uploadImage(MultipartFile file, UUID actorId) {
+        if (file == null || file.isEmpty()) throw bad("FILE_REQUIRED", "กรุณาเลือกรูป (JPG, PNG หรือ WEBP)", "file");
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "INVALID_FILE", "ไม่สามารถอ่านไฟล์ได้", "file");
+        }
+        var stored = storage.storePlatformImage(IMAGE_FOLDER, bytes, IMAGE_PURPOSE);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCompletion(int status) {
+                    if (status != STATUS_COMMITTED) storage.deleteQuietly(stored.path());
+                }
+            });
+        }
+        var name = file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()
+            ? stored.storedName() : file.getOriginalFilename();
+        if (name.length() > 255) name = name.substring(name.length() - 255);
+        var row = new MediaFile(null, actorId, IMAGE_PURPOSE, stored.path(), name, stored.contentType(), stored.size(), stored.sha256(), null);
+        row.makePublic();
+        row.stamp(actorId);
+        media.save(row);
+        recordAudit(actorId, "HELP_IMAGE_UPLOAD", "HELP_IMAGE", row.getId());
+        return new HelpImageUpload(row.getId(), IMAGE_URL_PREFIX + row.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<Resource> serveImage(UUID mediaId) {
+        var file = media.findById(mediaId)
+            .filter(m -> IMAGE_PURPOSE.equals(m.getPurpose()) && "PUBLIC".equals(m.getVisibility()))
+            .orElseThrow(HelpService::imageNotFound);
+        var path = storage.openPublicImage(file.getStorageKey()).orElseThrow(HelpService::imageNotFound);
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(file.getContentType()))
+            .header("X-Content-Type-Options", "nosniff")
+            .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
+            .body(new FileSystemResource(path));
+    }
+
     // ===================== Apply / validate =====================
 
     private void applyTopic(HelpTopic topic, TopicRequest r) {
@@ -298,9 +405,9 @@ public class HelpService {
         topic.setTitleTh(requiredText(r.titleTh(), "titleTh", MAX_TITLE));
         topic.setTitleEn(optionalText(r.titleEn(), "titleEn", MAX_TITLE));
         topic.setTitleZh(optionalText(r.titleZh(), "titleZh", MAX_TITLE));
-        topic.setDescriptionTh(requiredText(r.descriptionTh(), "descriptionTh", MAX_SHORT));
-        topic.setDescriptionEn(optionalText(r.descriptionEn(), "descriptionEn", MAX_SHORT));
-        topic.setDescriptionZh(optionalText(r.descriptionZh(), "descriptionZh", MAX_SHORT));
+        topic.setDescriptionTh(HelpHtml.required(r.descriptionTh(), "descriptionTh"));
+        topic.setDescriptionEn(HelpHtml.optional(r.descriptionEn(), "descriptionEn"));
+        topic.setDescriptionZh(HelpHtml.optional(r.descriptionZh(), "descriptionZh"));
     }
 
     private void applyFaq(HelpFaq faq, FaqRequest r) {
@@ -311,9 +418,9 @@ public class HelpService {
         faq.setQuestionTh(requiredText(r.questionTh(), "questionTh", MAX_SHORT));
         faq.setQuestionEn(optionalText(r.questionEn(), "questionEn", MAX_SHORT));
         faq.setQuestionZh(optionalText(r.questionZh(), "questionZh", MAX_SHORT));
-        faq.setAnswerTh(requiredText(r.answerTh(), "answerTh", MAX_ANSWER));
-        faq.setAnswerEn(optionalText(r.answerEn(), "answerEn", MAX_ANSWER));
-        faq.setAnswerZh(optionalText(r.answerZh(), "answerZh", MAX_ANSWER));
+        faq.setAnswerTh(HelpHtml.required(r.answerTh(), "answerTh"));
+        faq.setAnswerEn(HelpHtml.optional(r.answerEn(), "answerEn"));
+        faq.setAnswerZh(HelpHtml.optional(r.answerZh(), "answerZh"));
     }
 
     private void applyGuide(HelpGuide guide, GuideRequest r) {
@@ -324,9 +431,9 @@ public class HelpService {
         guide.setTitleTh(requiredText(r.titleTh(), "titleTh", MAX_TITLE));
         guide.setTitleEn(optionalText(r.titleEn(), "titleEn", MAX_TITLE));
         guide.setTitleZh(optionalText(r.titleZh(), "titleZh", MAX_TITLE));
-        guide.setSummaryTh(requiredText(r.summaryTh(), "summaryTh", MAX_SHORT));
-        guide.setSummaryEn(optionalText(r.summaryEn(), "summaryEn", MAX_SHORT));
-        guide.setSummaryZh(optionalText(r.summaryZh(), "summaryZh", MAX_SHORT));
+        guide.setSummaryTh(HelpHtml.required(r.summaryTh(), "summaryTh"));
+        guide.setSummaryEn(HelpHtml.optional(r.summaryEn(), "summaryEn"));
+        guide.setSummaryZh(HelpHtml.optional(r.summaryZh(), "summaryZh"));
         guide.setUrl(optionalText(r.url(), "url", MAX_SHORT));
     }
 
@@ -413,6 +520,10 @@ public class HelpService {
 
     private static AuthException notFound() {
         return new AuthException(HttpStatus.NOT_FOUND, "HELP_NOT_FOUND", "Help item not found");
+    }
+
+    private static AuthException imageNotFound() {
+        return new AuthException(HttpStatus.NOT_FOUND, "HELP_IMAGE_NOT_FOUND", "Help image not found");
     }
 
     private AdminTopic toAdmin(HelpTopic t) {

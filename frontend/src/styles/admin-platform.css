@@ -118,6 +118,8 @@
 .ap-drawer-footer { flex: none; padding: 14px 18px; border-top: 1px solid var(--shop-border, #e3edf6); background: #fff; }
 .ap-drawer-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; color: var(--shop-muted, #5b79a5); font-size: 12px; }
 .ap-drawer-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--shop-border, #e3edf6); }
+.ap-drawer-actions:has(> :nth-child(2):last-child) { display: grid; grid-template-columns: 1fr 1fr; }
+.ap-drawer-actions:has(> :nth-child(2):last-child) > * { width: 100%; min-width: 0; }
 .ap-drawer-footer .ap-drawer-actions { margin: 0; padding: 0; border: 0; }
 .ap-section { margin: 0 0 18px; }
 .ap-section > h3 { margin: 0 0 8px; font-size: 13px; color: var(--shop-secondary, #0b3270); text-transform: none; }

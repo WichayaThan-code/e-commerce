@@ -305,6 +305,7 @@ class ContentArticlesIntegrationTests {
             .andExpect(jsonPath("$.tags[0]").value("เริ่มต้น"))
             .andExpect(jsonPath("$.tags.length()").value(2))
             .andExpect(jsonPath("$.readingMinutes").value(1))
+            .andExpect(jsonPath("$.viewCount").value(0))
             .andExpect(jsonPath("$.authorName").value("System Administrator"))
             .andExpect(jsonPath("$.publishedAt").doesNotExist())
             .andReturn();
@@ -350,7 +351,7 @@ class ContentArticlesIntegrationTests {
 
         // ---- update ----
         String updateBody = """
-          {"slug":"welcome-guide","categoryId":"%s","audience":"merchant","featured":true,"readingMinutes":7,
+          {"slug":"welcome-guide","categoryId":"%s","audience":"merchant","featured":true,
            "titleTh":"ยินดีต้อนรับ v2","titleEn":"Welcome v2","excerptTh":"สรุป","bodyMdTh":"เนื้อหาใหม่","bodyMdEn":"New body",
            "tags":["a","b","a"," "],"metaTitle":"SEO","metaDescription":"Desc"}
           """.formatted(catId);
@@ -361,7 +362,8 @@ class ContentArticlesIntegrationTests {
             .andExpect(jsonPath("$.titleEn").value("Welcome v2"))
             .andExpect(jsonPath("$.audience").value("MERCHANT"))
             .andExpect(jsonPath("$.featured").value(true))
-            .andExpect(jsonPath("$.readingMinutes").value(7))
+            .andExpect(jsonPath("$.readingMinutes").value(1))
+            .andExpect(jsonPath("$.viewCount").value(0))
             .andExpect(jsonPath("$.tags.length()").value(2))
             .andExpect(jsonPath("$.status").value("DRAFT"));
         mvc.perform(put("/api/admin/articles/" + UUID.randomUUID()).header("Authorization", auth)
@@ -413,7 +415,11 @@ class ContentArticlesIntegrationTests {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.title").value("Welcome v2"))
             .andExpect(jsonPath("$.coverUrl").value(newCoverUrl))
-            .andExpect(jsonPath("$.author").value("System Administrator"));
+            .andExpect(jsonPath("$.author").value("System Administrator"))
+            .andExpect(jsonPath("$.viewCount").value(1));
+        mvc.perform(get("/api/articles/welcome-guide?lang=en"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.viewCount").value(2));
         mvc.perform(get("/api/articles")).andExpect(jsonPath("$.totalElements").value(1))
             .andExpect(jsonPath("$.items[0].coverUrl").value(newCoverUrl));
         mvc.perform(get("/api/articles/featured")).andExpect(jsonPath("$.length()").value(1));

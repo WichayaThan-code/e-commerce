@@ -20,9 +20,9 @@ public class HelpTopic {
     @Column(name = "title_th", nullable = false, length = 200) private String titleTh;
     @Column(name = "title_en", length = 200) private String titleEn;
     @Column(name = "title_zh", length = 200) private String titleZh;
-    @Column(name = "description_th", nullable = false, length = 500) private String descriptionTh;
-    @Column(name = "description_en", length = 500) private String descriptionEn;
-    @Column(name = "description_zh", length = 500) private String descriptionZh;
+    @Column(name = "description_th", nullable = false, columnDefinition = "text") private String descriptionTh;
+    @Column(name = "description_en", columnDefinition = "text") private String descriptionEn;
+    @Column(name = "description_zh", columnDefinition = "text") private String descriptionZh;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
     @Column(name = "updated_by") private UUID updatedBy;

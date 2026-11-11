@@ -3,6 +3,7 @@ package com.thaishopfun.merchant;
 import com.thaishopfun.admin.notification.AdminNotificationService;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.UserAccountRepository;
+import com.thaishopfun.common.IntegritySqlStates;
 import com.thaishopfun.merchant.delivery.ShopLifecycleEmailPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -46,14 +47,18 @@ public class MerchantApplicationService {
         var application = getOrCreate(userId);
         editable(application);
         if (applications.existsByShopNameIgnoreCaseAndIdNot(request.shopName().trim(), application.getId())) {
-            throw new AuthException(HttpStatus.CONFLICT, "SHOP_EXISTS", "ชื่อร้านนี้มีในระบบแล้ว", "shopName");
+            throw new AuthException(HttpStatus.CONFLICT, "SHOP_EXISTS", "ชื่อร้านนี้ถูกใช้แล้ว ลองเปลี่ยนชื่อ", "shopName");
         }
         categories.requireActiveOrCurrent(request.category(), application.getCategory());
         application.updateShop(request);
         try {
             return response(applications.saveAndFlush(application));
         } catch (org.springframework.dao.DataIntegrityViolationException exception) {
-            throw new AuthException(HttpStatus.CONFLICT, "SHOP_EXISTS", "ชื่อร้านนี้มีในระบบแล้ว", "shopName");
+            // Only map unique-shop-name collisions; other integrity errors (e.g. 22001 value too long) rethrow.
+            if (IntegritySqlStates.isUniqueViolation(exception) && IntegritySqlStates.mentions(exception, "shop_name", "uq_merchant_applications_shop_name")) {
+                throw new AuthException(HttpStatus.CONFLICT, "SHOP_EXISTS", "ชื่อร้านนี้ถูกใช้แล้ว ลองเปลี่ยนชื่อ", "shopName");
+            }
+            throw exception;
         }
     }
 

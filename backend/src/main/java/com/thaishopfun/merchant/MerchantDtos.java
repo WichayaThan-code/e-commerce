@@ -25,25 +25,30 @@ public final class MerchantDtos {
         @NotBlank @Size(max=100) String province,
         @NotBlank @Size(max=100) String district,
         @NotBlank @Size(max=100) String subdistrict,
-        @NotBlank @Pattern(regexp="^[0-9]{5}$") String postalCode
+        @NotBlank @Size(max=10) @Pattern(regexp="^[0-9]{5}$") String postalCode
     ){}
     public record OwnerRequest(
         @NotNull OwnerType ownerType,
-        @NotBlank String title,
-        @NotBlank @Size(max=100) String firstName,
-        @NotBlank @Size(max=100) String lastName,
-        @NotBlank @Pattern(regexp="^[0-9 -]{13,20}$") String citizenId,
+        @NotBlank @Size(max = 30, message = "คำนำหน้ายาวเกิน 30 ตัวอักษร") String title,
+        @NotBlank @Size(max = 100) String firstName,
+        @NotBlank @Size(max = 100) String lastName,
+        @NotBlank @Pattern(regexp = "^[0-9 -]{13,20}$") String citizenId,
         @NotNull LocalDate birthDate,
-        @NotBlank String nationality,
-        @NotBlank @Pattern(regexp="^[0-9+ -]{9,20}$") String phone,
-        @NotBlank @Email String email,
-        @NotBlank String houseNo,
-        String villageNo,String building,String alley,String road,
-        @NotBlank String province,@NotBlank String district,@NotBlank String subdistrict,
-        @NotBlank @Pattern(regexp="^[0-9]{5}$") String postalCode,
-        @NotBlank String bankName,
-        @NotBlank @Pattern(regexp="^[0-9 -]{8,20}$") String bankAccountNumber,
-        @NotBlank String bankAccountName
+        @NotBlank @Size(max = 100, message = "สัญชาติยาวเกิน 100 ตัวอักษร") String nationality,
+        @NotBlank @Size(max = 30, message = "เบอร์โทรยาวเกิน 30 ตัวอักษร") @Pattern(regexp = "^[0-9+ -]{9,20}$") String phone,
+        @NotBlank @Email @Size(max = 255) String email,
+        @NotBlank @Size(max = 50, message = "บ้านเลขที่ยาวเกิน 50 ตัวอักษร") String houseNo,
+        @Size(max = 50, message = "หมู่บ้านยาวเกิน 50 ตัวอักษร") String villageNo,
+        @Size(max = 255, message = "อาคาร/หมู่บ้านยาวเกิน 255 ตัวอักษร") String building,
+        @Size(max = 255, message = "ซอยยาวเกิน 255 ตัวอักษร") String alley,
+        @Size(max = 255, message = "ถนนยาวเกิน 255 ตัวอักษร") String road,
+        @NotBlank @Size(max = 100, message = "จังหวัดยาวเกิน 100 ตัวอักษร") String province,
+        @NotBlank @Size(max = 100, message = "อำเภอ/เขตยาวเกิน 100 ตัวอักษร") String district,
+        @NotBlank @Size(max = 100, message = "ตำบล/แขวงยาวเกิน 100 ตัวอักษร") String subdistrict,
+        @NotBlank @Size(max = 10) @Pattern(regexp = "^[0-9]{5}$") String postalCode,
+        @NotBlank @Size(max = 100, message = "ชื่อธนาคารยาวเกิน 100 ตัวอักษร") String bankName,
+        @NotBlank @Size(max = 30) @Pattern(regexp = "^[0-9 -]{8,20}$") String bankAccountNumber,
+        @NotBlank @Size(max = 255, message = "ชื่อบัญชียาวเกิน 255 ตัวอักษร") String bankAccountName
     ){}
     public record DocumentResponse(UUID id,DocumentType type,String originalFilename,String contentType,long fileSize,String sha256,Instant uploadedAt){static DocumentResponse from(MerchantDocument d){return new DocumentResponse(d.getId(),d.getType(),d.getOriginalFilename(),d.getContentType(),d.getFileSize(),d.getSha256(),d.getUploadedAt());}}
     public record ApplicationResponse(

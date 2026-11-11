@@ -4,25 +4,11 @@
 @media(max-width:760px){.verify-layout{display:block}.verify-card{padding:18px 12px}.verify-card>header h1{font-size:26px}.review-section{grid-template-columns:38px 1fr 56px;padding:12px 10px}.review-section-icon svg{width:28px}.review-section-head{display:block}.review-section-head>span{margin-top:3px}.review-section dl{grid-template-columns:110px 1fr}.verify-actions>a{width:35%}.verify-actions>button{width:62%;font-size:13px}}
 .review-logo-image{width:72px;height:72px;object-fit:cover;border:1.5px solid #d7e4f2;border-radius:10px;background:#f7fbff;display:block}
 .review-locked{height:35px;display:grid;place-items:center;color:#8aa0ba;font-size:12px;font-weight:700}
-.confirm-dialog-backdrop{position:fixed;inset:0;z-index:80;background:rgba(8,36,94,.45);display:grid;place-items:center;padding:20px}
-.confirm-dialog{width:min(420px,100%);background:#fff;border-radius:14px;padding:22px 22px 18px;box-shadow:0 18px 50px rgba(8,36,94,.22)}
-.confirm-dialog h2{margin:0 0 8px;font-size:22px;color:#08245e}
-.confirm-dialog p{margin:0;color:#4d6788;font-size:14px;line-height:1.6}
-.confirm-dialog>div{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
-.confirm-dialog button{height:42px;padding:0 16px;border-radius:8px;font-weight:700;cursor:pointer}
-.confirm-dialog button:first-child{border:1px solid #c5d4e6;background:#fff;color:#4d6789}
-.confirm-dialog button:last-child{border:0;background:linear-gradient(100deg,#087cf5,#0866ef);color:#fff}
-.confirm-dialog button:disabled{opacity:.7;cursor:default}
+.review-section.is-needs-fix{border-color:var(--color-danger);box-shadow:inset 0 0 0 1px var(--color-danger)}
+.review-section-head>span.is-needs-fix{color:var(--color-danger)}
+.review-section-head>span.is-needs-fix svg{width:16px;height:16px;fill:none;color:var(--color-danger);stroke:var(--color-danger)}
 .review-section dd,.review-address{min-width:0;overflow-wrap:anywhere}
 .verify-success{align-items:flex-start;min-width:0}
 .verify-success>svg{flex:none;margin-top:1px}
 .verify-success>span{min-width:0;flex:1}
 .shop-entry-link{display:inline;margin-top:6px;color:#0878f5;font-size:13px;font-weight:700;overflow-wrap:anywhere}
-.apply-status{display:grid;justify-items:center;text-align:center;gap:8px;padding:6px 0 2px}
-.apply-status h2{margin:0;font-size:22px;color:#08245e}
-.apply-status p{margin:0}
-.apply-status svg{width:42px;height:42px;color:#00a675}
-.apply-spinner{width:42px;height:42px;border:3px solid #d7e6f8;border-top-color:#0878f5;border-radius:50%;animation:apply-spin .8s linear infinite}
-.apply-status.bad h2{color:#c43838}
-.apply-status.bad button{margin-top:8px;height:42px;padding:0 16px;border:0;border-radius:8px;background:linear-gradient(100deg,#087cf5,#0866ef);color:#fff;font-weight:700;cursor:pointer}
-@keyframes apply-spin{to{transform:rotate(360deg)}}

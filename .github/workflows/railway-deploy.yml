@@ -1,0 +1,65 @@
+name: Deploy backend to Railway
+
+# Push to main that changes backend/ -> compile check, then deploy to Railway (production) via CLI.
+# Needed because Railway's GitHub app can't watch this repo (owned by another account).
+# Required GitHub secret: RAILWAY_TOKEN (Railway Project Token, production environment).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/railway-deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: railway-production
+  cancel-in-progress: false
+
+env:
+  RAILWAY_PROJECT_ID: 10367850-68a0-40c3-9105-8610ce357067
+  RAILWAY_ENVIRONMENT_ID: a4d7a917-4516-4343-acc0-e53e869ba609
+  RAILWAY_SERVICE_ID: 45af4720-617a-432d-b5bd-f86544012143
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check RAILWAY_TOKEN secret
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::Missing GitHub secret RAILWAY_TOKEN (Railway Project Token for production). Add it in Settings > Secrets and variables > Actions, then re-run."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Compile backend
+        working-directory: backend
+        run: chmod +x mvnw && ./mvnw -B -q -DskipTests compile
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Railway CLI
+        run: npm install --global @railway/cli
+
+      # Upload the repo root; the service's Root Directory (/backend) selects the backend, same as a GitHub deploy.
+      - name: Deploy to Railway (production)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: >
+          railway up --ci
+          --project "$RAILWAY_PROJECT_ID"
+          --environment "$RAILWAY_ENVIRONMENT_ID"
+          --service "$RAILWAY_SERVICE_ID"
+          --message "GitHub Actions ${GITHUB_SHA::7}"

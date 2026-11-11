@@ -57,7 +57,7 @@ public class OwnerAccountService {
         var match = hash == null ? null : owners.findByCitizenIdHash(hash).orElse(null);
         if (match != null && !match.getId().equals(owner.getId())) {
             if (!userId.equals(match.getUser().getId())) {
-                throw new AuthException(HttpStatus.CONFLICT, "CITIZEN_ID_TAKEN", "เลขบัตรประชาชนนี้ถูกใช้โดยบัญชีอื่นแล้ว", "citizenId");
+                throw new AuthException(HttpStatus.CONFLICT, "CITIZEN_ID_TAKEN", "เลขบัตรประชาชนนี้ถูกใช้สมัครร้านค้าแล้ว", "citizenId");
             }
             throw new AuthException(HttpStatus.CONFLICT, "OWNER_EXISTS", "เลขบัตรนี้เป็นเจ้าของอีกโปรไฟล์ของคุณอยู่แล้ว", "citizenId");
         }
@@ -72,7 +72,7 @@ public class OwnerAccountService {
         var hash = CitizenIdHasher.hash(citizenId);
         var match = hash == null ? null : owners.findByCitizenIdHash(hash).orElse(null);
         if (match != null && match.getUser() != null && !userId.equals(match.getUser().getId())) {
-            throw new AuthException(HttpStatus.CONFLICT, "CITIZEN_ID_TAKEN", "เลขบัตรประชาชนนี้ถูกใช้โดยบัญชีอื่นแล้ว", "citizenId");
+            throw new AuthException(HttpStatus.CONFLICT, "CITIZEN_ID_TAKEN", "เลขบัตรประชาชนนี้ถูกใช้สมัครร้านค้าแล้ว", "citizenId");
         }
     }
 

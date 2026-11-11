@@ -72,7 +72,10 @@
 .cart-summary .cart-code .cart-offers-hint a{color:#1268d7;text-decoration:underline;text-underline-offset:2px}
 .cart-offer-skel{display:block;width:100%}
 
-/* Empty cart — same EmptyState shell as /shops, reset cart-list article grid bleed */
+/* Empty cart — full-width card matching /shops EmptyState (icon + title + desc + 2 CTAs) */
+.cart-content.is-empty{
+  grid-template-columns:minmax(0,1fr);
+}
 .cart-main-column > .cart-empty-state.shop-list-empty{
   display:flex !important;
   flex-direction:column;
@@ -84,7 +87,7 @@
   border:0;
   border-radius:0;
   background:transparent;
-  padding:36px 24px;
+  padding:48px 24px;
   text-align:center;
   grid-template-columns:none !important;
   grid-template-rows:none !important;
@@ -92,10 +95,14 @@
 .cart-main-column > .cart-empty-state.shop-list-none > p{
   max-width:none;
   white-space:nowrap;
+  color:#08265e;
 }
 .cart-main-column > .cart-empty-state .empty-state-desc{
   max-width:22em;
   white-space:normal;
+}
+.cart-main-column > .cart-empty-state .empty-state-actions{
+  margin-top:8px;
 }
 .cart-main-column > .cart-empty-state .empty-state-action:first-child{
   border-color:#1268d7;

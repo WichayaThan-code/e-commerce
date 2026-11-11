@@ -17,7 +17,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Gate: ห้าม deploy frontend ที่ build ไม่ผ่าน (typecheck + build แบบเดียวกับ CI job frontend-build)
+  # ตรวจในนี้เองแทนการรอ CI ทั้ง workflow เพื่อไม่ให้ backend-test ที่ล้มมาบล็อกการ deploy frontend
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck and build
+        run: npm run build
+
   deploy:
+    needs: [frontend-build]
     runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

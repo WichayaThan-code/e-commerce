@@ -219,7 +219,9 @@ import '../styles/form-fields.css'
 | Secondary (ขอบฟ้า พื้นขาว) | `<div className="pm-actions"><button type="submit">บันทึกร่าง</button></div>` | สูง 45px, ขอบ `var(--pm-blue)`, radius 7px, 700 14px |
 | Primary (พื้นฟ้า) | `<button type="button" className="primary">บันทึกและเผยแพร่</button>` (ใน `.pm-actions`) | พื้น `var(--pm-blue)` ตัวอักษรขาว |
 | ลิงก์ที่ดูเป็นปุ่ม | `<Link className="primary" to="/merchant/products/new">` ใน `.catalog-shell .pm-actions` | |
-| Danger | ใช้ใน dialog ผ่าน `ConfirmDialog danger` (`.pm-dialog-actions button.danger` สีพื้น `var(--color-danger)`) และใน row menu `.pm-row-menu button.danger` | ห้ามทำปุ่มแดงเองนอกจาก 2 จุดนี้ |
+| Danger | ใช้ใน dialog ผ่าน `ConfirmDialog danger` (`.pm-dialog-actions button.danger` + ไอคอน `Trash2`) และใน row menu `.pm-row-menu button.danger` | ห้ามทำปุ่มแดงเองนอกจาก 2 จุดนี้ — ดูหัวข้อ 5.1 |
+| Dialog cancel | `ConfirmDialog` ปุ่มยกเลิก `.pm-dialog-btn-cancel` (ขอบ/ข้อความแดง `var(--color-danger)` + ไอคอน `X`) | ห้ามใช้ primary สำหรับยกเลิก |
+| Dialog success close | `ConfirmDialog tone="success"` → ปุ่ม `.success` + ไอคอน `Check` | |
 | Ghost/back | `.pm-heading > a` (สูง 42px, พื้น `#f8fbff`, ขอบ `#d5e4f4`) | |
 | Save บนหัวการ์ด (หน้า Settings) | `import MerchantSaveButton from "../components/merchant/MerchantSaveButton"` → `<MerchantSaveButton saving={saving} onClick={save} />` | `.merchant-save-btn` |
 | Pill/chip/tab | `.pm-tabs button` / `.pm-chips button` / `.pm-lang-tabs button` + `.active` | |
@@ -557,16 +559,33 @@ import ConfirmDialog from "../components/form/ConfirmDialog";   // CSS: .pm-dial
   >{/* children: ช่องกรอกเหตุผล/ตารางเล็ก ได้ */}</ConfirmDialog>
 )}
 ```
-- **พฤติกรรมที่มีให้แล้ว:**
-  - focus trap
-  - Esc เท่ากับยกเลิก
-  - focus เริ่มที่ปุ่มยกเลิก
-  - backdrop ใช้ `#08245d55`
-  - กล่องกว้างสูงสุด 440px, radius 14
-  - บนมือถือ ปุ่มเรียงแนวตั้งเต็มความกว้าง
-- **Admin:**
-  - ขอเหตุผลใช้ `components/admin/ReasonDialog.tsx`
-  - ฟอร์ม dialog ใช้ `.admin-management-dialog` (footer button styles อยู่ใน product-management.css)
+
+### 5.1 ปุ่มใน Dialog ต้องแยกความหมายด้วยสี + ไอคอน
+ใช้ `ConfirmDialog` เท่านั้น ห้ามทำปุ่ม dialog เอง
+
+| ปุ่ม | Class | สี (palette เดิม) | ไอคอนเริ่มต้น (lucide) | ความหมาย |
+|---|---|---|---|---|
+| **ยกเลิก / ปิด** | `.secondary` / `.pm-dialog-btn-cancel` | พื้นขาว ขอบ/ข้อความ `var(--color-danger)` (hover พื้น `--color-danger-bg`) | `X` | ออกโดยไม่ทำ action |
+| **ยืนยันทั่วไป** | `.primary` / `.pm-dialog-btn-confirm` | พื้น/ขอบ `var(--pm-blue)` ตัวอักษรขาว | `Send` | ยืนยันส่ง/ทำต่อ |
+| **สำเร็จ / ปิดหลังสำเร็จ** | `.success` (เมื่อ `tone="success"`) | พื้น/ขอบ `var(--color-success)` ตัวอักษรขาว | `Check` | ปิดแล้วไปต่อ |
+| **ลบ / อันตราย** | `.danger` (เมื่อ `danger`) | พื้น/ขอบ `var(--color-danger)` ตัวอักษรขาว | `Trash2` | ทำลายข้อมูล |
+
+- ปุ่มสองฝั่งเรียงคู่กัน (`.pm-dialog-actions.is-equal`) สูง 45px, radius 7px, gap 10px, มีไอคอน 16px ซ้ายข้อความ
+- Override ไอคอนได้ด้วย `cancelIcon` / `confirmIcon` (ส่ง `null` เพื่อไม่โชว์ไอคอน; ส่ง `LoaderCircle` ตอนกำลังส่ง)
+- Header icon วงกลม (prop `icon` + `tone`) คนละชั้นกับไอคอนในปุ่ม — header สื่อสถานะทั้ง dialog, ปุ่มสื่อ action
+
+### 5.2 พฤติกรรม modal ที่บังคับ
+- focus trap + Esc = ยกเลิก (ยกเว้น `escapeDisabled` เช่น ตอนกำลังส่ง)
+- กดนอกกล่อง (backdrop) = ยกเลิก เมื่อยัง dismiss ได้
+- **ล็อก scroll หน้าหลัง** ด้วย `overflow: hidden` + ชดเชย scrollbar — **ห้าม** `position: fixed` บน `body` (จะทำให้หน้าเด้ง)
+- โฟกัสปุ่มด้วย `focus({ preventScroll: true })`
+- backdrop สี `#08245d55`, กล่องกว้างสูงสุด 440px, radius 14
+- บนมือถือ ปุ่มเรียงแนวตั้งเต็มความกว้าง
+- ตัวอย่าง onboarding สมัครร้าน: `VerifySendPage` — ยืนยันส่งใช้ `Send`, สำเร็จรอ 5 วิหรือกดปิดด้วย `Check` + `tone="success"`
+
+### 5.3 Admin / ข้อห้าม
+- ขอเหตุผลใช้ `components/admin/ReasonDialog.tsx`
+- ฟอร์ม dialog ใช้ `.admin-management-dialog` (footer button styles อยู่ใน product-management.css)
 - **ห้ามใช้** `window.confirm`/`alert` และห้ามสร้าง modal ใหม่
 
 ## 6. Alert / Inline notice / Toast

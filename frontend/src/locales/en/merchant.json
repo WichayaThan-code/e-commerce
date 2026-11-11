@@ -421,6 +421,8 @@
       "shipping": "Shipping",
       "store": "My store",
       "theme": "Store theme",
+      "themeStorefront": "Storefront theme",
+      "themeProduct": "Product page theme",
       "settings": "Settings"
     },
     "images": {
@@ -645,6 +647,21 @@
     "missingBody": "This product may have been removed.",
     "title": "Product catalog",
     "add": "Add product",
+    "publishQuota": {
+      "counter": "Published {{used}}/{{limit}}",
+      "counterUnlimited": "Published {{used}} (unlimited)",
+      "draftNote": "{{draft}} drafts (not counted toward quota)",
+      "fullAlert": "Publish quota is full or over — unpublish other products first, or upgrade your plan.",
+      "warnAlert": "Publish quota is nearly full — upgrade your plan for more capacity.",
+      "link": "Go to plan usage",
+      "blocked": "Publish quota is full — you cannot publish more until you free a slot or upgrade.",
+      "bulkOver": "You selected {{selected}} products to publish, but only {{remaining}} slots remain — reduce the selection or unpublish others first."
+    },
+    "productQuotaAlert": {
+      "body": "Publish quota is almost full — upgrade your plan for more capacity.",
+      "link": "Go to plan usage"
+    },
+    "productQuotaBlocked": "Publish quota is full — you cannot publish more until you free a slot or upgrade.",
     "export": "Export",
     "downloadTemplate": "Download template",
     "variantLine": "{{count}} options · total stock {{stock}}",
@@ -657,6 +674,7 @@
       "message": "Message"
     },
     "import": "Import",
+    "importUnavailable": "Import is not available yet",
     "importHint": "Thai name and description are enough. EN/ZH are translated automatically. Filled nameEn, nameZh, descriptionEn, or descriptionZh are kept. Place a JPG, PNG, or WEBP on the row, or put an image link in the image column",
     "importDialogTitle": "Importing products",
     "importDialogDone": "Import finished",
@@ -807,6 +825,99 @@
     "checking": "Checking..."
   },
   "storeTheme": {
+    "productPage": {
+      "modeLabel": "Choose the page to customize",
+      "modeStorefront": "Storefront",
+      "modeProduct": "Product page",
+      "title": "Product page theme",
+      "lead": "Adjust the layout of the product detail page customers see. Colors, fonts and button styles follow your storefront theme.",
+      "tabs": "Product page settings",
+      "tab": {
+        "gallery": "Gallery",
+        "info": "Info",
+        "sections": "Sections",
+        "buy": "Buy"
+      },
+      "brand": {
+        "title": "Colors and fonts come from the storefront theme",
+        "body": "The product page uses the same colors, fonts and styles as your storefront. To change them, edit the storefront theme.",
+        "template": "Template",
+        "primary": "Primary color",
+        "font": "Font",
+        "link": "Edit in storefront theme"
+      },
+      "gallery": {
+        "head": "Product gallery",
+        "layout": "Thumbnail layout",
+        "layouts": {
+          "THUMBS_BOTTOM": "Thumbnails below",
+          "THUMBS_LEFT": "Thumbnails left",
+          "STACKED": "Stacked images"
+        },
+        "imageRatio": "Main image ratio",
+        "zoom": "Zoom on click",
+        "zoomHint": "Customers can tap the image to open it full screen"
+      },
+      "info": {
+        "head": "Product info",
+        "pricePosition": "Price position",
+        "pricePositions": {
+          "BELOW_TITLE": "Below the title",
+          "BESIDE_BUY": "Beside the buy button"
+        },
+        "discountStyle": "Discount style",
+        "discountStyles": {
+          "PERCENT": "Percent",
+          "AMOUNT": "Amount",
+          "HIDDEN": "Hidden"
+        },
+        "optionStyle": "Option style",
+        "optionStyles": {
+          "BUTTON": "Buttons",
+          "CHIP": "Chips",
+          "DROPDOWN": "Dropdown"
+        },
+        "showStock": "Show stock level",
+        "showStockHint": "Show a message when stock is low or sold out"
+      },
+      "sections": {
+        "head": "Sections below the product ({{n}}/{{total}})",
+        "note": "Drag or use the arrows to reorder, and hide sections you do not need.",
+        "SHOP_INFO": "Shop info",
+        "DETAILS": "Product details",
+        "SHIPPING": "Shipping",
+        "SHARE": "Share",
+        "RELATED": "Related products"
+      },
+      "buy": {
+        "head": "Buy button",
+        "stickyMobile": "Sticky buy bar on mobile",
+        "stickyMobileHint": "Keeps the price and buy button at the bottom while scrolling on phones",
+        "showAddToCart": "Show add to cart button",
+        "showAddToCartHint": "Available when the main button is “Buy now”",
+        "ctaLabel": "Main button label",
+        "ctaLabels": {
+          "buyNow": "Buy now",
+          "addToCart": "Add to cart"
+        }
+      },
+      "preview": {
+        "product": "Sample product",
+        "pickProduct": "Choose a product to preview",
+        "emptyTitle": "No product to preview yet",
+        "emptyBody": "Add and publish a product first, then come back to see the product page with this theme.",
+        "emptyAction": "Go to products",
+        "hint": "Product page preview at {{width}} px — buy buttons and links are disabled in the preview"
+      },
+      "confirm": {
+        "reset": {
+          "title": "Reset product page?",
+          "message": "Product page settings return to this template's defaults. Your storefront theme is not changed (nothing is saved until you save).",
+          "confirm": "Reset product page"
+        }
+      },
+      "resetDone": "Product page reset to defaults (not saved yet)"
+    },
     "customizer": {
       "back": "My store",
       "publish": "Save & publish",
@@ -952,12 +1063,29 @@
       "ctaBackground": "CTA background",
       "ctaText": "CTA text",
       "border": "Border",
-      "contrastWarn": "Some color pairs do not meet WCAG AA contrast (4.5:1). Text on background, buttons, or the strip header may be hard to read."
+      "contrastWarn": "Some color pairs do not meet WCAG AA contrast (4.5:1). Text on background, buttons, or the strip header may be hard to read.",
+      "contrastWarnNav": "Nav bar text and Nav bar colour are below 4.5:1 contrast — fix the Nav bar colour or Nav bar text colour fields"
     },
     "style": {
       "title": "Look and density",
       "radius": "Corner radius",
       "cardStyle": "Card style",
+      "cardRadius": "Corners",
+      "cardRadii": {
+        "NONE": "Square",
+        "ROUNDED": "Rounded"
+      },
+      "cardGap": "Card spacing",
+      "cardGaps": {
+        "TIGHT": "Tight",
+        "SPACED": "Spaced"
+      },
+      "cardBackground": "Card background colour",
+      "productSectionBackground": "Product section background",
+      "productSectionBg": {
+        "NONE": "Clear (match page)",
+        "SURFACE": "Soft band (stands out)"
+      },
       "density": "Spacing",
       "buttonShape": "Button shape",
       "card": {
@@ -1301,6 +1429,7 @@
       "NEW_ARRIVALS": "New arrivals",
       "CATALOG": "All products",
       "HOURS": "Opening hours",
+      "COUPONS": "Shop discount coupons",
       "STEPS": "Steps",
       "FEATURE": "Feature",
       "GALLERY": "Gallery",
@@ -1328,6 +1457,16 @@
         "CUSTOM": "Custom"
       },
       "variant": "Layout",
+      "cardRadius": "Corners",
+      "cardRadii": {
+        "NONE": "Square",
+        "ROUNDED": "Rounded"
+      },
+      "cardGap": "Spacing",
+      "cardGaps": {
+        "TIGHT": "Tight",
+        "SPACED": "Spaced"
+      },
       "on": "Shown",
       "off": "Hidden",
       "moveUp": "Move up",
@@ -1452,7 +1591,12 @@
         "secondary": "Secondary (announcement bar, footer)",
         "accent": "Accent (NEW badge, stickers)",
         "background": "Background",
-        "text": "Text"
+        "text": "Text",
+        "navBackground": "Nav bar colour",
+        "navText": "Nav bar text colour",
+        "navTextAuto": "Auto nav text colour",
+        "navTextAutoHint": "Pick black or white so text stays readable on the nav bar",
+        "navUseBackground": "Match page background"
       },
       "fonts": "Fonts",
       "fontHeading": "Heading font",
@@ -2857,6 +3001,9 @@
       "SHOP_SUSPENDED": "Your shop has been suspended",
       "SHOP_RESTORED": "Your shop is available again",
       "SHOP_PLAN_CHANGED": "Shop plan changed to {{planCode}}",
+      "SHOP_PLAN_PURCHASE_REJECTED": "Your plan purchase was rejected",
+      "SHOP_PLAN_EXPIRING_SOON": "Your shop plan expires soon",
+      "SHOP_PLAN_EXPIRED": "Your shop plan expired and reverted to Free",
       "SHOP_MEMBER_ROLE_CHANGED": "A staff role was set to {{role}}",
       "SHOP_MEMBER_REMOVED": "A staff member was removed from the shop"
     }
@@ -3396,7 +3543,7 @@
       "OVER": "{{name}} is over by {{over}} ({{used}} of {{limit}})"
     },
     "metrics": {
-      "PRODUCTS": { "name": "Products", "short": "Non-deleted parent products" },
+      "PRODUCTS": { "name": "Published products", "short": "PUBLISHED only — drafts/archived do not count" },
       "ORDERS_ROLLING_30D": { "name": "Orders (last 30 days)", "short": "Rolling window — not “this month”" },
       "STAFF": { "name": "Team members", "short": "ACTIVE members including owner" },
       "STORAGE": { "name": "Storage", "short": "media_files + application documents" }
@@ -3422,6 +3569,73 @@
       "period": "Counting period",
       "breakdown": "Breakdown",
       "completeness": "Completeness"
+    },
+    "currentBilling": "Current billing: {{cycle}}",
+    "expiresAt": "Expires {{time}}",
+    "billing": {
+      "aria": "Choose billing cycle",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "savePercent": "Save {{pct}}%"
+    },
+    "catalog": {
+      "compareTitle": "Compare plans",
+      "compareSubtitle": "Pick a billing cycle above, then upgrade to review the summary and contact admin",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "savings": "Save {{amount}} with yearly billing",
+      "recommended": "Recommended",
+      "currentPlan": "Current plan",
+      "freeIncluded": "Included in starter plan",
+      "upgrade": "Upgrade",
+      "changePlan": "Change plan",
+      "limits": {
+        "products": "Published products",
+        "orders": "Orders / 30 days",
+        "staff": "Team members",
+        "storage": "Storage"
+      }
+    },
+    "purchase": {
+      "yearlyAvg": "About {{amount}}/month",
+      "yearlySave": "Save {{amount}}/year"
+    },
+    "upgrade": {
+      "title": "Upgrade to {{plan}}",
+      "titleChange": "Change to {{plan}}",
+      "message": "Selected billing: {{cycle}} — {{price}}",
+      "messageShort": "{{cycle}} · {{price}}",
+      "billingLabel": "Billing cycle",
+      "priceLabel": "Price",
+      "priceMonthly": "{{amount}}/month",
+      "priceYearly": "{{amount}}/year · about {{avg}}/month · save {{save}}",
+      "compareAria": "Plan quota comparison",
+      "compareMetric": "Item",
+      "compareCurrent": "Current",
+      "compareNext": "New",
+      "usageFinite": "Current usage {{used}}/{{limit}}",
+      "usageUnlimited": "Current usage {{used}} (unlimited)",
+      "usageInline": "Using {{value}}",
+      "downgradeWarn": "{{items}} exceed the new plan quota — existing data is kept, but you cannot add more until under the new limits",
+      "paymentClosed": "Online payment is not available yet. Please contact admin to upgrade your plan ({{email}})",
+      "noAdminEmail": "No admin contact email is set. Please use another support channel.",
+      "copyEmail": "Copy",
+      "emailCopied": "Email copied",
+      "emailCopyFailed": "Could not copy — copy from the text above",
+      "cancel": "Cancel",
+      "contactAdmin": "Got it — contact admin",
+      "mailtoOpened": "Opened email to admin",
+      "mailSubject": "Plan upgrade request: {{plan}} ({{cycle}}) - shop {{shop}}",
+      "mailBody": "Shop name: {{shopName}}\nShop ID/slug: {{shopSlug}}\nCurrent plan: {{currentPlan}}\nRequested plan: {{targetPlan}}\nBilling cycle: {{cycle}}\nPrice: {{price}}\nContact email: {{contactEmail}}",
+      "mailContactMissing": "(not provided)"
+    },
+    "dialog": {
+      "title": "Confirm plan selection",
+      "message": "You selected {{plan}} ({{monthly}}/month or {{yearly}}/year)",
+      "cancel": "Close",
+      "confirm": "Got it",
+      "contactAdmin": "There is no in-app payment yet — contact platform admin to change your plan.",
+      "contactEmail": "Contact email: {{email}}"
     },
     "breakdown": {
       "published": "Published",

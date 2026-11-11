@@ -25,6 +25,7 @@
       "SHOP_APPLICATION_SUBMITTED": "有新的开店申请",
       "SHOP_REINSTATEMENT_REQUESTED": "店铺提交解除停用申请",
       "REFUND_DISPUTED": "有退款需管理员审核",
+      "SHOP_PLAN_PURCHASE_PENDING_REVIEW": "有套餐订单待审核",
       "UNKNOWN": "通知"
     }
   },
@@ -567,7 +568,23 @@
         "reactivate": "恢复店铺",
         "auditLink": "在审计日志中查看历史",
         "loadError": "无法加载店铺详情",
-        "forbidden": "您没有权限查看此店铺"
+        "forbidden": "您没有权限查看此店铺",
+        "changePlan": "更换套餐",
+        "changePlanDialog": {
+          "title": "更换套餐 — {{name}}",
+          "message": "为此店铺选择新套餐，变更立即生效。",
+          "selectLabel": "套餐",
+          "confirm": "保存套餐",
+          "success": "已更新 {{name}} 的套餐",
+          "error": "更换套餐失败",
+          "loadError": "无法加载套餐列表",
+          "over": {
+            "products": "商品数超过新套餐上限（{{used}} > {{limit}}）",
+            "orders": "30 天订单超过新套餐上限（{{used}} > {{limit}}）",
+            "staff": "成员数超过新套餐上限（{{used}} > {{limit}}）",
+            "storage": "存储超过新套餐上限（{{used}} > {{limit}}）"
+          }
+        }
       }
     },
     "storesPage": {
@@ -662,10 +679,10 @@
       "last30": "近 30 天 {{count}}"
     },
     "usage": {
-      "title": "用量 (Usage)",
-      "subtitle": "查看平台店铺套餐与配额使用情况",
+      "title": "套餐与用量",
+      "subtitle": "查看 Free/Basic/Pro 套餐与店铺用量配额",
       "summaryAria": "按套餐汇总用量",
-      "summaryTitle": "按套餐汇总",
+      "summaryTitle": "套餐目录",
       "shopCount": "{{count}} 家店铺",
       "summaryProducts": "商品 {{count}}",
       "summaryStaff": "员工 {{count}}",
@@ -674,6 +691,9 @@
       "listTitle": "店铺与用量",
       "empty": "没有符合筛选条件的店铺",
       "noPlan": "无套餐",
+      "priceMonthly": "{{price}}/月",
+      "priceYearly": "{{price}}/年",
+      "planFilterLabel": "{{name}} · {{price}}",
       "unlimited": "不限",
       "detailTitle": "用量详情",
       "detailSubtitle": "店铺 #{{id}}",
@@ -685,19 +705,66 @@
         "shop": "店铺",
         "slug": "标识",
         "plan": "套餐",
-        "products": "商品",
+        "products": "已发布",
         "orders": "订单",
-        "staff": "员工"
+        "staff": "员工",
+        "actions": "操作"
       },
       "metric": {
-        "products": "商品",
+        "products": "已发布商品",
         "productsHint": "已发布 {{published}} · 草稿 {{draft}} · 图片 {{images}}",
         "images": "商品图片",
         "ordersMonth": "订单（30 天）",
         "ordersHint": "全部 {{total}} · 进行中 {{open}}",
         "staff": "员工",
         "storage": "存储空间"
+      },
+      "priceFree": "免费",
+      "limitProducts": "已发布商品：{{value}}",
+      "limitOrders": "订单/30天：{{value}}",
+      "limitStaff": "团队：{{value}}",
+      "limitStorage": "存储：{{value}}",
+      "changePlan": "更改套餐",
+      "purchases": {
+        "aria": "套餐订单",
+        "title": "套餐订单",
+        "filterStatus": "状态",
+        "empty": "当前筛选下暂无订单",
+        "approve": "批准",
+        "reject": "拒绝",
+        "approved": "已批准套餐订单",
+        "rejected": "已拒绝套餐订单",
+        "working": "处理中…",
+        "rejectTitle": "拒绝套餐订单",
+        "rejectBody": "请填写原因，方便店铺修改",
+        "rejectConfirm": "确认拒绝",
+        "rejectReason": "原因",
+        "viewSlip": "查看转账凭证",
+        "noSlip": "尚未上传凭证",
+        "col": {
+          "shop": "店铺",
+          "plan": "套餐",
+          "cycle": "周期",
+          "amount": "金额",
+          "status": "状态",
+          "created": "日期"
+        },
+        "cycle": {
+          "MONTHLY": "月付",
+          "YEARLY": "年付"
+        },
+        "status": {
+          "PENDING_PAYMENT": "待付款",
+          "PENDING_REVIEW": "待审核",
+          "ACTIVE": "已生效",
+          "REJECTED": "已拒绝",
+          "CANCELLED": "已取消",
+          "EXPIRED": "已过期"
+        }
       }
+    },
+    "nav": {
+      "usage": "套餐与用量"
     }
   },
   "helpCenter": {

@@ -50,14 +50,11 @@ export default function ShopPage() {
   }
 
   return (
-    <>
-      <ShopSections
-        shop={shop}
-        products={products}
-        catalog={catalog}
-        preview={false}
-        couponStrip={<ShopCouponStrip slug={slug} shopId={shop.shopId} onNotify={catalog.onNotify} />}
-      />
-    </>
+    <ShopSections
+      shop={shop}
+      products={products}
+      catalog={catalog}
+      preview={false}
+    />
   );
 }

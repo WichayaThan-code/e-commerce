@@ -5,6 +5,7 @@ import BannersSection from "./BannersSection";
 import BestSellersSection from "./BestSellersSection";
 import CatalogSection from "./CatalogSection";
 import CategoriesSection from "./CategoriesSection";
+import CouponsSection from "./CouponsSection";
 import FeaturedSection from "./FeaturedSection";
 import HeroSection from "./HeroSection";
 import HoursSection from "./HoursSection";
@@ -32,6 +33,7 @@ export const SHOP_SECTION_COMPONENTS: Record<ShopSectionKey, ComponentType<ShopS
   NEW_ARRIVALS: NewArrivalsSection,
   CATALOG: CatalogSection,
   HOURS: HoursSection,
+  COUPONS: CouponsSection,
 };
 
 /**

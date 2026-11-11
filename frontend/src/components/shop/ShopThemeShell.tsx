@@ -8,6 +8,8 @@ import { TsfAnnouncementBar, TsfStoreFooter, TsfStoreHeader } from "./general/Ge
 import {
   ensureThemeFontLink,
   normalizeTheme,
+  resolvedProductCardGap,
+  resolvedProductCardRadius,
   themeCssVars,
   tsfThemeDefaults,
   tsfThemeName,
@@ -108,6 +110,8 @@ export default function ShopThemeShell({
       data-theme={tsfThemeName(templateKey)}
       data-btn={general ? (config.style?.buttonShape ?? "ROUNDED") : undefined}
       data-card={general ? (config.style?.cardStyle ?? "BORDERED") : undefined}
+      data-card-radius={resolvedProductCardRadius(theme)}
+      data-card-gap={resolvedProductCardGap(theme)}
       data-ratio={general ? (config.productCard?.imageRatio ?? tsfDefaults.ratio) : undefined}
       data-heading-font={customFonts?.heading || (custom && config.fontBody) ? "custom" : undefined}
       onClickCapture={blockNavigation}

@@ -25,6 +25,7 @@
       "SHOP_APPLICATION_SUBMITTED": "มีคำขอเปิดร้านใหม่",
       "SHOP_REINSTATEMENT_REQUESTED": "ร้านค้าส่งคำร้องขอปลดระงับ",
       "REFUND_DISPUTED": "มีคำขอคืนเงินที่ต้องตรวจสอบ",
+      "SHOP_PLAN_PURCHASE_PENDING_REVIEW": "มีคำสั่งซื้อแพ็กเกจรอตรวจสอบ",
       "UNKNOWN": "การแจ้งเตือน"
     }
   },
@@ -567,7 +568,23 @@
         "reactivate": "เปิดใช้งานร้านค้าอีกครั้ง",
         "auditLink": "ดูประวัติในบันทึกการตรวจสอบ",
         "loadError": "โหลดรายละเอียดร้านไม่สำเร็จ",
-        "forbidden": "คุณไม่มีสิทธิ์ดูรายละเอียดร้านนี้"
+        "forbidden": "คุณไม่มีสิทธิ์ดูรายละเอียดร้านนี้",
+        "changePlan": "เปลี่ยนแพ็กเกจ",
+        "changePlanDialog": {
+          "title": "เปลี่ยนแพ็กเกจ — {{name}}",
+          "message": "เลือกแพ็กเกจใหม่สำหรับร้านนี้ การเปลี่ยนแปลงมีผลทันที",
+          "selectLabel": "แพ็กเกจ",
+          "confirm": "บันทึกแพ็กเกจ",
+          "success": "อัปเดตแพ็กเกจของ {{name}} แล้ว",
+          "error": "เปลี่ยนแพ็กเกจไม่สำเร็จ",
+          "loadError": "โหลดรายการแพ็กเกจไม่สำเร็จ",
+          "over": {
+            "products": "สินค้าใช้เกินเพดานแพ็กเกจใหม่ ({{used}} > {{limit}})",
+            "orders": "ออเดอร์ 30 วันใช้เกินเพดานแพ็กเกจใหม่ ({{used}} > {{limit}})",
+            "staff": "สมาชิกใช้เกินเพดานแพ็กเกจใหม่ ({{used}} > {{limit}})",
+            "storage": "พื้นที่ใช้เกินเพดานแพ็กเกจใหม่ ({{used}} > {{limit}})"
+          }
+        }
       }
     },
     "storesPage": {
@@ -662,10 +679,10 @@
       "last30": "{{count}} ใน 30 วัน"
     },
     "usage": {
-      "title": "การใช้งาน (Usage)",
-      "subtitle": "ดูการใช้โควตาของร้านค้าและแพ็กเกจบนแพลตฟอร์ม",
+      "title": "แพ็กเกจและการใช้งาน",
+      "subtitle": "ดูแพ็กเกจ Free/Basic/Pro และโควตาการใช้งานของร้านค้า",
       "summaryAria": "สรุปการใช้งานตามแพ็กเกจ",
-      "summaryTitle": "สรุปตามแพ็กเกจ",
+      "summaryTitle": "แคตตาล็อกแพ็กเกจ",
       "shopCount": "{{count}} ร้าน",
       "summaryProducts": "สินค้า {{count}}",
       "summaryStaff": "ทีมงาน {{count}}",
@@ -674,6 +691,9 @@
       "listTitle": "ร้านค้าและการใช้งาน",
       "empty": "ไม่พบร้านค้าที่ตรงกับตัวกรอง",
       "noPlan": "ไม่มีแพ็กเกจ",
+      "priceMonthly": "{{price}}/เดือน",
+      "priceYearly": "{{price}}/ปี",
+      "planFilterLabel": "{{name}} · {{price}}",
       "unlimited": "ไม่จำกัด",
       "detailTitle": "รายละเอียดการใช้งาน",
       "detailSubtitle": "ร้าน #{{id}}",
@@ -685,19 +705,66 @@
         "shop": "ร้านค้า",
         "slug": "Slug",
         "plan": "แพ็กเกจ",
-        "products": "สินค้า",
+        "products": "เผยแพร่แล้ว",
         "orders": "คำสั่งซื้อ",
-        "staff": "ทีมงาน"
+        "staff": "ทีมงาน",
+        "actions": "การจัดการ"
       },
       "metric": {
-        "products": "สินค้า",
+        "products": "สินค้าที่เผยแพร่",
         "productsHint": "เผยแพร่ {{published}} · ฉบับร่าง {{draft}} · รูป {{images}}",
         "images": "รูปสินค้า",
         "ordersMonth": "คำสั่งซื้อ (30 วัน)",
         "ordersHint": "ทั้งหมด {{total}} · ยังเปิดอยู่ {{open}}",
         "staff": "ทีมงาน",
         "storage": "พื้นที่จัดเก็บ"
+      },
+      "priceFree": "ฟรี",
+      "limitProducts": "สินค้าเผยแพร่: {{value}}",
+      "limitOrders": "ออเดอร์/30 วัน: {{value}}",
+      "limitStaff": "ทีมงาน: {{value}}",
+      "limitStorage": "พื้นที่: {{value}}",
+      "changePlan": "เปลี่ยนแพ็กเกจ",
+      "purchases": {
+        "aria": "คำสั่งซื้อแพ็กเกจ",
+        "title": "คำสั่งซื้อแพ็กเกจ",
+        "filterStatus": "สถานะ",
+        "empty": "ยังไม่มีคำสั่งซื้อในตัวกรองนี้",
+        "approve": "อนุมัติ",
+        "reject": "ปฏิเสธ",
+        "approved": "อนุมัติแพ็กเกจแล้ว",
+        "rejected": "ปฏิเสธคำสั่งซื้อแล้ว",
+        "working": "กำลังดำเนินการ…",
+        "rejectTitle": "ปฏิเสธคำสั่งซื้อแพ็กเกจ",
+        "rejectBody": "ระบุเหตุผลให้ร้านทราบว่าต้องแก้ไขอะไร",
+        "rejectConfirm": "ยืนยันปฏิเสธ",
+        "rejectReason": "เหตุผล",
+        "viewSlip": "เปิดดูสลิป",
+        "noSlip": "ยังไม่มีสลิปแนบ",
+        "col": {
+          "shop": "ร้าน",
+          "plan": "แพ็กเกจ",
+          "cycle": "รอบบิล",
+          "amount": "ยอด",
+          "status": "สถานะ",
+          "created": "วันที่"
+        },
+        "cycle": {
+          "MONTHLY": "รายเดือน",
+          "YEARLY": "รายปี"
+        },
+        "status": {
+          "PENDING_PAYMENT": "รอชำระเงิน",
+          "PENDING_REVIEW": "รอตรวจสอบ",
+          "ACTIVE": "ใช้งานแล้ว",
+          "REJECTED": "ถูกปฏิเสธ",
+          "CANCELLED": "ยกเลิกแล้ว",
+          "EXPIRED": "หมดอายุ"
+        }
       }
+    },
+    "nav": {
+      "usage": "แพ็กเกจและการใช้งาน"
     }
   },
   "helpCenter": {

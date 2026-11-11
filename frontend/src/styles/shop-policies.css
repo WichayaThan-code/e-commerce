@@ -1,125 +1,228 @@
-/* Shop policies page — same family as the Contact page (Prompt H).
-   Requires shop-contact.css (reuses .shop-contact-hero / -panel / -icon / -action / -empty / -meta).
-   New selectors are scoped to .shop-policies* / .shop-policy-*; --shop-* tokens only. */
+/* Shop policies — sticky topic bar + index/reader (no in-page hash jump).
+   Requires shop-contact.css (.shop-contact-hero / -panel / -icon / -action / -meta). */
 
 .shop-policies-hero .shop-mall-hero-body{padding-top:18px;padding-bottom:18px}
 
-/* Layout */
 .shop-policies{
   display:grid;grid-template-columns:minmax(0,1fr);gap:var(--shop-gap,16px);
   margin:0 auto var(--shop-gap,16px);align-items:start;
 }
-.shop-policies-aside{min-width:0}
 .shop-policies-main{display:grid;gap:var(--shop-gap,16px);min-width:0}
 
-/* Quick nav — chips row (mobile/tablet), vertical TOC (desktop) */
+/* Topic bar — normal flow (not sticky) so it never overlays policy text while scrolling */
+.shop-policies-sticky{
+  position:relative;z-index:1;
+  padding:10px 12px;background:#ffffff;
+  border:1px solid #dce2eb;border-radius:16px;
+  box-shadow:0 1px 2px rgb(0 0 0 / .05),0 10px 28px rgb(0 0 0 / .08);
+}
 .shop-policies-nav ul{
-  list-style:none;margin:0;padding:2px;display:flex;gap:8px;
-  overflow-x:auto;scrollbar-width:none;
+  list-style:none;margin:0;padding:0;display:flex;gap:8px;
+  overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
 }
 .shop-policies-nav ul::-webkit-scrollbar{display:none}
 .shop-policies-nav li{flex:none;min-width:0}
-.shop-policies-chip{
+
+/* Beat `.tsf-store a { color: inherit }` so active/empty labels stay readable */
+.shop-policies a.shop-policies-chip,
+.shop-policies .shop-policies-chip{
   display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;
-  border:1px solid var(--shop-border);border-radius:var(--shop-btn-radius,999px);
-  background:var(--shop-card-bg,var(--shop-bg));color:var(--shop-text);
+  border:1px solid #dce2eb;border-radius:var(--shop-btn-radius,999px);
+  background:#ffffff;color:var(--shop-text,#132b50);
   font:600 13px var(--shop-font),sans-serif;text-decoration:none;white-space:nowrap;
-  transition:border-color .2s ease,background-color .2s ease,color .2s ease;
+  transition:border-color .2s ease,background-color .2s ease,color .2s ease,box-shadow .2s ease;
 }
 .shop-policies-chip svg{width:16px;height:16px;flex:none;color:var(--shop-primary)}
-.shop-policies-chip em{font-style:normal;font-size:11px;font-weight:500;color:var(--shop-muted)}
-.shop-policies-chip.is-empty{color:var(--shop-muted)}
-.shop-policies-chip.is-empty svg{color:var(--shop-muted)}
-.shop-policies-chip.is-active{background:var(--shop-primary);border-color:var(--shop-primary);color:var(--shop-on-primary)}
-.shop-policies-chip.is-active svg,.shop-policies-chip.is-active em{color:inherit}
+.shop-policies-chip em{font-style:normal;font-size:11px;font-weight:500;color:var(--shop-muted,#5d7396)}
+.shop-policies-chip.is-empty{color:var(--shop-muted,#5d7396);cursor:default}
+.shop-policies-chip.is-empty svg{color:var(--shop-muted,#5d7396)}
+.shop-policies a.shop-policies-chip.is-active,
+.shop-policies .shop-policies-chip.is-active{
+  background:var(--shop-primary);border-color:var(--shop-primary);
+  color:#ffffff;-webkit-text-fill-color:#ffffff;
+  box-shadow:0 6px 16px color-mix(in srgb,var(--shop-primary) 28%,transparent);
+}
+.shop-policies a.shop-policies-chip.is-active svg,
+.shop-policies .shop-policies-chip.is-active svg,
+.shop-policies a.shop-policies-chip.is-active em,
+.shop-policies .shop-policies-chip.is-active em{color:#ffffff;-webkit-text-fill-color:#ffffff}
 
-/* Policy section */
-.shop-policy-section{scroll-margin-top:calc(var(--shop-tabs-h,44px) + 12px)}
+/* Index cards (overview) */
+.shop-policies-index{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.shop-policies a.shop-policy-card,
+.shop-policies .shop-policy-card{
+  display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px 14px;align-items:start;
+  text-decoration:none;color:inherit;transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease;
+}
+.shop-policy-card-copy{display:grid;gap:6px;min-width:0}
+.shop-policy-card-copy h2{margin:0;font:700 17px/1.35 var(--shop-font),sans-serif;color:var(--shop-text,#132b50)}
+.shop-policy-card-copy p{margin:0;font-size:14px;line-height:1.6;color:var(--shop-muted,#5d7396);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.shop-policy-card-go{
+  grid-column:2;justify-self:start;display:inline-flex;align-items:center;gap:6px;
+  font:600 13px var(--shop-font),sans-serif;color:var(--shop-primary);
+}
+.shop-policy-card-go svg{width:15px;height:15px}
+
+/* Reader article */
+.shop-policy-section{min-width:0}
 .shop-policy-head{
-  background:transparent;position:static;z-index:auto;
   display:flex;align-items:flex-start;gap:12px;margin:0 0 14px;padding-bottom:14px;
-  border-bottom:1px solid var(--shop-border);
+  border-bottom:1px solid #dce2eb;
 }
 .shop-policy-head-copy{display:grid;gap:4px;flex:1;min-width:0}
 .shop-policy-kicker{font-size:12px;font-weight:600;color:var(--shop-primary)}
-.shop-policy-head h2{margin:0;font:700 20px/1.35 var(--shop-font),sans-serif;color:var(--shop-text);overflow-wrap:anywhere}
-.shop-policy-updated{margin:0;display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--shop-muted)}
+.shop-policy-head h2{margin:0;font:700 20px/1.35 var(--shop-font),sans-serif;color:var(--shop-text,#132b50);overflow-wrap:anywhere}
+.shop-policy-updated{margin:0;display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--shop-muted,#5d7396)}
 .shop-policy-updated svg{width:14px;height:14px;flex:none}
-.shop-policy-permalink{
-  flex:none;width:36px;height:36px;display:grid;place-items:center;
-  border:1px solid var(--shop-border);border-radius:var(--shop-btn-radius,8px);color:var(--shop-muted);
-}
-.shop-policy-permalink svg{width:16px;height:16px}
-.shop-policy-body{max-width:72ch;font-size:15px;line-height:1.75;color:var(--shop-text);overflow-wrap:anywhere}
-.shop-policy-body h3{margin:18px 0 6px;font:700 15px/1.5 var(--shop-font),sans-serif;color:var(--shop-text)}
+.shop-policy-body{max-width:72ch;font-size:15px;line-height:1.75;color:var(--shop-text,#132b50);overflow-wrap:anywhere}
+.shop-policy-body h3{margin:18px 0 6px;font:700 15px/1.5 var(--shop-font),sans-serif;color:var(--shop-text,#132b50)}
 .shop-policy-body h3:first-child{margin-top:0}
 .shop-policy-body p{margin:0 0 10px;white-space:pre-line}
 .shop-policy-body ul,.shop-policy-body ol{margin:0 0 10px;padding-left:1.4em;display:grid;gap:4px}
 .shop-policy-body li::marker{color:var(--shop-primary)}
 .shop-policy-body ol li::marker{font-family:var(--font-mono);font-weight:700}
 
-/* Contact CTA */
+/* Contact CTA — styles live here (CTA sits outside .shop-contact) */
 .shop-policies-cta{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 14px;align-items:center}
-.shop-policies-cta h2{margin:0;font:700 16px/1.4 var(--shop-font),sans-serif;color:var(--shop-text)}
-.shop-policies-cta p{margin:2px 0 0;font-size:13px;color:var(--shop-muted)}
-.shop-policies-cta .shop-contact-action{grid-column:1 / -1}
+.shop-policies-cta h2{margin:0;font:700 16px/1.4 var(--shop-font),sans-serif;color:var(--shop-text,#132b50)}
+.shop-policies-cta p{margin:2px 0 0;font-size:13px;color:var(--shop-muted,#5d7396)}
+a.shop-policies-contact-btn,
+.shop-policies-contact-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:44px;padding:0 20px;box-sizing:border-box;
+  border:1px solid transparent;border-radius:var(--shop-btn-radius,8px);
+  background:var(--shop-primary);color:#ffffff;-webkit-text-fill-color:#ffffff;
+  font:600 13px var(--shop-font),sans-serif;text-decoration:none;white-space:nowrap;
+  transition:background .2s ease,border-color .2s ease,color .2s ease,filter .2s ease,transform .2s ease;
+}
+a.shop-policies-contact-btn svg,
+.shop-policies-contact-btn svg{width:16px;height:16px;flex:none;color:inherit}
+.shop-policies-cta .shop-policies-contact-btn{grid-column:1 / -1;justify-self:stretch}
+.shop-policies-hero .shop-policies-contact-btn{min-width:9.5rem}
 
 .shop-policies-skeleton{display:grid;gap:var(--shop-gap,16px)}
 
 @media(hover:hover) and (pointer:fine){
-  .shop-policies-chip:not(.is-active):hover{border-color:var(--shop-primary);color:var(--shop-primary)}
-  .shop-policy-permalink:hover{border-color:var(--shop-primary);color:var(--shop-primary)}
+  .shop-policies a.shop-policies-chip:not(.is-active):not(.is-empty):hover{
+    border-color:var(--shop-primary);color:var(--shop-primary);
+  }
+  .shop-policies a.shop-policy-card:hover{
+    border-color:color-mix(in srgb,var(--shop-text,#132b50) 22%,#ffffff);
+    box-shadow:0 2px 6px rgb(0 0 0 / .06),0 14px 32px rgb(0 0 0 / .1);
+    transform:translateY(-1px);
+  }
+  .shop-policies a.shop-policy-card:hover .shop-policy-card-go{gap:8px}
 }
 
 /* ---- Template character ---- */
-[data-template="FASHION"] .shop-policies-chip{border-color:color-mix(in srgb,var(--shop-text) 25%,transparent);font-weight:500}
-[data-template="FASHION"] .shop-policies-chip svg{color:var(--shop-accent,var(--shop-primary))}
+[data-template="FASHION"] .shop-policies-sticky,
+[data-template="FASHION"] .shop-policies .shop-contact-panel{
+  border:1.5px solid #132b50;box-shadow:0 2px 6px rgb(0 0 0 / .08),0 18px 44px rgb(0 0 0 / .14);
+}
+[data-template="FASHION"] .shop-policies a.shop-policies-chip,
+[data-template="FASHION"] .shop-policies .shop-policies-chip{
+  border-color:#132b50;border-radius:var(--shop-btn-radius,2px);font-weight:500;
+}
+[data-template="FASHION"] .shop-policies-chip svg{color:#132b50}
 [data-template="FASHION"] .shop-policy-kicker{
-  color:var(--shop-accent,var(--shop-primary));text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:500;
+  color:#132b50;text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:500;
 }
 [data-template="FASHION"] .shop-policy-head h2,
-[data-template="FASHION"] .shop-policies-cta h2{font-weight:500;letter-spacing:.01em}
-[data-template="FASHION"] .shop-policy-head{border-bottom-color:color-mix(in srgb,var(--shop-accent,var(--shop-primary)) 45%,transparent)}
+[data-template="FASHION"] .shop-policy-card-copy h2,
+[data-template="FASHION"] .shop-policies-cta h2{font-weight:500;letter-spacing:.01em;color:#132b50}
+[data-template="FASHION"] .shop-policy-head{border-bottom-color:#dce2eb}
 [data-template="FASHION"] .shop-policy-body h3{font-weight:600;letter-spacing:.01em}
-[data-template="FASHION"] .shop-policy-body li::marker{color:var(--shop-accent,var(--shop-primary))}
+[data-template="FASHION"] .shop-policy-card-go{color:#132b50}
+/* Fashion contact CTA — solid navy editorial button (not cramped ghost pill) */
+[data-template="FASHION"] .shop-policies a.shop-policies-contact-btn,
+[data-template="FASHION"] .shop-policies .shop-policies-contact-btn,
+[data-template="FASHION"] .shop-policies-hero a.shop-policies-contact-btn,
+[data-template="FASHION"] .shop-policies-hero .shop-policies-contact-btn{
+  background:#132b50;border:1.5px solid #132b50;color:#ffffff;-webkit-text-fill-color:#ffffff;
+  border-radius:2px;padding:0 24px;min-height:46px;gap:10px;
+  font-weight:500;letter-spacing:.06em;text-transform:uppercase;font-size:12px;
+  box-shadow:0 8px 22px rgb(19 43 80 / .18);
+}
+[data-template="FASHION"] .shop-policies a.shop-policies-contact-btn svg,
+[data-template="FASHION"] .shop-policies-hero a.shop-policies-contact-btn svg{
+  color:#ffffff;-webkit-text-fill-color:#ffffff;
+}
+@media(hover:hover) and (pointer:fine){
+  [data-template="FASHION"] .shop-policies a.shop-policies-contact-btn:hover,
+  [data-template="FASHION"] .shop-policies-hero a.shop-policies-contact-btn:hover{
+    background:#ffffff;color:#132b50;-webkit-text-fill-color:#132b50;
+    border-color:#132b50;filter:none;transform:translateY(-1px);
+    box-shadow:0 10px 26px rgb(19 43 80 / .16);
+  }
+  [data-template="FASHION"] .shop-policies a.shop-policies-contact-btn:hover svg,
+  [data-template="FASHION"] .shop-policies-hero a.shop-policies-contact-btn:hover svg{
+    color:#132b50;-webkit-text-fill-color:#132b50;
+  }
+}
 
-[data-template="FOOD_BEVERAGE"] .shop-policies-chip{border-color:color-mix(in srgb,var(--shop-primary) 22%,var(--shop-border))}
+[data-template="FOOD_BEVERAGE"] .shop-policies-sticky{border-color:color-mix(in srgb,var(--shop-primary) 22%,#dce2eb)}
+[data-template="FOOD_BEVERAGE"] .shop-policies a.shop-policies-chip,
+[data-template="FOOD_BEVERAGE"] .shop-policies .shop-policies-chip{
+  border-color:color-mix(in srgb,var(--shop-primary) 22%,#dce2eb);
+}
 [data-template="FOOD_BEVERAGE"] .shop-policy-head h2,
+[data-template="FOOD_BEVERAGE"] .shop-policy-card-copy h2,
 [data-template="FOOD_BEVERAGE"] .shop-policies-cta h2,
 [data-template="FOOD_BEVERAGE"] .shop-policy-body h3{color:var(--shop-secondary)}
-[data-template="FOOD_BEVERAGE"] .shop-policy-head{border-bottom-style:dashed;border-bottom-color:color-mix(in srgb,var(--shop-primary) 25%,var(--shop-border))}
+[data-template="FOOD_BEVERAGE"] .shop-policy-head{border-bottom-style:dashed;border-bottom-color:color-mix(in srgb,var(--shop-primary) 25%,#dce2eb)}
+/* FOOD contact CTA — flat terracotta pill (matches storefront primary CTA) */
+[data-template="FOOD_BEVERAGE"] a.shop-policies-contact-btn,
+[data-template="FOOD_BEVERAGE"] .shop-policies-contact-btn,
+[data-template="FOOD_BEVERAGE"] .shop-policies-hero a.shop-policies-contact-btn,
+[data-template="FOOD_BEVERAGE"] .shop-policies-hero .shop-policies-contact-btn{
+  background:var(--shop-primary);border:0 solid transparent;
+  color:var(--shop-on-primary,#ffffff);-webkit-text-fill-color:var(--shop-on-primary,#ffffff);
+  border-radius:999px;padding:0 28px;min-height:48px;gap:10px;
+  font-weight:700;font-size:14px;letter-spacing:0;text-transform:none;
+  box-shadow:none;filter:none;
+}
+[data-template="FOOD_BEVERAGE"] a.shop-policies-contact-btn svg,
+[data-template="FOOD_BEVERAGE"] .shop-policies-hero a.shop-policies-contact-btn svg{
+  width:18px;height:18px;
+  color:var(--shop-on-primary,#ffffff);-webkit-text-fill-color:var(--shop-on-primary,#ffffff);
+}
+@media(hover:hover) and (pointer:fine){
+  [data-template="FOOD_BEVERAGE"] a.shop-policies-contact-btn:hover,
+  [data-template="FOOD_BEVERAGE"] .shop-policies-hero a.shop-policies-contact-btn:hover{
+    background:color-mix(in srgb,var(--shop-primary) 88%,#000);
+    color:var(--shop-on-primary,#ffffff);-webkit-text-fill-color:var(--shop-on-primary,#ffffff);
+    border-color:transparent;filter:none;transform:none;box-shadow:none;
+  }
+  [data-template="FOOD_BEVERAGE"] a.shop-policies-contact-btn:hover svg,
+  [data-template="FOOD_BEVERAGE"] .shop-policies-hero a.shop-policies-contact-btn:hover svg{
+    color:var(--shop-on-primary,#ffffff);-webkit-text-fill-color:var(--shop-on-primary,#ffffff);
+  }
+}
 
 @media(prefers-reduced-motion:reduce){
-  .shop-policies-chip{transition:none}
+  .shop-policies-chip,.shop-policy-card{transition:none}
+  .shop-policies a.shop-policy-card:hover{transform:none}
 }
 
-/* ---- Responsive (container "shop") ---- */
+/* ---- Responsive ---- */
 @container shop (min-width:768px){
+  .shop-policies-index{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shop-policies a.shop-policy-card,
+  .shop-policies .shop-policy-card{grid-template-columns:48px minmax(0,1fr);padding:18px}
   .shop-policies-cta{grid-template-columns:auto minmax(0,1fr) auto}
-  .shop-policies-cta .shop-contact-action{grid-column:auto;flex:0 0 auto}
-}
-@container shop (min-width:1024px){
-  .shop-policies{grid-template-columns:240px minmax(0,1fr)}
-  .shop-policies-aside{
-    position:sticky;top:calc(var(--shop-tabs-h,44px) + 12px);
-    padding:10px;background:var(--shop-card-bg,var(--shop-bg));
-    border:1px solid var(--shop-border);border-radius:var(--shop-radius,12px);
-  }
-  [data-template="FOOD_BEVERAGE"] .shop-policies-aside{box-shadow:var(--shop-card-shadow,none)}
-  .shop-policies-nav ul{flex-direction:column;gap:2px;padding:0;overflow:visible}
-  .shop-policies-chip{
-    width:100%;justify-content:flex-start;border-color:transparent;background:transparent;
-    border-radius:calc(var(--shop-radius,12px) * .6);
-  }
-  [data-template="FASHION"] .shop-policies-chip{border-color:transparent}
-  [data-template="FOOD_BEVERAGE"] .shop-policies-chip{border-color:transparent;border-radius:var(--shop-btn-radius,999px)}
-  .shop-policies-chip em{margin-left:auto}
-  .shop-policies-chip.is-active{background:var(--shop-primary);color:var(--shop-on-primary)}
+  .shop-policies-cta .shop-policies-contact-btn{grid-column:auto;justify-self:end;min-width:11rem}
   .shop-contact-panel.shop-policy-section{padding:24px 28px}
 }
+@container shop (min-width:1024px){
+  .shop-policies-sticky{padding:12px 14px}
+  .shop-policies-nav ul{flex-wrap:wrap;overflow:visible}
+}
 @container shop (max-width:767px){
-  .shop-policies-chip{min-height:44px}
+  .shop-policies-sticky{padding:8px;border-radius:12px}
+  .shop-policies a.shop-policies-chip,
+  .shop-policies .shop-policies-chip{min-height:44px}
   .shop-policy-head h2{font-size:17px}
   .shop-policy-body{font-size:14px}
-  .shop-policies-cta .shop-contact-action{min-height:44px}
+  .shop-policies-cta .shop-policies-contact-btn{min-height:46px;padding:0 22px}
 }

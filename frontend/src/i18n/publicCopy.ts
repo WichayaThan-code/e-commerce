@@ -110,7 +110,7 @@ const th = {
     promoThaiToast: 'เปิดดูสินค้าไทย',
     promoGadgetToast: 'เปิดดู Gadget',
     promoBeautyToast: 'เปิดดูสินค้าความงาม',
-    categoryEmojis: ['👕', '🧴', '🛋️', '📱', '🥘', '🏋️', '🧸', '🪑', '🪴', '🎁'],
+    categoryEmojis: ['👗', '💄', '🏠', '💻', '🍜', '⚽', '👶', '🪑', '♻️', '🎁'],
     categories: [
       'แฟชั่น\nเสื้อผ้า',
       'ความงาม\nและสุขภาพ',
@@ -306,7 +306,7 @@ const en = {
     promoThaiToast: 'Opening Thai products',
     promoGadgetToast: 'Opening gadgets',
     promoBeautyToast: 'Opening beauty products',
-    categoryEmojis: ['👕', '🧴', '🛋️', '📱', '🥘', '🏋️', '🧸', '🪑', '🪴', '🎁'],
+    categoryEmojis: ['👗', '💄', '🏠', '💻', '🍜', '⚽', '👶', '🪑', '♻️', '🎁'],
     categories: [
       'Fashion\n& apparel',
       'Beauty\n& wellness',
@@ -497,7 +497,7 @@ const zh = {
     promoThaiToast: '正在打开泰国商品',
     promoGadgetToast: '正在打开数码商品',
     promoBeautyToast: '正在打开美妆商品',
-    categoryEmojis: ['👕', '🧴', '🛋️', '📱', '🥘', '🏋️', '🧸', '🪑', '🪴', '🎁'],
+    categoryEmojis: ['👗', '💄', '🏠', '💻', '🍜', '⚽', '👶', '🪑', '♻️', '🎁'],
     categories: [
       '时尚\n服装',
       '美容\n健康',

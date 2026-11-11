@@ -6,16 +6,17 @@ import {
   ChevronRight,
   CircleEllipsis,
   Grid2X2,
+  LayoutGrid,
   List,
   MapPin,
   Search,
   SearchX,
   Store,
-  type LucideIcon,
 } from "lucide-react";
 import EmptyState from "../components/feedback/EmptyState";
 import ShopLogo from "../components/ShopLogo";
-import { categoryIcon } from "../components/shop/categoryIcons";
+import { categoryEmoji } from "../components/shop/categoryIcons";
+import { categoryLabelLines } from "../components/marketplace/categoryTiles";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import recommendReference from "../assets/images/references/storefront/recommend-product.png";
 import type { Locale } from "../i18n";
@@ -30,7 +31,9 @@ type SortKey = "latest" | "name";
 type CategoryTab = {
   key: string;
   label: string;
-  icon: LucideIcon;
+  emoji: string;
+  /** "all" | "other" use Lucide frame; categories use emoji. */
+  kind: "all" | "category" | "other";
   /** Thai name used to match `shop.category`; null for all/other. */
   nameTh: string | null;
 };
@@ -121,14 +124,15 @@ export default function ShopsPage() {
 
   const categoryTabs = useMemo<CategoryTab[]>(() => {
     const tabs: CategoryTab[] = [
-      { key: "all", label: tp("common.all"), icon: Store, nameTh: null },
+      { key: "all", label: tp("common.all"), emoji: "", kind: "all", nameTh: null },
     ];
     if (apiCategories) {
       for (const row of apiCategories) {
         tabs.push({
           key: `cat-${row.id}`,
-          label: labelForCategory(row, locale),
-          icon: categoryIcon(row),
+          label: categoryLabelLines(labelForCategory(row, locale)),
+          emoji: categoryEmoji(row),
+          kind: "category",
           nameTh: row.nameTh.trim(),
         });
       }
@@ -136,7 +140,8 @@ export default function ShopsPage() {
         tabs.push({
           key: "other",
           label: tp("shops.otherCategory"),
-          icon: CircleEllipsis,
+          emoji: "",
+          kind: "other",
           nameTh: null,
         });
       }
@@ -146,8 +151,9 @@ export default function ShopsPage() {
     for (const name of fallbackNames) {
       tabs.push({
         key: `fallback-${name}`,
-        label: name,
-        icon: categoryIcon({ nameTh: name, nameEn: name }),
+        label: categoryLabelLines(name),
+        emoji: categoryEmoji({ nameTh: name, nameEn: name }),
+        kind: "category",
         nameTh: name,
       });
     }
@@ -230,20 +236,33 @@ export default function ShopsPage() {
         </div>
       </section>
 
-      <section className="recommend-categories recommend-width">
+      <section className="recommend-categories recommend-width" aria-label={tp("home.shopByCategory")}>
         {categoryTabs.map((tab) => {
-          const Icon = tab.icon;
           const active = activeKey === tab.key;
           return (
             <button
-              className={active ? "active" : ""}
+              className={`category${active ? " is-active" : ""}`}
               key={tab.key}
               type="button"
               aria-pressed={active}
               onClick={() => setActiveKey(tab.key)}
             >
-              <Icon />
-              <span>{tab.label}</span>
+              {tab.kind === "all" ? (
+                <span className="category-more-icon" aria-hidden="true">
+                  <LayoutGrid />
+                </span>
+              ) : tab.kind === "other" ? (
+                <span className="category-more-icon" aria-hidden="true">
+                  <CircleEllipsis />
+                </span>
+              ) : (
+                <span aria-hidden="true">{tab.emoji}</span>
+              )}
+              <b>
+                {tab.label.split("\n").map((line, j) => (
+                  <span key={j}>{line}</span>
+                ))}
+              </b>
             </button>
           );
         })}

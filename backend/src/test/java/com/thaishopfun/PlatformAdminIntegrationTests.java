@@ -335,18 +335,20 @@ class PlatformAdminIntegrationTests {
             .andExpect(jsonPath("$.usage.staff.active").value(2))
             .andExpect(jsonPath("$.usage.staff.byRole.STORE_OWNER").value(1))
             .andExpect(jsonPath("$.usage.storage.documents").value(2))
-            .andExpect(jsonPath("$.usage.planCode").value(nullValue()));
+            .andExpect(jsonPath("$.usage.planCode").value("FREE"));
         call(get("/api/admin/shops/999999"), adminToken()).andExpect(status().isNotFound());
 
         call(get("/api/admin/plans"), adminToken()).andExpect(status().isOk()).andExpect(jsonPath("$.source").value("DB"))
             .andExpect(jsonPath("$.plans.length()").value(3))
-            .andExpect(jsonPath("$.plans[0].code").exists());
+            .andExpect(jsonPath("$.plans[0].code").exists())
+            .andExpect(jsonPath("$.plans[0].priceMonthly").exists())
+            .andExpect(jsonPath("$.plans[0].sortOrder").exists());
         call(get("/api/admin/plans/usage?sort=shopId&dir=asc"), adminToken()).andExpect(status().isOk())
             .andExpect(jsonPath("$.totalItems").value(3)).andExpect(jsonPath("$.items[0].shopId").value(a.shopId()))
             .andExpect(jsonPath("$.items[0].products.total").value(1)).andExpect(jsonPath("$.items[1].products.total").value(0))
-            .andExpect(jsonPath("$.items[0].planCode").value(nullValue()));
+            .andExpect(jsonPath("$.items[0].planCode").value("FREE"));
         call(get("/api/admin/shops/" + a.shopId() + "/usage"), adminToken()).andExpect(jsonPath("$.orders.total").value(0))
-            .andExpect(jsonPath("$.planCode").value(nullValue()));
+            .andExpect(jsonPath("$.planCode").value("FREE"));
     }
 
     @Test
@@ -445,7 +447,8 @@ class PlatformAdminIntegrationTests {
         setShopPlan(a.shopId(), "BASIC");
         setShopPlan(b.shopId(), "BASIC");
         setShopPlan(c.shopId(), "BASIC");
-        // d stays without a plan
+        // New shops get FREE by default — clear d so __NONE__ still covers unassigned shops.
+        jdbc.update("UPDATE shops SET plan_code = NULL WHERE shop_no = ?", d.shopId());
 
         call(get("/api/admin/plans/usage?plan=__NONE__"), adminToken()).andExpect(status().isOk())
             .andExpect(jsonPath("$.totalItems").value(1))
@@ -1233,7 +1236,7 @@ class PlatformAdminIntegrationTests {
     private void addMember(long shopNo, UUID userId, String role) {
         var shopUuid = shops.findByShopId(shopNo).orElseThrow().getUuid();
         var now = Timestamp.from(Instant.now());
-        jdbc.update("INSERT INTO shop_members (id, shop_id, user_id, role, status, joined_at, created_date_time, modified_date_time) VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?, ?)",
+        jdbc.update("INSERT INTO shop_members (id, shop_id, user_id, role, status, permission_version, joined_at, created_date_time, modified_date_time) VALUES (?, ?, ?, ?, 'ACTIVE', 0, ?, ?, ?)",
             UUID.randomUUID(), shopUuid, userId, role, now, now, now);
     }
 

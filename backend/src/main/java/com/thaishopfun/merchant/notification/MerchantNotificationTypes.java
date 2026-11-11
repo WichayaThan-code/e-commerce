@@ -11,12 +11,16 @@ public final class MerchantNotificationTypes {
     public static final String SHOP_SUSPENDED = "SHOP_SUSPENDED";
     public static final String SHOP_RESTORED = "SHOP_RESTORED";
     public static final String SHOP_PLAN_CHANGED = "SHOP_PLAN_CHANGED";
+    public static final String SHOP_PLAN_PURCHASE_REJECTED = "SHOP_PLAN_PURCHASE_REJECTED";
+    public static final String SHOP_PLAN_EXPIRING_SOON = "SHOP_PLAN_EXPIRING_SOON";
+    public static final String SHOP_PLAN_EXPIRED = "SHOP_PLAN_EXPIRED";
     public static final String SHOP_MEMBER_ROLE_CHANGED = "SHOP_MEMBER_ROLE_CHANGED";
     public static final String SHOP_MEMBER_REMOVED = "SHOP_MEMBER_REMOVED";
 
     public static final String ENTITY_SHOP = "SHOP";
     public static final String ENTITY_MEMBER = "SHOP_MEMBER";
     public static final String ENTITY_PLAN = "SHOP_PLAN";
+    public static final String ENTITY_PLAN_SUBSCRIPTION = "SHOP_PLAN_SUBSCRIPTION";
 
     private MerchantNotificationTypes() {}
 
@@ -56,6 +60,18 @@ public final class MerchantNotificationTypes {
     public static String shopPlanChangedDedupe(long shopNo, Instant at, String planCode) {
         String plan = planCode == null || planCode.isBlank() ? "_" : planCode.trim();
         return SHOP_PLAN_CHANGED + ":shop:" + shopNo + ":" + eventEpochMilli(at) + ":" + plan;
+    }
+
+    public static String shopPlanPurchaseRejectedDedupe(UUID subscriptionId) {
+        return SHOP_PLAN_PURCHASE_REJECTED + ":sub:" + subscriptionId;
+    }
+
+    public static String shopPlanExpiringDedupe(long shopNo, int daysLeft, Instant dayKey) {
+        return SHOP_PLAN_EXPIRING_SOON + ":shop:" + shopNo + ":d" + daysLeft + ":" + eventEpochMilli(dayKey);
+    }
+
+    public static String shopPlanExpiredDedupe(long shopNo, Instant at) {
+        return SHOP_PLAN_EXPIRED + ":shop:" + shopNo + ":" + eventEpochMilli(at);
     }
 
     public static String shopMemberRoleDedupe(UUID memberId, Instant at, String roleCode) {

@@ -47,16 +47,17 @@ public class MerchantPlanUsageService {
         var periodEnd = asOf;
         var periodStart = asOf.minus(Duration.ofDays(ORDERS_ROLLING_DAYS));
 
+        var effectiveCode = effectivePlanCode(shop.getPlanCode());
         var key = new AdminShopUsageService.ShopKey(
             shop.getUuid(),
             shop.getId(),
             shop.getName(),
             apiShopStatus(shop.getStatus() == null ? null : shop.getStatus().name()),
             shop.getSlug(),
-            shop.getPlanCode()
+            effectiveCode
         );
         var raw = usage.usage(List.of(key)).get(shop.getUuid());
-        var planRow = resolvePlan(shop.getPlanCode());
+        var planRow = resolvePlan(effectiveCode);
         var plan = toPlanInfo(shop.getPlanCode(), planRow);
         var limits = planRow == null ? null : planRow.limits();
 
@@ -76,11 +77,14 @@ public class MerchantPlanUsageService {
             shop.getName(),
             key.status(),
             plan,
+            shop.getPlanBillingCycle(),
+            shop.getPlanExpiresAt(),
             asOf,
             TIMEZONE,
             new DisplayPolicy(WARN_AT_RATIO, DISPLAY_POLICY_NOTE),
             List.copyOf(metrics),
-            enforcementNotes()
+            enforcementNotes(),
+            loadCatalog()
         );
     }
 
@@ -89,40 +93,67 @@ public class MerchantPlanUsageService {
             new EnforcementNote(
                 "STAFF",
                 "ENFORCED",
-                "โควตาสมาชิกบังคับตอนเชิญสมาชิกใหม่ (นับ ACTIVE + คำเชิญ PENDING ที่ยังไม่หมดอายุ) — หน้านี้แสดงเฉพาะสมาชิก ACTIVE ตามสูตร Admin"
+                "โควตาสมาชิกบังคับตอนเชิญสมาชิกใหม่ (นับ ACTIVE + คำเชิญ PENDING ที่ยังไม่หมดอายุ)"
             ),
             new EnforcementNote(
                 "PRODUCTS",
-                "TRACKING_ONLY",
-                "ยังไม่บังคับโควตาสินค้าตอนสร้าง/แก้ไขสินค้าจากงานอ่านข้อมูลนี้"
+                "ENFORCED",
+                "โควตาสินค้าบังคับตอนเผยแพร่เท่านั้น (นับเฉพาะ PUBLISHED) — สร้างร่าง/เก็บถาวรได้ไม่จำกัด"
             ),
             new EnforcementNote(
                 "ORDERS_ROLLING_30D",
-                "TRACKING_ONLY",
-                "ยังไม่บังคับโควตาออเดอร์ตอน checkout จากงานอ่านข้อมูลนี้ — ช่วงนับเป็นย้อนหลัง 30 วันแบบเลื่อน ไม่ใช่เดือนปฏิทิน"
+                "ENFORCED",
+                "โควตาออเดอร์บังคับตอน checkout — นับย้อนหลัง " + ORDERS_ROLLING_DAYS + " วันแบบเลื่อน"
             ),
             new EnforcementNote(
                 "STORAGE",
-                "TRACKING_ONLY",
-                "ยังไม่บังคับโควตาพื้นที่ตอนอัปโหลดจากงานอ่านข้อมูลนี้ — นับเฉพาะ media_files + merchant_documents"
+                "ENFORCED",
+                "โควตาพื้นที่บังคับตอนอัปโหลดไฟล์ — นับ media_files + merchant_documents"
             )
         );
     }
 
+    private List<CatalogPlan> loadCatalog() {
+        return jdbc.query("""
+            SELECT code, name, description, price_monthly, price_yearly, sort_order,
+                   limit_products, limit_orders_per_month, limit_staff, limit_storage_bytes
+              FROM plans WHERE active = TRUE ORDER BY sort_order, code
+            """, (rs, i) -> new CatalogPlan(
+            rs.getString("code"),
+            rs.getString("name"),
+            rs.getString("description"),
+            rs.getBigDecimal("price_monthly"),
+            rs.getBigDecimal("price_yearly"),
+            new PlanLimits(
+                longOrNull(rs, "limit_products"),
+                longOrNull(rs, "limit_orders_per_month"),
+                longOrNull(rs, "limit_staff"),
+                longOrNull(rs, "limit_storage_bytes")
+            ),
+            rs.getInt("sort_order"),
+            "BASIC".equals(rs.getString("code"))
+        ));
+    }
+
+    private static String effectivePlanCode(String planCode) {
+        return (planCode == null || planCode.isBlank()) ? PlanQuotaService.DEFAULT_PLAN : planCode.trim();
+    }
+
     private MetricUsage productsMetric(ShopUsage raw, PlanLimits limits, PlanInfo plan, boolean allowed, Instant asOf) {
         var def = new MetricDefinition(
-            "products (deleted_at IS NULL)",
-            "สินค้าแม่ที่ยังไม่ลบ: PUBLISHED + DRAFT + ARCHIVED และสถานะอื่นที่ยังไม่ลบ",
-            "สินค้าที่ soft-delete แล้ว (deleted_at ไม่เป็น null); ไม่นับ SKU เป็นโควตานี้",
-            "เพดานอ้างอิง plans.limit_products; breakdown.activeSkus / images เป็นข้อมูลประกอบ ไม่ใช่เพดานแยก"
+            "products status = PUBLISHED AND deleted_at IS NULL",
+            "สินค้าที่เผยแพร่อยู่เท่านั้น (ตรงกับโควตา limit_products)",
+            "DRAFT / ARCHIVED และสินค้าที่ soft-delete แล้ว — ไม่นับในเพดาน; ไม่นับ SKU เป็นโควตานี้",
+            "เพดานอ้างอิง plans.limit_products; breakdown.draft / archived / activeSkus / images เป็นข้อมูลประกอบ ไม่ใช่เพดานแยก"
         );
         if (!allowed) return restricted("PRODUCTS", "PRODUCT_READ", "COUNT", def, nonePeriod(asOf));
-        long used = raw == null || raw.products() == null ? 0L : raw.products().total();
+        long used = raw == null || raw.products() == null ? 0L : raw.products().published();
         var breakdown = new LinkedHashMap<String, Long>();
         if (raw != null && raw.products() != null) {
             breakdown.put("published", raw.products().published());
             breakdown.put("draft", raw.products().draft());
             breakdown.put("archived", raw.products().archived());
+            breakdown.put("totalNonDeleted", raw.products().total());
             breakdown.put("activeSkus", raw.products().activeSkus());
             breakdown.put("images", raw.products().images());
         }
@@ -273,9 +304,15 @@ public class MerchantPlanUsageService {
 
     private PlanInfo toPlanInfo(String planCode, PlanRow row) {
         if (planCode == null || planCode.isBlank()) {
+            if (row != null && row.active()) {
+                return new PlanInfo(
+                    "ASSIGNED", row.code(), row.name(), "ACTIVE",
+                    "ร้านยังไม่มี plan_code บันทึกไว้ — ระบบใช้แพ็กเกจ Free สำหรับโควตาและการแสดงผล"
+                );
+            }
             return new PlanInfo(
-                "UNASSIGNED", null, null, "NONE",
-                "ร้านยังไม่ได้กำหนดแผน (shops.plan_code ว่าง) — ไม่ตีความว่าไม่จำกัด"
+                "ASSIGNED", PlanQuotaService.DEFAULT_PLAN, row == null ? "Free" : row.name(), "ACTIVE",
+                "ร้านยังไม่มี plan_code บันทึกไว้ — ระบบใช้แพ็กเกจ Free สำหรับโควตาและการแสดงผล"
             );
         }
         if (row == null) {
@@ -294,7 +331,9 @@ public class MerchantPlanUsageService {
     }
 
     private PlanRow resolvePlan(String planCode) {
-        if (planCode == null || planCode.isBlank()) return null;
+        if (planCode == null || planCode.isBlank()) {
+            planCode = PlanQuotaService.DEFAULT_PLAN;
+        }
         var rows = jdbc.query("""
             SELECT code, name, active, limit_products, limit_orders_per_month, limit_staff, limit_storage_bytes
               FROM plans WHERE code = ?

@@ -83,6 +83,28 @@
   overflow: hidden;
   background: #eaf3fb;
   z-index: 0;
+  isolation: isolate;
+}
+
+.shop-map-pin-canvas.is-resolving {
+  background: linear-gradient(90deg, var(--skeleton-base, #eef1f5) 0%, var(--skeleton-shine, #f7f9fc) 50%, var(--skeleton-base, #eef1f5) 100%);
+  background-size: 200% 100%;
+}
+
+.shop-map-pin-canvas.is-resolving .leaflet-container {
+  opacity: 0;
+}
+
+.shop-map-pin-canvas.is-unavailable {
+  background: var(--skeleton-base, #eef1f5);
+}
+
+.shop-map-pin-canvas .leaflet-container {
+  z-index: 0;
+}
+
+.shop-map-pin-canvas .leaflet-control-container {
+  z-index: 1;
 }
 
 .shop-map-pin-hint {

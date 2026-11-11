@@ -1,26 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
-  Baby,
-  CircleEllipsis,
-  Dumbbell,
-  Gift,
   Grid2X2,
   Heart,
-  Leaf,
+  LayoutGrid,
   List,
   Package,
   Search,
   SearchX,
-  Shirt,
-  ShoppingBag,
   ShoppingCart,
-  Sofa,
-  Sparkles,
   Store,
-  Utensils,
-  Wine,
 } from "lucide-react";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import { useAuth } from "../contexts/AuthContext";
@@ -36,10 +26,13 @@ import {
 } from "../services/api";
 import recommendReference from "../assets/images/references/storefront/recommend-product.png";
 import EmptyState from "../components/feedback/EmptyState";
+import {
+  buildRecommendCategoryTiles,
+  parseCategoryParam,
+} from "../components/marketplace/categoryTiles";
 import "../styles/recommended-products.css";
 import "../styles/shop-page.css";
 
-const categoryIcons = [Sparkles, Shirt, Wine, Sofa, ShoppingBag, Utensils, Dumbbell, Baby, Gift, Gift, Leaf, CircleEllipsis];
 const ratingStars = ["★★★★", "★★★½", "★★★", "★★"] as const;
 /** Same order as catalog.priceRanges / catalog.ratingRanges in the locale files. */
 const priceBands: [number | undefined, number | undefined][] = [[undefined, 99.99], [100, 300], [301, 500], [501, 1000], [1000.01, undefined]];
@@ -69,10 +62,13 @@ export default function RecommendedProductsPage() {
   const lang = localeTag.startsWith("zh") ? "zh" : localeTag.startsWith("en") ? "en" : "th";
   const t = texts[lang];
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const cartApi = useOptionalCart();
-  const [activeCategory, setActiveCategory] = useState(0);
-  const [categoryList, setCategoryList] = useState<ProductCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(() =>
+    parseCategoryParam(searchParams.get("category")),
+  );
+  const [categoryList, setCategoryList] = useState<ProductCategory[] | null>(null);
   const [notice, setNotice] = useState("");
   const [sort, setSort] = useState<SortKey>("featured");
   const [grid, setGrid] = useState(true);
@@ -92,6 +88,7 @@ export default function RecommendedProductsPage() {
   const priceRanges = tp("catalog.priceRanges", { returnObjects: true }) as unknown as string[];
   const ratingRanges = tp("catalog.ratingRanges", { returnObjects: true }) as unknown as string[];
   const banners = tp("recommend.banners", { returnObjects: true }) as unknown as RecommendBanner[];
+  const fallbackCategories = tp("home.categories", { returnObjects: true }) as unknown as string[];
 
   const notify = (message: string) => {
     setNotice(message);
@@ -99,15 +96,48 @@ export default function RecommendedProductsPage() {
   };
 
   useEffect(() => {
-    catalogApi.categories().then(setCategoryList).catch(() => setCategoryList([]));
+    catalogApi.categories()
+      .then(setCategoryList)
+      .catch(() => setCategoryList([]));
   }, []);
 
-  const categoryName = (c: ProductCategory) => (lang === "en" ? c.nameEn : lang === "zh" ? c.nameZh : c.nameTh) || c.nameTh;
-  const chips = useMemo(
-    () => [{ id: undefined as number | undefined, label: t.all }, ...categoryList.slice(0, categoryIcons.length - 1).map((c) => ({ id: c.id as number | undefined, label: categoryName(c) }))],
-    [categoryList, lang],
+  // Keep local selection in sync with the URL (back/forward + direct edits).
+  useEffect(() => {
+    setSelectedCategoryId(parseCategoryParam(searchParams.get("category")));
+  }, [searchParams]);
+
+  // After categories load: invalid id → silently fall back to "all".
+  useEffect(() => {
+    if (!categoryList || categoryList.length === 0) return;
+    if (selectedCategoryId == null) return;
+    if (categoryList.some((c) => c.id === selectedCategoryId)) return;
+    setSelectedCategoryId(undefined);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("category");
+      return next;
+    }, { replace: true });
+  }, [categoryList, selectedCategoryId, setSearchParams]);
+
+  const categoryTiles = useMemo(
+    () => buildRecommendCategoryTiles(categoryList, fallbackCategories, localeTag, t.all),
+    [categoryList, fallbackCategories, localeTag, t.all],
   );
-  const selectedCategory = chips[activeCategory]?.id;
+
+  const setCategoryInUrl = (id: number | undefined) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (id == null) next.delete("category");
+      else next.set("category", String(id));
+      return next;
+    }, { replace: true });
+    setSelectedCategoryId(id);
+  };
+
+  const selectCategory = (id: number | undefined, label: string, toast: boolean) => {
+    setCategoryInUrl(id);
+    if (toast) notify(tp("catalog.pickCategory", { name: label.replace(/\n/g, " ") }));
+  };
 
   const priceQuery = useMemo(() => {
     if (!priceChecked.length) return {};
@@ -118,7 +148,7 @@ export default function RecommendedProductsPage() {
   }, [priceChecked]);
   const minRating = ratingChecked.length ? Math.min(...ratingChecked.map((i) => ratingMins[i])) : undefined;
   const brands = brandChecked.join(",");
-  const filterKey = JSON.stringify([selectedCategory, priceQuery, minRating, brands, sort, reload]);
+  const filterKey = JSON.stringify([selectedCategoryId, priceQuery, minRating, brands, sort, reload]);
 
   useEffect(() => { setPage(0); }, [filterKey]);
 
@@ -127,7 +157,7 @@ export default function RecommendedProductsPage() {
     setFetching(true);
     setLoadError(false);
     recommendationApi
-      .list({ categoryId: selectedCategory, ...priceQuery, minRating, brands: brands || undefined, sort: sortParam[sort], page, size: PAGE_SIZE })
+      .list({ categoryId: selectedCategoryId, ...priceQuery, minRating, brands: brands || undefined, sort: sortParam[sort], page, size: PAGE_SIZE })
       .then((result) => {
         if (!alive) return;
         setItems((prev) => (page === 0 ? result.items : [...prev, ...result.items.filter((p) => !prev.some((x) => x.id === p.id))]));
@@ -178,7 +208,7 @@ export default function RecommendedProductsPage() {
   const shownBrands = [...new Set([...knownBrands, ...brandChecked])].filter((x) => x.toLowerCase().includes(brandQuery.trim().toLowerCase()));
   const hasMore = items.length < total;
   const hasActiveFilters =
-    brandChecked.length > 0 || priceChecked.length > 0 || ratingChecked.length > 0 || activeCategory > 0;
+    brandChecked.length > 0 || priceChecked.length > 0 || ratingChecked.length > 0 || selectedCategoryId != null;
   const bannerEmojis = ["🎁", "🚚", "🌍"];
 
   return (
@@ -198,21 +228,43 @@ export default function RecommendedProductsPage() {
         </div>
       </section>
 
-      <section className="recommend-categories recommend-width">
-        {chips.map((chip, index) => {
-          const Icon = categoryIcons[index % categoryIcons.length];
+      <section className="recommend-categories recommend-width" aria-label={tp("home.shopByCategory")}>
+        {categoryTiles.map((tile) => {
+          const isAll = tile.key === "all";
+          const isActive = isAll
+            ? selectedCategoryId == null
+            : tile.categoryId != null && tile.categoryId === selectedCategoryId;
           return (
             <button
-              className={activeCategory === index ? "active" : ""}
-              key={`${chip.id ?? "all"}-${index}`}
+              className={`category${isActive ? " is-active" : ""}`}
+              key={tile.key}
               type="button"
+              aria-pressed={isActive}
               onClick={() => {
-                setActiveCategory(index);
-                notify(tp("catalog.pickCategory", { name: chip.label }));
+                if (isAll) {
+                  selectCategory(undefined, tile.label, true);
+                  return;
+                }
+                if (tile.categoryId == null) {
+                  // Fallback tile without id — keep "all", no filter.
+                  selectCategory(undefined, tile.label, true);
+                  return;
+                }
+                selectCategory(tile.categoryId, tile.label, true);
               }}
             >
-              <Icon />
-              <span>{chip.label}</span>
+              {isAll ? (
+                <span className="category-more-icon" aria-hidden="true">
+                  <LayoutGrid />
+                </span>
+              ) : (
+                <span aria-hidden="true">{tile.emoji}</span>
+              )}
+              <b>
+                {tile.label.split("\n").map((line, j) => (
+                  <span key={j}>{line}</span>
+                ))}
+              </b>
             </button>
           );
         })}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Activity, BarChart3, Bell, Building2, CircleDollarSign, ClipboardList, FileCheck2, FileText,
   Gauge, Headphones, Home, Link2, LogOut, Megaphone, Newspaper, ReceiptText, Settings, ShoppingBag, Store, Tags,
@@ -19,7 +20,7 @@ export type AdminSection = 'home' | 'stores' | 'applications' | 'categories' | '
 const links: { key: AdminSection; label: string; href: string; icon: typeof Store }[] = [
   { key: 'stores', label: 'ร้านค้า', href: '/admin/stores', icon: Store },
   { key: 'merchants', label: 'ผู้ขายและแพ็กเกจ', href: '/admin/merchants', icon: Building2 },
-  { key: 'usage', label: 'การใช้งาน', href: '/admin/usage', icon: Gauge },
+  { key: 'usage', label: 'แพ็กเกจและการใช้งาน', href: '/admin/usage', icon: Gauge },
   { key: 'orders', label: 'คำสั่งซื้อทั้งหมด', href: '/admin/orders', icon: ShoppingBag },
   { key: 'payouts', label: 'คำขอถอนเงิน', href: '/admin/payouts', icon: WalletCards },
   { key: 'applications', label: 'ใบสมัครร้านค้า', href: '/admin/store-applications', icon: FileCheck2 },
@@ -61,11 +62,14 @@ function NavIcon({ icon: Icon }: { icon: typeof Store }) {
 }
 
 export default function AdminSidebar({ active, className = '', showHelp = false, extended = false }: AdminSidebarProps) {
+  const { t } = useTranslation('admin')
   const { logout } = useAuth()
   const { can, canVisit } = usePermissions()
   const canReadApplications = can('PLATFORM_APPLICATION_READ')
   const [pending, setPending] = useState(0)
   const [notice, setNotice] = useState('')
+  const linkLabel = (key: AdminSection, fallback: string) =>
+    key === 'usage' ? t('adminPlatform.nav.usage', { defaultValue: fallback }) : fallback
 
   useEffect(() => {
     if (!canReadApplications) return
@@ -110,10 +114,11 @@ export default function AdminSidebar({ active, className = '', showHelp = false,
           <h3>{group.label}</h3>
           {group.keys.filter(key => canVisit(item(key).href)).map(key => {
             const link = item(key)
+            const label = linkLabel(key, link.label)
             return (
-              <a className={active === key ? 'active' : ''} href={link.href} key={key} title={link.label}>
+              <a className={active === key ? 'active' : ''} href={link.href} key={key} title={label}>
                 <NavIcon icon={link.icon} />
-                <span className="admin-nav-label">{link.label}</span>
+                <span className="admin-nav-label">{label}</span>
                 {key === 'applications' ? <i>{pending}</i> : null}
               </a>
             )

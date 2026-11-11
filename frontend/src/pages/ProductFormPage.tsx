@@ -16,7 +16,7 @@ import ProductConfiguratorEditor from "../components/merchant/ProductConfigurato
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { labelForCategory } from "../services/categories";
 import { catalogMessage } from "../services/catalogText";
-import { ApiError, catalogApi, productApi, type Product, type ProductCategory, type TranslationMeta } from "../services/api";
+import { ApiError, catalogApi, merchantPlanUsageApi, productApi, type MerchantPlanUsage, type Product, type ProductCategory, type TranslationMeta } from "../services/api";
 import {
   axesFromGroups, axesFromSkus, emptyDraft, emptySku, englishStem, fromProduct, groupsFromAxes, optionKey, randomStem, toWrite, uncoveredOptionLabels, validateDraft, variantIssues,
   type VariantIssue,
@@ -62,6 +62,7 @@ export default function ProductFormPage() {
   const [saving, setSaving] = useState<"draft" | "publish" | null>(null);
   const [notice, setNotice] = useState("");
   const [tone, setTone] = useState<"ok" | "fail">("ok");
+  const [planUsage, setPlanUsage] = useState<MerchantPlanUsage | null>(null);
   const product = remote[0];
   const snapshot = JSON.stringify(draft);
   const dirty = snapshot !== baseline || local.length > 0;
@@ -80,6 +81,18 @@ export default function ProductFormPage() {
   useEffect(() => {
     catalogApi.categories().then(setCategories).catch(() => setCategories([]));
   }, []);
+
+  useEffect(() => {
+    if (shopId == null) {
+      setPlanUsage(null);
+      return;
+    }
+    let cancelled = false;
+    merchantPlanUsageApi.get(shopId)
+      .then((row) => { if (!cancelled) setPlanUsage(row); })
+      .catch(() => { if (!cancelled) setPlanUsage(null); });
+    return () => { cancelled = true; };
+  }, [shopId]);
 
   useEffect(() => {
     if (!editing || shopId == null || !productId) return;
@@ -154,8 +167,20 @@ export default function ProductFormPage() {
     target?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [submitAttempt]);
 
+  const productMetric = planUsage?.metrics.find((metric) => metric.code === "PRODUCTS");
+  const publishLimit = productMetric?.limit.kind === "FINITE" ? productMetric.limit.value : null;
+  const alreadyPublished = product?.status === "PUBLISHED";
+  const publishQuotaBlocked = !alreadyPublished
+    && publishLimit != null
+    && (productMetric?.status === "FULL" || productMetric?.status === "OVER" || (productMetric?.used ?? 0) >= publishLimit);
+  const publishQuotaTitle = publishQuotaBlocked ? t("catalog.publishQuota.blocked") : undefined;
+
   const save = async (publish: boolean, confirmRemoveStocked = false) => {
     if (shopId == null) return;
+    if (publish && publishQuotaBlocked) {
+      toast(t("catalog.publishQuota.blocked"), "fail");
+      return;
+    }
     setSubmitAttempt((current) => current + 1);
     const imageCount = (product?.images.length || 0) + local.length;
     const nextErrors = validateDraft({ ...draft, optionSchema: axesFromGroups(groups) }, publish, imageCount);
@@ -520,9 +545,15 @@ export default function ProductFormPage() {
           />
           {errors.images ? <FieldError text={t(`catalog.errors.${errors.images}`)} /> : null}
           <ProductConfiguratorEditor shopId={shopId} productId={product?.id} />
+          {publishQuotaBlocked ? (
+            <p className="form-alert" role="alert">
+              {t("catalog.publishQuota.fullAlert")}{" "}
+              <Link to="/merchant/settings?tab=plan">{t("catalog.publishQuota.link")}</Link>
+            </p>
+          ) : null}
           <div className="pm-actions">
             <button type="submit" disabled={Boolean(saving)}>{saving === "draft" ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.saveDraft")}</button>
-            <button type="button" className="primary" disabled={Boolean(saving)} onClick={() => void save(true)}>{saving === "publish" ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.savePublish")}</button>
+            <button type="button" className="primary" disabled={Boolean(saving) || publishQuotaBlocked} title={publishQuotaTitle} onClick={() => void save(true)}>{saving === "publish" ? <LoaderCircle className="pm-spin" /> : null}{t("catalog.actions.savePublish")}</button>
           </div>
         </form>
       ) : null}

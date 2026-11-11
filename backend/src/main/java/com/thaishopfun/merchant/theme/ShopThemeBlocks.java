@@ -30,8 +30,11 @@ final class ShopThemeBlocks {
 
     private static final Set<String> BLOCK_KEYS = Set.of("id", "type", "enabled", "variant", "settings", "content");
     private static final Set<String> SETTINGS_KEYS = Set.of(
-        "background", "gradient", MEDIA_KEY, "overlay", "align", "columns", "paddingY", "fullWidth"
+        "background", "gradient", MEDIA_KEY, "overlay", "align", "columns", "paddingY", "fullWidth",
+        "cardRadius", "cardGap"
     );
+    private static final List<String> CARD_RADII = List.of("NONE", "ROUNDED");
+    private static final List<String> CARD_GAPS = List.of("TIGHT", "SPACED");
     private static final Set<String> GRADIENT_KEYS = Set.of("angle", "stops");
     private static final Set<String> GRADIENT_STOP_KEYS = Set.of("color", "at");
 
@@ -72,10 +75,18 @@ final class ShopThemeBlocks {
             upper(settings, "background");
             upper(settings, "align");
             upper(settings, "paddingY");
+            upper(settings, "cardRadius");
+            upper(settings, "cardGap");
             coerceInt(settings, "columns");
             coerceInt(settings, "overlay");
             if (settings.get("columns") == null) settings.remove("columns");
             if (settings.get("overlay") == null) settings.remove("overlay");
+            if (settings.get("cardRadius") == null || !CARD_RADII.contains(string(settings.get("cardRadius")))) {
+                settings.remove("cardRadius");
+            }
+            if (settings.get("cardGap") == null || !CARD_GAPS.contains(string(settings.get("cardGap")))) {
+                settings.remove("cardGap");
+            }
             var gradient = asMap(settings.get("gradient"));
             if (gradient != null) {
                 var cleaned = keep(gradient, GRADIENT_KEYS);
@@ -182,6 +193,10 @@ final class ShopThemeBlocks {
                 var columns = intValue(legacy.get("columns"));
                 if (columns != null && columns >= 2 && columns <= 5) settings.put("columns", columns);
             }
+            if (PRODUCT_TYPES.contains(key)) {
+                putCardLook(settings, row, "cardRadius", CARD_RADII);
+                putCardLook(settings, row, "cardGap", CARD_GAPS);
+            }
             settings.put("fullWidth", Boolean.FALSE);
             block.put("settings", settings);
             block.put("content", new LinkedHashMap<String, Object>());
@@ -214,11 +229,11 @@ final class ShopThemeBlocks {
             var block = asMap(item);
             var key = block == null ? null : ShopSectionKey.from(string(block.get("type")));
             if (key == null || !seen.add(key)) continue;
-            sections.add(sectionRow(key, Boolean.TRUE.equals(block.get("enabled")), variantFor(key, block, previous.get(key))));
+            sections.add(sectionRow(key, Boolean.TRUE.equals(block.get("enabled")), variantFor(key, block, previous.get(key)), block, previous.get(key)));
         }
         for (var key : ShopSectionKey.values()) {
             if (seen.contains(key)) continue;
-            sections.add(sectionRow(key, false, variantFor(key, null, previous.get(key))));
+            sections.add(sectionRow(key, false, variantFor(key, null, previous.get(key)), null, previous.get(key)));
         }
         config.put("sections", sections);
 
@@ -241,12 +256,31 @@ final class ShopThemeBlocks {
         return variant.name();
     }
 
-    private static Map<String, Object> sectionRow(ShopSectionKey key, boolean enabled, String variant) {
+    private static Map<String, Object> sectionRow(
+        ShopSectionKey key,
+        boolean enabled,
+        String variant,
+        Map<String, Object> block,
+        Map<String, Object> previous
+    ) {
         var row = new LinkedHashMap<String, Object>();
         row.put("key", key.name());
         row.put("enabled", enabled);
         row.put("variant", variant);
+        if (PRODUCT_TYPES.contains(key)) {
+            var settings = block == null ? null : asMap(block.get("settings"));
+            putCardLook(row, settings != null ? settings : previous, "cardRadius", CARD_RADII);
+            putCardLook(row, settings != null ? settings : previous, "cardGap", CARD_GAPS);
+            if (!row.containsKey("cardRadius")) putCardLook(row, previous, "cardRadius", CARD_RADII);
+            if (!row.containsKey("cardGap")) putCardLook(row, previous, "cardGap", CARD_GAPS);
+        }
         return row;
+    }
+
+    private static void putCardLook(Map<String, Object> target, Map<String, Object> source, String field, List<String> allowed) {
+        if (source == null) return;
+        var value = upperString(source.get(field));
+        if (value != null && allowed.contains(value)) target.put(field, value);
     }
 
     // ───────────────────────── read-side media ─────────────────────────

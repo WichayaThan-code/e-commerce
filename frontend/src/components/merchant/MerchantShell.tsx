@@ -6,7 +6,7 @@ import MerchantBrand from "./MerchantBrand";
 import "../../styles/merchant-dashboard.css";
 import "../../styles/product-management.css";
 
-export default function MerchantShell({ children, notice, tone = "ok", active = "products" }: { children: ReactNode; active?: MerchantMenuKey; notice?: string; tone?: "ok" | "fail" }) {
+export default function MerchantShell({ children, notice, tone = "ok", active = "products" }: { children: ReactNode; active?: MerchantMenuKey; notice?: string; tone?: "ok" | "fail" | "warning" }) {
   return (
     <main className="merchant-shell pm-shell catalog-shell">
       <header className="merchant-topbar">
@@ -16,7 +16,14 @@ export default function MerchantShell({ children, notice, tone = "ok", active = 
       </header>
       <MerchantSidebar active={active} />
       <section className="pm-content">{children}</section>
-      {notice ? <div className={tone === "fail" ? "catalog-toast fail" : "catalog-toast"} role="status">{notice}</div> : null}
+      {notice ? (
+        <div
+          className={tone === "fail" ? "catalog-toast fail" : tone === "warning" ? "catalog-toast warning" : "catalog-toast"}
+          role="status"
+        >
+          {notice}
+        </div>
+      ) : null}
     </main>
   );
 }

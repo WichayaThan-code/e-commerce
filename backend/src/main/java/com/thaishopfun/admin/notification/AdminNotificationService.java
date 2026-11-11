@@ -94,6 +94,19 @@ public class AdminNotificationService {
     }
 
     @Transactional
+    public void publishPlanPurchasePendingReview(UUID subscriptionId, long shopId, String shopName) {
+        publish(
+            SHOP_PLAN_PURCHASE_PENDING_REVIEW,
+            ENTITY_PLAN_SUBSCRIPTION,
+            subscriptionId.toString(),
+            shopId,
+            shopName,
+            planPurchasePendingDedupe(subscriptionId),
+            "PLATFORM_SHOP_SUSPEND"
+        );
+    }
+
+    @Transactional
     public void publishRefundDisputed(UUID orderId, UUID refundId, Long shopId, String shopName) {
         publish(
             REFUND_DISPUTED,

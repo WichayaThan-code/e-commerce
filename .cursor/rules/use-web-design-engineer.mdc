@@ -1,0 +1,14 @@
+---
+description: For ThaiShopFun UI design/redesign, load web-design-engineer skill first, then follow the project design system
+globs: frontend/src/**/*.tsx, frontend/src/**/*.css
+alwaysApply: false
+---
+
+# UI design → web-design-engineer + ThaiShopFun DS
+
+When designing or changing visual UI in this repo:
+
+1. **First** read `~/.cursor/skills/web-design-engineer/SKILL.md` and follow its workflow (quality bar, dials, critique).
+2. **Then** follow `.cursor/rules/thaishopfun-design-system.mdc` for tokens, components, i18n, and “reuse existing / no unauthorized redesign.”
+3. Prefer existing ThaiShopFun components and CSS variables over inventing a new visual system.
+4. New marketing/landing or greenfield visual surfaces may lean on the skill’s craft; product shells (merchant/admin/buyer app chrome) stay aligned with the design system.

@@ -114,6 +114,13 @@ app:
     resend-cooldown-seconds: ${SHOP_TEAM_RESEND_COOLDOWN_SECONDS:60}
     invite-create-per-hour: ${SHOP_TEAM_INVITE_CREATE_PER_HOUR:20}
     invite-path: ${SHOP_TEAM_INVITE_PATH:/invite}
+  platform-billing:
+    # Bank account shown when a shop pays for Basic/Pro (manual transfer). Override in env for prod.
+    bank-name: ${PLATFORM_BILLING_BANK_NAME:กสิกรไทย}
+    account-name: ${PLATFORM_BILLING_ACCOUNT_NAME:ThaiShopFun Co., Ltd.}
+    account-number: ${PLATFORM_BILLING_ACCOUNT_NUMBER:1234567890}
+    promptpay: ${PLATFORM_BILLING_PROMPTPAY:}
+    display-name: ${PLATFORM_BILLING_DISPLAY_NAME:ThaiShopFun — ค่าแพ็กเกจร้านค้า}
 
 # SMTP is configured by app.notification.mail (not spring.mail), so Boot's mail auto-config never
 # runs; keep the actuator mail health check off in case actuator is added later.

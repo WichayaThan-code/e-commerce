@@ -25,6 +25,7 @@
       "SHOP_APPLICATION_SUBMITTED": "New shop application",
       "SHOP_REINSTATEMENT_REQUESTED": "Shop requested reinstatement",
       "REFUND_DISPUTED": "Refund needs admin review",
+      "SHOP_PLAN_PURCHASE_PENDING_REVIEW": "Plan purchase awaiting review",
       "UNKNOWN": "Notification"
     }
   },
@@ -567,7 +568,23 @@
         "reactivate": "Reactivate shop",
         "auditLink": "View history in audit log",
         "loadError": "Could not load shop details",
-        "forbidden": "You do not have permission to view this shop"
+        "forbidden": "You do not have permission to view this shop",
+        "changePlan": "Change plan",
+        "changePlanDialog": {
+          "title": "Change plan — {{name}}",
+          "message": "Choose a new plan for this shop. Changes apply immediately.",
+          "selectLabel": "Plan",
+          "confirm": "Save plan",
+          "success": "Updated plan for {{name}}",
+          "error": "Could not change plan",
+          "loadError": "Could not load plan catalog",
+          "over": {
+            "products": "Products exceed the new plan limit ({{used}} > {{limit}})",
+            "orders": "Orders (30d) exceed the new plan limit ({{used}} > {{limit}})",
+            "staff": "Staff exceed the new plan limit ({{used}} > {{limit}})",
+            "storage": "Storage exceeds the new plan limit ({{used}} > {{limit}})"
+          }
+        }
       }
     },
     "storesPage": {
@@ -662,10 +679,10 @@
       "last30": "{{count}} in 30 days"
     },
     "usage": {
-      "title": "Usage",
-      "subtitle": "Monitor shop quota usage and plans across the platform",
+      "title": "Plans & usage",
+      "subtitle": "Browse Free/Basic/Pro plans and shop quota usage",
       "summaryAria": "Usage summary by plan",
-      "summaryTitle": "Summary by plan",
+      "summaryTitle": "Plan catalog",
       "shopCount": "{{count}} shops",
       "summaryProducts": "Products {{count}}",
       "summaryStaff": "Staff {{count}}",
@@ -674,6 +691,9 @@
       "listTitle": "Shops and usage",
       "empty": "No shops match these filters",
       "noPlan": "No plan",
+      "priceMonthly": "{{price}}/month",
+      "priceYearly": "{{price}}/year",
+      "planFilterLabel": "{{name}} · {{price}}",
       "unlimited": "Unlimited",
       "detailTitle": "Usage details",
       "detailSubtitle": "Shop #{{id}}",
@@ -685,19 +705,66 @@
         "shop": "Shop",
         "slug": "Slug",
         "plan": "Plan",
-        "products": "Products",
+        "products": "Published",
         "orders": "Orders",
-        "staff": "Staff"
+        "staff": "Staff",
+        "actions": "Actions"
       },
       "metric": {
-        "products": "Products",
+        "products": "Published products",
         "productsHint": "{{published}} published · {{draft}} draft · {{images}} images",
         "images": "Product images",
         "ordersMonth": "Orders (30 days)",
         "ordersHint": "{{total}} total · {{open}} open",
         "staff": "Staff",
         "storage": "Storage"
+      },
+      "priceFree": "Free",
+      "limitProducts": "Published products: {{value}}",
+      "limitOrders": "Orders / 30 days: {{value}}",
+      "limitStaff": "Staff: {{value}}",
+      "limitStorage": "Storage: {{value}}",
+      "changePlan": "Change plan",
+      "purchases": {
+        "aria": "Plan purchases",
+        "title": "Plan purchases",
+        "filterStatus": "Status",
+        "empty": "No purchases for this filter",
+        "approve": "Approve",
+        "reject": "Reject",
+        "approved": "Plan purchase approved",
+        "rejected": "Plan purchase rejected",
+        "working": "Working…",
+        "rejectTitle": "Reject plan purchase",
+        "rejectBody": "Tell the shop what to fix",
+        "rejectConfirm": "Confirm reject",
+        "rejectReason": "Reason",
+        "viewSlip": "View slip",
+        "noSlip": "No slip attached yet",
+        "col": {
+          "shop": "Shop",
+          "plan": "Plan",
+          "cycle": "Billing",
+          "amount": "Amount",
+          "status": "Status",
+          "created": "Date"
+        },
+        "cycle": {
+          "MONTHLY": "Monthly",
+          "YEARLY": "Yearly"
+        },
+        "status": {
+          "PENDING_PAYMENT": "Awaiting payment",
+          "PENDING_REVIEW": "Awaiting review",
+          "ACTIVE": "Active",
+          "REJECTED": "Rejected",
+          "CANCELLED": "Cancelled",
+          "EXPIRED": "Expired"
+        }
       }
+    },
+    "nav": {
+      "usage": "Plans & usage"
     }
   },
   "helpCenter": {

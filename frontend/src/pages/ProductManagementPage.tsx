@@ -17,7 +17,7 @@ import { usePermissions } from "../hooks/usePermissions";
 import { labelForCategory } from "../services/categories";
 import { catalogMessage, formatMoney, formatWhen } from "../services/catalogText";
 import { hasMerchantAccess, hasPlatformAccess } from "../services/permissions";
-import { ApiError, catalogApi, productApi, type Product, type ProductBrand, type ProductCategory, type ProductSort, type ProductStatus, type StockFilter } from "../services/api";
+import { ApiError, catalogApi, merchantPlanUsageApi, productApi, type MerchantPlanUsage, type Product, type ProductBrand, type ProductCategory, type ProductSort, type ProductStatus, type StockFilter } from "../services/api";
 import { canOpenStorefront, copyText, productPageUrl, productShareLink } from "../utils/productLinks";
 import type { Locale } from "../i18n";
 
@@ -85,7 +85,7 @@ export default function ProductManagementPage() {
   const [error, setError] = useState<unknown>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
-  const [tone, setTone] = useState<"ok" | "fail">("ok");
+  const [tone, setTone] = useState<"ok" | "fail" | "warning">("ok");
   const [busy, setBusy] = useState(false);
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
   const [reload, setReload] = useState(0);
@@ -95,8 +95,20 @@ export default function ProductManagementPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [qrProduct, setQrProduct] = useState<Product | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [planUsage, setPlanUsage] = useState<MerchantPlanUsage | null>(null);
 
   useEffect(() => { setQuery(q); }, [q]);
+  useEffect(() => {
+    if (shopId == null) {
+      setPlanUsage(null);
+      return;
+    }
+    let cancelled = false;
+    merchantPlanUsageApi.get(shopId)
+      .then((row) => { if (!cancelled) setPlanUsage(row); })
+      .catch(() => { if (!cancelled) setPlanUsage(null); });
+    return () => { cancelled = true; };
+  }, [shopId, reload]);
   useEffect(() => {
     if (finishedTick === 0) return;
     setReload((value) => value + 1);
@@ -193,7 +205,7 @@ export default function ProductManagementPage() {
       if (importRef.current) importRef.current.value = "";
     }
   };
-  const toast = (text: string, nextTone: "ok" | "fail" = "ok") => {
+  const toast = (text: string, nextTone: "ok" | "fail" | "warning" = "ok") => {
     setTone(nextTone);
     setNotice(text);
     window.setTimeout(() => setNotice(""), 2200);
@@ -209,6 +221,17 @@ export default function ProductManagementPage() {
       window.removeEventListener("keydown", onKey);
     };
   }, [menuFor]);
+
+  const productMetric = planUsage?.metrics.find((metric) => metric.code === "PRODUCTS");
+  const publishLimit = productMetric?.limit.kind === "FINITE" ? productMetric.limit.value : null;
+  const publishedUsed = productMetric?.used ?? counts.published;
+  const draftCount = productMetric?.breakdown?.draft ?? counts.draft;
+  const publishRemaining = publishLimit == null ? null : Math.max(0, publishLimit - publishedUsed);
+  const publishQuotaBlocked = publishLimit != null && (productMetric?.status === "FULL" || productMetric?.status === "OVER" || publishedUsed >= publishLimit);
+  const publishQuotaWarn = !publishQuotaBlocked
+    && productMetric?.usedRatio != null
+    && productMetric.usedRatio >= 0.8;
+  const publishQuotaTitle = publishQuotaBlocked ? t("catalog.publishQuota.blocked") : undefined;
 
   const rowActions = (product: Product) => {
     const storefrontOk = canOpenStorefront(product.status, shopSlug, product.slug);
@@ -293,8 +316,8 @@ export default function ProductManagementPage() {
                     <button
                       type="button"
                       role="menuitem"
-                      disabled={busy || !canUpdate}
-                      title={deniedTitle(canUpdate)}
+                      disabled={busy || !canUpdate || publishQuotaBlocked}
+                      title={publishQuotaTitle ?? deniedTitle(canUpdate)}
                       onClick={() => { closeMenu(); void runMany([product.id], "publish"); }}
                     >
                       <Upload />{t("catalog.actions.publish")}
@@ -320,6 +343,13 @@ export default function ProductManagementPage() {
   };
   const runMany = async (ids: string[], action: "publish" | "archive" | "unarchive") => {
     if (shopId == null) return;
+    if (action === "publish") {
+      const toPublish = ids.filter((id) => items.find((item) => item.id === id)?.status !== "PUBLISHED");
+      if (publishRemaining != null && toPublish.length > publishRemaining) {
+        toast(t("catalog.publishQuota.bulkOver", { selected: toPublish.length, remaining: publishRemaining }), "fail");
+        return;
+      }
+    }
     setBusy(true);
     let ok = 0;
     let fail = 0;
@@ -331,6 +361,8 @@ export default function ProductManagementPage() {
       } catch (caught) {
         fail += 1;
         first = first || caught;
+        // Do not continue publishing after quota failure — avoid silent partial success.
+        if (action === "publish" && caught instanceof ApiError && caught.code === "PRODUCT_QUOTA_EXCEEDED") break;
       }
     }
     setBusy(false);
@@ -411,8 +443,14 @@ export default function ProductManagementPage() {
             {transfer === "template" ? <LoaderCircle className="pm-spin" /> : <Download />}
             {t("catalog.downloadTemplate")}
           </button>
-          <button type="button" className="primary" title={deniedTitle(canImport) ?? t("catalog.importHint")} disabled={shopId == null || transfer != null || importBusy || !canImport} onClick={() => importRef.current?.click()}>
-            {importBusy ? <LoaderCircle className="pm-spin" /> : <Upload />}
+          <button
+            type="button"
+            className="primary"
+            title={t("catalog.importUnavailable")}
+            disabled={shopId == null}
+            onClick={() => toast(t("catalog.importUnavailable"), "warning")}
+          >
+            <Upload />
             {t("catalog.import")}
           </button>
           <input
@@ -422,9 +460,28 @@ export default function ProductManagementPage() {
             accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             onChange={(event) => void importProducts(event.target.files?.[0])}
           />
-          {canCreate ? <Link className="primary" to="/merchant/products/new"><Plus />{t("catalog.add")}</Link> : <button type="button" className="primary" disabled title={deniedTitle(false)}><Plus />{t("catalog.add")}</button>}
+          {canCreate ? (
+            <Link className="primary" to="/merchant/products/new"><Plus />{t("catalog.add")}</Link>
+          ) : (
+            <button type="button" className="primary" disabled title={deniedTitle(false)}><Plus />{t("catalog.add")}</button>
+          )}
         </div>
       </header>
+      {publishLimit != null || productMetric?.limit.kind === "UNLIMITED" ? (
+        <p className="pm-plan-quota" aria-live="polite">
+          {publishLimit != null
+            ? t("catalog.publishQuota.counter", { used: publishedUsed, limit: publishLimit })
+            : t("catalog.publishQuota.counterUnlimited", { used: publishedUsed })}
+          {" · "}
+          {t("catalog.publishQuota.draftNote", { draft: draftCount })}
+        </p>
+      ) : null}
+      {publishQuotaBlocked || publishQuotaWarn ? (
+        <p className="form-alert" role="alert">
+          {t(publishQuotaBlocked ? "catalog.publishQuota.fullAlert" : "catalog.publishQuota.warnAlert")}{" "}
+          <Link to="/merchant/settings?tab=plan">{t("catalog.publishQuota.link")}</Link>
+        </p>
+      ) : null}
       <div className="pm-tabs" role="tablist">
         {tabs.map(([value, key]) => (
           <button key={key} type="button" role="tab" aria-selected={status === value} className={status === value ? "active" : ""} onClick={() => patch({ status: value || null })}>
@@ -472,7 +529,7 @@ export default function ProductManagementPage() {
         {selected.length > 0 && (
           <div className="pm-bulk">
             <span>{t("catalog.selected", { count: selected.length })}</span>
-            <button type="button" disabled={busy || !canUpdate} title={deniedTitle(canUpdate)} onClick={() => void runMany(selected, "publish")}><Upload />{t("catalog.bulkPublish")}</button>
+            <button type="button" disabled={busy || !canUpdate || publishQuotaBlocked} title={publishQuotaTitle ?? deniedTitle(canUpdate)} onClick={() => void runMany(selected, "publish")}><Upload />{t("catalog.bulkPublish")}</button>
             <button type="button" disabled={busy || !canArchive} title={deniedTitle(canArchive)} onClick={() => setConfirmIds(selected)}><Archive />{t("catalog.bulkArchive")}</button>
           </div>
         )}
@@ -488,7 +545,11 @@ export default function ProductManagementPage() {
           <div className="pm-state">
             <h2>{t(filtered ? "catalog.empty.filterTitle" : "catalog.empty.noneTitle")}</h2>
             <p>{t(filtered ? "catalog.empty.filterBody" : "catalog.empty.noneBody")}</p>
-            {filtered ? <button type="button" onClick={() => setParams({})}>{t("catalog.actions.clear")}</button> : canCreate ? <Link className="primary" to="/merchant/products/new">{t("catalog.actions.addFirst")}</Link> : <button type="button" className="primary" disabled title={deniedTitle(false)}>{t("catalog.actions.addFirst")}</button>}
+            {filtered ? <button type="button" onClick={() => setParams({})}>{t("catalog.actions.clear")}</button> : canCreate ? (
+              <Link className="primary" to="/merchant/products/new">{t("catalog.actions.addFirst")}</Link>
+            ) : (
+              <button type="button" className="primary" disabled title={deniedTitle(false)}>{t("catalog.actions.addFirst")}</button>
+            )}
           </div>
         ) : (
           <SkeletonBusy refetching={isRefetching} busy={isRefetching}>

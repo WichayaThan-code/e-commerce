@@ -3,6 +3,8 @@ import { ApiError } from "./api";
 
 export function catalogMessage(t: TFunction, error: unknown) {
   if (error instanceof ApiError) {
+    // Backend Thai message already names remaining slots — show it verbatim.
+    if (error.code === "PRODUCT_QUOTA_EXCEEDED" && error.message?.trim()) return error.message;
     const key = `catalog.errors.${error.code}`;
     const translated = t(key);
     return translated === key ? error.message : translated;

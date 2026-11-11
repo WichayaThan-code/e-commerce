@@ -2,6 +2,7 @@ package com.thaishopfun.payment;
 
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.merchant.MerchantStorageService;
+import com.thaishopfun.merchant.plan.PlanQuotaService;
 import com.thaishopfun.order.MediaFile;
 import com.thaishopfun.order.MediaFileRepository;
 import org.springframework.core.io.FileSystemResource;
@@ -30,14 +31,17 @@ public class PaymentFileService {
 
     private final MerchantStorageService storage;
     private final MediaFileRepository media;
+    private final PlanQuotaService planQuota;
 
-    public PaymentFileService(MerchantStorageService storage, MediaFileRepository media) {
+    public PaymentFileService(MerchantStorageService storage, MediaFileRepository media, PlanQuotaService planQuota) {
         this.storage = storage;
         this.media = media;
+        this.planQuota = planQuota;
     }
 
     public MediaFile store(UUID orderId, UUID shopId, UUID uploader, MultipartFile file, String purpose) {
         if (file == null || file.isEmpty()) throw new AuthException(HttpStatus.BAD_REQUEST, "FILE_REQUIRED", "กรุณาแนบไฟล์สลิป (JPG, PNG, WEBP หรือ PDF)", "file");
+        planQuota.assertCanUploadBytes(shopId, file.getSize());
         var stored = storage.store(orderId, file, purpose);
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

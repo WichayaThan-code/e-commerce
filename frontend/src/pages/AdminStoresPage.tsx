@@ -8,7 +8,8 @@ import {
 } from 'lucide-react'
 import { SkeletonTable, SkeletonForm, LoadError } from '../components/feedback/Skeleton'
 import ReasonDialog, { SUSPEND_REASON_CODES } from '../components/admin/ReasonDialog'
-import { Drawer, Pager, Pill, errorMessage, statusTone } from '../components/admin/PlatformBits'
+import AdminChangePlanDialog from '../components/admin/AdminChangePlanDialog'
+import { Drawer, Pager, Pill, errorMessage, formatBytes, statusTone } from '../components/admin/PlatformBits'
 import { QuotaBar, buildUsageQuotas, quotaRatio, quotaTone } from '../components/admin/QuotaBar'
 import { useDelayedLoading } from '../hooks/useDelayedLoading'
 import AdminHeader from '../components/AdminHeader'
@@ -123,6 +124,7 @@ export default function AdminStoresPage(){
   const canAudit=can('PLATFORM_AUDIT_READ')
   const canSuspend=can('PLATFORM_SHOP_SUSPEND')
   const canRestore=can('PLATFORM_SHOP_RESTORE')
+  const canAssignPlan=can('PLATFORM_SHOP_SUSPEND')
   const navigate=useNavigate()
   const [rows,setRows]=useState<StoreRecord[]>([])
   const [loaded,setLoaded]=useState(false)
@@ -156,6 +158,7 @@ export default function AdminStoresPage(){
   const [serverMatchIds, setServerMatchIds] = useState<number[] | null>(null)
   /** Metrics from GET /api/admin/shops — kept separate so application reloads do not wipe sales. */
   const [shopMetrics, setShopMetrics] = useState<Record<number, { sales: number; products: number }>>({})
+  const [planDialogOpen, setPlanDialogOpen] = useState(false)
 
   useEffect(() => {
     const raw = Number(searchParams.get('shopId'))
@@ -390,6 +393,10 @@ export default function AdminStoresPage(){
   const locale=i18n.language || 'th'
   const selectedRow = rows.find(row => row.id === selectedId) ?? null
   const shownUsage = usage ?? detail?.usage ?? null
+  const openPlanDialog = () => {
+    if (!canAssignPlan || !shownUsage) return
+    setPlanDialogOpen(true)
+  }
   const suspension = detail?.suspension
   const showSuspension = detail?.status === 'SUSPENDED' && suspension && (suspension.suspendedAt || suspension.reasonCode || suspension.reason)
   const appealMessage = (detail?.pendingReinstatementMessage || selectedRow?.appeal || '').trim()
@@ -642,6 +649,17 @@ export default function AdminStoresPage(){
                 <span>{td('planUsage')}</span>
                 <b>{shownUsage?.planCode || detail.usage?.planCode || td('noPlan')}</b>
               </summary>
+              <div className="store-drawer-plan-toolbar">
+                <button
+                  type="button"
+                  className="ap-ghost"
+                  disabled={!canAssignPlan || !shownUsage}
+                  title={deniedTitle(canAssignPlan)}
+                  onClick={openPlanDialog}
+                >
+                  {td('changePlan')}
+                </button>
+              </div>
               {usageError && !shownUsage ? (
                 <p className="ap-error" role="alert">{usageError}</p>
               ) : !shownUsage ? (
@@ -726,6 +744,22 @@ export default function AdminStoresPage(){
         reasonOptional
         onCancel={() => { setBulkConfirm(null); setConfirmError('') }}
         onConfirm={(reason, reasonCode) => void applyBulk(reason, reasonCode)}
+      />
+    )}
+    {planDialogOpen && detail && (
+      <AdminChangePlanDialog
+        open={planDialogOpen}
+        shopId={detail.shopId}
+        shopName={detail.name}
+        currentPlanCode={shownUsage?.planCode || detail.usage?.planCode}
+        usage={shownUsage}
+        onClose={() => setPlanDialogOpen(false)}
+        onAssigned={(response) => {
+          setDetail(response.shop)
+          setUsage(response.shop.usage ?? usage)
+          refreshDetail()
+          notify(td('changePlanDialog.success', { name: response.shop.name }))
+        }}
       />
     )}
     {drawerConfirm && detail && (

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  CalendarClock, Headset, Link2, RotateCcw, ScrollText, SearchX, ShieldCheck, Truck, type LucideIcon,
+  ArrowRight, CalendarClock, Headset, LayoutGrid, RotateCcw, ScrollText, SearchX, ShieldCheck, Truck, type LucideIcon,
 } from "lucide-react";
 import ShopLogo from "../../components/ShopLogo";
 import EmptyState from "../../components/feedback/EmptyState";
@@ -97,6 +97,12 @@ function latestUpdate(policies: ShopPolicy[]): string | null {
   return best;
 }
 
+function excerpt(body: string, max = 140): string {
+  const plain = body.replace(/\s+/g, " ").trim();
+  if (plain.length <= max) return plain;
+  return `${plain.slice(0, max).replace(/\s+\S*$/, "")}…`;
+}
+
 function PolicyBody({ body }: { body: string }) {
   const blocks = useMemo(() => parsePolicyBody(body), [body]);
   return (
@@ -126,15 +132,11 @@ export default function ShopPoliciesPage() {
 
   const byType = useMemo(() => new Map(policies.map((policy) => [policy.type, policy])), [policies]);
   const lastUpdated = useMemo(() => formatDate(latestUpdate(policies), localeTag), [policies, localeTag]);
+  const loaded = state === "ok";
 
   if (!knownType) {
     return <NotFoundPage kind="page" bare />;
   }
-
-  const visible: ShopPolicy[] = selectedType
-    ? (byType.has(selectedType) ? [byType.get(selectedType)!] : [])
-    : SHOP_POLICY_TYPES.map((type) => byType.get(type)).filter((policy): policy is ShopPolicy => Boolean(policy));
-  const loaded = state === "ok";
 
   const hero = (
     <section className="shop-mall-hero shop-contact-hero shop-policies-hero recommend-width">
@@ -166,8 +168,8 @@ export default function ShopPoliciesPage() {
           </div>
         </div>
         <div className="shop-mall-actions">
-          <Link className="shop-mall-btn is-outline" to={shopContactPath(slug)}>
-            <Headset />{tp("shop.policies.contactCta")}
+          <Link className="shop-mall-btn is-outline shop-policies-contact-btn" to={shopContactPath(slug)}>
+            <Headset aria-hidden="true" />{tp("shop.policies.contactCta")}
           </Link>
         </div>
       </div>
@@ -177,29 +179,40 @@ export default function ShopPoliciesPage() {
   const nav = (
     <nav className="shop-policies-nav" aria-label={tp("shop.policies.navAria")}>
       <ul>
-        {selectedType ? (
-          <li>
-            <Link className="shop-policies-chip" to={shopPoliciesPath(slug)}>
-              <ScrollText aria-hidden="true" /><span>{tp("shop.policies.all")}</span>
-            </Link>
-          </li>
-        ) : null}
+        <li>
+          <Link
+            className={`shop-policies-chip${selectedType ? "" : " is-active"}`}
+            to={shopPoliciesPath(slug)}
+            aria-current={selectedType ? undefined : "page"}
+          >
+            <LayoutGrid aria-hidden="true" /><span>{tp("shop.policies.all")}</span>
+          </Link>
+        </li>
         {SHOP_POLICY_TYPES.map((type) => {
           const Icon = POLICY_ICONS[type];
           const has = byType.has(type);
           const active = selectedType === type;
-          // Overview + content exists → in-page anchor (ShopLayout scrolls to location.hash); else → type page.
-          const to = !selectedType && has ? { hash: `#policy-${type}` } : `${shopPoliciesPath(slug)}/${type}`;
           const classes = ["shop-policies-chip", active ? "is-active" : "", loaded && !has ? "is-empty" : ""]
             .filter(Boolean)
             .join(" ");
           return (
             <li key={type}>
-              <Link className={classes} to={to} aria-current={active ? "page" : undefined}>
-                <Icon aria-hidden="true" />
-                <span>{tp(`shop.policies.types.${type}`)}</span>
-                {loaded && !has ? <em>{tp("shop.policies.notSet")}</em> : null}
-              </Link>
+              {has || !loaded ? (
+                <Link
+                  className={classes}
+                  to={`${shopPoliciesPath(slug)}/${type}`}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <Icon aria-hidden="true" />
+                  <span>{tp(`shop.policies.types.${type}`)}</span>
+                </Link>
+              ) : (
+                <span className={classes} aria-disabled="true">
+                  <Icon aria-hidden="true" />
+                  <span>{tp(`shop.policies.types.${type}`)}</span>
+                  <em>{tp("shop.policies.notSet")}</em>
+                </span>
+              )}
             </li>
           );
         })}
@@ -211,18 +224,16 @@ export default function ShopPoliciesPage() {
   if (state === "loading") {
     content = (
       <div className="shop-policies-skeleton" aria-hidden="true">
-        {[0, 1].map((index) => (
-          <div className="shop-contact-panel shop-policy-section" key={index}>
-            <div className="shop-policy-head">
-              <Skeleton width={44} height={44} radius={12} />
-              <div className="shop-policy-head-copy">
-                <Skeleton width="45%" height={20} />
-                <Skeleton width="30%" height={12} />
-              </div>
+        <div className="shop-contact-panel shop-policy-section">
+          <div className="shop-policy-head">
+            <Skeleton width={44} height={44} radius={12} />
+            <div className="shop-policy-head-copy">
+              <Skeleton width="45%" height={20} />
+              <Skeleton width="30%" height={12} />
             </div>
-            <SkeletonText lines={6} />
           </div>
-        ))}
+          <SkeletonText lines={8} />
+        </div>
       </div>
     );
   } else if (state === "error") {
@@ -235,34 +246,30 @@ export default function ShopPoliciesPage() {
         />
       </section>
     );
-  } else if (visible.length === 0) {
-    content = (
-      <section className="shop-contact-panel">
-        <EmptyState
-          variant={selectedType ? "filtered" : "empty"}
-          icon={selectedType ? SearchX : ScrollText}
-          title={selectedType ? tp("shop.policies.emptyOne", { type: typeLabel }) : tp("shop.policies.empty")}
-          description={tp("shop.policies.emptyHint")}
-          actions={[
-            { label: tp("shop.policies.contactCta"), to: shopContactPath(slug) },
-            ...(selectedType ? [{ label: tp("shop.policies.all"), to: shopPoliciesPath(slug) }] : []),
-          ]}
-        />
-      </section>
-    );
-  } else {
-    content = visible.map((policy) => {
+  } else if (selectedType) {
+    const policy = byType.get(selectedType);
+    if (!policy) {
+      content = (
+        <section className="shop-contact-panel">
+          <EmptyState
+            variant="filtered"
+            icon={SearchX}
+            title={tp("shop.policies.emptyOne", { type: typeLabel })}
+            description={tp("shop.policies.emptyHint")}
+            actions={[
+              { label: tp("shop.policies.contactCta"), to: shopContactPath(slug) },
+              { label: tp("shop.policies.all"), to: shopPoliciesPath(slug) },
+            ]}
+          />
+        </section>
+      );
+    } else {
       const Icon = POLICY_ICONS[policy.type];
       const fallbackTitle = tp(`shop.policies.types.${policy.type}`);
       const title = policy.title || fallbackTitle;
       const updated = formatDate(policy.updatedAt, localeTag);
-      return (
-        <article
-          key={policy.type}
-          id={`policy-${policy.type}`}
-          className="shop-contact-panel shop-policy-section"
-          aria-labelledby={`policy-${policy.type}-title`}
-        >
+      content = (
+        <article className="shop-contact-panel shop-policy-section" aria-labelledby={`policy-${policy.type}-title`}>
           <header className="shop-policy-head">
             <span className="shop-contact-icon" aria-hidden="true"><Icon /></span>
             <div className="shop-policy-head-copy">
@@ -275,28 +282,67 @@ export default function ShopPoliciesPage() {
                 </p>
               ) : null}
             </div>
-            {!selectedType ? (
-              <Link
-                className="shop-policy-permalink"
-                to={`${shopPoliciesPath(slug)}/${policy.type}`}
-                aria-label={tp("shop.policies.openOne", { title })}
-                title={tp("shop.policies.openOne", { title })}
-              >
-                <Link2 />
-              </Link>
-            ) : null}
           </header>
           <PolicyBody body={policy.body} />
         </article>
       );
-    });
+    }
+  } else if (policies.length === 0) {
+    content = (
+      <section className="shop-contact-panel">
+        <EmptyState
+          variant="empty"
+          icon={ScrollText}
+          title={tp("shop.policies.empty")}
+          description={tp("shop.policies.emptyHint")}
+          actions={[{ label: tp("shop.policies.contactCta"), to: shopContactPath(slug) }]}
+        />
+      </section>
+    );
+  } else {
+    content = (
+      <ul className="shop-policies-index">
+        {SHOP_POLICY_TYPES.map((type) => {
+          const policy = byType.get(type);
+          if (!policy) return null;
+          const Icon = POLICY_ICONS[type];
+          const fallbackTitle = tp(`shop.policies.types.${type}`);
+          const title = policy.title || fallbackTitle;
+          const updated = formatDate(policy.updatedAt, localeTag);
+          const to = `${shopPoliciesPath(slug)}/${type}`;
+          return (
+            <li key={type}>
+              <Link className="shop-contact-panel shop-policy-card" to={to}>
+                <span className="shop-contact-icon" aria-hidden="true"><Icon /></span>
+                <div className="shop-policy-card-copy">
+                  {policy.title ? <span className="shop-policy-kicker">{fallbackTitle}</span> : null}
+                  <h2>{title}</h2>
+                  <p>{excerpt(policy.body)}</p>
+                  {updated ? (
+                    <span className="shop-policy-updated">
+                      <CalendarClock aria-hidden="true" />
+                      {tp("shop.policies.updated")} <span className="num">{updated}</span>
+                    </span>
+                  ) : null}
+                </div>
+                <span className="shop-policy-card-go">
+                  {tp("shop.readMore")}<ArrowRight aria-hidden="true" />
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    );
   }
 
   return (
     <>
       {hero}
-      <div className="shop-policies recommend-width">
-        <aside className="shop-policies-aside">{nav}</aside>
+      <div className={`shop-policies recommend-width${selectedType ? " is-reader" : " is-index"}`}>
+        <div className="shop-policies-sticky">
+          {nav}
+        </div>
         <div className="shop-policies-main" aria-busy={state === "loading" ? true : undefined}>
           {content}
           {loaded ? (
@@ -306,7 +352,9 @@ export default function ShopPoliciesPage() {
                 <h2 id="shop-policies-cta-title">{tp("shop.policies.ctaTitle")}</h2>
                 <p>{tp("shop.policies.ctaText")}</p>
               </div>
-              <Link className="shop-contact-action" to={shopContactPath(slug)}>{tp("shop.policies.contactCta")}</Link>
+              <Link className="shop-contact-action shop-policies-contact-btn" to={shopContactPath(slug)}>
+                <Headset aria-hidden="true" />{tp("shop.policies.contactCta")}
+              </Link>
             </section>
           ) : null}
         </div>

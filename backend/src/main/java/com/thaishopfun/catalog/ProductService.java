@@ -13,6 +13,7 @@ import com.thaishopfun.merchant.ProductCategoryRepository;
 import com.thaishopfun.merchant.Shop;
 import com.thaishopfun.merchant.ShopRepository;
 import com.thaishopfun.merchant.ShopStatus;
+import com.thaishopfun.merchant.plan.PlanQuotaService;
 import com.thaishopfun.order.OrderStatus;
 import com.thaishopfun.order.PaymentStatus;
 import com.thaishopfun.translation.ContentTranslationBridge;
@@ -65,6 +66,7 @@ public class ProductService {
     private final Validator validator;
     private final ProductVariantService variants;
     private final UserAccountRepository accounts;
+    private final PlanQuotaService planQuota;
 
     public ProductService(
         ShopRepository shops,
@@ -81,7 +83,8 @@ public class ProductService {
         AuthorizationService authorization,
         Validator validator,
         ProductVariantService variants,
-        UserAccountRepository accounts
+        UserAccountRepository accounts,
+        PlanQuotaService planQuota
     ) {
         this.shops = shops;
         this.products = products;
@@ -98,6 +101,7 @@ public class ProductService {
         this.validator = validator;
         this.variants = variants;
         this.accounts = accounts;
+        this.planQuota = planQuota;
     }
 
     @Transactional(readOnly = true)
@@ -163,6 +167,7 @@ public class ProductService {
         var shop = requireSellableShop(userId, shopId);
         request = normalizeBarcodes(request);
         validate(shop.getId(), request, null);
+        // Draft create is unlimited — publish quota is enforced only when status becomes PUBLISHED.
         var type = requireType(request.productType());
         var name = requireName(request.nameTh());
         var product = new Product(shop, uniqueSlug(shop.getId(), request.slug(), request.nameEn(), name, null), name, type);
@@ -267,6 +272,9 @@ public class ProductService {
             missing.add(ValidationMessages.violation("skus", "PUBLISH_SKU_REQUIRED"));
         }
         if (!missing.isEmpty()) throw new ValidationException("PUBLISH_INCOMPLETE", missing);
+        if (product.getStatus() != ProductStatus.PUBLISHED) {
+            planQuota.assertCanPublishProducts(shopId, 1);
+        }
         product.stamp(userId);
         product.setStatus(ProductStatus.PUBLISHED);
         product.setPublishedAt(Instant.now());

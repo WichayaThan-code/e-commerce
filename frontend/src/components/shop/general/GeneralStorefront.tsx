@@ -3,8 +3,14 @@
  * wired to real public data only (PublicShop, theme config, public products / categories, cart).
  * Never reads merchant APIs, never renders shop HTML, never shows the owner's phone / email.
  */
-import { tsfThemeDefaults } from "../../../theme/shopTheme";
-import { useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
+import {
+  normalizeTheme,
+  tsfThemeDefaults,
+  type ShopTheme,
+  type ShopThemeTemplateKey,
+  type ThemeConfig,
+} from "../../../theme/shopTheme";
+import { useMemo, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Package } from "lucide-react";
 import EmptyState from "../../feedback/EmptyState";
@@ -28,10 +34,16 @@ import {
   shopProductsPath,
   shopSearchPath,
 } from "../../../services/shopRoutes";
-import type { ThemeConfig } from "../../../theme/shopTheme";
 import { parseShopSortKey, type ShopCatalogControls } from "../sections/types";
 import StoreMiniMap from "../../maps/StoreMiniMap";
 import "../../../styles/tsf-general.css";
+
+function shopTemplateKey(shop: PublicShop, override?: ShopThemeTemplateKey | string): ShopThemeTemplateKey {
+  if (override === "GENERAL" || override === "FASHION" || override === "FOOD_BEVERAGE" || override === "CUSTOM") {
+    return override;
+  }
+  return normalizeTheme(shop.theme as Partial<ShopTheme> | null | undefined).templateKey;
+}
 
 const ICON_PATHS: Record<string, string> = {
   search: "M11 4a7 7 0 1 0 4.4 12.4l4.1 4.1 1.4-1.4-4.1-4.1A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z",
@@ -281,9 +293,20 @@ export function TsfHero({ shop, config, align: alignOverride }: { shop: PublicSh
   );
 }
 
-function TsfSection({ title, link, background, pad, id, children }: { title?: string; link?: { to: string; label: string }; background?: "SURFACE"; pad?: "COMPACT"; id?: string; children: ReactNode }) {
+function TsfSection({ title, link, background, pad, id, cardRadius, cardGap, children }: {
+  title?: string; link?: { to: string; label: string }; background?: "SURFACE"; pad?: "COMPACT"; id?: string;
+  cardRadius?: "NONE" | "ROUNDED"; cardGap?: "TIGHT" | "SPACED"; children: ReactNode;
+}) {
   return (
-    <section className="tsf-section" id={id} data-bg={background ?? "NONE"} data-pad={pad ?? "NORMAL"} data-align="LEFT">
+    <section
+      className="tsf-section"
+      id={id}
+      data-bg={background ?? "NONE"}
+      data-pad={pad ?? "NORMAL"}
+      data-align="LEFT"
+      data-card-radius={cardRadius}
+      data-card-gap={cardGap}
+    >
       <div className="tsf-wrap">
         {title ? (
           <div className="tsf-section-head">
@@ -319,7 +342,7 @@ export function TsfStoryBlock({ shop, config }: { shop: PublicShop; config: Them
   const cta = label ? storyTarget(intro.ctaLink) : null;
   const image = intro.imageUrl ? mediaUrl(intro.imageUrl) : heroSlideUrls(config.hero?.slides)[0] ?? (shop.coverUrl ? mediaUrl(shop.coverUrl) : null);
   return (
-    <TsfSection background="SURFACE" id="shop-story">
+    <TsfSection id="shop-story">
       <div className={intro.reverse ? "tsf-story is-reverse" : "tsf-story"}>
         <TsfImageSlot src={image} alt="" tone="secondary" motif="sun" scale={0.9} />
         <div>
@@ -415,18 +438,32 @@ export function TsfTrustStrip({ config }: { config: ThemeConfig }) {
   );
 }
 
-export function TsfCategoryRail({ shop, activeId, title, railStyle = "circle" }: { shop: PublicShop; activeId?: number | null; title?: string; railStyle?: "circle" | "tile" | "chip" }) {
+export function TsfCategoryRail({
+  shop,
+  activeId,
+  title,
+  railStyle = "circle",
+  templateKey: templateKeyProp,
+}: {
+  shop: PublicShop;
+  activeId?: number | null;
+  title?: string;
+  railStyle?: "circle" | "tile" | "chip";
+  /** Prefer explicit theme from the page; falls back to resolveStorefrontTheme(shop). */
+  templateKey?: ShopThemeTemplateKey | string;
+}) {
   const { tp, localeTag } = usePublicTranslation();
   const { rows } = useShopCategories(shop.slug);
+  const templateKey = useMemo(() => shopTemplateKey(shop, templateKeyProp), [shop, templateKeyProp]);
   if (!rows.length) return null;
   return (
     <TsfSection title={title ?? tp("shop.categoriesTitle")} link={activeId === undefined ? { to: shopCategoriesPath(shop.slug), label: tp("shop.seeAll") } : undefined} pad="COMPACT" id="shop-categories">
-      <div className="tsf-cats" data-style={railStyle}>
+      <div className="tsf-cats" data-style={railStyle} data-template={templateKey}>
         {rows.map((row) => {
-          const Glyph = categoryIcon(row);
+          const Glyph = categoryIcon(row, templateKey);
           return (
           <Link key={row.id} className="tsf-cat" to={shopCategoryPath(shop.slug, row)} aria-current={activeId === row.id ? "page" : undefined}>
-            <div className="tsf-img tsf-cat-icon"><Glyph aria-hidden="true" strokeWidth={1.6} /></div>
+            <div className="tsf-img tsf-cat-icon"><Glyph aria-hidden="true" /></div>
             <span className="tsf-cat-label">{localizedText(localeTag, row.nameTh, row.nameEn, row.nameZh) || row.nameTh}</span>
           </Link>
           );
@@ -541,10 +578,11 @@ export function TsfMenuRow({ shop, product, categoryName }: { shop: PublicShop; 
 
 export type TsfProductLayout = "GRID" | "LARGE" | "MENU";
 
-export function TsfProductSection({ shop, title, products, link, background, categories, favorites, onToggleFavorite, columns = 4, variant = "GRID", after, onNotify }: {
+export function TsfProductSection({ shop, title, products, link, background, categories, favorites, onToggleFavorite, columns = 4, variant = "GRID", cardRadius, cardGap, after, onNotify }: {
   shop: PublicShop; title: string; products: PublicProduct[]; link?: { to: string; label: string }; background?: "SURFACE";
   categories: Map<number, string>; favorites: string[]; onToggleFavorite: (id: string) => void; columns?: number;
-  variant?: TsfProductLayout | null; after?: ReactNode; onNotify?: (message: string) => void;
+  variant?: TsfProductLayout | null; cardRadius?: "NONE" | "ROUNDED"; cardGap?: "TIGHT" | "SPACED";
+  after?: ReactNode; onNotify?: (message: string) => void;
 }) {
   if (!products.length) return null;
   const cat = (product: PublicProduct) => (product.categoryId != null ? categories.get(product.categoryId) : undefined);
@@ -572,7 +610,7 @@ export function TsfProductSection({ shop, title, products, link, background, cat
     );
   }
   return (
-    <TsfSection title={title} link={link} background={background}>
+    <TsfSection title={title} link={link} background={background} cardRadius={cardRadius} cardGap={cardGap}>
       {body}
       {variant === "LARGE" ? null : after}
     </TsfSection>
@@ -673,11 +711,19 @@ export function TsfCatalogPage({ shop, title, products, catalog, activeCategoryI
 }) {
   const { tp, localeTag } = usePublicTranslation();
   const { rows } = useShopCategories(shop.slug);
+  const templateKey = shopTemplateKey(shop);
   const categories = new Map(rows.map((row) => [row.id, localizedText(localeTag, row.nameTh, row.nameEn, row.nameZh) || row.nameTh]));
   const pageCount = Math.max(1, Math.ceil(catalog.total / Math.max(1, catalog.pageSize)));
   return (
     <main>
-      {showRail ? <TsfCategoryRail shop={shop} activeId={activeCategoryId ?? null} railStyle={tsfThemeDefaults((shop.theme as { templateKey?: string } | null | undefined)?.templateKey).categoryStyle} /> : null}
+      {showRail ? (
+        <TsfCategoryRail
+          shop={shop}
+          activeId={activeCategoryId ?? null}
+          templateKey={templateKey}
+          railStyle={tsfThemeDefaults(templateKey).categoryStyle}
+        />
+      ) : null}
       {before}
       <section className="tsf-section" data-bg="NONE" data-pad="NORMAL" data-align="LEFT">
         <div className="tsf-wrap">

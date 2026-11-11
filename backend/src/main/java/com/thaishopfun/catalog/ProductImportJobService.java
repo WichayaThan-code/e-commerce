@@ -61,6 +61,7 @@ public class ProductImportJobService {
         if (rows.isEmpty()) {
             throw new AuthException(HttpStatus.BAD_REQUEST, "IMPORT_EMPTY", "ไม่พบรายการสินค้าในไฟล์");
         }
+        // Import creates DRAFT products only — publish quota is enforced on /publish.
         var job = new Job(UUID.randomUUID(), shopId, userId, rows.size());
         synchronized (activeByShop) {
             var current = activeByShop.get(shopId);

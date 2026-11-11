@@ -21,6 +21,7 @@ export default function ShopLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const isHome = Boolean(useMatch({ path: "/shop/:slug", end: true }));
+  const isProduct = Boolean(useMatch({ path: "/shop/:slug/product/:productSlug" }));
   const { tp } = usePublicTranslation();
   const [shop, setShop] = useState<PublicShop | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -161,7 +162,7 @@ export default function ShopLayout() {
         {general ? (
           <ShopThemeShell
             shop={shop}
-            header={isHome ? null : <div className="tsf-wrap">{header}</div>}
+            header={isHome || isProduct ? null : <div className="tsf-wrap">{header}</div>}
             refetching={shopRefetching}
             after={<>{toast}<TsfMobileTabBar shop={shop} onNotify={notify} /></>}
           >
@@ -169,7 +170,7 @@ export default function ShopLayout() {
           </ShopThemeShell>
         ) : (
           <ShopThemeShell shop={shop} header={header} refetching={shopRefetching} after={toast}>
-            {!isHome && <ShopTabs shop={shop} onNotify={notify} />}
+            {!isHome && !isProduct && <ShopTabs shop={shop} onNotify={notify} />}
             <Outlet />
           </ShopThemeShell>
         )}

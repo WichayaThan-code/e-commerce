@@ -49,12 +49,13 @@ function fontStack(family: string, kind: 'sans' | 'serif' | 'display' | 'hand'):
 
 export const SHOP_SECTION_KEYS = [
   'HERO', 'BANNERS', 'CATEGORIES', 'TRUST', 'INTRO', 'FEATURED', 'BESTSELLERS', 'NEW_ARRIVALS', 'CATALOG', 'HOURS',
+  'COUPONS',
 ] as const
 export type ShopSectionKey = (typeof SHOP_SECTION_KEYS)[number]
 
 /**
- * AG4: block types = the ten legacy section keys + block-only content types. Only SHOP_SECTION_KEYS live in
- * `config.sections` (the backend requires exactly those ten); the new types exist only in `layout.blocks` (CUSTOM).
+ * AG4: block types = legacy section keys + block-only content types. Only SHOP_SECTION_KEYS live in
+ * `config.sections` (the backend requires exactly those keys); the new types exist only in `layout.blocks` (CUSTOM).
  */
 export const SHOP_BLOCK_TYPES = [...SHOP_SECTION_KEYS, ...NEW_BLOCK_TYPES] as const
 export type ShopBlockType = (typeof SHOP_BLOCK_TYPES)[number]
@@ -77,6 +78,13 @@ export type ThemeTrust = { enabled: boolean; items: ThemeTrustItem[] }
 export type HeroLayout = 'FULL' | 'STRIP' | 'MEDIA_FULL' | 'SPLIT' | 'POSTER'
 export type CatalogVariant = 'GRID' | 'LARGE' | 'MENU'
 export type SectionVariant = HeroLayout | CatalogVariant | null
+
+/** Global product-card corner style (all product sections / themes). */
+export const SHOP_CARD_RADII = ['NONE', 'ROUNDED'] as const
+export type ShopCardRadius = (typeof SHOP_CARD_RADII)[number]
+/** Global product-card grid / rail / menu spacing. */
+export const SHOP_CARD_GAPS = ['TIGHT', 'SPACED'] as const
+export type ShopCardGap = (typeof SHOP_CARD_GAPS)[number]
 
 export const SHOP_CARD_STYLES = ['FLAT', 'BORDERED', 'SHADOW'] as const
 export type ShopCardStyle = (typeof SHOP_CARD_STYLES)[number]
@@ -124,15 +132,29 @@ export type ThemeColors = {
   borderStrong?: string
   sale?: string
   focus?: string
+  /** TSF header (GENERAL / FASHION / FOOD_BEVERAGE). Unset → background / text. */
+  navBackground?: string
+  navText?: string
+  /** Product card face. Unset → page background (legacy look). */
+  cardBackground?: string
 }
+
+export const SHOP_PRODUCT_SECTION_BACKGROUNDS = ['NONE', 'SURFACE'] as const
+export type ShopProductSectionBackground = (typeof SHOP_PRODUCT_SECTION_BACKGROUNDS)[number]
 
 export type ThemeStyle = {
   radius: number
   cardStyle: ShopCardStyle
+  /** Product card corners — store-wide for every product section. */
+  cardRadius?: ShopCardRadius
+  /** Product card grid gap — store-wide for every product section. */
+  cardGap?: ShopCardGap
   density: ShopDensity
   buttonShape: ShopButtonShape
   shadow?: ShopShadow
   headingTextShadow?: boolean
+  /** TSF product sections (FEATURED / BESTSELLERS / …). Unset → NONE. */
+  productSectionBackground?: ShopProductSectionBackground
 }
 
 export type ThemeGradientStop = { color: string; at: number }
@@ -182,6 +204,8 @@ export type BlockSettings = {
   columns?: 2 | 3 | 4 | 5
   paddingY: ShopPaddingY
   fullWidth: boolean
+  cardRadius?: ShopCardRadius
+  cardGap?: ShopCardGap
 }
 
 export type LayoutBlock = {
@@ -312,6 +336,10 @@ export type SectionConfig = {
   key: ShopSectionKey
   enabled: boolean
   variant: SectionVariant
+  /** Product sections only: square vs rounded card corners. */
+  cardRadius?: ShopCardRadius
+  /** Product sections only: tight (4px) vs spaced (16px) gaps. */
+  cardGap?: ShopCardGap
 }
 
 /** StoryBlock (INTRO) copy for the tsf templates; plain text only. introMediaId = shop media IMAGE, imageUrl filled on read. */
@@ -439,6 +467,7 @@ export function minimalFallbackTheme(): ShopTheme {
         { key: 'BANNERS', enabled: true, variant: null },
         { key: 'CATEGORIES', enabled: true, variant: null },
         { key: 'TRUST', enabled: true, variant: null },
+        { key: 'COUPONS', enabled: true, variant: null },
         { key: 'FEATURED', enabled: true, variant: 'GRID' },
         { key: 'BESTSELLERS', enabled: true, variant: 'GRID' },
         { key: 'NEW_ARRIVALS', enabled: true, variant: 'GRID' },
@@ -549,11 +578,15 @@ export function contrastOnColor(hex: string): string {
 }
 
 /** Pairs that should meet WCAG AA for storefront readability. */
-export function themeContrastIssues(colors: ThemeColors): Array<'textBg' | 'primaryBtn' | 'secondaryStrip'> {
-  const issues: Array<'textBg' | 'primaryBtn' | 'secondaryStrip'> = []
+export function themeContrastIssues(colors: ThemeColors): Array<'textBg' | 'primaryBtn' | 'secondaryStrip' | 'navBar'> {
+  const issues: Array<'textBg' | 'primaryBtn' | 'secondaryStrip' | 'navBar'> = []
   if (!meetsContrastAA(colors.text, colors.background)) issues.push('textBg')
   if (!meetsContrastAA(contrastOnColor(colors.primary), colors.primary)) issues.push('primaryBtn')
   if (!meetsContrastAA(contrastOnColor(colors.secondary), colors.secondary)) issues.push('secondaryStrip')
+  const navBg = optionalHex(colors.navBackground) ?? colors.background
+  const navText = optionalHex(colors.navText)
+    ?? (optionalHex(colors.navBackground) ? contrastOnColor(navBg) : colors.text)
+  if ((colors.navBackground || colors.navText) && !meetsContrastAA(navText, navBg)) issues.push('navBar')
   return issues
 }
 
@@ -631,8 +664,9 @@ export function tsfThemeName(templateKey?: string | null): string | undefined {
 
 /** Per-theme defaults for things non-CUSTOM templates cannot save (image ratio, category rail style). */
 export function tsfThemeDefaults(templateKey?: string | null): { ratio: ShopImageRatio; categoryStyle: 'circle' | 'tile' | 'chip' } {
-  if (templateKey === 'FASHION') return { ratio: 'PORTRAIT', categoryStyle: 'tile' }
-  if (templateKey === 'FOOD_BEVERAGE') return { ratio: 'SQUARE', categoryStyle: 'chip' }
+  // Category rail layout matches GENERAL (circle); theme colors still come from --shop-* tokens.
+  if (templateKey === 'FASHION') return { ratio: 'PORTRAIT', categoryStyle: 'circle' }
+  if (templateKey === 'FOOD_BEVERAGE') return { ratio: 'SQUARE', categoryStyle: 'circle' }
   return { ratio: 'SQUARE', categoryStyle: 'circle' }
 }
 
@@ -671,6 +705,10 @@ function generalSpecCssVars(config: ThemeConfig): Record<string, string> {
   // Same accent fallback as before (primary) so older GENERAL shops without an accent keep their tab / hover colors.
   const accentHex = optionalHex(accent) ?? primary
   const focus = optionalHex(config.colors.focus) ?? primary
+  const navBg = optionalHex(config.colors.navBackground) ?? background
+  // Custom nav bg without navText → auto-contrast; both unset → page text (same look as before).
+  const navText = optionalHex(config.colors.navText)
+    ?? (optionalHex(config.colors.navBackground) ? contrastOnColor(navBg) : text)
   return {
     ...GENERAL_SCALE_VARS,
     '--shop-surface': `color-mix(in srgb, ${text} 5%, ${background})`,
@@ -681,6 +719,11 @@ function generalSpecCssVars(config: ThemeConfig): Record<string, string> {
     '--shop-focus': focus,
     '--shop-on-accent': contrastOnColor(accentHex),
     '--shop-primary-hover': `color-mix(in srgb, ${primary} 86%, #000)`,
+    '--shop-nav-bg': navBg,
+    '--shop-nav-text': navText,
+    '--shop-nav-border': `color-mix(in srgb, ${navText} 13%, ${navBg})`,
+    // Unset → page bg (same as before); presets set white so cards lift off tinted pages.
+    '--shop-card-bg': optionalHex(config.colors.cardBackground) ?? background,
   }
 }
 
@@ -707,7 +750,7 @@ export function themeCssVars(config: ThemeConfig, templateKey?: ShopThemeTemplat
       '--shop-primary': primary,
       '--shop-secondary': secondary,
       '--shop-bg': background,
-      '--shop-card-bg': background,
+      '--shop-card-bg': optionalHex(config.colors.cardBackground) ?? background,
       '--shop-page-bg': pageBg,
       '--shop-text': text,
       '--shop-accent': accentHex,
@@ -748,7 +791,7 @@ export function themeCssVars(config: ThemeConfig, templateKey?: ShopThemeTemplat
     '--shop-primary': primary,
     '--shop-secondary': secondary,
     '--shop-bg': background,
-    '--shop-card-bg': background,
+    '--shop-card-bg': optionalHex(config.colors.cardBackground) ?? background,
     '--shop-page-bg': pageGradient || pageBg,
     '--shop-text': text,
     '--shop-accent': accentHex,
@@ -892,10 +935,19 @@ function resolveStyle(raw: unknown, fallback: ThemeStyle): ThemeStyle {
   const headingTextShadow = typeof incoming.headingTextShadow === 'boolean'
     ? incoming.headingTextShadow
     : fallback.headingTextShadow
+  const productSectionRaw = String(incoming.productSectionBackground || fallback.productSectionBackground || '').toUpperCase()
+  const productSectionBackground = SHOP_PRODUCT_SECTION_BACKGROUNDS.includes(productSectionRaw as ShopProductSectionBackground)
+    ? (productSectionRaw as ShopProductSectionBackground)
+    : fallback.productSectionBackground
+  const cardRadius = resolveCardRadius(incoming.cardRadius, resolveCardRadius(fallback.cardRadius))
+  const cardGap = resolveCardGap(incoming.cardGap, resolveCardGap(fallback.cardGap))
   return {
     radius, cardStyle, density, buttonShape,
+    ...(cardRadius ? { cardRadius } : {}),
+    ...(cardGap ? { cardGap } : {}),
     ...(shadow ? { shadow } : {}),
     ...(typeof headingTextShadow === 'boolean' ? { headingTextShadow } : {}),
+    ...(productSectionBackground ? { productSectionBackground } : {}),
   }
 }
 
@@ -1232,6 +1284,8 @@ export function synthesizeBlocks(
       paddingY: legacy?.paddingY ?? 'NORMAL',
       fullWidth: false,
       ...(legacy?.columns != null && PRODUCT_BLOCK_TYPES.includes(section.key) ? { columns: legacy.columns } : {}),
+      ...(isProductSectionKey(section.key) && section.cardRadius ? { cardRadius: section.cardRadius } : {}),
+      ...(isProductSectionKey(section.key) && section.cardGap ? { cardGap: section.cardGap } : {}),
     }
     const variant = section.key === 'HERO'
       ? resolveSectionVariant('HERO', section.variant, heroLayout, true)
@@ -1262,6 +1316,8 @@ function resolveBlockSettings(raw: unknown, type: ShopBlockType): BlockSettings 
   const mediaId = background === 'IMAGE' && typeof row.backgroundMediaId === 'string' && row.backgroundMediaId.trim()
     ? row.backgroundMediaId.trim() : undefined
   const backgroundUrl = mediaId && typeof row.backgroundUrl === 'string' && row.backgroundUrl.trim() ? row.backgroundUrl.trim() : undefined
+  const cardRadius = PRODUCT_BLOCK_TYPES.includes(type) ? resolveCardRadius(row.cardRadius) : undefined
+  const cardGap = PRODUCT_BLOCK_TYPES.includes(type) ? resolveCardGap(row.cardGap) : undefined
   return {
     background,
     ...(gradient ? { gradient } : {}),
@@ -1272,6 +1328,8 @@ function resolveBlockSettings(raw: unknown, type: ShopBlockType): BlockSettings 
     ...([2, 3, 4, 5].includes(columnsNum) && PRODUCT_BLOCK_TYPES.includes(type) ? { columns: columnsNum as 2 | 3 | 4 | 5 } : {}),
     paddingY,
     fullWidth: row.fullWidth === true,
+    ...(cardRadius ? { cardRadius } : {}),
+    ...(cardGap ? { cardGap } : {}),
   }
 }
 
@@ -1330,14 +1388,24 @@ export function sectionsFromBlocks(blocks: LayoutBlock[], previous: SectionConfi
     if (!sectionSupportsVariant(key)) return null
     return resolveSectionVariant(key, block?.variant, prev.get(key)?.variant ?? defaultBlockVariant(key), true)
   }
+  const productOpts = (key: ShopSectionKey, block?: LayoutBlock): Pick<SectionConfig, 'cardRadius' | 'cardGap'> => {
+    if (!isProductSectionKey(key)) return {}
+    const prevRow = prev.get(key)
+    const cardRadius = resolveCardRadius(block?.settings.cardRadius, resolveCardRadius(prevRow?.cardRadius))
+    const cardGap = resolveCardGap(block?.settings.cardGap, resolveCardGap(prevRow?.cardGap))
+    return {
+      ...(cardRadius ? { cardRadius } : {}),
+      ...(cardGap ? { cardGap } : {}),
+    }
+  }
   for (const block of blocks) {
     // AG4: block-only content types never map to a legacy section.
     if (!isSectionKey(block.type) || seen.has(block.type)) continue
     seen.add(block.type)
-    out.push({ key: block.type, enabled: block.enabled, variant: variantOf(block.type, block) })
+    out.push({ key: block.type, enabled: block.enabled, variant: variantOf(block.type, block), ...productOpts(block.type, block) })
   }
   for (const key of SHOP_SECTION_KEYS) {
-    if (!seen.has(key)) out.push({ key, enabled: false, variant: variantOf(key) })
+    if (!seen.has(key)) out.push({ key, enabled: false, variant: variantOf(key), ...productOpts(key) })
   }
   return out
 }
@@ -1392,6 +1460,9 @@ export function normalizeTheme(raw?: Partial<ShopTheme> | null, options: Normali
     ...(usesTsfTree(templateKey) && optionalHex(colorIn.borderStrong) ? { borderStrong: optionalHex(colorIn.borderStrong) } : {}),
     ...(usesTsfTree(templateKey) && optionalHex(colorIn.sale) ? { sale: optionalHex(colorIn.sale) } : {}),
     ...(usesTsfTree(templateKey) && optionalHex(colorIn.focus) ? { focus: optionalHex(colorIn.focus) } : {}),
+    ...(usesTsfTree(templateKey) && optionalHex(colorIn.navBackground) ? { navBackground: optionalHex(colorIn.navBackground) } : {}),
+    ...(usesTsfTree(templateKey) && optionalHex(colorIn.navText) ? { navText: optionalHex(colorIn.navText) } : {}),
+    ...(usesTsfTree(templateKey) && optionalHex(colorIn.cardBackground) ? { cardBackground: optionalHex(colorIn.cardBackground) } : {}),
   } : {
     primary: pickColor('primary', true)!,
     secondary: pickColor('secondary', true)!,
@@ -1415,6 +1486,11 @@ export function normalizeTheme(raw?: Partial<ShopTheme> | null, options: Normali
     cardStyle: resolvedStyle.cardStyle,
     density: resolvedStyle.density,
     buttonShape: resolvedStyle.buttonShape,
+    ...(resolvedStyle.cardRadius ? { cardRadius: resolvedStyle.cardRadius } : {}),
+    ...(resolvedStyle.cardGap ? { cardGap: resolvedStyle.cardGap } : {}),
+    ...(resolvedStyle.productSectionBackground
+      ? { productSectionBackground: resolvedStyle.productSectionBackground }
+      : {}),
   }
   const banners = resolveBanners(incoming.banners, base.banners ?? fallback.config.banners, custom)
   const trust = resolveTrust(incoming.trust, base.trust ?? fallback.config.trust)
@@ -1453,10 +1529,18 @@ export function normalizeTheme(raw?: Partial<ShopTheme> | null, options: Normali
   const sections: SectionConfig[] = SHOP_SECTION_KEYS.map((key) => {
     const row = byKey.get(key)
     const preset = base.sections.find((item) => item.key === key) || fallback.config.sections.find((item) => item.key === key)!
+    const cardRadius = isProductSectionKey(key)
+      ? resolveCardRadius((row as SectionConfig | undefined)?.cardRadius, resolveCardRadius(preset.cardRadius))
+      : undefined
+    const cardGap = isProductSectionKey(key)
+      ? resolveCardGap((row as SectionConfig | undefined)?.cardGap, resolveCardGap(preset.cardGap))
+      : undefined
     return {
       key,
       enabled: typeof row?.enabled === 'boolean' ? row.enabled : preset.enabled,
       variant: resolveSectionVariant(key, row?.variant, preset.variant, custom || (key === 'HERO' && templateKey === 'GENERAL')),
+      ...(cardRadius ? { cardRadius } : {}),
+      ...(cardGap ? { cardGap } : {}),
     }
   })
 
@@ -1508,9 +1592,49 @@ export function sectionSupportsVariant(key: ShopSectionKey) {
   return key === 'HERO' || key === 'FEATURED' || key === 'BESTSELLERS' || key === 'NEW_ARRIVALS' || key === 'CATALOG'
 }
 
+export function isProductSectionKey(key: ShopSectionKey | ShopBlockType): boolean {
+  return key === 'FEATURED' || key === 'BESTSELLERS' || key === 'NEW_ARRIVALS' || key === 'CATALOG'
+}
+
+export function resolveCardRadius(raw: unknown, fallback?: ShopCardRadius): ShopCardRadius | undefined {
+  const value = typeof raw === 'string' ? raw.trim().toUpperCase() : ''
+  if (SHOP_CARD_RADII.includes(value as ShopCardRadius)) return value as ShopCardRadius
+  return fallback
+}
+
+export function resolveCardGap(raw: unknown, fallback?: ShopCardGap): ShopCardGap | undefined {
+  const value = typeof raw === 'string' ? raw.trim().toUpperCase() : ''
+  if (SHOP_CARD_GAPS.includes(value as ShopCardGap)) return value as ShopCardGap
+  return fallback
+}
+
+/** Editor / preview default when the theme has not saved a radius yet. */
+export function defaultProductCardRadius(templateKey: string): ShopCardRadius {
+  return templateKey === 'FASHION' ? 'NONE' : 'ROUNDED'
+}
+
+/** Editor / preview default when the theme has not saved a gap yet. */
+export function defaultProductCardGap(_templateKey?: string): ShopCardGap {
+  return 'SPACED'
+}
+
+/** Store-wide product card corners (style → legacy section → template default). */
+export function resolvedProductCardRadius(theme: { templateKey: string; config: ThemeConfig }): ShopCardRadius {
+  return theme.config.style?.cardRadius
+    ?? theme.config.sections.find((section) => section.cardRadius)?.cardRadius
+    ?? defaultProductCardRadius(theme.templateKey)
+}
+
+/** Store-wide product card gap (style → legacy section → template default). */
+export function resolvedProductCardGap(theme: { templateKey: string; config: ThemeConfig }): ShopCardGap {
+  return theme.config.style?.cardGap
+    ?? theme.config.sections.find((section) => section.cardGap)?.cardGap
+    ?? defaultProductCardGap(theme.templateKey)
+}
+
 export function variantsForSection(key: ShopSectionKey, custom = false): SectionVariant[] {
   if (key === 'HERO') return custom ? ['FULL', 'SPLIT', 'POSTER', 'STRIP', 'MEDIA_FULL'] : ['FULL', 'SPLIT', 'POSTER', 'STRIP']
-  if (key === 'FEATURED' || key === 'BESTSELLERS' || key === 'NEW_ARRIVALS' || key === 'CATALOG') {
+  if (isProductSectionKey(key)) {
     return ['GRID', 'LARGE', 'MENU']
   }
   return []

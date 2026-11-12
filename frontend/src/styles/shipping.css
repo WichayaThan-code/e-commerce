@@ -72,54 +72,18 @@
   border-radius:12px;
   overflow:hidden;
 }
-.shipping-table-card{min-width:0}
-.shipping-tabs{
-  min-height:48px;
+.shipping-main{
+  min-width:0;
   display:flex;
-  flex-wrap:wrap;
-  gap:4px;
-  padding:8px 10px 0;
-  border-bottom:1px solid #dbe7f2;
-  background:#f8fbfe;
+  flex-direction:column;
+  gap:0;
 }
-.shipping-tabs button{
-  height:40px;
-  padding:0 14px;
-  border:0;
-  border-radius:8px 8px 0 0;
-  background:transparent;
-  color:#5a7091;
-  font:700 12px var(--font-sans),sans-serif;
-  cursor:pointer;
-  white-space:nowrap;
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
+.shipping-main > .pm-tabs{
+  margin:0 0 12px;
 }
-.shipping-tabs button em{
-  font-style:normal;
-  min-width:22px;
-  height:22px;
-  padding:0 7px;
-  border-radius:999px;
-  display:inline-grid;
-  place-items:center;
-  background:#e7eef8;
-  color:#4d6789;
-  font-size:11px;
-  font-variant-numeric:tabular-nums;
-}
-.shipping-tabs button.active{
-  background:#fff;
-  color:#087bf5;
-  box-shadow:0 -1px 0 #fff;
-  border:1px solid #dbe7f2;
-  border-bottom-color:#fff;
-  margin-bottom:-1px;
-}
-.shipping-tabs button.active em{
-  background:#e7f2ff;
-  color:#087bf5;
+.shipping-table-card{min-width:0}
+.shipping-table-card .pm-table-tools{
+  border-bottom:1px solid #e0ebf5;
 }.shipping-filters{padding:13px 15px;display:grid;grid-template-columns:1fr .8fr 1.2fr .75fr;gap:8px 12px;border-bottom:1px solid #e0ebf5}.shipping-search{grid-column:1/-1;height:40px;border:1px solid #cbddef;border-radius:6px;display:flex;align-items:center;padding:0 12px;color:#58759a}.shipping-search svg{width:18px}.shipping-search input{width:100%;border:0;outline:0;padding:0 10px;font:500 12px var(--font-sans)}.shipping-filters>label:not(.shipping-search){font-size:11px;font-weight:700;display:flex;flex-direction:column;gap:3px}.shipping-filters select,.shipping-filters .date{height:39px;border:1px solid #cbddef;border-radius:6px;background:#fff;color:#163d77;padding:0 10px;font:500 11px var(--font-sans)}.shipping-filters .date{display:flex;align-items:center;gap:7px;white-space:nowrap}.shipping-filters .date svg{width:16px}.shipping-filters>div{display:flex;align-items:flex-end;gap:9px}.shipping-filters>div button{height:39px;padding:0 25px;border:1px solid #087bf5;border-radius:6px;background:#fff;color:#087bf5;font:700 12px var(--font-sans)}.shipping-filters>div .primary{color:#fff;background:#087bf5}.shipping-table-wrap{overflow:auto;-webkit-overflow-scrolling:touch}
 .shipping-table-wrap table{
   width:100%;

@@ -166,7 +166,7 @@ export default function ProductDetailPage() {
         <div className="pm-actions">
           <button
             type="button"
-            title={storefrontTip ?? t("catalog.actions.viewStorefront")}
+            title={storefrontTip}
             disabled={!storefrontReady}
             onClick={() => window.open(productPageUrl(shopSlug, product.slug), "_blank", "noopener,noreferrer")}
           >
@@ -174,7 +174,7 @@ export default function ProductDetailPage() {
           </button>
           <button
             type="button"
-            title={storefrontTip ?? t("catalog.actions.copyLink")}
+            title={storefrontTip}
             disabled={!storefrontReady}
             onClick={() => {
               void copyText(productShareLink(shopSlug, product.slug)).then((ok) => {
@@ -186,7 +186,7 @@ export default function ProductDetailPage() {
           </button>
           <button
             type="button"
-            title={storefrontTip ?? t("catalog.actions.qrCode")}
+            title={storefrontTip}
             disabled={!storefrontReady}
             onClick={() => setQrOpen(true)}
           >

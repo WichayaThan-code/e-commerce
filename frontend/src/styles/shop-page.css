@@ -77,7 +77,7 @@
 
 .shop-directory .recommend-intro{display:block;height:auto;padding-bottom:8px}
 .shop-hero{position:relative;height:min(460px,48vw);min-height:300px;margin:0 auto 16px;border-radius:24px;overflow:hidden;background:var(--shop-secondary,#0b2a62);box-shadow:0 22px 48px #08245d28}
-.shop-hero-photo{width:100%;height:100%;object-fit:cover;object-position:center;display:block;transform:scale(1.04)}
+.shop-hero-photo{width:100%;height:100%;object-fit:cover;object-position:var(--crop-x,center) var(--crop-y,center);display:block;transform:scale(calc(1.04 * var(--crop-zoom,1)));transform-origin:var(--crop-x,50%) var(--crop-y,50%)}
 .shop-hero-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,28,78,.08) 8%,rgba(8,28,78,.18) 38%,color-mix(in srgb,color-mix(in srgb,var(--shop-secondary,#08245d) 55%,#000) 88%,transparent) 100%),linear-gradient(90deg,rgba(6,24,68,.42),transparent 58%)}
 .shop-hero-panel{position:absolute;left:22px;right:22px;bottom:22px;display:flex;gap:16px;align-items:flex-end}
 .shop-hero .shop-profile-mark{width:112px;height:112px;flex:none;border-radius:24px;background:#fff;border:4px solid #fff;box-shadow:0 12px 28px #04143366}
@@ -437,7 +437,7 @@
 /* Hero base (desktop overlay kept) */
 .shop-themed .shop-hero{position:relative;height:min(460px,48vw);min-height:300px;margin:0 auto var(--shop-gap,16px);border-radius:calc(var(--shop-radius,12px) + 12px);overflow:hidden;background:var(--shop-secondary);box-shadow:0 22px 48px color-mix(in srgb,var(--shop-secondary) 28%,transparent)}
 .shop-hero-cover{position:absolute;inset:0}
-.shop-themed .shop-hero-photo{width:100%;height:100%;object-fit:cover;object-position:center;display:block;transform:scale(1.04)}
+.shop-themed .shop-hero-photo{width:100%;height:100%;object-fit:cover;object-position:var(--crop-x,center) var(--crop-y,center);display:block;transform:scale(calc(1.04 * var(--crop-zoom,1)));transform-origin:var(--crop-x,50%) var(--crop-y,50%)}
 .shop-themed .shop-hero-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,28,78,.08) 8%,rgba(8,28,78,.18) 38%,color-mix(in srgb,color-mix(in srgb,var(--shop-secondary) 55%,#000) 88%,transparent) 100%),linear-gradient(90deg,rgba(6,24,68,.42),transparent 58%)}
 .shop-themed .shop-hero-panel{position:absolute;left:22px;right:22px;bottom:22px;display:flex;gap:16px;align-items:flex-end;z-index:1}
 .shop-themed .shop-hero .shop-profile-mark{width:112px;height:112px;flex:none;border-radius:24px;background:#fff;border:4px solid #fff;box-shadow:0 12px 28px #04143366}

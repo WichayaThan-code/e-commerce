@@ -131,6 +131,21 @@ class MerchantApplicationIntegrationTests {
         mvc.perform(get("/api/shops/missing")).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SHOP_NOT_FOUND"));
     }
 
+    @Test void checksShopNameAvailabilityWithTheSaveShopRule() throws Exception {
+        String first = tokenFor("name-a@example.com", "0866666666");
+        String second = tokenFor("name-b@example.com", "0877777777");
+        saveShop(first, "Unique Name Shop").andExpect(status().isOk());
+        // own draft never counts against itself
+        mvc.perform(get("/api/merchant-applications/draft/shop-name/check").param("name", "  unique name shop ").header("Authorization", "Bearer " + first))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.available").value(true));
+        // another user: same name, different case/whitespace, is taken
+        mvc.perform(get("/api/merchant-applications/draft/shop-name/check").param("name", " UNIQUE NAME SHOP").header("Authorization", "Bearer " + second))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.available").value(false));
+        mvc.perform(get("/api/merchant-applications/draft/shop-name/check").param("name", "Another Free Name").header("Authorization", "Bearer " + second))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.available").value(true));
+        saveShop(second, "Unique Name Shop").andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("SHOP_EXISTS"));
+    }
+
     @Test void rejectsDuplicateShopNameAndAllowsTheSameOwnerOnAnotherShop() throws Exception {
         String first = tokenFor("first@example.com", "0811111111");
         String second = tokenFor("second@example.com", "0822222222");

@@ -18,6 +18,7 @@ import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
 import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
 import MerchantOrderDrawer from "../components/merchant/MerchantOrderDrawer";
 import MerchantPagination from "../components/merchant/MerchantPagination";
+import MerchantCheck from "../components/merchant/MerchantCheck";
 import OrderBulkBar, { type BulkRunPayload, type BulkSelectionItem } from "../components/merchant/OrderBulkBar";
 import OrderBulkResults, { type BulkResultRow } from "../components/merchant/OrderBulkResults";
 import OrderTagChips from "../components/merchant/OrderTagChips";
@@ -495,6 +496,25 @@ export default function OrderManagementPage() {
   const pages = Math.max(1, data?.totalPages ?? 1);
   const pageSelectedCount = items.filter((row) => selected.has(row.id)).length;
   const allPageSelected = items.length > 0 && pageSelectedCount === items.length;
+  const somePageSelected = pageSelectedCount > 0 && !allPageSelected;
+  const toggleAllPage = () => {
+    setSelected((current) => {
+      const next = new Map(current);
+      if (allPageSelected) {
+        items.forEach((row) => next.delete(row.id));
+        return next;
+      }
+      for (const row of items) {
+        if (next.has(row.id)) continue;
+        if (next.size >= BULK_MAX) {
+          notify(t("orderManagement.errors.BULK_TOO_MANY"), "fail");
+          break;
+        }
+        next.set(row.id, selectionOf(row));
+      }
+      return next;
+    });
+  };
   const clearFilters = () => {
     setQuery("");
     qRef.current = "";
@@ -634,15 +654,6 @@ export default function OrderManagementPage() {
                 {t("orderManagement.tags.manage")}
               </button>
             ) : null}
-            <button
-              type="button"
-              disabled={!canExportOrders || exporting || shopId == null}
-              title={canExportOrders ? t("orderManagement.exportHint") : deniedTitle(canExportOrders)}
-              onClick={() => void exportOrders()}
-            >
-              <Download />
-              {exporting ? t("orderManagement.exporting") : t("orderManagement.export")}
-            </button>
           </div>
         </header>
         <section className="pm-kpis om-kpis">
@@ -685,20 +696,21 @@ export default function OrderManagementPage() {
             </div>
           </article>
         </section>
-        <section className="pm-table-card om-card">
-          <div className="om-tabs" role="tablist">
-            {TABS.map((key) => (
-              <button
-                key={key}
-                role="tab"
-                aria-selected={tab === key}
-                className={tab === key ? "active" : ""}
-                onClick={() => changeTab(key)}
-              >
-                {tabLabel(key)}
+        <div className="pm-tabs" role="tablist">
+          {TABS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              className={tab === key ? "active" : ""}
+              onClick={() => changeTab(key)}
+            >
+              {tabLabel(key)}
             </button>
-            ))}
-          </div>
+          ))}
+        </div>
+        <section className="pm-table-card om-card">
           <form className="om-filters" onSubmit={(e) => { e.preventDefault(); qRef.current = query.trim(); setQ(qRef.current); setPage(0); setReload((n) => n + 1); }}>
             <div className="om-filters-main">
               <div className="om-filter-search">
@@ -832,8 +844,8 @@ export default function OrderManagementPage() {
               ) : null}
             </div>
           </form>
-          {hasActiveFilters ? (
-            <div className="om-active-filters" role="list">
+          <div className="pm-table-tools">
+            <div className="pm-table-tools-chips" role="list" aria-label={t("orderManagement.filters.active")}>
               {q ? (
                 <div className="om-filter-chip" role="listitem">
                   <span>{t("orderManagement.filters.searchLabel")}: {q}</span>
@@ -946,11 +958,23 @@ export default function OrderManagementPage() {
                   </button>
                 </div>
               ) : null}
-              <button type="button" className="om-clear-all" onClick={clearFilters}>
-                {t("orderManagement.filters.clearAll")}
-              </button>
+              {hasActiveFilters ? (
+                <button type="button" className="om-clear-all" onClick={clearFilters}>
+                  {t("orderManagement.filters.clearAll")}
+                </button>
+              ) : null}
             </div>
-          ) : null}
+            <button
+              type="button"
+              className="pm-export-btn"
+              disabled={!canExportOrders || exporting || shopId == null}
+              title={deniedTitle(canExportOrders) || t("orderManagement.exportHint")}
+              onClick={() => void exportOrders()}
+            >
+              <Download aria-hidden="true" />
+              <span>{exporting ? t("orderManagement.exporting") : t("orderManagement.export")}</span>
+            </button>
+          </div>
           <div className="om-table-wrap" aria-busy={fetching}>
             {error ? (
               <LoadError message={error} onRetry={() => setReload((n) => n + 1)} retryLabel={t("shopSettings.retry")} />
@@ -960,29 +984,12 @@ export default function OrderManagementPage() {
               <table className={fetching ? "is-refetching" : undefined}>
               <thead>
                 <tr>
-                  <th>
-                    <input
-                        aria-label={t("orderManagement.columns.selectAll")}
-                      type="checkbox"
-                        checked={allPageSelected}
-                        onChange={() => {
-                          setSelected((current) => {
-                            const next = new Map(current);
-                            if (allPageSelected) {
-                              items.forEach((row) => next.delete(row.id));
-                              return next;
-                            }
-                            for (const row of items) {
-                              if (next.has(row.id)) continue;
-                              if (next.size >= BULK_MAX) {
-                                notify(t("orderManagement.errors.BULK_TOO_MANY"), "fail");
-                                break;
-                              }
-                              next.set(row.id, selectionOf(row));
-                            }
-                            return next;
-                          });
-                        }}
+                  <th className="om-col-check">
+                    <MerchantCheck
+                      checked={allPageSelected}
+                      indeterminate={somePageSelected}
+                      label={t("orderManagement.columns.selectAll")}
+                      onChange={toggleAllPage}
                     />
                   </th>
                     <th>{t("orderManagement.columns.order")}</th>
@@ -993,28 +1000,29 @@ export default function OrderManagementPage() {
                     <th>{t("orderManagement.columns.status")}</th>
                     <th>{t("orderManagement.columns.placedAt")}</th>
                     <th>{t("orderManagement.columns.actions")}</th>
-                </tr>
-              </thead>
-              <tbody>
+                  </tr>
+                </thead>
+                <tbody>
                   {items.map((o) => {
                     const hidden = o.awaitingAcceptance;
                     const parts = formatBangkokParts(o.placedAt, localeTag);
                     const isOpen = openId === o.id;
+                    const isChecked = selected.has(o.id);
+                    const rowClass = [isOpen ? "selected" : "", isChecked ? "is-selected" : ""].filter(Boolean).join(" ") || undefined;
                     return (
                       <tr
                         key={o.id}
-                        className={isOpen ? "selected" : undefined}
+                        className={rowClass}
                         data-order-id={o.id}
                         onClick={() => openOrder(o.id)}
                       >
-                        <td onClick={(event) => event.stopPropagation()}>
-                      <input
-                            aria-label={o.orderNumber}
-                        type="checkbox"
-                            checked={selected.has(o.id)}
-                            disabled={!selected.has(o.id) && selected.size >= BULK_MAX}
+                        <td className="om-col-check" onClick={(event) => event.stopPropagation()}>
+                          <MerchantCheck
+                            checked={isChecked}
+                            disabled={!isChecked && selected.size >= BULK_MAX}
+                            label={o.orderNumber}
                             onChange={() => toggleSelect(o)}
-                      />
+                          />
                     </td>
                     <td>
                           <b className="num">{o.orderNumber}</b>

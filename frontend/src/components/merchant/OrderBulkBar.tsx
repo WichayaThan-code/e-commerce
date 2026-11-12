@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { PackageCheck, Tags, Truck, X } from "lucide-react";
 import ConfirmDialog from "../form/ConfirmDialog";
 import ReasonDialog from "../admin/ReasonDialog";
 import SearchableSelect from "../SearchableSelect";
@@ -95,40 +96,49 @@ export default function OrderBulkBar({
 
   return (
     <>
-      <div className="om-bulk-bar" role="region" aria-label={t("orderManagement.bulk.barLabel")}>
-        <b>
-          {t("orderManagement.bulk.selected", { count })}{" "}
-          <span className="num">{count}</span>
-        </b>
-        {running && progress ? (
-          <>
-            <span className="num">{progress.current}/{progress.total}</span>
-            <button type="button" onClick={onCancelRun}>{t("orderManagement.bulk.stop")}</button>
-          </>
-        ) : (
-          <>
-            <button type="button" disabled={!canAccept} title={deniedTitle(canAccept)} onClick={() => setDialog({ kind: "accept" })}>
-              {t("orderManagement.bulk.accept")}
-            </button>
-            <button type="button" disabled={!canProcess} title={deniedTitle(canProcess)} onClick={() => setDialog({ kind: "process" })}>
-              {t("orderManagement.bulk.process")}
-            </button>
-            <button type="button" disabled={!canShip} title={deniedTitle(canShip)} onClick={openShip}>
-              {t("orderManagement.bulk.ship")}
-            </button>
-            <button type="button" disabled={!canCancel} title={deniedTitle(canCancel)} onClick={() => setDialog({ kind: "cancel" })}>
-              {t("orderManagement.bulk.cancel")}
-            </button>
-            {FEATURES.orderTagsApi ? (
-              <button type="button" onClick={() => setDialog({ kind: "tags" })}>
-                {t("orderManagement.bulk.tags")}
+      <div className="pm-bulk-bar om-bulk-bar" role="region" aria-label={t("orderManagement.bulk.barLabel")}>
+        <div className="pm-bulk-count">
+          <span className="pm-bulk-badge num" aria-hidden="true">{count}</span>
+          <b>{t("orderManagement.bulk.selected", { count })}</b>
+        </div>
+        <div className="pm-bulk-actions">
+          {running && progress ? (
+            <>
+              <span className="om-bulk-progress num">{progress.current}/{progress.total}</span>
+              <button type="button" className="ghost" onClick={onCancelRun}>
+                <X aria-hidden="true" />
+                <span>{t("orderManagement.bulk.stop")}</span>
               </button>
-            ) : null}
-            <button type="button" className="secondary" onClick={onClear}>
-              {t("orderManagement.bulk.clear")}
-            </button>
-          </>
-        )}
+            </>
+          ) : (
+            <>
+              <button type="button" className="primary" disabled={!canAccept} title={deniedTitle(canAccept)} onClick={() => setDialog({ kind: "accept" })}>
+                <PackageCheck aria-hidden="true" />
+                <span>{t("orderManagement.bulk.accept")}</span>
+              </button>
+              <button type="button" disabled={!canProcess} title={deniedTitle(canProcess)} onClick={() => setDialog({ kind: "process" })}>
+                <span>{t("orderManagement.bulk.process")}</span>
+              </button>
+              <button type="button" disabled={!canShip} title={deniedTitle(canShip)} onClick={openShip}>
+                <Truck aria-hidden="true" />
+                <span>{t("orderManagement.bulk.ship")}</span>
+              </button>
+              <button type="button" disabled={!canCancel} title={deniedTitle(canCancel)} onClick={() => setDialog({ kind: "cancel" })}>
+                <span>{t("orderManagement.bulk.cancel")}</span>
+              </button>
+              {FEATURES.orderTagsApi ? (
+                <button type="button" onClick={() => setDialog({ kind: "tags" })}>
+                  <Tags aria-hidden="true" />
+                  <span>{t("orderManagement.bulk.tags")}</span>
+                </button>
+              ) : null}
+              <button type="button" className="ghost" onClick={onClear}>
+                <X aria-hidden="true" />
+                <span>{t("orderManagement.bulk.clear")}</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {dialog?.kind === "accept" ? (

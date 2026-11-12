@@ -168,7 +168,6 @@ export default function CustomerManagementPage() {
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [ordersReload, setOrdersReload] = useState(0);
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
-  const [checked, setChecked] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
   const [reload, setReload] = useState(0);
   const [exporting, setExporting] = useState(false);
@@ -349,6 +348,49 @@ export default function CustomerManagementPage() {
     setQueryDraft("");
     setParams(new URLSearchParams(), { replace: true });
   };
+  const clearChipFilters = () => {
+    setQueryDraft("");
+    patch({
+      q: null,
+      joinedFrom: null,
+      joinedTo: null,
+      channel: null,
+      status: null,
+      page: "0",
+    });
+  };
+  const dateChipValue =
+    joinedFrom && joinedTo ? `${joinedFrom} – ${joinedTo}`
+      : joinedFrom ? joinedFrom
+        : joinedTo || "";
+  const hasChipFilters = Boolean(qParam || joinedFrom || joinedTo || channel || status);
+  const clearChipLabel = (label: string) => t("customers.filters.clearChip", { label });
+  const exportCustomers = () => {
+    if (shopId == null || !canReadCustomers || exporting) return;
+    setExporting(true);
+    setError(null);
+    exportCustomerInsights(shopId, {
+      q: qParam || undefined,
+      channel: channel || undefined,
+      status: status || undefined,
+      segment: segment || undefined,
+      joinedFrom: joinedFrom || undefined,
+      joinedTo: joinedTo || undefined,
+      sort,
+      direction,
+    })
+      .catch((caught) => {
+        const code = caught instanceof ApiError ? caught.code : "";
+        setError(
+          code === "EXPORT_TOO_LARGE"
+            ? t("customers.exportTooLarge")
+            : caught instanceof ApiError
+              ? caught.message
+              : t("customers.error"),
+        );
+      })
+      .finally(() => setExporting(false));
+  };
 
   const allLabel = t("customers.filters.all");
   const channelOptions = [allLabel, ...channels];
@@ -399,49 +441,9 @@ export default function CustomerManagementPage() {
             <p>{t("customers.subtitle")}</p>
           </div>
           <div className="pm-actions">
-            <button type="button" disabled title={canCreate ? t("customers.comingSoon") : deniedTitle(canCreate)} className="primary">
+            <button type="button" disabled title={deniedTitle(canCreate)} className="primary">
               <UserPlus />
               {t("customers.add")} <ChevronDown />
-            </button>
-            <button
-              type="button"
-              disabled={!canReadCustomers || exporting}
-              title={
-                !canReadCustomers
-                  ? deniedTitle(canReadCustomers)
-                  : !canReadPii
-                    ? t("customers.exportMasked")
-                    : undefined
-              }
-              onClick={() => {
-                if (shopId == null || !canReadCustomers || exporting) return;
-                setExporting(true);
-                setError(null);
-                exportCustomerInsights(shopId, {
-                  q: qParam || undefined,
-                  channel: channel || undefined,
-                  status: status || undefined,
-                  segment: segment || undefined,
-                  joinedFrom: joinedFrom || undefined,
-                  joinedTo: joinedTo || undefined,
-                  sort,
-                  direction,
-                })
-                  .catch((caught) => {
-                    const code = caught instanceof ApiError ? caught.code : "";
-                    setError(
-                      code === "EXPORT_TOO_LARGE"
-                        ? t("customers.exportTooLarge")
-                        : caught instanceof ApiError
-                          ? caught.message
-                          : t("customers.error"),
-                    );
-                  })
-                  .finally(() => setExporting(false));
-              }}
-            >
-              <Download />
-              {exporting ? t("customers.exporting") : t("customers.export")}
             </button>
           </div>
         </header>
@@ -489,7 +491,7 @@ export default function CustomerManagementPage() {
         </section>
         <div className="cm-grid">
           <section className="cm-list">
-            <div className="cm-tabs">
+            <div className="pm-tabs" role="tablist">
               {(
                 [
                   ["", t("customers.tabs.all"), stats?.totalCustomers ?? 0],
@@ -501,10 +503,13 @@ export default function CustomerManagementPage() {
                 <button
                   key={value || "all"}
                   type="button"
+                  role="tab"
+                  aria-selected={segment === value}
                   className={segment === value ? "active" : ""}
                   onClick={() => patch({ segment: value || null, page: "0" })}
                 >
-                  {label} ({Number(count).toLocaleString(localeTag)})
+                  {label}
+                  <i>{Number(count).toLocaleString(localeTag)}</i>
                 </button>
               ))}
             </div>
@@ -598,6 +603,76 @@ export default function CustomerManagementPage() {
                 </div>
               </div>
             </form>
+            <div className="pm-table-tools">
+              <div className="pm-table-tools-chips" role="list" aria-label={t("customers.filters.active")}>
+                {qParam ? (
+                  <div className="om-filter-chip" role="listitem">
+                    <span>{t("customers.searchLabel")}: {qParam}</span>
+                    <button
+                      type="button"
+                      aria-label={clearChipLabel(t("customers.searchLabel"))}
+                      onClick={() => {
+                        setQueryDraft("");
+                        patch({ q: null, page: "0" });
+                      }}
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : null}
+                {joinedFrom || joinedTo ? (
+                  <div className="om-filter-chip" role="listitem">
+                    <span>{t("customers.filters.joinedRange")}: {dateChipValue}</span>
+                    <button
+                      type="button"
+                      aria-label={clearChipLabel(t("customers.filters.joinedRange"))}
+                      onClick={() => patch({ joinedFrom: null, joinedTo: null, page: "0" })}
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : null}
+                {channel ? (
+                  <div className="om-filter-chip" role="listitem">
+                    <span>{t("customers.filters.channel")}: {channel}</span>
+                    <button
+                      type="button"
+                      aria-label={clearChipLabel(t("customers.filters.channel"))}
+                      onClick={() => patch({ channel: null, page: "0" })}
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : null}
+                {status ? (
+                  <div className="om-filter-chip" role="listitem">
+                    <span>{t("customers.filters.status")}: {t(`customers.status.${status}`)}</span>
+                    <button
+                      type="button"
+                      aria-label={clearChipLabel(t("customers.filters.status"))}
+                      onClick={() => patch({ status: null, page: "0" })}
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : null}
+                {hasChipFilters ? (
+                  <button type="button" className="om-clear-all" onClick={clearChipFilters}>
+                    {t("customers.filters.clearAll")}
+                  </button>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="pm-export-btn"
+                disabled={!canReadCustomers || exporting}
+                title={deniedTitle(canReadCustomers) || t("customers.exportHint")}
+                onClick={exportCustomers}
+              >
+                <Download aria-hidden="true" />
+                <span>{exporting ? t("customers.exporting") : t("customers.export")}</span>
+              </button>
+            </div>
             <div className="cm-table-wrap" aria-busy={fetching}>
               {error ? (
                 <LoadError message={error} onRetry={() => setReload((n) => n + 1)} retryLabel={t("customers.retry")} />
@@ -609,14 +684,6 @@ export default function CustomerManagementPage() {
                 <table>
                   <thead>
                     <tr>
-                      <th>
-                        <input
-                          aria-label={t("customers.table.name")}
-                          type="checkbox"
-                          checked={items.length > 0 && checked.length === items.length}
-                          onChange={() => setChecked(checked.length === items.length ? [] : items.map((c) => c.key))}
-                        />
-                      </th>
                       <th>#</th>
                       <th>{t("customers.table.name")}</th>
                       <th>{t("customers.table.channel")}</th>
@@ -636,17 +703,6 @@ export default function CustomerManagementPage() {
                           key={c.key}
                           onClick={() => patch({ selected: c.key })}
                         >
-                          <td>
-                            <input
-                              aria-label={c.displayName}
-                              type="checkbox"
-                              checked={checked.includes(c.key)}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={() =>
-                                setChecked((xs) => (xs.includes(c.key) ? xs.filter((x) => x !== c.key) : [...xs, c.key]))
-                              }
-                            />
-                          </td>
                           <td className="num">{page * size + i + 1}</td>
                           <td>
                             <div className="cm-person">
@@ -724,7 +780,7 @@ export default function CustomerManagementPage() {
                           <small>{t("customers.since", { date: formatJoined(selected.joinedAt, localeTag) })}</small>
                         </div>
                       </div>
-                      <button type="button" className="cm-detail-edit" disabled title={canUpdate ? t("customers.comingSoon") : deniedTitle(canUpdate)}>
+                      <button type="button" className="cm-detail-edit" disabled title={deniedTitle(canUpdate)}>
                         <Pencil />
                         {t("customers.edit")}
                       </button>
@@ -856,7 +912,7 @@ export default function CustomerManagementPage() {
                       </section>
                     </div>
                     <div className="om-drawer-actions cm-detail-actions">
-                      <button type="button" disabled title={canReadPii ? t("customers.comingSoon") : deniedTitle(canReadPii)}>
+                      <button type="button" disabled title={deniedTitle(canReadPii)}>
                         <Mail />
                         {t("customers.sendMessage")}
                       </button>

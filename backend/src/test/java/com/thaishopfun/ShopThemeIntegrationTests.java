@@ -397,7 +397,8 @@ class ShopThemeIntegrationTests {
             .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.colors.sale", hasItem("#c4271b")))
             .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.font", hasItem("IBM_PLEX_SANS_THAI")))
             .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.hero.title", hasItem("ของดีทั่วไทย ส่งตรงถึงบ้านคุณ")))
-            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.hero.ctaSecondaryLabel", hasItem("ดูหมวดหมู่")))
+            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.hero.ctaSecondaryAction", hasItem("CONTACT")))
+            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.hero.ctaSecondaryLabel", hasItem("ติดต่อร้าน")))
             .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.sections[*].key", contains("HERO", "TRUST", "COUPONS", "CATEGORIES", "FEATURED", "BANNERS", "BESTSELLERS", "INTRO", "CATALOG", "NEW_ARRIVALS", "HOURS")))
             .andExpect(jsonPath("$[?(@.templateKey=='CUSTOM')].config.font", hasItem("NOTO_SANS_THAI")))
             .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.colors.secondary", hasItem("#f1efea")))
@@ -426,7 +427,7 @@ class ShopThemeIntegrationTests {
             """;
         var heroCopy = """
             {"layout":"FULL","eyebrow":"ส่งตรงจากสวน","title":"ทุเรียนหมอนทอง","subtitle":"สดทุกวัน",
-             "ctaLabel":"สั่งเลย","ctaLink":"","ctaSecondaryLabel":"ดูโปร","ctaSecondaryLink":"/shops"}""";
+             "ctaLabel":"สั่งเลย","ctaLink":"","ctaSecondaryAction":"CUSTOM","ctaSecondaryLabel":"ดูโปร","ctaSecondaryLink":"/shops","showCtas":false}""";
         var heroMarkup = heroCopy.replace("ส่งตรงจากสวน", "<b>x</b>");
         mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
                 .header("Authorization", bearer(owner.token))
@@ -436,8 +437,10 @@ class ShopThemeIntegrationTests {
             .andExpect(jsonPath("$.config.colors.sale").value("#c4271b"))
             .andExpect(jsonPath("$.config.colors.borderStrong").value("#7d8ba0"))
             .andExpect(jsonPath("$.config.hero.eyebrow").value("ส่งตรงจากสวน"))
+            .andExpect(jsonPath("$.config.hero.ctaSecondaryAction").value("CUSTOM"))
             .andExpect(jsonPath("$.config.hero.ctaSecondaryLabel").value("ดูโปร"))
-            .andExpect(jsonPath("$.config.hero.ctaSecondaryLink").value("/shops"));
+            .andExpect(jsonPath("$.config.hero.ctaSecondaryLink").value("/shops"))
+            .andExpect(jsonPath("$.config.hero.showCtas").value(false));
 
         mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
                 .header("Authorization", bearer(owner.token))
@@ -461,6 +464,7 @@ class ShopThemeIntegrationTests {
             .andExpect(jsonPath("$.fieldErrors[?(@.field=='config.colors.sale')].code", hasItem("THEME_COLOR_INVALID")));
 
         // FASHION shares the themes-spec palette roles; GENERAL-only hero copy is still dropped.
+        // showCtas is template-agnostic and must survive.
         mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
                 .header("Authorization", bearer(owner.token))
                 .contentType(MediaType.APPLICATION_JSON)
@@ -468,7 +472,10 @@ class ShopThemeIntegrationTests {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.config.colors.sale").value("#c8102e"))
             .andExpect(jsonPath("$.config.colors.borderStrong").value("#7d8ba0"))
-            .andExpect(jsonPath("$.config.hero.eyebrow").doesNotExist());
+            .andExpect(jsonPath("$.config.hero.eyebrow").doesNotExist())
+            .andExpect(jsonPath("$.config.hero.ctaSecondaryAction").value("CUSTOM"))
+            .andExpect(jsonPath("$.config.hero.ctaSecondaryLabel").value("ดูโปร"))
+            .andExpect(jsonPath("$.config.hero.showCtas").value(false));
 
         mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
                 .header("Authorization", bearer(owner.token))
@@ -486,7 +493,8 @@ class ShopThemeIntegrationTests {
             .andExpect(jsonPath("$.config.colors.sale").value("#a63a17"))
             .andExpect(jsonPath("$.config.colors.borderStrong").value("#7d8ba0"))
             .andExpect(jsonPath("$.config.hero.eyebrow").doesNotExist())
-            .andExpect(jsonPath("$.config.hero.ctaSecondaryLabel").doesNotExist());
+            .andExpect(jsonPath("$.config.hero.ctaSecondaryAction").value("CUSTOM"))
+            .andExpect(jsonPath("$.config.hero.ctaSecondaryLabel").value("ดูโปร"));
     }
 
     @Test

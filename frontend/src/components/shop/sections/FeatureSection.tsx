@@ -4,8 +4,10 @@ import { Link } from "react-router-dom";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { mediaUrl } from "../../../services/api";
 import { isLocalizedEmpty, resolveFeatureContent } from "../../../theme/blockContent";
+import { cropStyle } from "../imageCrop";
 import { BlockCtaButton, panelClasses, useLocalized } from "./blockParts";
 import type { ShopNewBlockProps } from "./types";
+import "../../../styles/image-focal-editor.css";
 
 /** AG4 FEATURE: image + copy (+ bullets, CTA, optional published product link), image left or right. */
 export default function FeatureSection({ shop, block }: ShopNewBlockProps) {
@@ -28,8 +30,8 @@ export default function FeatureSection({ shop, block }: ShopNewBlockProps) {
       aria-label={title || tp("shop.blocks.feature.label")}
     >
       {image ? (
-        <div className="shop-feature-media">
-          <img src={image} alt={title} loading="lazy" />
+        <div className="shop-feature-media shop-image-crop" style={cropStyle(content.crop, content.mobileCrop)}>
+          <img src={image} alt={title} loading="lazy" style={cropStyle(content.crop, content.mobileCrop)} />
         </div>
       ) : null}
       <div className="shop-feature-copy">

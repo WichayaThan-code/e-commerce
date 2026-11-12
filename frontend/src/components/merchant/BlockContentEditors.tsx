@@ -202,9 +202,14 @@ function StepsEditor({ content, path, disabled, shopId, shopSlug, errorFor, onCh
                     shopId={shopId}
                     shopSlug={shopSlug}
                     disabled={disabled}
+                    crop={step.crop as never}
+                    mobileCrop={step.mobileCrop as never}
+                    cropAspect={1}
+                    cropMobileAspect={1}
+                    onCropChange={(crop, mobileCrop) => setStep(index, { crop, mobileCrop })}
                     onChange={(mediaId, item) => setStep(index, mediaId
                       ? { mediaId, mediaUrl: item?.url ?? (str(step.mediaUrl) || undefined) }
-                      : { mediaId: undefined, mediaUrl: undefined })}
+                      : { mediaId: undefined, mediaUrl: undefined, crop: undefined, mobileCrop: undefined })}
                   />
                 </MediaField>
               ) : null}
@@ -264,9 +269,14 @@ function FeatureEditor({ content, path, disabled, shopId, shopSlug, errorFor, on
           shopId={shopId}
           shopSlug={shopSlug}
           disabled={disabled}
+          crop={content.crop as never}
+          mobileCrop={content.mobileCrop as never}
+          cropAspect={4 / 3}
+          cropMobileAspect={4 / 3}
+          onCropChange={(crop, mobileCrop) => set({ crop, mobileCrop })}
           onChange={(mediaId, item) => set(mediaId
             ? { mediaId, mediaUrl: item?.url ?? (str(content.mediaUrl) || undefined) }
-            : { mediaId: undefined, mediaUrl: undefined })}
+            : { mediaId: undefined, mediaUrl: undefined, crop: undefined, mobileCrop: undefined })}
         />
       </MediaField>
       <ThemeTokenSelect
@@ -369,9 +379,14 @@ function GalleryEditor({ content, path, disabled, shopId, shopSlug, errorFor, on
                   shopId={shopId}
                   shopSlug={shopSlug}
                   disabled={disabled}
+                  crop={item.crop as never}
+                  mobileCrop={item.mobileCrop as never}
+                  cropAspect={1}
+                  cropMobileAspect={1}
+                  onCropChange={(crop, mobileCrop) => setItem(index, { crop, mobileCrop })}
                   onChange={(mediaId, picked) => setItem(index, mediaId
                     ? { mediaId, url: picked?.url ?? (str(item.url) || undefined) }
-                    : { mediaId: "", url: undefined })}
+                    : { mediaId: "", url: undefined, crop: undefined, mobileCrop: undefined })}
                 />
               </MediaField>
               <LocalizedInput label={t("storeTheme.content.caption")} value={item.caption} maxLength={160} disabled={disabled}

@@ -57,39 +57,17 @@
   border-radius: 0;
   overflow: hidden;
 }
-.cm-tabs {
-  height: 45px;
-  border-bottom: 1px solid #dce9f5;
-  display: flex;
-  padding: 0 16px;
-}
-.cm-tabs button {
-  height: 45px;
-  border: 0;
-  background: none;
-  padding: 0 18px;
-  color: #58739d;
-  font:
-    600 12px var(--font-sans),
-    sans-serif;
-  position: relative;
-}
-.cm-tabs button.active {
-  color: #087bf5;
-}
-.cm-tabs button.active:after {
-  content: "";
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  bottom: 0;
-  height: 3px;
-  background: #087bf5;
+/* Customer list tabs — same pill pattern as /merchant/products */
+.cm-list > .pm-tabs {
+  margin: 12px 16px 8px;
 }
 /* Customer filters reuse .om-filters from order-management.css */
 .cm-list .om-filters {
   position: relative;
   z-index: 20;
+  border-bottom: 1px solid #e0ebf5;
+}
+.cm-list .pm-table-tools {
   border-bottom: 1px solid #e0ebf5;
 }
 /* Search + range + channel + status + segment + sort + actions */
@@ -219,26 +197,26 @@
 }
 .cm-table-wrap th:first-child,
 .cm-table-wrap td:first-child {
-  width: 44px;
+  width: 48px;
   text-align: center;
   padding-left: 12px;
   padding-right: 8px;
 }
 .cm-table-wrap th:nth-child(2),
 .cm-table-wrap td:nth-child(2) {
-  width: 40px;
+  width: 240px;
 }
 .cm-table-wrap th:nth-child(3),
 .cm-table-wrap td:nth-child(3) {
-  width: 240px;
+  width: 120px;
 }
 .cm-table-wrap th:nth-child(4),
 .cm-table-wrap td:nth-child(4) {
-  width: 120px;
+  width: 88px;
 }
 .cm-table-wrap th:nth-child(5),
 .cm-table-wrap td:nth-child(5) {
-  width: 88px;
+  width: 120px;
 }
 .cm-table-wrap th:nth-child(6),
 .cm-table-wrap td:nth-child(6) {
@@ -246,14 +224,10 @@
 }
 .cm-table-wrap th:nth-child(7),
 .cm-table-wrap td:nth-child(7) {
-  width: 120px;
+  width: 96px;
 }
 .cm-table-wrap th:nth-child(8),
 .cm-table-wrap td:nth-child(8) {
-  width: 96px;
-}
-.cm-table-wrap th:nth-child(9),
-.cm-table-wrap td:nth-child(9) {
   width: 120px;
 }
 .cm-table-wrap td {
@@ -272,7 +246,7 @@
 .cm-table-wrap tr.selected {
   background: #f0f7ff;
 }
-.cm-table-wrap td:nth-child(9) > span {
+.cm-table-wrap td:nth-child(8) > span {
   display: block;
 }
 .cm-person {

@@ -5,10 +5,13 @@
  */
 import {
   normalizeTheme,
+  resolveHeroSecondaryAction,
   tsfThemeDefaults,
+  type HeroSecondaryAction,
   type ShopTheme,
   type ShopThemeTemplateKey,
   type ThemeConfig,
+  type ThemeHero,
 } from "../../../theme/shopTheme";
 import { useMemo, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
@@ -18,8 +21,10 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { loginPathForCart, useOptionalCart } from "../../../contexts/CartContext";
 import { cartErrorMessage, isOwnShop } from "../../cart/cartFormat";
 import HeroSlider, { heroSlideUrls } from "../sections/HeroSlider";
+import { cropStyle } from "../imageCrop";
 import { categoryIcon } from "../categoryIcons";
 import { todayHours } from "../shopHours";
+import "../../../styles/image-focal-editor.css";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { useShopCategories } from "../../../hooks/useShopCategories";
 import { mediaUrl, type PublicProduct, type PublicShop } from "../../../services/api";
@@ -99,12 +104,26 @@ const MOTIFS: Record<string, ReactNode> = {
   cloth: <><rect x={18} y={22} width={64} height={10} /><rect x={18} y={40} width={64} height={10} /><rect x={18} y={58} width={64} height={10} /><rect x={18} y={76} width={64} height={6} /></>,
 };
 
-export function TsfImageSlot({ src, alt, tone, className, ratio, motif, scale = 0.62 }: { src?: string | null; alt?: string; tone?: string; className?: string; ratio?: string; motif?: string; scale?: number }) {
+export function TsfImageSlot({ src, alt, tone, className, ratio, motif, scale = 0.62, crop, mobileCrop }: {
+  src?: string | null
+  alt?: string
+  tone?: string
+  className?: string
+  ratio?: string
+  motif?: string
+  scale?: number
+  crop?: import("../imageCrop").ImageCrop | null
+  mobileCrop?: import("../imageCrop").ImageCrop | null
+}) {
   const shapes = motif ? MOTIFS[motif] : null;
   const off = (100 - 100 * scale) / 2;
+  const focal = crop || mobileCrop ? cropStyle(crop, mobileCrop) : undefined;
   return (
-    <div className={["tsf-img", tone ? `tsf-tone-${tone}` : "", className ?? ""].filter(Boolean).join(" ")} style={ratio ? { aspectRatio: ratio } : undefined}>
-      {src ? <img src={src} alt={alt ?? ""} loading="lazy" /> : shapes ? (
+    <div
+      className={["tsf-img", tone ? `tsf-tone-${tone}` : "", focal ? "shop-image-crop" : "", className ?? ""].filter(Boolean).join(" ")}
+      style={{ ...(ratio ? { aspectRatio: ratio } : {}), ...focal }}
+    >
+      {src ? <img src={src} alt={alt ?? ""} loading="lazy" style={focal} /> : shapes ? (
         <svg className="tsf-motif" viewBox="0 0 100 100" fill="currentColor" aria-hidden="true" focusable="false">
           <g transform={`translate(${off} ${off}) scale(${scale})`}>{shapes}</g>
         </svg>
@@ -217,6 +236,27 @@ function ctaTarget(link: string | undefined): { to?: string; href?: string } | n
   return null;
 }
 
+/** Resolve merchant-selectable secondary hero CTA (NONE hides it; presets map to shop routes). */
+function resolveSecondaryCta(
+  hero: ThemeHero,
+  shop: PublicShop,
+  labelFor: (action: Exclude<HeroSecondaryAction, "NONE" | "CUSTOM">) => string,
+): { label: string; target: { to?: string; href?: string } } | null {
+  const action = resolveHeroSecondaryAction(hero.ctaSecondaryAction, hero.ctaSecondaryLabel, hero.ctaSecondaryLink);
+  if (action === "NONE") return null;
+  const override = (hero.ctaSecondaryLabel ?? "").trim();
+  if (action === "CUSTOM") {
+    const target = ctaTarget(hero.ctaSecondaryLink);
+    if (!target) return null;
+    return { label: override || labelFor("PRODUCTS"), target };
+  }
+  const target =
+    action === "PRODUCTS" ? { to: shopProductsPath(shop.slug) }
+      : action === "CATEGORIES" ? { to: shopCategoriesPath(shop.slug) }
+        : { to: shopContactPath(shop.slug) };
+  return { label: override || labelFor(action), target };
+}
+
 /** `align` overrides the brand-level alignment (CUSTOM heroes use their own `hero.textAlign`). */
 export function TsfHero({ shop, config, align: alignOverride }: { shop: PublicShop; config: ThemeConfig; align?: "LEFT" | "CENTER" }) {
   const align = alignOverride ?? (config.brand?.textAlign === "CENTER" ? "CENTER" : "LEFT");
@@ -226,7 +266,11 @@ export function TsfHero({ shop, config, align: alignOverride }: { shop: PublicSh
   const eyebrow = (hero.eyebrow ?? "").trim() || shop.category || "";
   const subtitle = hero.subtitle.trim() || shop.description || "";
   const primary = ctaTarget(hero.ctaLink) ?? { to: shopProductsPath(shop.slug) };
-  const secondary = ctaTarget(hero.ctaSecondaryLink) ?? { to: shopCategoriesPath(shop.slug) };
+  const secondary = resolveSecondaryCta(hero, shop, (action) => (
+    action === "PRODUCTS" ? tp("shop.general.ctaProducts")
+      : action === "CATEGORIES" ? tp("shop.general.ctaCategories")
+        : tp("shop.general.ctaContact")
+  ));
   const layout = hero.layout === "STRIP" || hero.layout === "MEDIA_FULL" || hero.layout === "SPLIT" || hero.layout === "POSTER" ? hero.layout : "FULL";
   const badges = (hero.badges ?? []).map((badge) => badge.trim()).filter(Boolean).slice(0, 3);
   const strip = layout === "STRIP";
@@ -237,10 +281,14 @@ export function TsfHero({ shop, config, align: alignOverride }: { shop: PublicSh
       {eyebrow ? <p className="tsf-eyebrow">{eyebrow}</p> : null}
       <h1 className="tsf-display tsf-hero-title">{title}</h1>
       {subtitle ? <p className="tsf-hero-sub">{subtitle}</p> : null}
-      <div className="tsf-hero-ctas">
-        <TsfButton size="l" variant={onLight ? "primary" : "inverse"} {...primary}>{hero.ctaLabel.trim() || tp("shop.general.ctaShop")}</TsfButton>
-        <TsfButton size="l" variant={onLight ? "link" : "ghost-inverse"} {...secondary}>{(hero.ctaSecondaryLabel ?? "").trim() || tp("shop.general.ctaCategories")}</TsfButton>
-      </div>
+      {hero.showCtas !== false ? (
+        <div className="tsf-hero-ctas">
+          <TsfButton size="l" variant={onLight ? "primary" : "inverse"} {...primary}>{hero.ctaLabel.trim() || tp("shop.general.ctaShop")}</TsfButton>
+          {secondary ? (
+            <TsfButton size="l" variant={onLight ? "link" : "ghost-inverse"} {...secondary.target}>{secondary.label}</TsfButton>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
   const slides = heroSlideUrls(hero.slides);
@@ -344,7 +392,7 @@ export function TsfStoryBlock({ shop, config }: { shop: PublicShop; config: Them
   return (
     <TsfSection id="shop-story">
       <div className={intro.reverse ? "tsf-story is-reverse" : "tsf-story"}>
-        <TsfImageSlot src={image} alt="" tone="secondary" motif="sun" scale={0.9} />
+        <TsfImageSlot src={image} alt="" tone="secondary" motif="sun" scale={0.9} crop={intro.crop} mobileCrop={intro.mobileCrop} />
         <div>
           {eyebrow ? <p className="tsf-eyebrow">{eyebrow}</p> : null}
           <h2 className="tsf-display">{title || shop.name}</h2>
@@ -691,7 +739,13 @@ export function TsfPromoBanners({ config }: { config: ThemeConfig }) {
           const target = ctaTarget(banner.link);
           const body = (
             <>
-              <TsfImageSlot src={mediaUrl(banner.imageUrl)} alt={banner.title ?? ""} tone="ink" />
+              <TsfImageSlot
+                src={mediaUrl(banner.imageUrl)}
+                alt={banner.title ?? ""}
+                tone="ink"
+                crop={banner.crop}
+                mobileCrop={banner.mobileCrop}
+              />
               {banner.title?.trim() ? <div className="tsf-banner-copy"><h3 className="tsf-display">{banner.title}</h3></div> : null}
             </>
           );

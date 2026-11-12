@@ -12,6 +12,7 @@ import java.util.List;
 @EnableAsync
 @EnableScheduling
 public class TranslationConfig {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TranslationConfig.class);
 
     @Bean
     @Primary
@@ -21,15 +22,18 @@ public class TranslationConfig {
         NoopTranslationProvider noop
     ) {
         var wanted = properties.provider() == null ? "none" : properties.provider().trim().toLowerCase();
+        TranslationProvider selected = noop;
         if ("fake".equals(wanted)) {
-            return providers.stream().filter(provider -> "fake".equals(provider.id())).findFirst().orElse(noop);
+            selected = providers.stream().filter(provider -> "fake".equals(provider.id())).findFirst().orElse(noop);
+        } else if ("mymemory".equals(wanted) || "free".equals(wanted)) {
+            selected = providers.stream().filter(provider -> "mymemory".equals(provider.id())).findFirst().orElse(noop);
+        } else if ("google".equals(wanted)) {
+            selected = providers.stream().filter(provider -> "google".equals(provider.id())).findFirst().orElse(noop);
+        } else if ("deepl".equals(wanted)) {
+            selected = providers.stream().filter(provider -> "deepl".equals(provider.id())).findFirst().orElse(noop);
         }
-        if ("google".equals(wanted)) {
-            return providers.stream().filter(provider -> "google".equals(provider.id())).findFirst().orElse(noop);
-        }
-        if ("deepl".equals(wanted)) {
-            return providers.stream().filter(provider -> "deepl".equals(provider.id())).findFirst().orElse(noop);
-        }
-        return noop;
+        log.info("Translation provider active: {} (configured={}, wanted={})",
+            selected.id(), selected.configured(), wanted);
+        return selected;
     }
 }

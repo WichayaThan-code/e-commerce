@@ -433,14 +433,7 @@ export default function AdminUsagePage() {
                       <td className="num">{row.slug || '—'}</td>
                       <td><Pill tone={statusTone(row.status)}>{tp(`status.${row.status}`, { defaultValue: row.status })}</Pill></td>
                       <td className="num">{row.planCode || tp('usage.noPlan')}</td>
-                      <td
-                        className="num"
-                        title={tp('usage.metric.productsHint', {
-                          published: formatCount(row.products?.published ?? 0),
-                          draft: formatCount(row.products?.draft ?? 0),
-                          images: formatCount(row.products?.images ?? 0),
-                        })}
-                      >
+                      <td className="num">
                         {formatCount(row.products?.published ?? 0)}
                       </td>
                       <td className="num">{formatCount(row.orders?.total)}</td>

@@ -192,6 +192,7 @@ export default function DocumentConfirmPage() {
     }
     if (!confirmed) {
       setMessage(i18n.t("validation.stepDocuments", { ns: "merchant" }));
+      focusFirstInvalid({ documentsConfirmed: i18n.t("validation.stepDocuments", { ns: "merchant" }) });
       return;
     }
     const local = readMerchantDraft(user.id);
@@ -264,9 +265,10 @@ export default function DocumentConfirmPage() {
             <DocumentRow type="IDENTITY" kind={d.rows[0].kind} title={d.rows[0].title} description={d.rows[0].description} uploadText={d.rows[0].uploadText} exampleTitle={d.rows[0].exampleTitle} existingName={existingDocs.IDENTITY} error={docErrors.IDENTITY} onClearError={(key) => setDocErrors((prev) => { const next = { ...prev }; delete next[key]; return next; })} />
             <DocumentRow type="ADDRESS" kind={d.rows[1].kind} title={d.rows[1].title} description={d.rows[1].description} uploadText={d.rows[1].uploadText} exampleTitle={d.rows[1].exampleTitle} existingName={existingDocs.ADDRESS} error={docErrors.ADDRESS} onClearError={(key) => setDocErrors((prev) => { const next = { ...prev }; delete next[key]; return next; })} />
             <DocumentRow type="BUSINESS" kind={d.rows[2].kind} title={d.rows[2].title} description={d.rows[2].description} uploadText={d.rows[2].uploadText} exampleTitle={d.rows[2].exampleTitle} existingName={existingDocs.BUSINESS} error={docErrors.BUSINESS} onClearError={(key) => setDocErrors((prev) => { const next = { ...prev }; delete next[key]; return next; })} />
-            <label className="doc-confirm-check">
+            <label className="doc-confirm-check" data-field="documentsConfirmed">
               <input
                 type="checkbox"
+                name="documentsConfirmed"
                 checked={confirmed}
                 onChange={(e) => setConfirmed(e.target.checked)}
               />

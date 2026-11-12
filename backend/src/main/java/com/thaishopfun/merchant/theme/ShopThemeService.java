@@ -132,6 +132,7 @@ public class ShopThemeService {
             // AG2: only CUSTOM themes may reference the media library; other templates silently drop mediaId.
             if (custom) normalizeMediaIds(config);
             else ShopThemeMediaService.stripMediaIds(config);
+            sanitizeBanners(config);
             ThemePresets.ensureStyle(config, template);
             ThemePresets.ensureMallExtras(config, template);
         }
@@ -254,6 +255,44 @@ public class ShopThemeService {
         }
     }
 
+    /** Whitelist banner keys and keep crop only when the row still has an image. */
+    private static void sanitizeBanners(Map<String, Object> config) {
+        if (config == null || !(config.get("banners") instanceof List<?> banners)) return;
+        var cleaned = new ArrayList<Object>();
+        for (var item : banners) {
+            var row = asMap(item);
+            if (row == null) {
+                cleaned.add(item);
+                continue;
+            }
+            var out = keepKeys(row, BANNER_KEYS);
+            var hasMedia = string(out.get("mediaId")) != null || string(out.get("imageUrl")) != null;
+            if (!hasMedia) {
+                out.remove(ShopThemeImageCrop.CROP_KEY);
+                out.remove(ShopThemeImageCrop.MOBILE_CROP_KEY);
+            } else {
+                ShopThemeImageCrop.putCrop(out, row, ShopThemeImageCrop.CROP_KEY);
+                ShopThemeImageCrop.putCrop(out, row, ShopThemeImageCrop.MOBILE_CROP_KEY);
+            }
+            cleaned.add(out);
+        }
+        config.put("banners", cleaned);
+    }
+
+    /** Keep intro crop only when an image is present. */
+    private static void sanitizeIntroCrops(Map<String, Object> intro) {
+        if (intro == null) return;
+        var hasMedia = string(intro.get("introMediaId")) != null || string(intro.get("imageUrl")) != null;
+        if (!hasMedia) {
+            intro.remove(ShopThemeImageCrop.CROP_KEY);
+            intro.remove(ShopThemeImageCrop.MOBILE_CROP_KEY);
+            return;
+        }
+        var source = new LinkedHashMap<>(intro);
+        ShopThemeImageCrop.putCrop(intro, source, ShopThemeImageCrop.CROP_KEY);
+        ShopThemeImageCrop.putCrop(intro, source, ShopThemeImageCrop.MOBILE_CROP_KEY);
+    }
+
     /** The stored banner keeps only mediaId; imageUrl is derived from it on read so it can never go stale. */
     private static void dropImageUrlWhereMediaId(Map<String, Object> config) {
         for (var row : bannerRows(config)) {
@@ -304,7 +343,7 @@ public class ShopThemeService {
         }
         var style = asMap(config.get("style"));
         if (style != null) for (var key : AG1_STYLE_KEYS) style.remove(key);
-        // GENERAL keeps its plain-text hero copy (eyebrow + secondary CTA); other templates drop those keys.
+        // GENERAL keeps its plain-text hero copy (eyebrow + badges); other templates drop those keys.
         var heroIn = asMap(config.get("hero"));
         if (heroIn != null && template != ShopThemeTemplate.GENERAL) {
             for (var key : ThemePresets.GENERAL_HERO_KEYS) heroIn.remove(key);
@@ -398,23 +437,17 @@ public class ShopThemeService {
             plainText(problems, "config.hero.title", string(hero.get("title")));
             plainText(problems, "config.hero.subtitle", string(hero.get("subtitle")));
             plainText(problems, "config.hero.ctaLabel", string(hero.get("ctaLabel")));
-            var label = hero.get("ctaSecondaryLabel");
-            var link = hero.get("ctaSecondaryLink");
-            if ((label != null && !(label instanceof String)) || (link != null && !(link instanceof String))) {
-                problems.add(ValidationMessages.violation("config.hero.ctaSecondaryLabel", "THEME_HERO_TEXT_INVALID"));
-            } else {
-                checkLen(problems, "config.hero.ctaSecondaryLabel", string(label), 120, "THEME_HERO_CTA_TOO_LONG");
-                plainText(problems, "config.hero.ctaSecondaryLabel", string(label));
-                var href = string(link);
-                if (href != null && !href.isBlank() && !INTERNAL_PATH.matcher(href).matches() && !HTTPS.matcher(href).matches()) {
-                    problems.add(ValidationMessages.violation("config.hero.ctaSecondaryLink", "THEME_HERO_LINK_INVALID"));
-                }
-            }
         }
         if (!problems.isEmpty()) throw new ValidationException(problems);
     }
 
-    private static final Set<String> INTRO_KEYS = Set.of("eyebrow", "title", "body", "ctaLabel", "ctaLink", "introMediaId", "imageUrl", "reverse");
+    private static final Set<String> INTRO_KEYS = Set.of(
+        "eyebrow", "title", "body", "ctaLabel", "ctaLink", "introMediaId", "imageUrl", "reverse",
+        ShopThemeImageCrop.CROP_KEY, ShopThemeImageCrop.MOBILE_CROP_KEY
+    );
+    private static final Set<String> BANNER_KEYS = Set.of(
+        "imageUrl", "title", "link", "mediaId", ShopThemeImageCrop.CROP_KEY, ShopThemeImageCrop.MOBILE_CROP_KEY
+    );
     private static final Pattern HTTP_OR_HTTPS = Pattern.compile("^https?://[\\w\\-./?#=&%]+$", Pattern.CASE_INSENSITIVE);
 
     /** StoryBlock copy: plain text with length limits; CTA link is an internal path or http(s); reverse is a boolean. */
@@ -431,6 +464,7 @@ public class ShopThemeService {
             throw new ValidationException(List.of(ValidationMessages.violation("config.intro", "THEME_INTRO_TEXT_INVALID")));
         }
         intro.keySet().removeIf(key -> !INTRO_KEYS.contains(key));
+        sanitizeIntroCrops(intro);
         var limits = new LinkedHashMap<String, Integer>();
         limits.put("eyebrow", 60);
         limits.put("title", 120);
@@ -457,6 +491,7 @@ public class ShopThemeService {
         if (reverse != null && !(reverse instanceof Boolean)) {
             problems.add(ValidationMessages.violation("config.intro.reverse", "THEME_INTRO_TEXT_INVALID"));
         }
+        ShopThemeImageCrop.validateHolderCrops(problems, "config.intro", intro);
         if (!problems.isEmpty()) throw new ValidationException(problems);
     }
 
@@ -663,6 +698,30 @@ public class ShopThemeService {
             checkLen(problems, "config.hero.title", string(hero.get("title")), 120, "THEME_HERO_TITLE_TOO_LONG");
             checkLen(problems, "config.hero.subtitle", string(hero.get("subtitle")), 240, "THEME_HERO_SUBTITLE_TOO_LONG");
             checkLen(problems, "config.hero.ctaLabel", string(hero.get("ctaLabel")), 120, "THEME_HERO_CTA_TOO_LONG");
+            if (hero.containsKey("showCtas") && hero.get("showCtas") != null && !(hero.get("showCtas") instanceof Boolean)) {
+                problems.add(ValidationMessages.violation("config.hero.showCtas", "THEME_TOKEN_INVALID"));
+            }
+            if (hero.containsKey("ctaSecondaryAction") && hero.get("ctaSecondaryAction") != null) {
+                var action = string(hero.get("ctaSecondaryAction"));
+                if (action == null || !ThemePresets.HERO_SECONDARY_ACTIONS.contains(action.trim().toUpperCase())) {
+                    problems.add(ValidationMessages.violation("config.hero.ctaSecondaryAction", "THEME_TOKEN_INVALID"));
+                } else {
+                    hero.put("ctaSecondaryAction", action.trim().toUpperCase());
+                }
+            }
+            var secondaryLabel = hero.get("ctaSecondaryLabel");
+            var secondaryLink = hero.get("ctaSecondaryLink");
+            if ((secondaryLabel != null && !(secondaryLabel instanceof String)) || (secondaryLink != null && !(secondaryLink instanceof String))) {
+                problems.add(ValidationMessages.violation("config.hero.ctaSecondaryLabel", "THEME_HERO_TEXT_INVALID"));
+            } else {
+                checkLen(problems, "config.hero.ctaSecondaryLabel", string(secondaryLabel), 120, "THEME_HERO_CTA_TOO_LONG");
+                plainText(problems, "config.hero.ctaSecondaryLabel", string(secondaryLabel));
+                var secondaryHref = string(secondaryLink);
+                if (secondaryHref != null && !secondaryHref.isBlank()
+                    && !INTERNAL_PATH.matcher(secondaryHref).matches() && !HTTPS.matcher(secondaryHref).matches()) {
+                    problems.add(ValidationMessages.violation("config.hero.ctaSecondaryLink", "THEME_HERO_LINK_INVALID"));
+                }
+            }
             var link = string(hero.get("ctaLink"));
             if (link != null && !link.isBlank() && !INTERNAL_PATH.matcher(link).matches() && !HTTPS.matcher(link).matches()) {
                 problems.add(ValidationMessages.violation("config.hero.ctaLink", "THEME_HERO_LINK_INVALID"));
@@ -740,6 +799,7 @@ public class ShopThemeService {
                     if (link != null && !link.isBlank() && !INTERNAL_PATH.matcher(link).matches() && !HTTPS.matcher(link).matches()) {
                         problems.add(ValidationMessages.violation(prefix + ".link", "THEME_BANNER_LINK_INVALID"));
                     }
+                    ShopThemeImageCrop.validateHolderCrops(problems, prefix, map);
                 }
             }
         }

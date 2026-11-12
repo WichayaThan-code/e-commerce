@@ -5,6 +5,10 @@
  * throws) and mirror the backend whitelist; the backend stays the source of truth for validation.
  */
 
+import { clampCrop, type ImageCrop } from '../components/shop/imageCrop'
+
+export type { ImageCrop }
+
 export const NEW_BLOCK_TYPES = ['STEPS', 'FEATURE', 'GALLERY', 'SOCIAL', 'RICH_TEXT', 'COLLECTIONS'] as const
 export type NewBlockType = (typeof NEW_BLOCK_TYPES)[number]
 
@@ -31,7 +35,15 @@ export const DEFAULT_COLLECTION_CARDS = 6
 export const COLLECTION_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 export type BlockCta = { label?: LocalizedString; link?: string }
-export type StepItem = { icon: StepIcon; mediaId?: string; mediaUrl?: string; title?: LocalizedString; body?: LocalizedString }
+export type StepItem = {
+  icon: StepIcon
+  mediaId?: string
+  mediaUrl?: string
+  title?: LocalizedString
+  body?: LocalizedString
+  crop?: ImageCrop
+  mobileCrop?: ImageCrop
+}
 export type StepsContent = { title?: LocalizedString; subtitle?: LocalizedString; steps: StepItem[]; cta?: BlockCta }
 export type FeatureContent = {
   mediaId?: string
@@ -45,8 +57,17 @@ export type FeatureContent = {
   /** Derived by the API while the product is still published. */
   productSlug?: string
   layout: FeatureLayout
+  crop?: ImageCrop
+  mobileCrop?: ImageCrop
 }
-export type GalleryItem = { mediaId: string; url?: string; caption?: LocalizedString; link?: string }
+export type GalleryItem = {
+  mediaId: string
+  url?: string
+  caption?: LocalizedString
+  link?: string
+  crop?: ImageCrop
+  mobileCrop?: ImageCrop
+}
 export type GalleryContent = { title?: LocalizedString; items: GalleryItem[]; layout: GalleryLayout }
 export type SocialContent = { title?: LocalizedString; provider: SocialProvider; videoIds: string[] }
 export type RichTextContent = { markdown?: LocalizedString; html?: LocalizedString }
@@ -139,12 +160,16 @@ export function resolveStepsContent(raw: unknown): StepsContent {
     const mediaUrl = mediaId ? text(step.mediaUrl) : undefined
     const title = resolveLocalized(step.title)
     const body = resolveLocalized(step.body)
+    const crop = mediaId ? clampCrop(step.crop) : undefined
+    const mobileCrop = mediaId ? clampCrop(step.mobileCrop) : undefined
     return {
       icon,
       ...(mediaId ? { mediaId } : {}),
       ...(mediaUrl ? { mediaUrl } : {}),
       ...(title ? { title } : {}),
       ...(body ? { body } : {}),
+      ...(crop ? { crop } : {}),
+      ...(mobileCrop ? { mobileCrop } : {}),
     }
   })
   const title = resolveLocalized(row.title)
@@ -166,6 +191,8 @@ export function resolveFeatureContent(raw: unknown): FeatureContent {
   const cta = resolveCta(row.cta)
   const productId = text(row.productId)?.trim()
   const productSlug = productId ? text(row.productSlug) : undefined
+  const crop = mediaId ? clampCrop(row.crop) : undefined
+  const mobileCrop = mediaId ? clampCrop(row.mobileCrop) : undefined
   return {
     ...(mediaId ? { mediaId } : {}),
     ...(mediaUrl ? { mediaUrl } : {}),
@@ -176,6 +203,8 @@ export function resolveFeatureContent(raw: unknown): FeatureContent {
     ...(productId ? { productId } : {}),
     ...(productSlug ? { productSlug } : {}),
     layout: pickEnum(row.layout, FEATURE_LAYOUTS, 'IMAGE_LEFT'),
+    ...(crop ? { crop } : {}),
+    ...(mobileCrop ? { mobileCrop } : {}),
   }
 }
 
@@ -189,7 +218,16 @@ export function resolveGalleryContent(raw: unknown): GalleryContent {
     const url = text(item.url)
     const caption = resolveLocalized(item.caption)
     const link = text(item.link)?.trim()
-    items.push({ mediaId, ...(url ? { url } : {}), ...(caption ? { caption } : {}), ...(link ? { link } : {}) })
+    const crop = clampCrop(item.crop)
+    const mobileCrop = clampCrop(item.mobileCrop)
+    items.push({
+      mediaId,
+      ...(url ? { url } : {}),
+      ...(caption ? { caption } : {}),
+      ...(link ? { link } : {}),
+      ...(crop ? { crop } : {}),
+      ...(mobileCrop ? { mobileCrop } : {}),
+    })
     if (items.length >= MAX_GALLERY_ITEMS) break
   }
   const title = resolveLocalized(row.title)

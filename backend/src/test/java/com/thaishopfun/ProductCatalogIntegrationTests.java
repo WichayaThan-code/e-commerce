@@ -632,6 +632,44 @@ class ProductCatalogIntegrationTests {
         }
     }
 
+    @Test
+    void exportRespectsListFiltersAsTableRows() throws Exception {
+        var shop = openShop("export-seller@example.com", "0812300999", "ร้านส่งออก", "Export Shop", true, "1212121212121");
+        mvc.perform(post("/api/merchant/shops/" + shop.shopId + "/products").header("Authorization", "Bearer " + shop.token)
+            .contentType(MediaType.APPLICATION_JSON).content(simpleProduct("ชาเขียว", "Green Tea", "00123", "45.00")))
+            .andExpect(status().is2xxSuccessful());
+        mvc.perform(post("/api/merchant/shops/" + shop.shopId + "/products").header("Authorization", "Bearer " + shop.token)
+            .contentType(MediaType.APPLICATION_JSON).content(simpleProduct("ขนม", "Snack", "SNK-9", "20.00")))
+            .andExpect(status().is2xxSuccessful());
+
+        var empty = mvc.perform(get("/api/merchant/shops/" + shop.shopId + "/products/export")
+                .param("q", "ไม่มีสินค้านี้แน่ๆ")
+                .param("lang", "th")
+                .header("Authorization", "Bearer " + shop.token))
+            .andExpect(status().isBadRequest())
+            .andReturn().getResponse().getContentAsString();
+        org.junit.jupiter.api.Assertions.assertTrue(empty.contains("EXPORT_EMPTY"));
+
+        byte[] file = mvc.perform(get("/api/merchant/shops/" + shop.shopId + "/products/export")
+                .param("q", "ชา")
+                .param("lang", "th")
+                .header("Authorization", "Bearer " + shop.token))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("products-" + shop.shopId + "-")))
+            .andReturn().getResponse().getContentAsByteArray();
+
+        try (var book = new XSSFWorkbook(new java.io.ByteArrayInputStream(file))) {
+            org.junit.jupiter.api.Assertions.assertEquals(1, book.getNumberOfSheets());
+            org.junit.jupiter.api.Assertions.assertEquals("สินค้า", book.getSheetName(0));
+            var sheet = book.getSheetAt(0);
+            org.junit.jupiter.api.Assertions.assertEquals(1, sheet.getTables().size());
+            // List export columns: nameTh, nameEn, sku, category, price, priceMax, stock, status, updated
+            org.junit.jupiter.api.Assertions.assertEquals("ชาเขียว", sheet.getRow(1).getCell(0).getStringCellValue());
+            org.junit.jupiter.api.Assertions.assertEquals("00123", sheet.getRow(1).getCell(2).getStringCellValue());
+            org.junit.jupiter.api.Assertions.assertEquals(1, sheet.getLastRowNum()); // header + 1 data (filter q=ชา)
+        }
+    }
+
     private OpenShop openShop(String email, String phone, String shopName, String shopNameEn, boolean approve) throws Exception {
         return openShop(email, phone, shopName, shopNameEn, approve, "1234567890123");
     }

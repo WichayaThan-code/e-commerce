@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Film, Trash2, Type, Upload } from "lucide-react";
 import { ApiError, mediaUrl, themeMediaApi, type ThemeMediaItem, type ThemeMediaKind } from "../../services/api";
+import { ImageFocalTrigger } from "./ImageFocalEditor";
+import type { ImageCrop } from "../shop/imageCrop";
 import "../../styles/theme-media-picker.css";
+import "../../styles/image-focal-editor.css";
 
 const ACCEPT: Record<ThemeMediaKind, string> = {
   IMAGE: "image/jpeg,image/png,image/webp",
@@ -35,6 +38,12 @@ export type ThemeMediaPickerProps = {
   shopId: number | null;
   shopSlug: string;
   disabled?: boolean;
+  /** Optional focal-point editor (IMAGE only). */
+  crop?: ImageCrop | null;
+  mobileCrop?: ImageCrop | null;
+  cropAspect?: number;
+  cropMobileAspect?: number;
+  onCropChange?: (crop: ImageCrop, mobileCrop?: ImageCrop) => void;
 };
 
 function formatSize(bytes: number) {
@@ -42,7 +51,19 @@ function formatSize(bytes: number) {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-export default function ThemeMediaPicker({ kind, value, onChange, shopId, shopSlug, disabled }: ThemeMediaPickerProps) {
+export default function ThemeMediaPicker({
+  kind,
+  value,
+  onChange,
+  shopId,
+  shopSlug,
+  disabled,
+  crop,
+  mobileCrop,
+  cropAspect = 16 / 9,
+  cropMobileAspect,
+  onCropChange,
+}: ThemeMediaPickerProps) {
   const { t } = useTranslation("merchant");
   const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<ThemeMediaItem[]>([]);
@@ -140,15 +161,32 @@ export default function ThemeMediaPicker({ kind, value, onChange, shopId, shopSl
           >
             <Upload />{progress !== null ? t("storeTheme.media.uploading") : t(`storeTheme.media.upload.${kind}`)}
           </button>
-          <span className={`theme-media-filename${value ? "" : " is-empty"}`} title={selected?.originalFilename}>
-            {value ? (selected?.originalFilename || t("storeTheme.media.selected")) : t("storeTheme.media.none")}
-          </span>
-          {value ? (
+          {!value ? (
+            <span className="theme-media-filename is-empty">{t("storeTheme.media.none")}</span>
+          ) : (
             <button type="button" className="theme-banner-remove" disabled={disabled} onClick={() => onChange(undefined)}>
               {t("storeTheme.media.clear")}
             </button>
-          ) : null}
+          )}
         </div>
+        {value ? (
+          <p className="theme-media-filename is-selected" title={selected?.originalFilename || undefined}>
+            {selected?.originalFilename || t("storeTheme.media.selected")}
+          </p>
+        ) : null}
+        {kind === "IMAGE" && value && selectedUrl && onCropChange ? (
+          <div className="theme-media-crop-row">
+            <ImageFocalTrigger
+              imageUrl={selectedUrl}
+              disabled={disabled}
+              aspect={cropAspect}
+              mobileAspect={cropMobileAspect}
+              value={crop}
+              mobileValue={mobileCrop}
+              onChange={onCropChange}
+            />
+          </div>
+        ) : null}
         {progress !== null ? (
           <div
             className="theme-media-progress"

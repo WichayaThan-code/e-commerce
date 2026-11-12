@@ -228,8 +228,8 @@ export default function ShopMapPinEditor({
         placeMarker(found, editable);
         map.setView(found, Math.min(zoom, 19));
         el.classList.remove("is-resolving");
-        // Preserve My Store behavior: geocode hit writes coords into the form via onChange.
-        emit(markerRef.current!.getLatLng());
+        // Preview only — do not emit geocoded coords into the form (would mark My Store dirty).
+        // Coords are written only when the merchant drags the pin or clicks the map.
         // Theme / layout shifts often leave a blank tile pane until size is refreshed.
         window.setTimeout(() => map.invalidateSize(), 50);
         window.setTimeout(() => map.invalidateSize(), 250);

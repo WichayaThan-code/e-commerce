@@ -2,3 +2,8 @@
 app:
   auth:
     dev-log-otp: true
+  # Live product-form translation without API keys (MyMemory).
+  # Hardcoded so a leftover TRANSLATION_PROVIDER=fake in the shell cannot stick.
+  # Override with APP_TRANSLATION_PROVIDER=google|deepl|fake|none if needed.
+  translation:
+    provider: mymemory

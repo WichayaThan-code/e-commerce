@@ -252,12 +252,35 @@ function comboKey(values: Record<string, string>, order: string[]) {
   return order.map((name) => `${name}=${values[name] ?? ""}`).join("|");
 }
 
+/** Push default price/compare onto SKUs that are empty or still on the previous default. */
+export function applyDefaultPricing(
+  skus: SkuDraft[],
+  next: { price?: string; compareAtPrice?: string },
+  previous: { price?: string; compareAtPrice?: string } = {},
+): SkuDraft[] {
+  return skus.map((sku) => {
+    if (sku.removed) return sku;
+    let price = sku.price;
+    let compareAtPrice = sku.compareAtPrice;
+    if (next.price != null && (!price.trim() || (previous.price != null && price === previous.price))) {
+      price = next.price;
+    }
+    if (next.compareAtPrice != null && (!compareAtPrice.trim() || (previous.compareAtPrice != null && compareAtPrice === previous.compareAtPrice))) {
+      compareAtPrice = next.compareAtPrice;
+    }
+    return price === sku.price && compareAtPrice === sku.compareAtPrice
+      ? sku
+      : { ...sku, price, compareAtPrice };
+  });
+}
+
 export function reconcileVariants(
   previous: OptionGroupDraft[],
   next: OptionGroupDraft[],
   skus: SkuDraft[],
   price: string,
   stem = "",
+  compareAtPrice = "",
 ): { skus: SkuDraft[]; error?: "TOO_MANY" } {
   const usable = next
     .map((group) => ({
@@ -312,7 +335,7 @@ export function reconcileVariants(
       return;
     }
     fresh.add(active.length);
-    active.push(emptySku({ optionLabel, optionValues, price, skuCode: "" }));
+    active.push(emptySku({ optionLabel, optionValues, price, compareAtPrice, skuCode: "" }));
   });
   const removed = pool
     .filter((sku, index) => !used.has(index) && (sku.id || sku.skuCode || sku.removed))
@@ -322,9 +345,9 @@ export function reconcileVariants(
   return { skus: [...coded, ...removed] };
 }
 
-export function combineSkus(axes: OptionAxis[], current: SkuDraft[], price: string): { skus: SkuDraft[]; error?: "TOO_MANY" } {
+export function combineSkus(axes: OptionAxis[], current: SkuDraft[], price: string, compareAtPrice = ""): { skus: SkuDraft[]; error?: "TOO_MANY" } {
   const previous = groupsFromAxes(axes);
-  return reconcileVariants(previous, previous, current, price);
+  return reconcileVariants(previous, previous, current, price, "", compareAtPrice);
 }
 
 function money(value: string) {
@@ -366,11 +389,9 @@ export function validateDraft(draft: ProductDraft, publishing: boolean, imageCou
     if (barcode && !/^[A-Z0-9-]+$/.test(barcode)) errors[`skus[${index}].barcode`] = "BARCODE_INVALID";
     const opening = Number(sku.initialStock || "0");
     if (!sku.id && (!Number.isInteger(opening) || opening < 0)) errors[`skus[${index}].initialStock`] = "INVALID_ADJUSTMENT";
-    const safetyText = sku.safetyStock.trim();
-    if (safetyText) {
-      const safety = Number(safetyText);
-      if (!Number.isInteger(safety) || safety < 0 || safety > 1_000_000) errors[`skus[${index}].safetyStock`] = "SAFETY_STOCK_INVALID";
-    }
+    // Empty means 0 (never null on write — null would keep the previous DB value).
+    const safety = Number(sku.safetyStock.trim() || "0");
+    if (!Number.isInteger(safety) || safety < 0 || safety > 1_000_000) errors[`skus[${index}].safetyStock`] = "SAFETY_STOCK_INVALID";
   });
   if (publishing && imageCount < 1) errors.images = "PUBLISH_INCOMPLETE";
   if (publishing && (price == null || Number.isNaN(price)) && draft.skus.some((sku) => !sku.removed && money(sku.price) == null)) errors.basePrice = "PUBLISH_INCOMPLETE";
@@ -394,7 +415,7 @@ export function toWrite(draft: ProductDraft): ProductWrite {
     initialStock: sku.id ? null : Number(sku.initialStock || "0"),
     imageId: sku.imageId || null,
     active: sku.active,
-    safetyStock: sku.safetyStock.trim() === "" ? null : Number(sku.safetyStock),
+    safetyStock: Number(sku.safetyStock.trim() || "0"),
   }));
   return {
     nameTh: draft.nameTh.trim(),

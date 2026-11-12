@@ -154,15 +154,12 @@ export default function ShopBlocksEditor({
               }}
             >
               <span className="theme-section-grip" aria-hidden="true"><GripVertical /></span>
-              <b
-                className="theme-section-name"
-                title={isShopSectionAvailable(block.type) ? undefined : t("storeTheme.sections.comingSoonHint")}
-              >
+              <b className="theme-section-name">
                 {typeLabel(block.type)}
                 {isShopSectionAvailable(block.type) ? null : ` · ${t("storeTheme.sections.comingSoon")}`}
                 <small className="theme-blocks-id"> #{block.id}</small>
               </b>
-              {variants.length ? (
+              {block.enabled && variants.length ? (
                 <ThemeSelect inline
                   label={`${typeLabel(block.type)} · ${t("storeTheme.sections.variant")}`}
                   value={block.variant ?? variants[0] ?? ""}
@@ -178,18 +175,21 @@ export default function ShopBlocksEditor({
                 label={`${typeLabel(block.type)} #${index + 1}`}
                 onText={t("storeTheme.sections.on")}
                 offText={t("storeTheme.sections.off")}
-                onChange={(enabled) => patchBlock(index, { enabled })}
+                onChange={(enabled) => {
+                  patchBlock(index, { enabled });
+                  if (!enabled && openId === block.id) setOpenId(null);
+                }}
               />
               <span className="theme-section-move">
                 <button type="button" disabled={disabled || index === 0} aria-label={t("storeTheme.sections.moveUp")} title={t("storeTheme.sections.moveUp")} onClick={() => onChange(moveBlock(blocks, index, index - 1))}><ChevronUp /></button>
                 <button type="button" disabled={disabled || index === blocks.length - 1} aria-label={t("storeTheme.sections.moveDown")} title={t("storeTheme.sections.moveDown")} onClick={() => onChange(moveBlock(blocks, index, index + 1))}><ChevronDown /></button>
                 <button type="button" disabled={disabled || atLimit || singleton} aria-label={t("storeTheme.blocks.duplicate")} title={singleton ? t("storeTheme.blocks.singleton") : t("storeTheme.blocks.duplicate")} onClick={() => duplicate(index)}><Copy /></button>
                 <button type="button" disabled={disabled || blocks.length <= 1} aria-label={t("storeTheme.blocks.delete")} title={t("storeTheme.blocks.delete")} onClick={() => remove(index)}><Trash2 /></button>
-                <button type="button" aria-expanded={open} aria-label={t("storeTheme.blocks.settings")} title={t("storeTheme.blocks.settings")} className={open ? "is-active" : ""} onClick={() => setOpenId(open ? null : block.id)}><Settings2 /></button>
+                <button type="button" disabled={!block.enabled} aria-expanded={open} aria-label={t("storeTheme.blocks.settings")} title={t("storeTheme.blocks.settings")} className={open ? "is-active" : ""} onClick={() => block.enabled && setOpenId(open ? null : block.id)}><Settings2 /></button>
               </span>
               {rowError ? <FieldError text={rowError} /> : null}
 
-              {open ? (
+              {open && block.enabled ? (
                 <div className="theme-blocks-panel">
                   {isNewBlockType(block.type) ? (
                     <fieldset className="theme-content-fieldset">

@@ -429,10 +429,8 @@ export default function FinancePage() {
               type="button"
               disabled={(tab === "transfers" || tab === "invoices") ? (!canFinanceExport || exporting) : (!canExport || exporting || !periodKey)}
               title={(tab === "transfers" || tab === "invoices")
-                ? (canFinanceExport
-                  ? (tab === "invoices" ? t("finance.invoices.export") : t("finance.payout.export"))
-                  : deniedTitle(canFinanceExport))
-                : (canExport ? t("finance.export.xlsxNote") : deniedTitle(canExport))}
+                ? deniedTitle(canFinanceExport)
+                : deniedTitle(canExport)}
               className="primary"
               onClick={() => void download()}
             >

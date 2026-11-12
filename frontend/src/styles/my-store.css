@@ -507,7 +507,7 @@
 .store-theme-card fieldset.theme-block:first-of-type{border-top:0;padding-top:0;margin-top:16px}
 .store-theme-card .theme-block>legend{padding:0 8px 0 0;color:#08245d;font-size:15px;font-weight:700}
 .store-theme-card .theme-hint{margin:0 0 10px;color:#6480a7;font-size:12px;line-height:1.5}
-.store-theme-card .theme-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px}
+.store-theme-card .theme-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .store-theme-card .sale-types{grid-template-columns:repeat(3,minmax(0,1fr))}
 .store-theme-card .sale-types>button{height:auto;min-height:67px;padding:10px 12px;cursor:pointer;font-family:var(--font-sans),sans-serif}
 .store-theme-card .sale-types>button:disabled{opacity:.6;cursor:default}
@@ -540,7 +540,7 @@
   font:500 14px var(--font-sans),sans-serif;
   color:#132b50;
 }
-.store-theme-card .theme-block .form-field{margin-bottom:14px}
+.store-theme-card .theme-block .form-field{margin-bottom:0}
 .store-theme-card .theme-grid + .form-field,
 .store-theme-card .form-field + .theme-grid{margin-top:0}
 .theme-font-sample{margin:-6px 0 0;padding:12px 14px;border:1px dashed #cbddef;border-radius:8px;background:#f8fbff;color:#132b50;font-size:18px;line-height:1.7;overflow:visible}
@@ -566,6 +566,9 @@
 .theme-banner-list,.theme-trust-list{display:grid;gap:12px;margin:0 0 12px;padding:0;list-style:none}
 .theme-banner-row,.theme-trust-row{display:grid;gap:10px;padding:12px;border:1px solid #dce9f5;border-radius:9px;background:#f8fbff}
 .theme-banner-row.is-off,.theme-trust-row.is-off{opacity:.65}
+.theme-gated-panel{display:grid;gap:0;margin-top:10px;padding:12px;border:1px dashed #dce9f5;border-radius:10px;background:#fff}
+.theme-gated-panel.is-off{opacity:.58;background:#f5f7fa;border-color:#c9d5e4}
+.theme-gated-panel .theme-trust-list{margin:0}
 .theme-banner-remove,.theme-banner-add{
   display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border:1px solid #cbddef;
   border-radius:7px;background:#fff;color:#087bf5;font:600 13px var(--font-sans),sans-serif;cursor:pointer;width:fit-content;

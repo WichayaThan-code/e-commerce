@@ -97,7 +97,8 @@ export default function MerchantSignupPage() {
     : r.categoryOptions;
   const categoryLabel = categoryChoices.find((option) => option.value === selectedCategory)?.label || "";
 
-  const reuseOwner = Boolean(savedDraft.ownerId) && hasShop !== false;
+  // Only after shops() resolves true — avoid a green empty/flash bar while hasShop is still null.
+  const reuseOwner = Boolean(savedDraft.ownerId) && hasShop === true;
 
   useEffect(() => {
     if (!user) return;
@@ -225,7 +226,7 @@ export default function MerchantSignupPage() {
     }
   };
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submitting) return;
     if (!user) {
@@ -264,6 +265,22 @@ export default function MerchantSignupPage() {
     }
     setMessage("");
     setSubmitting(true);
+    // Server-side shop-name uniqueness (same rule as submit) before leaving this step; submit re-checks as the final guard.
+    try {
+      const { available } = await merchantApi.checkShopName(synced.shopName.trim());
+      if (!available) {
+        const taken = { shopName: i18n.t("validation.shopNameTaken", { ns: "merchant" }) };
+        setFieldErrors(taken);
+        setMessage(taken.shopName);
+        setSubmitting(false);
+        focusFirstInvalid(taken);
+        return;
+      }
+    } catch {
+      setMessage(i18n.t("validation.shopNameCheckFailed", { ns: "merchant" }));
+      setSubmitting(false);
+      return;
+    }
     writeMerchantDraft(user?.id, {
       ...readMerchantDraft(user?.id),
       shopName: synced.shopName,
@@ -360,7 +377,6 @@ export default function MerchantSignupPage() {
             <div className="merchant-card-title">
               <h2>{r.cardTitle}</h2>
               <p>{r.cardLead}</p>
-              {reuseOwner && <p className="merchant-reuse-note">{r.reuseNote}</p>}
             </div>
             <RegisterStepper currentStep={1} />
 

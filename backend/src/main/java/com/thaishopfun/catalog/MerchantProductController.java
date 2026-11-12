@@ -3,6 +3,7 @@ package com.thaishopfun.catalog;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.RequestUser;
 import com.thaishopfun.auth.authz.RequireShopPermission;
+import com.thaishopfun.translation.TranslationService;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
@@ -35,11 +36,31 @@ public class MerchantProductController {
     private final ProductService products;
     private final ProductImportService imports;
     private final ProductImportJobService importJobs;
+    private final TranslationService translations;
 
-    public MerchantProductController(ProductService products, ProductImportService imports, ProductImportJobService importJobs) {
+    public MerchantProductController(
+        ProductService products,
+        ProductImportService imports,
+        ProductImportJobService importJobs,
+        TranslationService translations
+    ) {
         this.products = products;
         this.imports = imports;
         this.importJobs = importJobs;
+        this.translations = translations;
+    }
+
+    @RequireShopPermission("PRODUCT_UPDATE")
+    @PostMapping("/translations/preview")
+    public CatalogDtos.TranslationPreviewResponse previewTranslations(
+        @AuthenticationPrincipal Jwt jwt,
+        @PathVariable Long shopId,
+        @RequestBody CatalogDtos.TranslationPreviewRequest request
+    ) {
+        RequestUser.id(jwt); // auth gate; shop access comes from @RequireShopPermission(shopId)
+        return new CatalogDtos.TranslationPreviewResponse(
+            translations.preview(request == null ? null : request.fields(), request == null ? null : request.locales())
+        );
     }
 
     @RequireShopPermission("PRODUCT_READ")
@@ -77,10 +98,28 @@ public class MerchantProductController {
 
     @RequireShopPermission("PRODUCT_READ")
     @GetMapping(value = "/products/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    public ResponseEntity<byte[]> export(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId) {
-        var body = products.exportWorkbook(RequestUser.id(jwt), shopId);
+    public ResponseEntity<byte[]> export(
+        @AuthenticationPrincipal Jwt jwt,
+        @PathVariable Long shopId,
+        @RequestParam(required = false) String q,
+        @RequestParam(required = false) String status,
+        @RequestParam(required = false) Long categoryId,
+        @RequestParam(required = false) String brand,
+        @RequestParam(required = false) String stock,
+        @RequestParam(required = false) String sort,
+        @RequestParam(required = false) String lang,
+        java.util.Locale locale
+    ) {
+        java.util.Locale loc = lang != null && !lang.isBlank()
+            ? java.util.Locale.forLanguageTag(lang.trim())
+            : (locale == null ? java.util.Locale.forLanguageTag("th") : locale);
+        var body = products.exportWorkbook(RequestUser.id(jwt), shopId, q, status, categoryId, brand, stock, sort, loc);
+        String filename = "products-" + shopId + "-"
+            + java.time.LocalDate.now(com.thaishopfun.common.excel.MerchantExcelWorkbook.BANGKOK) + ".xlsx";
         return ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("products.xlsx").build().toString())
+            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                .filename(filename, java.nio.charset.StandardCharsets.UTF_8).build().toString())
+            .header(HttpHeaders.CACHE_CONTROL, "no-store")
             .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
             .body(body);
     }

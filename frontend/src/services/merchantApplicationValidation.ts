@@ -11,16 +11,54 @@ function text(key: string, options?: Record<string, unknown>) {
   return i18n.t(key, { ns: 'merchant', ...options })
 }
 
+const FOCUSABLE_SELECTOR = [
+  'input:not([type="hidden"]):not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  'button:not([disabled])',
+  '[role="combobox"]',
+  '.searchable-select-btn',
+  '.logo-drop',
+  '.date-picker-trigger',
+].join(',')
+
+function resolveInvalidField(name: string): HTMLElement | null {
+  const exact = document.querySelector<HTMLElement>(`[data-field="${CSS.escape(name)}"], [name="${CSS.escape(name)}"]`)
+  if (exact) return exact
+  // When a field is collapsed (e.g. "same as shop address"), fall back to a proxy target.
+  return document.querySelector<HTMLElement>(`[data-focus-fields~="${CSS.escape(name)}"]`)
+}
+
+function focusTarget(root: HTMLElement): HTMLElement {
+  if (root.matches(FOCUSABLE_SELECTOR)) return root
+  const nested = root.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
+  if (nested) return nested
+  if (!root.hasAttribute('tabindex')) root.tabIndex = -1
+  return root
+}
+
+/** Scroll to and focus the first invalid field that exists in the DOM (onboarding forms). */
 export function focusFirstInvalid(errors: FieldErrors) {
-  const name = Object.keys(errors)[0]
-  if (!name) return
-  const el = document.querySelector<HTMLElement>(`[data-field="${name}"], [name="${name}"]`)
-  if (!el) return
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  const focusable = el.matches('input,select,textarea,button,[role="combobox"]')
-    ? el
-    : el.querySelector<HTMLElement>('input,select,textarea,button,[role="combobox"],.searchable-select-btn,.logo-drop')
-  focusable?.focus()
+  const names = Object.keys(errors)
+  if (!names.length) return
+  let root: HTMLElement | null = null
+  for (const name of names) {
+    root = resolveInvalidField(name)
+    if (root) break
+  }
+  if (!root) {
+    root = document.querySelector<HTMLElement>('[aria-invalid="true"]')
+  }
+  if (!root) return
+  const target = focusTarget(root)
+  root.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  window.setTimeout(() => {
+    try {
+      target.focus({ preventScroll: true })
+    } catch {
+      target.focus()
+    }
+  }, 200)
 }
 
 export function mergeFieldError(prev: FieldErrors, field: string, message?: string): FieldErrors {
@@ -192,7 +230,8 @@ export function validateDocuments(ownerType: OwnerDraft['ownerType'] | undefined
 
 export type ReviewGap = { href: string; message: string }
 
-export function reviewGap(draft: MerchantDraft, uploaded: string[]): ReviewGap | null {
+/** existingOwner comes from the server (application.existingOwner); owner info and documents are reused from the earlier shop. */
+export function reviewGap(draft: MerchantDraft, uploaded: string[], existingOwner = false): ReviewGap | null {
   const shopErrors = validateShop({
     shopName: draft.shopName || '',
     shopNameEnglish: draft.shopNameEnglish || '',
@@ -211,6 +250,7 @@ export function reviewGap(draft: MerchantDraft, uploaded: string[]): ReviewGap |
     logoBase64: draft.logoBase64 || (uploaded.includes('LOGO') ? 'server' : ''),
   }, !uploaded.includes('LOGO'))
   if (Object.keys(shopErrors).length > 0) return { href: '/merchant/register', message: text('validation.stepShop') }
+  if (existingOwner) return null
   if (!draft.ownerId) {
     if (!draft.owner || Object.keys(validateOwner(draft.owner)).length > 0) return { href: '/merchant/owner-info', message: text('validation.stepOwner') }
   }

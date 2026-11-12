@@ -1125,7 +1125,7 @@ export default function AdminArticlesPage() {
         className="ar-drawer hc-drawer"
         footer={<>
           <button type="button" className="asp-secondary" onClick={requestClose} disabled={!!saving}>{t('articlesCms.editor.buttons.close')}</button>
-          {editor.id && <button type="button" className="asp-secondary" onClick={openPreview} disabled={!!saving} title={t('articlesCms.editor.buttons.previewHint')}><ExternalLink aria-hidden="true" /> {t('articlesCms.editor.buttons.preview')}</button>}
+          {editor.id && <button type="button" className="asp-secondary" onClick={openPreview} disabled={!!saving}><ExternalLink aria-hidden="true" /> {t('articlesCms.editor.buttons.preview')}</button>}
           <span className="ar-footer-spacer" />
           {canManage && editor.id && savedStatus !== 'ARCHIVED' && (
             <button type="button" className="asp-secondary" onClick={() => void changeStatus('ARCHIVED')} disabled={!!saving || editorLoading}>{t('articlesCms.editor.buttons.archive')}</button>

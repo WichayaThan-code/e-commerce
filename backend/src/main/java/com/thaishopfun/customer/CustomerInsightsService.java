@@ -99,13 +99,6 @@ public class CustomerInsightsService {
         var rows = prepared.filtered();
         String[] headers = exportHeaders(locale);
         try (var book = new com.thaishopfun.common.excel.MerchantExcelWorkbook()) {
-            var meta = new java.util.LinkedHashMap<String, String>();
-            meta.put("Shop", shop.getName() != null ? shop.getName() : String.valueOf(shopNo));
-            meta.put("Timezone", "Asia/Bangkok");
-            meta.put("Generated at", java.time.Instant.now().toString());
-            meta.put("PII", pii ? "full" : "masked");
-            meta.put("Rows", String.valueOf(rows.size()));
-            book.addMetaSheet("Meta", meta);
             var columns = java.util.List.of(
                 com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(headers[0]),
                 com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(headers[1]),

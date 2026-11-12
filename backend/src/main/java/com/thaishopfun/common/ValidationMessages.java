@@ -124,6 +124,7 @@ public final class ValidationMessages {
         Map.entry("THEME_MEDIA_INVALID", "ไฟล์ไม่ถูกต้อง รองรับเฉพาะรูป JPG/PNG/WEBP, วิดีโอ MP4 และฟอนต์ WOFF2"),
         Map.entry("THEME_MEDIA_KIND_INVALID", "ประเภทสื่อไม่ถูกต้อง"),
         Map.entry("THEME_MEDIA_NOT_FOUND", "ไม่พบไฟล์สื่อนี้"),
+        Map.entry("THEME_IMAGE_CROP_INVALID", "ค่าตำแหน่งหรือซูมของรูปไม่ถูกต้อง (x/y ต้องอยู่ระหว่าง 0–100 และซูมระหว่าง 1–3 เท่า) กรุณาปรับใหม่ในเครื่องมือจัดตำแหน่งรูป"),
         Map.entry("COLLECTION_NAME_REQUIRED", "กรุณาระบุชื่อคอลเลกชัน (ไม่เกิน 120 ตัวอักษร)"),
         Map.entry("COLLECTION_SLUG_INVALID", "ลิงก์คอลเลกชันใช้ได้เฉพาะ a-z, 0-9 และ - ยาว 1–80 ตัวอักษร"),
         Map.entry("COLLECTION_SLUG_TAKEN", "ลิงก์คอลเลกชันนี้ถูกใช้แล้วในร้านนี้"),

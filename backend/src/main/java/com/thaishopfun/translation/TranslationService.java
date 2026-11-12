@@ -157,6 +157,66 @@ public class TranslationService {
         return ContentTranslationIndex.of(repository.findByEntityTypeAndEntityIdIn(entityType, entityIds));
     }
 
+    /**
+     * Live preview for the merchant product form (no persistence). Translates Thai field values into the
+     * requested locales using the active provider. Blank sources stay blank; missing provider returns empty strings.
+     */
+    public Map<String, Map<String, String>> preview(Map<String, String> fields, List<String> locales) {
+        var targets = new ArrayList<String>();
+        if (locales != null) {
+            for (var locale : locales) {
+                if (locale == null) continue;
+                var normalized = locale.trim().toLowerCase();
+                if (TARGET_LOCALES.contains(normalized) && !targets.contains(normalized)) targets.add(normalized);
+            }
+        }
+        if (targets.isEmpty()) targets.addAll(TARGET_LOCALES);
+
+        var keys = new ArrayList<String>();
+        var sources = new ArrayList<String>();
+        if (fields != null) {
+            for (var entry : fields.entrySet()) {
+                if (entry.getKey() == null || entry.getKey().isBlank()) continue;
+                var thai = TranslationTextSupport.blankToNull(entry.getValue());
+                keys.add(entry.getKey().trim());
+                sources.add(thai == null ? "" : thai);
+            }
+        }
+
+        var out = new LinkedHashMap<String, Map<String, String>>();
+        for (var locale : targets) {
+            var row = new LinkedHashMap<String, String>();
+            for (var key : keys) row.put(key, "");
+            out.put(locale, row);
+        }
+        if (keys.isEmpty()) return out;
+
+        if (!provider.configured()) {
+            log.debug("translation preview skipped — provider {} not configured", provider.id());
+            return out;
+        }
+
+        for (var locale : targets) {
+            try {
+                var translated = provider.translate(sources, "th", locale);
+                var row = out.get(locale);
+                for (int index = 0; index < keys.size(); index++) {
+                    var source = sources.get(index);
+                    if (source == null || source.isBlank()) {
+                        row.put(keys.get(index), "");
+                        continue;
+                    }
+                    var value = index < translated.size() ? translated.get(index) : null;
+                    row.put(keys.get(index), value == null ? "" : value);
+                }
+            } catch (Exception exception) {
+                log.warn("translation preview failed for {} via {} — {}", locale, provider.id(), exception.getMessage());
+                for (var key : keys) out.get(locale).put(key, "");
+            }
+        }
+        return out;
+    }
+
     /** false in tests: queue is processed explicitly via processPendingForTests() instead of racing a background thread. */
     @Value("${app.translation.process-after-commit:true}")
     private boolean processAfterCommit = true;

@@ -249,33 +249,41 @@ export default function MerchantBell() {
     void loadList();
   }, [open, apiOn, shopId, loadList]);
 
+  // Unread count wins over a lingering import notice; import only badges while running or when unread is clear.
   const badge = working
     ? String(notice.percent)
-    : notice
-      ? "1"
-      : apiOn && unread > 0
-        ? unread > 99 ? "99+" : String(unread)
+    : apiOn && unread > 0
+      ? (unread > 99 ? "99+" : String(unread))
+      : notice
+        ? "1"
         : null;
 
   const onItemClick = async (item: MerchantNotificationItem) => {
     if (apiOn && shopId != null && !item.read) {
+      setItems((prev) => prev.map((row) => (row.key === item.key ? { ...row, read: true } : row)));
+      setUnread((n) => Math.max(0, n - 1));
       try {
         await merchantNotificationsApi.markRead(shopId, item.key);
-        setItems((prev) => prev.map((row) => row.key === item.key ? { ...row, read: true } : row));
-        setUnread((n) => Math.max(0, n - 1));
-      } catch { /* navigate anyway */ }
+      } catch {
+        refreshUnread();
+      }
     }
     setOpen(false);
     navigate(hrefFor(item));
   };
 
   const onReadAll = async () => {
-    if (!apiOn || shopId == null) return;
+    if (!apiOn || shopId == null || unread <= 0) return;
+    const previous = unread;
+    setItems((prev) => prev.map((row) => ({ ...row, read: true })));
+    setUnread(0);
     try {
       await merchantNotificationsApi.markAllRead(shopId);
-      setItems((prev) => prev.map((row) => ({ ...row, read: true })));
-      setUnread(0);
-    } catch { /* ignore */ }
+    } catch {
+      setUnread(previous);
+      void loadList(null, false);
+      refreshUnread();
+    }
   };
 
   const titleOf = (item: MerchantNotificationItem) =>

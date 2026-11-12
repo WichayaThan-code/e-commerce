@@ -142,7 +142,6 @@ export default function AdminNotifyBell() {
   }, [open])
 
   const openItem = async (item: AdminNotificationItem) => {
-    setOpen(false)
     if (item.unread) {
       setItems((prev) => prev.map((row) => (row.id === item.id ? { ...row, unread: false } : row)))
       setUnread((count) => Math.max(0, count - 1))
@@ -152,6 +151,7 @@ export default function AdminNotifyBell() {
         refreshUnread()
       }
     }
+    setOpen(false)
     const href = item.href?.startsWith('/admin') ? item.href : '/admin'
     navigate(href)
   }
@@ -167,6 +167,7 @@ export default function AdminNotifyBell() {
     } catch {
       setUnread(previous)
       void loadPage(null, false)
+      refreshUnread()
     } finally {
       setMarkingAll(false)
     }

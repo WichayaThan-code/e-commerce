@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
 import { Boxes, Check, LoaderCircle, Package } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { SkeletonForm, LoadError } from "../components/feedback/Skeleton";
 import ConfirmDialog from "../components/form/ConfirmDialog";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
@@ -13,33 +12,17 @@ import MerchantShell from "../components/merchant/MerchantShell";
 import ProductImagesField, { type LocalImage } from "../components/merchant/ProductImagesField";
 import VariantEditor from "../components/merchant/VariantEditor";
 import ProductConfiguratorEditor from "../components/merchant/ProductConfiguratorEditor";
+import ProductTranslationPanel from "../components/merchant/ProductTranslationPanel";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { labelForCategory } from "../services/categories";
 import { catalogMessage } from "../services/catalogText";
-import { ApiError, catalogApi, merchantPlanUsageApi, productApi, type MerchantPlanUsage, type Product, type ProductCategory, type TranslationMeta } from "../services/api";
+import { ApiError, catalogApi, merchantPlanUsageApi, productApi, type MerchantPlanUsage, type Product, type ProductCategory } from "../services/api";
 import {
-  axesFromGroups, axesFromSkus, emptyDraft, emptySku, englishStem, fromProduct, groupsFromAxes, optionKey, randomStem, toWrite, uncoveredOptionLabels, validateDraft, variantIssues,
+  applyDefaultPricing, axesFromGroups, axesFromSkus, emptyDraft, emptySku, englishStem, fromProduct, groupsFromAxes, optionKey, randomStem, toWrite, uncoveredOptionLabels, validateDraft, variantIssues,
   type VariantIssue,
   type OptionGroupDraft, type ProductDraft,
 } from "./productFormModel";
 import "../styles/form-fields.css";
-
-const langFields = [
-  { id: "th" as const, locale: null as null, nameKey: "nameTh" as const, descriptionKey: "descriptionTh" as const, required: true },
-  { id: "en" as const, locale: "en" as const, nameKey: "nameEn" as const, descriptionKey: "descriptionEn" as const, required: false, nameMetaKey: "nameEnMeta" as const, descriptionMetaKey: "descriptionEnMeta" as const },
-  { id: "zh" as const, locale: "zh" as const, nameKey: "nameZh" as const, descriptionKey: "descriptionZh" as const, required: false, nameMetaKey: "nameZhMeta" as const, descriptionMetaKey: "descriptionZhMeta" as const },
-];
-
-function isManual(meta?: TranslationMeta | null) {
-  return meta?.origin === "HUMAN" || meta?.origin === "MANUAL";
-}
-
-function translationBadge(t: TFunction<"merchant">, meta?: TranslationMeta | null) {
-  if (!meta) return null;
-  if (meta.status === "PENDING") return t("catalog.form.translationPending");
-  if (meta.status === "FAILED") return t("catalog.form.translationFailed");
-  return isManual(meta) ? t("catalog.form.translationManual") : t("catalog.form.translationAuto");
-}
 
 export default function ProductFormPage() {
   const { productId } = useParams();
@@ -182,20 +165,35 @@ export default function ProductFormPage() {
       return;
     }
     setSubmitAttempt((current) => current + 1);
+    const synced = {
+      ...draft,
+      skus: draft.skus.map((sku) => {
+        if (sku.removed) return sku;
+        if (draft.productType === "SIMPLE") {
+          return { ...sku, price: draft.basePrice, compareAtPrice: draft.compareAtPrice };
+        }
+        return {
+          ...sku,
+          price: sku.price.trim() ? sku.price : draft.basePrice,
+          compareAtPrice: sku.compareAtPrice.trim() ? sku.compareAtPrice : draft.compareAtPrice,
+        };
+      }),
+    };
+    if (JSON.stringify(synced.skus) !== JSON.stringify(draft.skus)) setDraft(synced);
     const imageCount = (product?.images.length || 0) + local.length;
-    const nextErrors = validateDraft({ ...draft, optionSchema: axesFromGroups(groups) }, publish, imageCount);
+    const nextErrors = validateDraft({ ...synced, optionSchema: axesFromGroups(groups) }, publish, imageCount);
     setErrors(nextErrors);
-    const taken = new Set(variantIssuesList.filter((issue) => issue.code === "SKU_CODE_TAKEN").map((issue) => draft.skus[issue.index]?.skuCode.trim() || "").filter(Boolean));
-    const liveIssues = draft.productType === "VARIABLE"
-      ? variantIssues({ productType: "VARIABLE", skus: draft.skus, optionSchema: axesFromGroups(groups) }, taken)
+    const taken = new Set(variantIssuesList.filter((issue) => issue.code === "SKU_CODE_TAKEN").map((issue) => synced.skus[issue.index]?.skuCode.trim() || "").filter(Boolean));
+    const liveIssues = synced.productType === "VARIABLE"
+      ? variantIssues({ productType: "VARIABLE", skus: synced.skus, optionSchema: axesFromGroups(groups) }, taken)
       : [];
-    const gaps = draft.productType === "VARIABLE" ? uncoveredOptionLabels(axesFromGroups(groups), draft.skus) : [];
+    const gaps = synced.productType === "VARIABLE" ? uncoveredOptionLabels(axesFromGroups(groups), synced.skus) : [];
     if (Object.keys(nextErrors).length || liveIssues.length > 0 || gaps.length > 0) return;
     setSaving(publish ? "publish" : "draft");
     setStockConfirm(null);
     let savedId = productId;
     try {
-      const payload = toWrite({ ...draft, optionSchema: axesFromGroups(groups), confirmRemoveStocked });
+      const payload = toWrite({ ...synced, optionSchema: axesFromGroups(groups), confirmRemoveStocked });
       let saved = editing && productId ? await productApi.update(shopId, productId, payload) : await productApi.create(shopId, payload);
       savedId = saved.id;
       if (local.length) {
@@ -218,9 +216,9 @@ export default function ProductFormPage() {
           }
           saved = await productApi.orderImages(shopId, saved.id, ordered.length ? ordered : [primaryId, ...rest], primaryId);
         }
-        if (draft.skus.some((sku) => sku.imageLocalKey && !sku.removed)) {
+        if (synced.skus.some((sku) => sku.imageLocalKey && !sku.removed)) {
           const keyToId = new Map(local.map((image, index) => [image.key, uploadedIds[index]]));
-          const boundSkus = draft.skus.map((sku) => {
+          const boundSkus = synced.skus.map((sku) => {
             const match = saved.skus.find((row) => row.skuCode === sku.skuCode.trim());
             return {
               ...sku,
@@ -230,7 +228,7 @@ export default function ProductFormPage() {
             };
           });
           saved = await productApi.update(shopId, saved.id, toWrite({
-            ...draft,
+            ...synced,
             skus: boundSkus,
             optionSchema: axesFromGroups(groups),
             confirmRemoveStocked,
@@ -238,7 +236,7 @@ export default function ProductFormPage() {
         }
       }
       const adjustments = saved.skus.flatMap((sku) => {
-        const source = draft.skus.find((item) => item.id === sku.id && !item.removed);
+        const source = synced.skus.find((item) => item.id === sku.id && !item.removed);
         if (!source || source.stockBaseline == null) return [];
         const desired = Number(source.initialStock || 0);
         const delta = desired - source.stockBaseline;
@@ -264,7 +262,7 @@ export default function ProductFormPage() {
       }
       const mapped: Record<string, string> = {};
       if (caught instanceof ApiError) {
-        const activeIndexes = draft.skus.flatMap((sku, index) => sku.removed ? [] : [index]);
+        const activeIndexes = synced.skus.flatMap((sku, index) => sku.removed ? [] : [index]);
         caught.fieldErrors.forEach((item) => {
           const match = /^skus\[(\d+)\]\.(.+)$/.exec(item.field);
           if (match) {
@@ -339,60 +337,20 @@ export default function ProductFormPage() {
               />
             </label>
           </div>
-          <details className="pm-translation-fold">
-            <summary>{t("catalog.form.translationSection")}</summary>
-            <p className="pm-lang-hint">{t("catalog.form.translationSectionHint")}</p>
-            {langFields.filter((field) => field.id !== "th").map((field) => (
-            <div className="pm-lang-block" key={field.id}>
-              <h4>
-                {t(`catalog.form.lang${field.id === "en" ? "En" : "Zh"}`)}
-                <small>{t("catalog.form.langOptional")}</small>
-              </h4>
-              <label>
-                <span className="pm-lang-label">
-                  {t("catalog.form.name")}
-                  {product ? <span className="pm-translation-badge">{translationBadge(t, product[field.nameMetaKey!])}</span> : null}
-                </span>
-                <input
-                  value={draft[field.nameKey]}
-                  onChange={(event) => setDraft({ ...draft, [field.nameKey]: event.target.value })}
-                  placeholder={t("catalog.form.namePh")}
-                />
-                {isManual(product?.[field.nameMetaKey!]) && productId ? (
-                  <button type="button" className="pm-use-auto" onClick={() => void applyTranslation("auto", "name", field.locale!)}>
-                    {t("catalog.form.useAutoTranslation")}
-                  </button>
-                ) : null}
-                {product?.[field.nameMetaKey!]?.status === "FAILED" && productId ? (
-                  <button type="button" className="pm-use-auto" onClick={() => void applyTranslation("retry", "name", field.locale!)}>
-                    {t("catalog.form.translationRetry")}
-                  </button>
-                ) : null}
-              </label>
-              <label>
-                <span className="pm-lang-label">
-                  {t("catalog.form.description")}
-                  {product ? <span className="pm-translation-badge">{translationBadge(t, product[field.descriptionMetaKey!])}</span> : null}
-                </span>
-                <textarea
-                  value={draft[field.descriptionKey]}
-                  onChange={(event) => setDraft({ ...draft, [field.descriptionKey]: event.target.value })}
-                  placeholder={t("catalog.form.descriptionPh")}
-                />
-                {isManual(product?.[field.descriptionMetaKey!]) && productId ? (
-                  <button type="button" className="pm-use-auto" onClick={() => void applyTranslation("auto", "description", field.locale!)}>
-                    {t("catalog.form.useAutoTranslation")}
-                  </button>
-                ) : null}
-                {product?.[field.descriptionMetaKey!]?.status === "FAILED" && productId ? (
-                  <button type="button" className="pm-use-auto" onClick={() => void applyTranslation("retry", "description", field.locale!)}>
-                    {t("catalog.form.translationRetry")}
-                  </button>
-                ) : null}
-              </label>
-            </div>
-            ))}
-          </details>
+          <ProductTranslationPanel
+            shopId={shopId}
+            productId={productId}
+            product={product}
+            nameTh={draft.nameTh}
+            descriptionTh={draft.descriptionTh}
+            nameEn={draft.nameEn}
+            nameZh={draft.nameZh}
+            descriptionEn={draft.descriptionEn}
+            descriptionZh={draft.descriptionZh}
+            onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
+            onUseAuto={(field, locale) => void applyTranslation("auto", field, locale)}
+            onRetry={(field, locale) => void applyTranslation("retry", field, locale)}
+          />
           <div className="merchant-two">
             <SearchableSelect
               label={t("catalog.form.category")}
@@ -412,7 +370,16 @@ export default function ProductFormPage() {
           <fieldset>
             <legend>{t("catalog.form.type")}</legend>
             <div className="sale-types">
-              <button type="button" className={draft.productType === "SIMPLE" ? "active" : ""} onClick={() => { if (draft.productType !== "SIMPLE") { setSubmitAttempt(0); setVariantIssuesList([]); } setDraft({ ...draft, productType: "SIMPLE", optionSchema: [], skus: [(draft.skus.find((sku) => !sku.removed) || draft.skus[0] || emptySku())] }); }}>
+              <button type="button" className={draft.productType === "SIMPLE" ? "active" : ""} onClick={() => {
+                if (draft.productType !== "SIMPLE") { setSubmitAttempt(0); setVariantIssuesList([]); }
+                const base = draft.skus.find((sku) => !sku.removed) || draft.skus[0] || emptySku();
+                setDraft({
+                  ...draft,
+                  productType: "SIMPLE",
+                  optionSchema: [],
+                  skus: [{ ...base, price: draft.basePrice, compareAtPrice: draft.compareAtPrice, removed: false }],
+                });
+              }}>
                 <i>{draft.productType === "SIMPLE" ? <Check /> : null}</i>
                 <Package />
                 <span><b>{t("catalog.form.simple")}</b></span>
@@ -421,7 +388,15 @@ export default function ProductFormPage() {
                 if (draft.productType !== "VARIABLE") { setSubmitAttempt(0); setVariantIssuesList([]); }
                 const seeded = groups.length ? groups : [{ key: optionKey(), name: "", values: [] }];
                 setGroups(seeded);
-                setDraft({ ...draft, productType: "VARIABLE", optionSchema: axesFromGroups(seeded) });
+                setDraft({
+                  ...draft,
+                  productType: "VARIABLE",
+                  optionSchema: axesFromGroups(seeded),
+                  skus: applyDefaultPricing(draft.skus, {
+                    price: draft.basePrice,
+                    compareAtPrice: draft.compareAtPrice,
+                  }),
+                });
               }}>
                 <i>{draft.productType === "VARIABLE" ? <Check /> : null}</i>
                 <Boxes />
@@ -431,16 +406,49 @@ export default function ProductFormPage() {
           </fieldset>
           {errors.skus ? <FieldError text={t(`catalog.errors.${errors.skus}`)} /> : null}
           <h3>{t("catalog.form.price")}</h3>
+          {draft.productType === "VARIABLE" ? (
+            <p className="pm-lang-hint">{t("catalog.form.priceDefaultHint")}</p>
+          ) : null}
           <div className="merchant-two">
             <label>
               <span className="pm-lang-label">{t("catalog.form.price")} <em>*</em></span>
-              <input className="num" inputMode="decimal" value={draft.basePrice} aria-invalid={Boolean(errors.basePrice)} onChange={(event) => setDraft({ ...draft, basePrice: event.target.value })} />
-              <FieldError text={fieldError("basePrice")} />
+              <input
+                className="num"
+                inputMode="decimal"
+                value={draft.basePrice}
+                aria-invalid={Boolean(errors.basePrice) || Boolean(errors["skus[0].price"])}
+                onChange={(event) => {
+                  const basePrice = event.target.value;
+                  setDraft((current) => ({
+                    ...current,
+                    basePrice,
+                    skus: current.productType === "SIMPLE"
+                      ? current.skus.map((sku) => (sku.removed ? sku : { ...sku, price: basePrice }))
+                      : applyDefaultPricing(current.skus, { price: basePrice }, { price: current.basePrice }),
+                  }));
+                }}
+              />
+              <FieldError text={fieldError("basePrice") || fieldError("skus[0].price")} />
             </label>
             <label>
               <span className="pm-lang-label">{t("catalog.form.compare")}</span>
-              <input className="num" inputMode="decimal" value={draft.compareAtPrice} aria-invalid={Boolean(errors.compareAtPrice)} onChange={(event) => setDraft({ ...draft, compareAtPrice: event.target.value })} />
-              <FieldError text={fieldError("compareAtPrice")} />
+              <input
+                className="num"
+                inputMode="decimal"
+                value={draft.compareAtPrice}
+                aria-invalid={Boolean(errors.compareAtPrice) || Boolean(errors["skus[0].compareAtPrice"])}
+                onChange={(event) => {
+                  const compareAtPrice = event.target.value;
+                  setDraft((current) => ({
+                    ...current,
+                    compareAtPrice,
+                    skus: current.productType === "SIMPLE"
+                      ? current.skus.map((sku) => (sku.removed ? sku : { ...sku, compareAtPrice }))
+                      : applyDefaultPricing(current.skus, { compareAtPrice }, { compareAtPrice: current.compareAtPrice }),
+                  }));
+                }}
+              />
+              <FieldError text={fieldError("compareAtPrice") || fieldError("skus[0].compareAtPrice")} />
             </label>
             <label>
               <span className="pm-lang-label">{t("catalog.form.weight")}</span>
@@ -458,6 +466,7 @@ export default function ProductFormPage() {
                 groups={groups}
                 skus={draft.skus}
                 price={draft.basePrice}
+                compareAtPrice={draft.compareAtPrice}
                 images={product?.images || []}
                 localImages={local}
                 serverErrors={errors}
@@ -480,8 +489,6 @@ export default function ProductFormPage() {
                 <thead>
                   <tr>
                     <th><span className="pm-lang-label">{t("catalog.form.sku")} <em>*</em></span></th>
-                    <th><span className="pm-lang-label">{t("catalog.form.price")} <em>*</em></span></th>
-                    <th><span className="pm-lang-label">{t("catalog.form.compare")}</span></th>
                     <th><span className="pm-lang-label">{t("catalog.form.stock")}</span></th>
                     <th><span className="pm-lang-label">{t("catalog.form.safetyStock")}</span></th>
                     <th><span className="pm-lang-label">{t("catalog.variants.active")}</span></th>
@@ -498,14 +505,6 @@ export default function ProductFormPage() {
                           <FieldError text={fieldError(`skus[${index}].skuCode`)} />
                         </td>
                         <td>
-                          <input className="num" inputMode="decimal" aria-label={named(t("catalog.form.price"))} value={sku.price} aria-invalid={Boolean(errors[`skus[${index}].price`])} onChange={(event) => setSku(index, { price: event.target.value })} />
-                          <FieldError text={fieldError(`skus[${index}].price`)} />
-                        </td>
-                        <td>
-                          <input className="num" inputMode="decimal" aria-label={named(t("catalog.form.compare"))} value={sku.compareAtPrice} aria-invalid={Boolean(errors[`skus[${index}].compareAtPrice`])} onChange={(event) => setSku(index, { compareAtPrice: event.target.value })} />
-                          <FieldError text={fieldError(`skus[${index}].compareAtPrice`)} />
-                        </td>
-                        <td>
                           {sku.id ? <p className="product-stock-note">{t("catalog.form.currentStock")}: {sku.initialStock}</p> : (
                             <>
                               <input className="num" inputMode="numeric" aria-label={named(t("catalog.form.stock"))} value={sku.initialStock} aria-invalid={Boolean(errors[`skus[${index}].initialStock`])} onChange={(event) => setSku(index, { initialStock: event.target.value })} />
@@ -514,7 +513,15 @@ export default function ProductFormPage() {
                           )}
                         </td>
                         <td>
-                          <input className="num" inputMode="numeric" aria-label={named(t("catalog.form.safetyStock"))} value={sku.safetyStock} aria-invalid={Boolean(errors[`skus[${index}].safetyStock`])} onChange={(event) => setSku(index, { safetyStock: event.target.value })} />
+                          <input
+                            className="num"
+                            inputMode="numeric"
+                            aria-label={named(t("catalog.form.safetyStock"))}
+                            value={sku.safetyStock}
+                            aria-invalid={Boolean(errors[`skus[${index}].safetyStock`])}
+                            onChange={(event) => setSku(index, { safetyStock: event.target.value })}
+                            onBlur={() => { if (!sku.safetyStock.trim()) setSku(index, { safetyStock: "0" }); }}
+                          />
                           <FieldError text={fieldError(`skus[${index}].safetyStock`)} />
                         </td>
                         <td>

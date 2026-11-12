@@ -171,6 +171,14 @@ public final class CatalogDtos {
 
     public record RevertAutoTranslationRequest(String field, String locale) {}
 
+    /** Live translation preview for the product form (not persisted). */
+    public record TranslationPreviewRequest(
+        java.util.Map<String, String> fields,
+        java.util.List<String> locales
+    ) {}
+
+    public record TranslationPreviewResponse(java.util.Map<String, java.util.Map<String, String>> translations) {}
+
     public record MerchantProductResponse(
         UUID id,
         Long shopId,

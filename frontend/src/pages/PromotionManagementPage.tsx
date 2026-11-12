@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BarChart3,
   ChevronRight,
-  Copy,
+  ClipboardCopy,
+  CopyPlus,
+  Download,
   Ellipsis,
   Gift,
   Lightbulb,
@@ -18,6 +21,7 @@ import {
   TicketPercent,
   Truck,
   UsersRound,
+  X,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
@@ -104,14 +108,17 @@ export default function PromotionManagementPage() {
   const [tab, setTab] = useState<Tab>("ทั้งหมด");
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(10);
-  const [selected, setSelected] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
   const [form, setForm] = useState<{ mode: "create" | "edit"; draft: PromotionDraft; target?: Promotion } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Promotion | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const noticeTimer = useRef<number | undefined>(undefined);
+  const menuAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const menuPanelRef = useRef<HTMLDivElement | null>(null);
 
   const notify = useCallback((message: string) => {
     setNotice(message);
@@ -152,7 +159,6 @@ export default function PromotionManagementPage() {
         if (cancelled) return;
         if (result.totalPages > 0 && page >= result.totalPages) { setPage(result.totalPages - 1); return; }
         setData(result);
-        setSelected((ids) => ids.filter((id) => result.items.some((item) => item.id === id)));
       })
       .catch((error) => { if (!cancelled) setLoadError(error); })
       .finally(() => { if (!cancelled) setListLoading(false); });
@@ -162,14 +168,65 @@ export default function PromotionManagementPage() {
   const { showSkeleton, markHasData, isRefetching } = useDelayedLoading(listLoading, 150, shopId ?? "none");
   useEffect(() => { if (!listLoading && !loadError) markHasData(); }, [listLoading, loadError, markHasData]);
 
+  const placeMenu = (anchor: HTMLElement) => {
+    const rect = anchor.getBoundingClientRect();
+    const width = Math.min(220, window.innerWidth - 16);
+    const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
+    const height = menuPanelRef.current?.offsetHeight ?? 160;
+    const below = rect.bottom + 4;
+    const top = below + height > window.innerHeight - 8
+      ? Math.max(8, rect.top - height - 4)
+      : below;
+    setMenuPos({ top, left });
+  };
+
+  const closeMenu = () => {
+    setMenuFor(null);
+    setMenuPos(null);
+    menuAnchorRef.current = null;
+  };
+
+  const openRowMenu = (promotionId: string, anchor: HTMLButtonElement) => {
+    if (menuFor === promotionId) {
+      closeMenu();
+      return;
+    }
+    menuAnchorRef.current = anchor;
+    placeMenu(anchor);
+    setMenuFor(promotionId);
+  };
+
+  useLayoutEffect(() => {
+    if (!menuFor || !menuAnchorRef.current) return;
+    const anchor = menuAnchorRef.current;
+    const place = () => placeMenu(anchor);
+    place();
+    const raf = window.requestAnimationFrame(place);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [menuFor]);
+
   useEffect(() => {
     if (!menuFor) return;
-    const close = (event: MouseEvent | KeyboardEvent) => {
-      if (event instanceof KeyboardEvent ? event.key === "Escape" : !(event.target as HTMLElement).closest(".promo-row-menu, .promo-row-actions")) setMenuFor(null);
+    const onPointer = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (menuAnchorRef.current?.contains(target) || menuPanelRef.current?.contains(target)) return;
+      closeMenu();
     };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", close); };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    window.addEventListener("pointerdown", onPointer);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onPointer);
+      window.removeEventListener("keydown", onKey);
+    };
   }, [menuFor]);
 
   if (loading) return <main className="auth-loading">กำลังตรวจสอบสิทธิ์ร้านค้า...</main>;
@@ -188,10 +245,47 @@ export default function PromotionManagementPage() {
   };
   const filtered = !!(appliedQuery || status || type || tab !== "ทั้งหมด");
   const reset = () => { setQuery(""); setAppliedQuery(""); setStatus(""); setType(""); setTab("ทั้งหมด"); setPage(0); };
-  const toggleAll = () => setSelected(selected.length === visible.length ? [] : visible.map((item) => item.id));
+  const clearChipFilters = () => { setQuery(""); setAppliedQuery(""); setStatus(""); setType(""); setPage(0); };
+  const hasChipFilters = Boolean(appliedQuery || status || type);
+  const statusChipLabel = STATUS_OPTIONS.find(([, value]) => value === status)?.[0] || "";
+  const typeChipLabel = TYPE_OPTIONS.find(([, value]) => value === type)?.[0] || "";
   const refresh = () => setReload((value) => value + 1);
+  const menuPromotion = menuFor ? visible.find((item) => item.id === menuFor) : null;
   const forbidden = loadError instanceof ApiError && (loadError.status === 403 || loadError.status === 404);
   const pageCount = Math.max(1, data.totalPages);
+  const canExport = shopId != null && data.total > 0 && !listLoading
+    && effective.status !== null
+    && !(effective.types && effective.types.length === 0);
+  const exportTitle = shopId == null
+    ? "เลือกร้านก่อนส่งออก"
+    : !canExport
+      ? "ไม่มีโปรโมชั่นตามตัวกรองนี้"
+      : "ส่งออก Excel ตามตัวกรองปัจจุบัน";
+  const exportPromotions = async () => {
+    if (shopId == null || exporting || !canExport) return;
+    setExporting(true);
+    try {
+      await promotionApi.exportExcel(shopId, {
+        q: appliedQuery || undefined,
+        status: effective.status || undefined,
+        type: effective.types,
+        lang: "th",
+      });
+      notify("ส่งออก Excel แล้ว");
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.code === "EXPORT_EMPTY") {
+        notify("ไม่มีโปรโมชั่นตามตัวกรองนี้");
+      } else if (caught instanceof ApiError && caught.code === "EXPORT_TOO_LARGE") {
+        notify("ข้อมูลมากเกินไป — ลดตัวกรองแล้วลองใหม่");
+      } else if (caught instanceof ApiError && (caught.status === 403 || caught.code === "FORBIDDEN" || caught.code === "PERMISSION_DENIED")) {
+        notify(deniedTitle(false) || "ส่งออกไม่สำเร็จ");
+      } else {
+        notify(errorMessage(caught));
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const openCreate = (partial: Partial<PromotionDraft> = {}) => { if (canManage) setForm({ mode: "create", draft: emptyDraft(partial) }); };
   const submitForm = async (payload: PromotionWrite) => {
@@ -209,7 +303,7 @@ export default function PromotionManagementPage() {
   };
   const toggleActive = async (promotion: Promotion) => {
     if (shopId == null || busyId) return;
-    setMenuFor(null);
+    closeMenu();
     setBusyId(promotion.id);
     try {
       const saved = promotion.active ? await promotionApi.pause(shopId, promotion.id) : await promotionApi.resume(shopId, promotion.id);
@@ -222,7 +316,7 @@ export default function PromotionManagementPage() {
     }
   };
   const copyCode = async (promotion: Promotion) => {
-    setMenuFor(null);
+    closeMenu();
     if (!promotion.code) return;
     try { await navigator.clipboard.writeText(promotion.code); notify(`คัดลอกรหัส ${promotion.code} แล้ว`); }
     catch { notify(`รหัสคูปอง: ${promotion.code}`); }
@@ -268,8 +362,20 @@ export default function PromotionManagementPage() {
 
         <div className="promo-layout">
           <section className="promo-table-card">
-            <div className="promo-tabs-search">
-              <div className="promo-tabs">{TABS.map((label) => <button key={label} type="button" className={tab === label ? "active" : ""} onClick={() => { setTab(label); setPage(0); }}>{label} (<span className="num">{tabCount[label].toLocaleString()}</span>)</button>)}</div>
+            <div className="pm-tabs" role="tablist">
+              {TABS.map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === label}
+                  className={tab === label ? "active" : ""}
+                  onClick={() => { setTab(label); setPage(0); }}
+                >
+                  {label}
+                  <i className="num">{tabCount[label].toLocaleString()}</i>
+                </button>
+              ))}
             </div>
             <form
               className="om-filters"
@@ -326,6 +432,61 @@ export default function PromotionManagementPage() {
                 </div>
               </div>
             </form>
+            <div className="pm-table-tools">
+              <div className="pm-table-tools-chips" role="list" aria-label="ตัวกรองที่ใช้อยู่">
+                {appliedQuery ? (
+                  <div className="om-filter-chip" role="listitem">
+                    <span>ค้นหาโปรโมชั่น: {appliedQuery}</span>
+                    <button
+                      type="button"
+                      aria-label="ล้างตัวกรอง ค้นหาโปรโมชั่น"
+                      onClick={() => { setQuery(""); setAppliedQuery(""); setPage(0); }}
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : null}
+                {status ? (
+                  <div className="om-filter-chip" role="listitem">
+                    <span>สถานะ: {statusChipLabel}</span>
+                    <button
+                      type="button"
+                      aria-label="ล้างตัวกรอง สถานะ"
+                      onClick={() => { setStatus(""); setPage(0); }}
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : null}
+                {type ? (
+                  <div className="om-filter-chip" role="listitem">
+                    <span>ประเภท: {typeChipLabel}</span>
+                    <button
+                      type="button"
+                      aria-label="ล้างตัวกรอง ประเภท"
+                      onClick={() => { setType(""); setPage(0); }}
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : null}
+                {hasChipFilters ? (
+                  <button type="button" className="om-clear-all" onClick={clearChipFilters}>
+                    ล้างทั้งหมด
+                  </button>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="pm-export-btn"
+                disabled={!canExport || exporting}
+                title={exportTitle}
+                onClick={() => void exportPromotions()}
+              >
+                <Download aria-hidden="true" />
+                <span>{exporting ? "กำลังส่งออก..." : "ส่งออก Excel"}</span>
+              </button>
+            </div>
             {showSkeleton && listLoading && visible.length === 0 ? (
               <div className="promo-table-wrap" aria-busy="true" aria-label="กำลังโหลดโปรโมชั่น"><SkeletonTable rows={6} cols={8} /></div>
             ) : loadError ? (
@@ -336,7 +497,7 @@ export default function PromotionManagementPage() {
                   <table>
                     <thead>
                       <tr>
-                        <th className="col-check"><input type="checkbox" aria-label="เลือกโปรโมชั่นทั้งหมด" checked={visible.length > 0 && selected.length === visible.length} onChange={toggleAll} /></th>
+                        <th className="col-index">#</th>
                         <th className="col-name">ชื่อโปรโมชั่น / คูปอง</th>
                         <th className="col-type">ประเภท</th>
                         <th className="col-benefit">ส่วนลด / เงื่อนไข</th>
@@ -346,7 +507,7 @@ export default function PromotionManagementPage() {
                         <th className="col-actions">จัดการ</th>
                       </tr>
                     </thead>
-                    <tbody>{visible.map((promotion) => {
+                    <tbody>{visible.map((promotion, index) => {
                       const limit = promotion.usageLimitTotal;
                       const percent = limit ? Math.min(100, Math.round((promotion.usedCount / limit) * 100)) : 0;
                       const badge = statusBadge(promotion);
@@ -359,7 +520,7 @@ export default function PromotionManagementPage() {
                         ? `${promotion.usedCount.toLocaleString()} / ${limit.toLocaleString()} ครั้ง`
                         : `${promotion.usedCount.toLocaleString()} / ไม่จำกัด ครั้ง`;
                       return <tr key={promotion.id}>
-                        <td className="col-check"><input type="checkbox" aria-label={`เลือก ${label}`} checked={selected.includes(promotion.id)} onChange={() => setSelected((items) => items.includes(promotion.id) ? items.filter((id) => id !== promotion.id) : [...items, promotion.id])} /></td>
+                        <td className="col-index num">{page * size + index + 1}</td>
                         <td className="col-name">
                           <div className="promo-name">
                             <PromoIcon kind={iconOf(promotion)} />
@@ -396,16 +557,32 @@ export default function PromotionManagementPage() {
                           </div>
                         </td>
                         <td className="col-status"><span className={`promo-status ${badge.className}`}>{badge.label}</span></td>
-                        <td className="col-actions"><div className="promo-row-actions">
-                          <button disabled={!canManage} title={deniedTitle(canManage)} aria-label={`แก้ไข ${label}`} onClick={() => setForm({ mode: "edit", draft: draftFrom(promotion), target: promotion })}><Pencil /></button>
-                          <button disabled={!canManage} title={deniedTitle(canManage)} aria-label={`ทำสำเนา ${label}`} onClick={() => setForm({ mode: "create", draft: draftFrom(promotion, true) })}><Copy /></button>
-                          <button disabled={!canManage || busyId === promotion.id} title={deniedTitle(canManage)} aria-label={`ตัวเลือก ${label}`} aria-haspopup="menu" aria-expanded={menuFor === promotion.id} onClick={() => setMenuFor((current) => current === promotion.id ? null : promotion.id)}><Ellipsis /></button>
-                          {menuFor === promotion.id && <div className="promo-row-menu" role="menu">
-                            {promotion.status !== "EXPIRED" && <button role="menuitem" onClick={() => void toggleActive(promotion)}>{promotion.active ? <><Pause />หยุดชั่วคราว</> : <><Play />เปิดใช้งานอีกครั้ง</>}</button>}
-                            <button role="menuitem" onClick={() => void copyCode(promotion)}><Copy />คัดลอกรหัส</button>
-                            <button role="menuitem" className="danger" onClick={() => { setMenuFor(null); setConfirmDelete(promotion); }}><Trash2 />ลบ</button>
-                          </div>}
-                        </div></td>
+                        <td className="col-actions pm-col-actions">
+                          <div className="pm-row-actions">
+                            <button
+                              type="button"
+                              disabled={!canManage}
+                              title={deniedTitle(canManage)}
+                              aria-label={`แก้ไข ${label}`}
+                              onClick={() => setForm({ mode: "edit", draft: draftFrom(promotion), target: promotion })}
+                            >
+                              <Pencil />
+                            </button>
+                            <div className="pm-share-wrap">
+                              <button
+                                type="button"
+                                disabled={!canManage || busyId === promotion.id}
+                                title={deniedTitle(canManage)}
+                                aria-label={`ตัวเลือก ${label}`}
+                                aria-haspopup="menu"
+                                aria-expanded={menuFor === promotion.id}
+                                onClick={(event) => openRowMenu(promotion.id, event.currentTarget)}
+                              >
+                                <Ellipsis />
+                              </button>
+                            </div>
+                          </div>
+                        </td>
                       </tr>;
                     })}</tbody>
                   </table>
@@ -441,6 +618,47 @@ export default function PromotionManagementPage() {
         onConfirm={() => void runDelete()}
         onCancel={() => { if (!deleting) setConfirmDelete(null); }}
       />}
+      {menuPromotion && menuPos
+        ? createPortal(
+            <div
+              ref={menuPanelRef}
+              className="pm-row-menu is-portaled"
+              role="menu"
+              style={{ top: menuPos.top, left: menuPos.left }}
+            >
+              {menuPromotion.status !== "EXPIRED" ? (
+                <button type="button" role="menuitem" onClick={() => void toggleActive(menuPromotion)}>
+                  {menuPromotion.active ? <><Pause />หยุดชั่วคราว</> : <><Play />เปิดใช้งานอีกครั้ง</>}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  closeMenu();
+                  setForm({ mode: "create", draft: draftFrom(menuPromotion, true) });
+                }}
+              >
+                <CopyPlus />ทำสำเนา
+              </button>
+              <button type="button" role="menuitem" onClick={() => void copyCode(menuPromotion)}>
+                <ClipboardCopy />คัดลอกรหัส
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="danger"
+                onClick={() => {
+                  closeMenu();
+                  setConfirmDelete(menuPromotion);
+                }}
+              >
+                <Trash2 />ลบ
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
       {notice && <div className="merchant-toast" role="status">{notice}</div>}
     </main>
   );

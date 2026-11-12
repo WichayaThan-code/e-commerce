@@ -10,6 +10,7 @@ import FormTextarea from "../form/FormTextarea";
 import ToggleSwitch from "../form/ToggleSwitch";
 import { LoadError, SkeletonForm } from "../feedback/Skeleton";
 import ThemeMediaPicker from "./ThemeMediaPicker";
+import { ImageFocalTrigger } from "./ImageFocalEditor";
 import { MediaField, ThemeFontSelect, ThemeSelect } from "./ThemeEditorParts";
 import ShopBlocksEditor from "./ShopBlocksEditor";
 import SearchableSelect from "../SearchableSelect";
@@ -34,8 +35,9 @@ import {
   SHOP_BUTTON_SHAPES, SHOP_CARD_GAPS, SHOP_CARD_RADII, SHOP_CARD_STYLES, SHOP_CTA_STYLES, SHOP_DENSITIES, SHOP_IMAGE_RATIOS,
   SHOP_SHADOWS, SHOP_THEME_FONTS, SHOP_THEME_PICKER_TEMPLATES,
   shopThemeFontStack, themeContrastIssues, variantsForSection,
-  SHOP_TITLE_ALIGNS, SHOP_TRUST_ICONS, MAX_HERO_SLIDES,
-  type SectionVariant, type ShopButtonShape, type ShopCardGap, type ShopCardRadius, type ShopCardStyle, type ShopCtaStyle,
+  HERO_SECONDARY_ACTIONS, SHOP_TITLE_ALIGNS, SHOP_TRUST_ICONS, MAX_HERO_SLIDES,
+  resolveHeroSecondaryAction,
+  type HeroSecondaryAction, type SectionVariant, type ShopButtonShape, type ShopCardGap, type ShopCardRadius, type ShopCardStyle, type ShopCtaStyle,
   type ShopDensity, type ShopImageRatio, type ShopSectionKey, type ShopShadow, type ShopTheme,
   type ShopThemeFontKey, type ShopThemeTemplateKey, type ShopTitleAlign, type ShopTrustIcon, type ThemeBanner, type ThemeColors,
   type ThemeConfig, type ThemeGradient, type ThemeProductCard,
@@ -155,6 +157,26 @@ type PanelTab = "template" | "brand" | "hero" | "sections";
 
 function normalizeThemeField(field: string) {
   return field.replace(/^config\./, "");
+}
+
+function mapThemeCropError(
+  field: string,
+  code: string,
+  fallback: string,
+  translate: (key: string, options?: Record<string, unknown>) => string,
+) {
+  if (code !== "THEME_IMAGE_CROP_INVALID") return fallback;
+  const path = normalizeThemeField(field);
+  const banner = /^banners\[(\d+)]/.exec(path);
+  if (banner) return translate("storeTheme.errors.THEME_IMAGE_CROP_INVALID_banner", { n: Number(banner[1]) + 1 });
+  if (path.startsWith("hero.background")) return translate("storeTheme.errors.THEME_IMAGE_CROP_INVALID_hero");
+  if (path.startsWith("intro")) return translate("storeTheme.errors.THEME_IMAGE_CROP_INVALID_intro");
+  if (path.includes(".items[")) return translate("storeTheme.errors.THEME_IMAGE_CROP_INVALID_gallery");
+  if (path.includes(".steps[")) return translate("storeTheme.errors.THEME_IMAGE_CROP_INVALID_steps");
+  if (/blocks\[\d+]\.content\.(crop|mobileCrop)/.test(path)) {
+    return translate("storeTheme.errors.THEME_IMAGE_CROP_INVALID_feature");
+  }
+  return translate("storeTheme.errors.THEME_IMAGE_CROP_INVALID");
 }
 
 function panelForThemeField(field: string): PanelTab {
@@ -471,6 +493,12 @@ export default function ShopThemeEditor({
   const setHero = (field: "title" | "subtitle" | "ctaLabel" | "ctaLink" | "eyebrow" | "ctaSecondaryLabel" | "ctaSecondaryLink", value: string) =>
     patchConfig((config) => ({ ...config, hero: { ...config.hero, [field]: value } }), `config.hero.${field}`);
 
+  const setHeroShowCtas = (showCtas: boolean) =>
+    patchConfig((config) => ({ ...config, hero: { ...config.hero, showCtas } }), "config.hero.showCtas");
+
+  const setHeroSecondaryAction = (ctaSecondaryAction: HeroSecondaryAction) =>
+    patchConfig((config) => ({ ...config, hero: { ...config.hero, ctaSecondaryAction } }), "config.hero.ctaSecondaryAction");
+
   const setHeroBadge = (slot: number, value: string) =>
     patchConfig((config) => {
       const next = [0, 1, 2].map((index) => (index === slot ? value : (config.hero.badges?.[index] ?? "")));
@@ -629,10 +657,14 @@ export default function ShopThemeEditor({
       notify(t("storeTheme.saved"), "ok");
     } catch (error) {
       if (error instanceof ApiError) {
-        setFieldErrors(error.fieldErrors);
-        const detail = error.fieldErrors[0]?.message;
-        if (error.fieldErrors.length) {
-          revealFieldError(error.fieldErrors[0].field);
+        const mapped = error.fieldErrors.map((item) => ({
+          ...item,
+          message: mapThemeCropError(item.field, item.code, item.message, t),
+        }));
+        setFieldErrors(mapped);
+        const detail = mapped[0]?.message;
+        if (mapped.length) {
+          revealFieldError(mapped[0].field);
           notify(`${t("storeTheme.errors.validation")}${detail ? ` — ${detail}` : ""}`, "warning");
         } else {
           notify(error.message || t("storeTheme.errors.save"), "fail");
@@ -1176,6 +1208,12 @@ export default function ShopThemeEditor({
           const layouts: HeroLayoutValue[] = draft.templateKey === "CUSTOM" || draft.templateKey === "GENERAL" ? ["FULL", "SPLIT", "POSTER", "STRIP", "MEDIA_FULL"] : ["FULL", "SPLIT", "POSTER", "STRIP"];
           const slides = config.hero.slides ?? [];
           const general = draft.templateKey === "GENERAL";
+          const ctasOn = config.hero.showCtas !== false;
+          const secondaryAction = resolveHeroSecondaryAction(
+            config.hero.ctaSecondaryAction,
+            config.hero.ctaSecondaryLabel,
+            config.hero.ctaSecondaryLink,
+          );
           return (
             <>
               <fieldset className="theme-block">
@@ -1253,6 +1291,7 @@ export default function ShopThemeEditor({
 
               <fieldset className="theme-block">
                 <legend>{t("storeTheme.tc.text")}</legend>
+                <p className="theme-hint">{t("storeTheme.hero.textToolsHint")}</p>
                 {general ? (
                   <FormField label={t("storeTheme.tc.eyebrow")} error={errorFor("hero.eyebrow")} field="hero.eyebrow">
                     <input value={config.hero.eyebrow ?? ""} maxLength={60} disabled={disabled} placeholder={t("storeTheme.hero.eyebrowPlaceholder")} onChange={(event) => setHero("eyebrow", event.target.value)} />
@@ -1270,33 +1309,75 @@ export default function ShopThemeEditor({
                   field="hero.subtitle"
                   onChange={(event) => setHero("subtitle", event.target.value)}
                 />
-                <FormField label={t("storeTheme.tc.cta")} error={errorFor("hero.ctaLabel")} field="hero.ctaLabel">
-                  <input value={config.hero.ctaLabel} maxLength={120} disabled={disabled} onChange={(event) => setHero("ctaLabel", event.target.value)} />
-                </FormField>
-                {general ? (
-                  <FormField label={t("storeTheme.tc.cta2")} error={errorFor("hero.ctaSecondaryLabel")} field="hero.ctaSecondaryLabel">
-                    <input value={config.hero.ctaSecondaryLabel ?? ""} maxLength={120} disabled={disabled} placeholder={t("storeTheme.hero.ctaSecondaryPlaceholder")} onChange={(event) => setHero("ctaSecondaryLabel", event.target.value)} />
-                  </FormField>
-                ) : null}
               </fieldset>
 
               <fieldset className="theme-block">
-                <legend>{t("storeTheme.tc.more")}</legend>
-                <FormField label={t("storeTheme.tc.ctaLink")} error={errorFor("hero.ctaLink")} field="hero.ctaLink">
-                  <input value={config.hero.ctaLink} disabled={disabled} placeholder="/shops  |  https://" onChange={(event) => setHero("ctaLink", event.target.value)} />
-                </FormField>
-                {general ? (
-                  <FormField label={t("storeTheme.tc.cta2Link")} error={errorFor("hero.ctaSecondaryLink")} field="hero.ctaSecondaryLink">
-                    <input value={config.hero.ctaSecondaryLink ?? ""} disabled={disabled} placeholder="/shops  |  https://" onChange={(event) => setHero("ctaSecondaryLink", event.target.value)} />
-                  </FormField>
+                <legend>{t("storeTheme.hero.ctasSection")}</legend>
+                <div className="theme-trust-toggle">
+                  <ToggleSwitch
+                    checked={ctasOn}
+                    disabled={disabled}
+                    label={t("storeTheme.hero.showCtas")}
+                    onText={t("storeTheme.hero.showCtasOn")}
+                    offText={t("storeTheme.hero.showCtasOff")}
+                    onChange={setHeroShowCtas}
+                  />
+                </div>
+                <p className="theme-hint">{ctasOn ? t("storeTheme.hero.ctasToolsOn") : t("storeTheme.hero.ctasToolsOff")}</p>
+                {ctasOn ? (
+                  <div className="theme-gated-panel">
+                    <FormField label={t("storeTheme.tc.cta")} error={errorFor("hero.ctaLabel")} field="hero.ctaLabel">
+                      <input value={config.hero.ctaLabel} maxLength={120} disabled={disabled} onChange={(event) => setHero("ctaLabel", event.target.value)} />
+                    </FormField>
+                    <FormField label={t("storeTheme.tc.ctaLink")} error={errorFor("hero.ctaLink")} field="hero.ctaLink">
+                      <input value={config.hero.ctaLink} disabled={disabled} placeholder="/shops  |  https://" onChange={(event) => setHero("ctaLink", event.target.value)} />
+                    </FormField>
+
+                    <b className="theme-content-subtitle">{t("storeTheme.tc.cta2")}</b>
+                    <p className="theme-hint">{t("storeTheme.hero.ctaSecondaryActionHint")}</p>
+                    <ThemeSelect
+                      label={t("storeTheme.hero.ctaSecondaryAction")}
+                      value={secondaryAction}
+                      disabled={disabled}
+                      error={errorFor("hero.ctaSecondaryAction")}
+                      onChange={(event) => setHeroSecondaryAction(event.target.value as HeroSecondaryAction)}
+                    >
+                      {HERO_SECONDARY_ACTIONS.map((action) => (
+                        <option key={action} value={action}>{t(`storeTheme.hero.ctaSecondaryActions.${action}`)}</option>
+                      ))}
+                    </ThemeSelect>
+                    {secondaryAction !== "NONE" ? (
+                      <FormField label={t("storeTheme.tc.cta2")} error={errorFor("hero.ctaSecondaryLabel")} field="hero.ctaSecondaryLabel">
+                        <input
+                          value={config.hero.ctaSecondaryLabel ?? ""}
+                          maxLength={120}
+                          disabled={disabled}
+                          placeholder={t(`storeTheme.hero.ctaSecondaryPlaceholders.${secondaryAction}`)}
+                          onChange={(event) => setHero("ctaSecondaryLabel", event.target.value)}
+                        />
+                      </FormField>
+                    ) : null}
+                    {secondaryAction === "CUSTOM" ? (
+                      <FormField label={t("storeTheme.tc.cta2Link")} error={errorFor("hero.ctaSecondaryLink")} field="hero.ctaSecondaryLink">
+                        <input value={config.hero.ctaSecondaryLink ?? ""} disabled={disabled} placeholder="/shops  |  https://" onChange={(event) => setHero("ctaSecondaryLink", event.target.value)} />
+                      </FormField>
+                    ) : null}
+                    <p className="theme-hint">{general ? t("storeTheme.hero.generalHint") : t("storeTheme.hero.ctaHint")}</p>
+                  </div>
                 ) : null}
-                {general ? [0, 1, 2].map((slot) => (
-                  <FormField key={slot} label={`${t("storeTheme.hero.badges")} ${slot + 1}`} error={errorFor(`hero.badges[${slot}]`) ?? (slot === 0 ? errorFor("hero.badges") : undefined)} field={`hero.badges[${slot}]`}>
-                    <input value={config.hero.badges?.[slot] ?? ""} maxLength={24} placeholder={t("storeTheme.hero.badgesHint")} disabled={disabled} onChange={(event) => setHeroBadge(slot, event.target.value)} />
-                  </FormField>
-                )) : null}
-                <p className="theme-hint">{general ? t("storeTheme.hero.generalHint") : t("storeTheme.hero.ctaHint")}</p>
               </fieldset>
+
+              {general ? (
+                <fieldset className="theme-block">
+                  <legend>{t("storeTheme.hero.badgesSection")}</legend>
+                  <p className="theme-hint">{t("storeTheme.hero.badgesToolsHint")}</p>
+                  {[0, 1, 2].map((slot) => (
+                    <FormField key={slot} label={`${t("storeTheme.hero.badges")} ${slot + 1}`} error={errorFor(`hero.badges[${slot}]`) ?? (slot === 0 ? errorFor("hero.badges") : undefined)} field={`hero.badges[${slot}]`}>
+                      <input value={config.hero.badges?.[slot] ?? ""} maxLength={24} placeholder={t("storeTheme.hero.badgesHint")} disabled={disabled} onChange={(event) => setHeroBadge(slot, event.target.value)} />
+                    </FormField>
+                  ))}
+                </fieldset>
+              ) : null}
             </>
           );
         })()}
@@ -1305,69 +1386,100 @@ export default function ShopThemeEditor({
           <HeroMediaPanel {...chromeProps} />
         ) : null}
 
-        <fieldset className="theme-block">
-          <legend>{t("storeTheme.sections.bannersTitle")}</legend>
-          <p className="theme-hint">{t("storeTheme.sections.bannersHint")}</p>
-          <FieldError text={errorFor("banners")} />
-          <ul className="theme-banner-list">
-            {config.banners.map((banner, index) => (
-              <li key={index} className="theme-banner-row">
-                {draft.templateKey === "CUSTOM" ? (
-                  <MediaField label={t("storeTheme.media.bannerImage")} error={errorFor(`banners[${index}].mediaId`)}>
-                    <ThemeMediaPicker
-                      kind="IMAGE"
-                      value={banner.mediaId}
-                      shopId={shopId}
-                      shopSlug={shop.slug}
-                      disabled={disabled}
-                      onChange={(mediaId, item) => setBanner(index, mediaId
-                        ? { mediaId, imageUrl: item?.url ?? banner.imageUrl }
-                        : { mediaId: undefined, imageUrl: "" })}
-                    />
-                  </MediaField>
-                ) : null}
-                <FormField label={t("storeTheme.sections.bannerImage")} error={errorFor(`banners[${index}].imageUrl`)}>
-                  <input
-                    value={banner.mediaId ? "" : banner.imageUrl}
-                    disabled={disabled || Boolean(banner.mediaId)}
-                    placeholder="https://…  |  /media/…"
-                    onChange={(event) => setBanner(index, { imageUrl: event.target.value, mediaId: undefined })}
-                  />
-                </FormField>
-                <div className="theme-grid">
-                  <FormField label={t("storeTheme.sections.bannerTitle")} error={errorFor(`banners[${index}].title`)}>
-                    <input
-                      value={banner.title || ""}
-                      maxLength={80}
-                      disabled={disabled}
-                      onChange={(event) => setBanner(index, { title: event.target.value })}
-                    />
-                  </FormField>
-                  <FormField label={t("storeTheme.sections.bannerLink")} error={errorFor(`banners[${index}].link`)}>
-                    <input
-                      value={banner.link || ""}
-                      disabled={disabled}
-                      placeholder="/shops  |  https://"
-                      onChange={(event) => setBanner(index, { link: event.target.value })}
-                    />
-                  </FormField>
-                </div>
-                <button
-                  type="button"
-                  className="theme-banner-remove"
-                  disabled={disabled}
-                  aria-label={t("storeTheme.sections.bannerRemove")}
-                  onClick={() => removeBanner(index)}
-                >
-                  <Trash2 />{t("storeTheme.sections.bannerRemove")}
-                </button>
-              </li>
-            ))}
-          </ul>
-          <button type="button" className="theme-banner-add" disabled={disabled || config.banners.length >= 8} onClick={addBanner}>
-            <Plus />{t("storeTheme.sections.bannerAdd")}
-          </button>
-        </fieldset>
+        {(() => {
+          const bannersOn = config.sections.find((row) => row.key === "BANNERS")?.enabled !== false;
+          return (
+            <fieldset className="theme-block">
+              <legend>{t("storeTheme.sections.bannersTitle")}</legend>
+              <p className="theme-hint">{bannersOn ? t("storeTheme.sections.bannersHint") : t("storeTheme.sections.bannersHidden")}</p>
+              {bannersOn ? (
+                <>
+                  <FieldError text={errorFor("banners")} />
+                  <ul className="theme-banner-list">
+                    {config.banners.map((banner, index) => (
+                      <li key={index} className="theme-banner-row">
+                        {draft.templateKey === "CUSTOM" ? (
+                          <MediaField label={t("storeTheme.media.bannerImage")} error={errorFor(`banners[${index}].mediaId`)}>
+                            <ThemeMediaPicker
+                              kind="IMAGE"
+                              value={banner.mediaId}
+                              shopId={shopId}
+                              shopSlug={shop.slug}
+                              disabled={disabled}
+                              crop={banner.crop}
+                              mobileCrop={banner.mobileCrop}
+                              cropAspect={21 / 9}
+                              cropMobileAspect={16 / 9}
+                              onCropChange={(crop, mobileCrop) => setBanner(index, { crop, mobileCrop })}
+                              onChange={(mediaId, item) => setBanner(index, mediaId
+                                ? { mediaId, imageUrl: item?.url ?? banner.imageUrl }
+                                : { mediaId: undefined, imageUrl: "", crop: undefined, mobileCrop: undefined })}
+                            />
+                          </MediaField>
+                        ) : null}
+                        <FormField label={t("storeTheme.sections.bannerImage")} error={errorFor(`banners[${index}].imageUrl`)}>
+                          <input
+                            value={banner.mediaId ? "" : banner.imageUrl}
+                            disabled={disabled || Boolean(banner.mediaId)}
+                            placeholder="https://…  |  /media/…"
+                            onChange={(event) => setBanner(index, {
+                              imageUrl: event.target.value,
+                              mediaId: undefined,
+                              ...(event.target.value.trim() ? {} : { crop: undefined, mobileCrop: undefined }),
+                            })}
+                          />
+                        </FormField>
+                        {!banner.mediaId && banner.imageUrl.trim() ? (
+                          <div className="theme-media-crop-row">
+                            <ImageFocalTrigger
+                              imageUrl={mediaUrl(banner.imageUrl)}
+                              disabled={disabled}
+                              aspect={21 / 9}
+                              mobileAspect={16 / 9}
+                              value={banner.crop}
+                              mobileValue={banner.mobileCrop}
+                              onChange={(crop, mobileCrop) => setBanner(index, { crop, mobileCrop })}
+                            />
+                          </div>
+                        ) : null}
+                        <div className="theme-grid">
+                          <FormField label={t("storeTheme.sections.bannerTitle")} error={errorFor(`banners[${index}].title`)}>
+                            <input
+                              value={banner.title || ""}
+                              maxLength={80}
+                              disabled={disabled}
+                              onChange={(event) => setBanner(index, { title: event.target.value })}
+                            />
+                          </FormField>
+                          <FormField label={t("storeTheme.sections.bannerLink")} error={errorFor(`banners[${index}].link`)}>
+                            <input
+                              value={banner.link || ""}
+                              disabled={disabled}
+                              placeholder="/shops  |  https://"
+                              onChange={(event) => setBanner(index, { link: event.target.value })}
+                            />
+                          </FormField>
+                        </div>
+                        <button
+                          type="button"
+                          className="theme-banner-remove"
+                          disabled={disabled}
+                          aria-label={t("storeTheme.sections.bannerRemove")}
+                          onClick={() => removeBanner(index)}
+                        >
+                          <Trash2 />{t("storeTheme.sections.bannerRemove")}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <button type="button" className="theme-banner-add" disabled={disabled || config.banners.length >= 8} onClick={addBanner}>
+                    <Plus />{t("storeTheme.sections.bannerAdd")}
+                  </button>
+                </>
+              ) : null}
+            </fieldset>
+          );
+        })()}
 
         <fieldset className="theme-block">
           <legend>{t("storeTheme.sections.trustTitle")}</legend>
@@ -1381,58 +1493,71 @@ export default function ShopThemeEditor({
               onChange={setTrustEnabled}
             />
           </div>
+          <p className="theme-hint">{config.trust.enabled ? t("storeTheme.sections.trustToolsOn") : t("storeTheme.sections.trustToolsOff")}</p>
           <FieldError text={errorFor("trust")} />
-          <ul className="theme-trust-list">
-            {config.trust.items.map((item, index) => (
-              <li key={index} className={`theme-trust-row${item.enabled ? "" : " is-off"}`}>
-                <ToggleSwitch
-                  checked={item.enabled}
-                  disabled={disabled || !config.trust.enabled}
-                  label={`${t("storeTheme.sections.trustLabel")} ${index + 1}`}
-                  onText={t("storeTheme.sections.on")}
-                  offText={t("storeTheme.sections.off")}
-                  onChange={(enabled) => setTrustItem(index, { enabled })}
-                />
-                <ThemeSelect
-                  label={t("storeTheme.sections.trustIcon")}
-                  value={item.icon}
-                  disabled={disabled || !config.trust.enabled}
-                  error={errorFor(`trust.items[${index}].icon`)}
-                  onChange={(event) => setTrustItem(index, { icon: event.target.value as ShopTrustIcon })}
-                >
-                  {SHOP_TRUST_ICONS.map((icon) => (
-                    <option key={icon} value={icon}>{t(`storeTheme.sections.trustIcons.${icon}`)}</option>
-                  ))}
-                </ThemeSelect>
-                <FormField label={t("storeTheme.sections.trustLabel")} error={errorFor(`trust.items[${index}].label`)} field={`trust.items[${index}].label`}>
-                  <input
-                    value={item.label}
-                    maxLength={60}
-                    disabled={disabled || !config.trust.enabled}
-                    onChange={(event) => setTrustItem(index, { label: event.target.value })}
-                  />
-                </FormField>
-                {usesTsfTree(draft.templateKey) ? (
-                  <FormField label={t("storeTheme.sections.trustSub")} error={errorFor(`trust.items[${index}].sub`)} field={`trust.items[${index}].sub`}>
-                    <input
-                      value={item.sub ?? ""}
-                      maxLength={80}
-                      placeholder={t("storeTheme.sections.trustSubPlaceholder")}
-                      disabled={disabled || !config.trust.enabled}
-                      onChange={(event) => setTrustItem(index, { sub: event.target.value })}
+          {config.trust.enabled ? (
+            <div className="theme-gated-panel">
+              <ul className="theme-trust-list">
+                {config.trust.items.map((item, index) => (
+                  <li key={index} className={`theme-trust-row${item.enabled ? "" : " is-off"}`}>
+                    <ToggleSwitch
+                      checked={item.enabled}
+                      disabled={disabled}
+                      label={`${t("storeTheme.sections.trustLabel")} ${index + 1}`}
+                      onText={t("storeTheme.sections.on")}
+                      offText={t("storeTheme.sections.off")}
+                      onChange={(enabled) => setTrustItem(index, { enabled })}
                     />
-                  </FormField>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+                    {item.enabled ? (
+                      <>
+                        <ThemeSelect
+                          label={t("storeTheme.sections.trustIcon")}
+                          value={item.icon}
+                          disabled={disabled}
+                          error={errorFor(`trust.items[${index}].icon`)}
+                          onChange={(event) => setTrustItem(index, { icon: event.target.value as ShopTrustIcon })}
+                        >
+                          {SHOP_TRUST_ICONS.map((icon) => (
+                            <option key={icon} value={icon}>{t(`storeTheme.sections.trustIcons.${icon}`)}</option>
+                          ))}
+                        </ThemeSelect>
+                        <FormField label={t("storeTheme.sections.trustLabel")} error={errorFor(`trust.items[${index}].label`)} field={`trust.items[${index}].label`}>
+                          <input
+                            value={item.label}
+                            maxLength={60}
+                            disabled={disabled}
+                            onChange={(event) => setTrustItem(index, { label: event.target.value })}
+                          />
+                        </FormField>
+                        {usesTsfTree(draft.templateKey) ? (
+                          <FormField label={t("storeTheme.sections.trustSub")} error={errorFor(`trust.items[${index}].sub`)} field={`trust.items[${index}].sub`}>
+                            <input
+                              value={item.sub ?? ""}
+                              maxLength={80}
+                              placeholder={t("storeTheme.sections.trustSubPlaceholder")}
+                              disabled={disabled}
+                              onChange={(event) => setTrustItem(index, { sub: event.target.value })}
+                            />
+                          </FormField>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         {usesTsfTree(draft.templateKey) ? (
-            <div className="theme-grid">
-              {[0, 1].map((slot) => (
-                <FormField key={slot} label={`${t("storeTheme.announcement.label")} ${slot + 1}`} error={errorFor(`announcement.items[${slot}]`) ?? (slot === 0 ? errorFor("announcement.items") : undefined)}>
-                  <input value={config.announcement?.items?.[slot] ?? ""} maxLength={120} placeholder={t("storeTheme.announcement.hint")} disabled={disabled} onChange={(event) => setAnnouncement(slot, event.target.value)} />
-                </FormField>
-              ))}
+            <div className="theme-content-group">
+              <b className="theme-content-subtitle">{t("storeTheme.announcement.label")}</b>
+              <p className="theme-hint">{t("storeTheme.announcement.toolsHint")}</p>
+              <div className="theme-grid">
+                {[0, 1].map((slot) => (
+                  <FormField key={slot} label={`${t("storeTheme.announcement.label")} ${slot + 1}`} error={errorFor(`announcement.items[${slot}]`) ?? (slot === 0 ? errorFor("announcement.items") : undefined)}>
+                    <input value={config.announcement?.items?.[slot] ?? ""} maxLength={120} placeholder={t("storeTheme.announcement.hint")} disabled={disabled} onChange={(event) => setAnnouncement(slot, event.target.value)} />
+                  </FormField>
+                ))}
+              </div>
             </div>
           ) : null}
         </fieldset>
@@ -1473,14 +1598,11 @@ export default function ShopThemeEditor({
                 >
                   <span className="theme-section-grip" aria-hidden="true"><GripVertical /></span>
                   <span className="theme-section-main">
-                    <b
-                      className="theme-section-name"
-                      title={isShopSectionAvailable(section.key) ? undefined : t("storeTheme.sections.comingSoonHint")}
-                    >
+                    <b className="theme-section-name">
                       {t(`storeTheme.sections.${section.key as ShopSectionKey}`)}
                       {isShopSectionAvailable(section.key) ? null : ` · ${t("storeTheme.sections.comingSoon")}`}
                     </b>
-                    {variants.length ? (
+                    {section.enabled && variants.length ? (
                       <ThemeSelect inline
                         label={`${t(`storeTheme.sections.${section.key}`)} · ${t("storeTheme.sections.variant")}`}
                         value={section.variant ?? variants[0] ?? ""}
@@ -1517,10 +1639,14 @@ export default function ShopThemeEditor({
         </fieldset>
         </>
         )}
-        {usesTsfTree(draft.templateKey) ? (
+        {usesTsfTree(draft.templateKey) ? (() => {
+          const introOn = config.sections.find((row) => row.key === "INTRO")?.enabled !== false;
+          return (
           <fieldset className="theme-block theme-intro">
             <legend>{t("storeTheme.intro.title")}</legend>
-            <p className="theme-hint">{t("storeTheme.intro.hint")}</p>
+            <p className="theme-hint">{introOn ? t("storeTheme.intro.hint") : t("storeTheme.intro.hidden")}</p>
+            {introOn ? (
+            <>
             <FieldError text={errorFor("intro")} />
             <div className="theme-grid">
               <FormField label={t("storeTheme.intro.eyebrow")} error={errorFor("intro.eyebrow")}>
@@ -1554,7 +1680,16 @@ export default function ShopThemeEditor({
                 shopId={shopId}
                 shopSlug={shop.slug}
                 disabled={disabled}
-                onChange={(mediaId, item) => setIntro({ introMediaId: mediaId || undefined, imageUrl: mediaId ? item?.url : undefined }, "introMediaId")}
+                crop={config.intro?.crop}
+                mobileCrop={config.intro?.mobileCrop}
+                cropAspect={4 / 3}
+                cropMobileAspect={4 / 3}
+                onCropChange={(crop, mobileCrop) => setIntro({ crop, mobileCrop }, "crop")}
+                onChange={(mediaId, item) => setIntro({
+                  introMediaId: mediaId || undefined,
+                  imageUrl: mediaId ? item?.url : undefined,
+                  ...(mediaId ? {} : { crop: undefined, mobileCrop: undefined }),
+                }, "introMediaId")}
               />
             </MediaField>
             <FieldError text={errorFor("intro.introMediaId")} />
@@ -1563,8 +1698,11 @@ export default function ShopThemeEditor({
               <input type="checkbox" checked={!!config.intro?.reverse} disabled={disabled} onChange={(event) => setIntro({ reverse: event.target.checked }, "reverse")} />
               {t("storeTheme.intro.reverse")}
             </label>
+            </>
+            ) : null}
           </fieldset>
-        ) : null}
+          );
+        })() : null}
         </>) : null}
         </div>
       </section>

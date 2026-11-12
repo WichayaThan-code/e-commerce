@@ -496,7 +496,10 @@ export default function OwnerInfoPage() {
               <section className="owner-form-section">
                 <div className="section-row">
                   <h3>{o.idAddress}</h3>
-                  <label className="same-address">
+                  <label
+                    className="same-address"
+                    data-focus-fields="houseNo villageNo building alley road province district subdistrict postalCode"
+                  >
                     <input type="checkbox" checked={sameAddress} onChange={(e) => setSameAddress(e.target.checked)} />
                     <span><Check /></span>{o.sameShopAddress}
                   </label>

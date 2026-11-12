@@ -62,6 +62,21 @@ public class MerchantApplicationService {
         }
     }
 
+    /**
+     * Read-only twin of the saveShop uniqueness rule (trimmed, case-insensitive, every application incl. existing shops
+     * and pending ones). The caller's own current draft never counts, so re-checking an unchanged name stays available.
+     */
+    @Transactional(readOnly = true)
+    public MerchantDtos.ShopNameCheckResponse checkShopName(UUID userId, String name) {
+        var trimmed = name == null ? "" : name.trim();
+        if (trimmed.isEmpty()) return new MerchantDtos.ShopNameCheckResponse(false);
+        var draft = findDraft(userId);
+        var taken = draft == null
+            ? applications.existsByShopNameIgnoreCase(trimmed)
+            : applications.existsByShopNameIgnoreCaseAndIdNot(trimmed, draft.getId());
+        return new MerchantDtos.ShopNameCheckResponse(!taken);
+    }
+
     @Transactional(readOnly = true)
     public void validateOwner(UUID userId, MerchantDtos.OwnerRequest request) {
         ownerAccounts.assertCitizenAvailable(userId, request.citizenId());
@@ -186,15 +201,29 @@ public class MerchantApplicationService {
     private void validateComplete(MerchantApplication a) {
         if (blank(a.getShopName())||blank(a.getCategory())||a.getSaleType()==null||blank(a.getShopAddress())||blank(a.getShopProvince())||blank(a.getShopDistrict())||blank(a.getShopSubdistrict())||blank(a.getShopPostalCode())) incomplete("กรุณากรอกข้อมูลร้านค้าให้ครบถ้วน");
         if (a.getOwnerType()==null||blank(a.getOwnerFirstName())||blank(a.getOwnerLastName())||blank(a.getCitizenIdEncrypted())||a.getBirthDate()==null||blank(a.getOwnerPhone())||blank(a.getOwnerEmail())||blank(a.getOwnerHouseNo())||blank(a.getOwnerProvince())||blank(a.getOwnerDistrict())||blank(a.getOwnerSubdistrict())||blank(a.getOwnerPostalCode())||blank(a.getBankName())||blank(a.getBankAccountEncrypted())||blank(a.getBankAccountName())) incomplete("กรุณากรอกข้อมูลเจ้าของร้านและข้อมูลรับเงินให้ครบถ้วน");
-        if (!hasDocument(a, DocumentType.IDENTITY)) incomplete("กรุณาอัปโหลดเอกสารยืนยันตัวตน");
-        if (!hasDocument(a, DocumentType.ADDRESS)) incomplete("กรุณาอัปโหลดเอกสารยืนยันที่อยู่");
-        if (a.getOwnerType()==OwnerType.COMPANY && !hasDocument(a, DocumentType.BUSINESS)) incomplete("กรุณาอัปโหลดเอกสารยืนยันธุรกิจ");
+        // Owner already runs another shop: identity documents were verified with that shop (decided server-side).
+        boolean reuse = existingOwner(a);
+        if (!reuse && !hasDocument(a, DocumentType.IDENTITY)) incomplete("กรุณาอัปโหลดเอกสารยืนยันตัวตน");
+        if (!reuse && !hasDocument(a, DocumentType.ADDRESS)) incomplete("กรุณาอัปโหลดเอกสารยืนยันที่อยู่");
+        if (!reuse && a.getOwnerType()==OwnerType.COMPANY && !hasDocument(a, DocumentType.BUSINESS)) incomplete("กรุณาอัปโหลดเอกสารยืนยันธุรกิจ");
     }
 
     private MerchantDtos.ApplicationResponse response(MerchantApplication a) {
         var docs=documents.findByApplication_Id(a.getId()).stream().map(MerchantDtos.DocumentResponse::from).toList();
         var ownerId = a.getLinkedOwner() == null ? null : a.getLinkedOwner().getId();
-        return new MerchantDtos.ApplicationResponse(a.getId(),a.getStatus(),a.getReferenceNo(),a.getShopName(),a.getShopNameEn(),a.getShopDescription(),a.getCategory(),a.getSaleType(),a.getWebsite(),a.getLineId(),a.getFacebookUrl(),a.getInstagramUrl(),a.getTiktokUrl(),a.getLogoPath(),a.getShopAddress(),a.getShopProvince(),a.getShopDistrict(),a.getShopSubdistrict(),a.getShopPostalCode(),a.getOwnerType(),a.getOwnerTitle(),a.getOwnerFirstName(),a.getOwnerLastName(),cipher.mask(a.getCitizenIdEncrypted()),a.getBirthDate(),a.getNationality(),a.getOwnerPhone(),a.getOwnerEmail(),a.getOwnerHouseNo(),a.getOwnerVillageNo(),a.getOwnerBuilding(),a.getOwnerAlley(),a.getOwnerRoad(),a.getOwnerProvince(),a.getOwnerDistrict(),a.getOwnerSubdistrict(),a.getOwnerPostalCode(),a.getBankName(),cipher.mask(a.getBankAccountEncrypted()),a.getBankAccountName(),docs,a.getSubmittedAt(),shops.pathFor(a.getId()),ownerId);
+        return new MerchantDtos.ApplicationResponse(a.getId(),a.getStatus(),a.getReferenceNo(),a.getShopName(),a.getShopNameEn(),a.getShopDescription(),a.getCategory(),a.getSaleType(),a.getWebsite(),a.getLineId(),a.getFacebookUrl(),a.getInstagramUrl(),a.getTiktokUrl(),a.getLogoPath(),a.getShopAddress(),a.getShopProvince(),a.getShopDistrict(),a.getShopSubdistrict(),a.getShopPostalCode(),a.getOwnerType(),a.getOwnerTitle(),a.getOwnerFirstName(),a.getOwnerLastName(),cipher.mask(a.getCitizenIdEncrypted()),a.getBirthDate(),a.getNationality(),a.getOwnerPhone(),a.getOwnerEmail(),a.getOwnerHouseNo(),a.getOwnerVillageNo(),a.getOwnerBuilding(),a.getOwnerAlley(),a.getOwnerRoad(),a.getOwnerProvince(),a.getOwnerDistrict(),a.getOwnerSubdistrict(),a.getOwnerPostalCode(),a.getBankName(),cipher.mask(a.getBankAccountEncrypted()),a.getBankAccountName(),docs,a.getSubmittedAt(),shops.pathFor(a.getId()),ownerId,existingOwner(a));
+    }
+
+    /**
+     * True when the linked owner already has another shop that is not rejected (pending, approved or suspended).
+     * Such an owner opens further shops without re-entering owner info or re-uploading identity documents.
+     */
+    private boolean existingOwner(MerchantApplication application) {
+        var owner = application.getLinkedOwner();
+        if (owner == null) return false;
+        return shopRepository.findByOwner_IdOrderByShopIdAsc(owner.getId()).stream()
+            .anyMatch(shop -> shop.getStatus() != ShopStatus.REJECTED
+                && (shop.getApplication() == null || !application.getId().equals(shop.getApplication().getId())));
     }
 
     private boolean hasDocument(MerchantApplication application, DocumentType type) {

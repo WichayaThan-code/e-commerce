@@ -80,42 +80,91 @@ public final class ProductSpreadsheet {
         return write(rows, null);
     }
 
-    /** Merchant catalog export: Excel Table + meta sheet (import template still uses {@link #write}/{@link #template}). */
-    public static byte[] writeExport(List<SheetRow> rows, String shopName) {
+    /**
+     * Merchant catalog list export: one row per product (same shape as /merchant/products table).
+     * Single Excel Table sheet (no Meta). Import template still uses {@link #write}/{@link #template}.
+     */
+    public record ListExportRow(
+        String nameTh,
+        String nameEn,
+        String sku,
+        String category,
+        BigDecimal priceMin,
+        BigDecimal priceMax,
+        int stock,
+        String status,
+        java.time.Instant updatedAt
+    ) {}
+
+    public static byte[] writeExport(List<ListExportRow> rows, Locale locale) {
+        int lang = localeLang(locale);
         try (var book = new com.thaishopfun.common.excel.MerchantExcelWorkbook()) {
-            var meta = new java.util.LinkedHashMap<String, String>();
-            meta.put("Shop", shopName == null ? "" : shopName);
-            meta.put("Timezone", "Asia/Bangkok");
-            meta.put("Generated at", java.time.Instant.now().toString());
-            meta.put("Rows", String.valueOf(rows == null ? 0 : rows.size()));
-            book.addMetaSheet("Meta", meta);
-            var columns = new java.util.ArrayList<com.thaishopfun.common.excel.MerchantExcelWorkbook.Column>();
-            for (String h : HEADERS) {
-                columns.add(switch (h) {
-                    case "price", "compareAtPrice" -> com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.money(h);
-                    case "weightGrams", "stock" -> com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.integer(h);
-                    default -> com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(h);
-                });
-            }
+            var columns = java.util.List.of(
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(listHeader(lang, "nameTh")),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(listHeader(lang, "nameEn")),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(listHeader(lang, "sku")),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(listHeader(lang, "category")),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.money(listHeader(lang, "price")),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.money(listHeader(lang, "priceMax")),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.integer(listHeader(lang, "stock")),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.text(listHeader(lang, "status")),
+                com.thaishopfun.common.excel.MerchantExcelWorkbook.Column.datetime(listHeader(lang, "updated"))
+            );
             var data = new java.util.ArrayList<java.util.List<Object>>();
             if (rows != null) {
                 for (var source : rows) {
-                    var row = new java.util.ArrayList<Object>(HEADERS.length);
-                    row.add(nz(source.nameTh())); row.add(nz(source.nameEn())); row.add(nz(source.nameZh()));
-                    row.add(nz(source.descriptionTh())); row.add(nz(source.descriptionEn())); row.add(nz(source.descriptionZh()));
-                    row.add(nz(source.category())); row.add(nz(source.brand())); row.add(nz(source.skuCode())); row.add(nz(source.barcode()));
-                    row.add(nz(source.optionLabel())); row.add(source.price()); row.add(source.compareAtPrice());
-                    row.add(source.weightGrams()); row.add(source.stock());
-                    row.add(nz(source.image())); row.add(nz(source.productKey())); row.add(nz(source.productType()));
-                    row.add(nz(source.option1Name())); row.add(nz(source.option1Value()));
-                    row.add(nz(source.option2Name())); row.add(nz(source.option2Value()));
-                    row.add(nz(source.option3Name())); row.add(nz(source.option3Value()));
+                    var row = new java.util.ArrayList<Object>(9);
+                    row.add(nz(source.nameTh()));
+                    row.add(nz(source.nameEn()));
+                    row.add(nz(source.sku()));
+                    row.add(nz(source.category()));
+                    row.add(source.priceMin());
+                    row.add(source.priceMax() != null ? source.priceMax() : source.priceMin());
+                    row.add(source.stock());
+                    row.add(nz(source.status()));
+                    row.add(source.updatedAt());
                     data.add(row);
                 }
             }
-            book.addTableSheet("products", "Products", columns, data);
+            book.addTableSheet(sheetName(locale), "Products", columns, data);
             return book.toBytes();
         }
+    }
+
+    /** Localized sheet title; keep ≤31 Excel chars. */
+    public static String sheetName(Locale locale) {
+        Locale loc = locale == null ? Locale.ENGLISH : locale;
+        String tag = loc.toLanguageTag().toLowerCase(Locale.ROOT);
+        if (tag.startsWith("th")) return "สินค้า";
+        if (tag.startsWith("zh")) return "商品";
+        return "Products";
+    }
+
+    private static int localeLang(Locale locale) {
+        if (locale == null) return 0;
+        String tag = locale.toLanguageTag().toLowerCase(Locale.ROOT);
+        if (tag.startsWith("zh")) return 2;
+        if (tag.startsWith("en")) return 1;
+        return 0;
+    }
+
+    private static String listHeader(int lang, String key) {
+        return switch (key) {
+            case "nameTh" -> pick(lang, "ชื่อสินค้า (ไทย)", "Product name (TH)", "商品名（泰）");
+            case "nameEn" -> pick(lang, "ชื่อสินค้า (EN)", "Product name (EN)", "商品名（英）");
+            case "sku" -> pick(lang, "SKU", "SKU", "SKU");
+            case "category" -> pick(lang, "หมวดหมู่", "Category", "分类");
+            case "price" -> pick(lang, "ราคา", "Price", "价格");
+            case "priceMax" -> pick(lang, "ราคาสูงสุด", "Price (max)", "最高价");
+            case "stock" -> pick(lang, "สต็อก", "Stock", "库存");
+            case "status" -> pick(lang, "สถานะ", "Status", "状态");
+            case "updated" -> pick(lang, "แก้ไขล่าสุด", "Updated", "最近修改");
+            default -> key;
+        };
+    }
+
+    private static String pick(int lang, String th, String en, String zh) {
+        return lang == 0 ? th : lang == 2 ? zh : en;
     }
 
     private static String nz(String value) {

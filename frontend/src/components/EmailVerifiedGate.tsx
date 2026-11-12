@@ -13,6 +13,7 @@ function isAllowedWhileUnverified(pathname: string): boolean {
     || pathname === '/logout'
     || pathname === '/help'
     || pathname === '/deals'
+    || pathname === '/favorites'
     || pathname === '/recommendations'
     || pathname === '/best-sellers'
     || pathname === '/thai-brands'

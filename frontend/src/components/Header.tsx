@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import {
   Menu, Search, ShoppingCart, UserRound, ChevronDown,
-  ChevronRight, Gift, Headphones, LogOut, X, Store, Package
+  ChevronRight, Heart, Headphones, LogOut, X, Store, Package
 } from "lucide-react";
 import SiteBrand from "./SiteBrand";
 
@@ -125,7 +125,7 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
                     <Link to="/account/orders"><Package /> {t('account.orders')} <ChevronRight /></Link>
                   )}
                   <Link to="/track-order"><Package /> {t('account.trackOrder')} <ChevronRight /></Link>
-                  <Link to="/deals"><Gift /> {t('account.deals')} <ChevronRight /></Link>
+                  <Link to="/favorites"><Heart /> {t('account.favorites')} <ChevronRight /></Link>
                   <Link to="/help"><Headphones /> {t('account.help')} <ChevronRight /></Link>
                   <button className="member-signout" disabled={signingOut} onClick={() => void signOut()}>
                     <LogOut /> {signingOut ? t('account.loggingOut') : t('account.logout')}

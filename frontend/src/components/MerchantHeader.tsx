@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
-  Gift,
+  Heart,
   Headphones,
   LogOut,
   Search,
@@ -119,8 +119,8 @@ export default function MerchantHeader() {
                   <Link to="/cart">
                     <ShoppingCart /> {t('account.cart')} <ChevronRight />
                   </Link>
-                  <Link to="/deals">
-                    <Gift /> {t('account.deals')} <ChevronRight />
+                  <Link to="/favorites">
+                    <Heart /> {t('account.favorites')} <ChevronRight />
                   </Link>
                   <Link to="/help">
                     <Headphones /> {t('account.help')} <ChevronRight />

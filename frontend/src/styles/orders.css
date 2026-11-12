@@ -689,6 +689,176 @@
   display: block;
 }
 
+.orders-review-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #0878f5;
+  border-radius: 7px;
+  background: #fff;
+  color: #0878f5;
+  font: 700 12px var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  cursor: pointer;
+}
+
+.orders-review-btn:hover {
+  background: #f3f9ff;
+}
+
+.orders-review-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  color: #0F7A4D;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.orders-review-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.orders-review-product-block {
+  display: grid;
+  gap: 4px;
+}
+
+.orders-review-product {
+  margin: 0;
+  color: #08245d;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.orders-review-option {
+  margin: 0;
+  color: #6d84a3;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.orders-review-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #132b50;
+}
+
+.orders-review-form textarea {
+  width: 100%;
+  min-height: 96px;
+  border: 1px solid #dce2eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: 14px var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  color: #132b50;
+  resize: vertical;
+}
+
+.orders-review-form textarea:focus-visible {
+  outline: none;
+  border-color: #1671de;
+  box-shadow: var(--focus-ring);
+}
+
+.orders-review-photos {
+  display: grid;
+  gap: 8px;
+}
+
+.orders-review-photos-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #132b50;
+}
+
+.orders-review-photos-head small {
+  color: #8aa0bb;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.orders-review-photos-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.orders-review-photo,
+.orders-review-photo-add {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border: 1px solid #dce2eb;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f8fbfe;
+}
+
+.orders-review-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.orders-review-photo-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(8, 36, 93, 0.78);
+  color: #fff;
+  cursor: pointer;
+}
+
+.orders-review-photo-add {
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  color: #0878f5;
+  font: 700 11px var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  cursor: pointer;
+}
+
+.orders-review-photo-add:disabled,
+.orders-review-photo-remove:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.orders-toast {
+  position: fixed;
+  z-index: 80;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: #08245d;
+  color: #fff;
+  padding: 11px 20px;
+  border-radius: 30px;
+  box-shadow: 0 8px 24px #08245d38;
+  font-size: 13px;
+}
+
 .orders-actions {
   display: flex;
   flex-wrap: wrap;

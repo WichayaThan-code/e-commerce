@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/member-home.css";
 import "../styles/shop-page.css";
+import "../styles/product-card.css";
 import EmptyState from "../components/feedback/EmptyState";
 import { useAuth } from "../contexts/AuthContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import {
   ApiError,
   catalogApi,
+  favoritesApi,
   mediaUrl,
   recommendationApi,
   type BestSellerProduct,
@@ -105,6 +107,7 @@ export default function MarketplacePage() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let active = true;
@@ -124,6 +127,13 @@ export default function MarketplacePage() {
     return () => { active = false };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reloadKey only; tp is for error copy
   }, [reloadKey]);
+
+  useEffect(() => {
+    if (!user) { setFavorites(new Set()); return; }
+    favoritesApi.list()
+      .then((rows) => setFavorites(new Set(rows.map((row) => row.productId))))
+      .catch(() => setFavorites(new Set()));
+  }, [user]);
 
   const categoryButtons = useMemo(() => {
     const moreLabel = fallbackCategories[fallbackCategories.length - 1] ?? "อื่นๆ";
@@ -159,6 +169,33 @@ export default function MarketplacePage() {
   const notify = (message: string) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 2200);
+  };
+
+  const toggleFavorite = async (productId: string) => {
+    if (!user) {
+      window.location.assign(`/login?next=${encodeURIComponent("/")}`);
+      return;
+    }
+    const liked = favorites.has(productId);
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (liked) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+    try {
+      if (liked) await favoritesApi.remove(productId);
+      else await favoritesApi.add(productId);
+      notify(liked ? tp("favorites.removed") : tp("favorites.added"));
+    } catch (error) {
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (liked) next.add(productId);
+        else next.delete(productId);
+        return next;
+      });
+      notify(error instanceof ApiError ? error.message : tp("favorites.actionFail"));
+    }
   };
 
   const displayName = user ? user.firstName || user.email : "";
@@ -401,8 +438,13 @@ export default function MarketplacePage() {
               const sold = p.soldCount ?? null;
               return (
                 <article className="product-card" key={p.id}>
-                  <button className="heart" aria-label={tp("home.addFavorite")} onClick={() => notify(tp("home.addedFavorite"))}>
-                    <Heart size={17} />
+                  <button
+                    type="button"
+                    className={`heart${favorites.has(p.id) ? " liked" : ""}`}
+                    aria-label={tp("home.addFavorite")}
+                    onClick={() => void toggleFavorite(p.id)}
+                  >
+                    <Heart size={17} fill={favorites.has(p.id) ? "currentColor" : "none"} />
                   </button>
                   <button
                     className="product-image"
@@ -418,7 +460,7 @@ export default function MarketplacePage() {
                   </button>
                   <div className="product-info">
                     <h3>{name}</h3>
-                    <div>
+                    <div className="pcard-price">
                       <strong>฿{price.toLocaleString(localeTag)}</strong>
                       {old != null && old > price && (
                         <>
@@ -427,11 +469,19 @@ export default function MarketplacePage() {
                         </>
                       )}
                     </div>
-                    <small>
-                      {/* TODO: show ★ rating only when review aggregate is present (API may return null). */}
-                      {rating != null && <b>★ {rating}</b>}
-                      {sold != null && <>{rating != null ? " " : ""}({sold.toLocaleString(localeTag)})</>}
-                    </small>
+                    {(rating != null || sold != null) ? (
+                      <p className="pcard-meta">
+                        {rating != null ? (
+                          <span className="pcard-rating">
+                            <b>★ {rating}</b>
+                          </span>
+                        ) : null}
+                        {rating != null && sold != null ? <span className="pcard-sep" aria-hidden="true">·</span> : null}
+                        {sold != null ? (
+                          <span className="pcard-sold">({sold.toLocaleString(localeTag)})</span>
+                        ) : null}
+                      </p>
+                    ) : null}
                   </div>
                 </article>
               );

@@ -28,6 +28,7 @@ import { loginPathForCart, useOptionalCart } from "../contexts/CartContext";
 import {
   ApiError,
   catalogApi,
+  favoritesApi,
   mediaUrl,
   recommendationApi,
   type BestSellerProduct,
@@ -38,6 +39,7 @@ import recommendReference from "../assets/images/references/storefront/recommend
 import EmptyState from "../components/feedback/EmptyState";
 import "../styles/recommended-products.css";
 import "../styles/shop-page.css";
+import "../styles/product-card.css";
 
 const categoryIcons = [Sparkles, Shirt, Wine, Sofa, ShoppingBag, Utensils, Dumbbell, Baby, Gift, Gift, Leaf, CircleEllipsis];
 const ratingStars = ["★★★★", "★★★½", "★★★", "★★"] as const;
@@ -77,7 +79,7 @@ export default function RecommendedProductsPage() {
   const [sort, setSort] = useState<SortKey>("featured");
   const [grid, setGrid] = useState(true);
   const [brandQuery, setBrandQuery] = useState("");
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [priceChecked, setPriceChecked] = useState<number[]>([]);
   const [ratingChecked, setRatingChecked] = useState<number[]>([]);
   const [brandChecked, setBrandChecked] = useState<string[]>([]);
@@ -101,6 +103,13 @@ export default function RecommendedProductsPage() {
   useEffect(() => {
     catalogApi.categories().then(setCategoryList).catch(() => setCategoryList([]));
   }, []);
+
+  useEffect(() => {
+    if (!user) { setFavorites(new Set()); return; }
+    favoritesApi.list()
+      .then((rows) => setFavorites(new Set(rows.map((row) => row.productId))))
+      .catch(() => setFavorites(new Set()));
+  }, [user]);
 
   const categoryName = (c: ProductCategory) => (lang === "en" ? c.nameEn : lang === "zh" ? c.nameZh : c.nameTh) || c.nameTh;
   const chips = useMemo(
@@ -146,13 +155,32 @@ export default function RecommendedProductsPage() {
   const toggle = <T,>(setter: (fn: (v: T[]) => T[]) => void, value: T) =>
     setter((v) => (v.includes(value) ? v.filter((x) => x !== value) : [...v, value]));
 
-  const toggleFavorite = (id: string) => {
+  const toggleFavorite = async (id: string) => {
     if (!user) {
       notify(t.login);
       navigate(`/login?next=${encodeURIComponent("/recommendations")}`);
       return;
     }
-    setFavorites((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]));
+    const liked = favorites.has(id);
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (liked) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    try {
+      if (liked) await favoritesApi.remove(id);
+      else await favoritesApi.add(id);
+      notify(liked ? tp("favorites.removed") : tp("favorites.added"));
+    } catch (error) {
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (liked) next.add(id);
+        else next.delete(id);
+        return next;
+      });
+      notify(error instanceof ApiError ? error.message : tp("favorites.actionFail"));
+    }
   };
 
   const addToCart = async (p: BestSellerProduct) => {
@@ -295,8 +323,8 @@ export default function RecommendedProductsPage() {
                       </div>
                       <button
                         type="button"
-                        className={favorites.includes(p.id) ? "liked" : ""}
-                        onClick={() => toggleFavorite(p.id)}
+                        className={favorites.has(p.id) ? "liked" : ""}
+                        onClick={() => void toggleFavorite(p.id)}
                         aria-label={tp("catalog.favorite")}
                       >
                         <Heart />
@@ -315,16 +343,18 @@ export default function RecommendedProductsPage() {
                         {discount > 0 && <em>-{discount}%</em>}
                       </p>
                       <p className="recommend-meta">
-                        {p.rating !== null && p.rating !== undefined && (
-                          <>
-                            <b>★ {Number(p.rating).toLocaleString(localeTag)}</b> ({(p.reviewCount ?? 0).toLocaleString(localeTag)}){" "}
-                          </>
-                        )}
-                        {p.soldCount > 0 && (
-                          <span>
+                        {p.rating !== null && p.rating !== undefined ? (
+                          <span className="pcard-rating">
+                            <b>★ {Number(p.rating).toLocaleString(localeTag)}</b>
+                            <span className="pcard-reviews">({(p.reviewCount ?? 0).toLocaleString(localeTag)})</span>
+                          </span>
+                        ) : null}
+                        {p.rating != null && p.soldCount > 0 ? <span className="pcard-sep" aria-hidden="true">·</span> : null}
+                        {p.soldCount > 0 ? (
+                          <span className="pcard-sold">
                             {tp("common.sold")} {p.soldCount.toLocaleString(localeTag)}
                           </span>
-                        )}
+                        ) : null}
                       </p>
                       <button type="button" onClick={() => void addToCart(p)}>
                         <ShoppingCart />

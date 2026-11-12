@@ -610,17 +610,145 @@ export const recommendationApi = {
   recordView: (productId: string) => optionalAuthRequest<void>('/api/products/views', { method: 'POST', body: JSON.stringify({ productId }) }),
   recentlyViewed: (size = 12) => request<BestSellerProduct[]>(`/api/products/recently-viewed?size=${size}`, {}, true, false),
 }
-export type ProductReview = { id: string; rating: number; comment?: string | null; reviewerName: string; createdAt: string }
-export type ProductReviewPage = { items: ProductReview[]; page: number; size: number; total: number; ratingAvg?: number | null; reviewCount: number }
-export const reviewApi = {
-  list: (productIdOrSlug: string, query: { shopSlug?: string; page?: number; size?: number } = {}) => {
-    const params = new URLSearchParams()
-    Object.entries(query).forEach(([key, value]) => { if (value !== undefined && value !== null && value !== '') params.set(key, String(value)) })
-    const qs = params.toString()
-    return request<ProductReviewPage>(`/api/products/${encodeURIComponent(productIdOrSlug)}/reviews${qs ? `?${qs}` : ''}`)
+
+/** Public /deals tabs: today|weekly|flash|under199|bogo|coupons|special */
+export type DealTabKey = 'today' | 'weekly' | 'flash' | 'under199' | 'bogo' | 'coupons' | 'special'
+export type DealProduct = BestSellerProduct & { campaignEndsAt?: string | null }
+export type DealCoupon = {
+  code: string
+  name: string
+  type: 'PERCENT' | 'FIXED_AMOUNT' | 'FREE_SHIPPING'
+  value: number | string
+  minOrderAmount?: number | string | null
+  maxDiscountAmount?: number | string | null
+  startsAt: string
+  endsAt?: string | null
+  shopId: number
+  shopSlug: string
+  shopName: string
+  collected?: boolean | null
+}
+export type DealPage<T> = ProductPage<T> & { totalPages?: number; endsAt?: string | null; title?: string | null }
+export type DealQuery = {
+  tab?: DealTabKey
+  categoryId?: number
+  priceBand?: string
+  minDiscount?: number
+  page?: number
+  size?: number
+}
+function dealQueryParams(query: Record<string, string | number | undefined | null>) {
+  const params = new URLSearchParams()
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return
+    params.set(key, String(value))
+  })
+  return params
+}
+export const dealsApi = {
+  listProducts: (query: DealQuery = {}) => {
+    const qs = dealQueryParams(query).toString()
+    return optionalAuthRequest<DealPage<DealProduct>>(`/api/deals${qs ? `?${qs}` : ''}`)
   },
-  create: (body: { orderItemId: string; rating: number; comment?: string }) =>
-    request<ProductReview>('/api/me/reviews', { method: 'POST', body: JSON.stringify(body) }, true),
+  listCoupons: (query: Omit<DealQuery, 'tab' | 'priceBand' | 'minDiscount'> = {}) => {
+    const params = dealQueryParams(query)
+    params.set('tab', 'coupons')
+    return optionalAuthRequest<DealPage<DealCoupon>>(`/api/deals?${params.toString()}`)
+  },
+}
+
+export type DealCampaignKind = 'TODAY' | 'WEEKLY' | 'FLASH' | 'BOGO'
+export type AdminDealCampaignProduct = {
+  productId: string
+  slug: string
+  nameTh: string
+  shopSlug?: string | null
+  shopName?: string | null
+  basePrice?: number | string | null
+  compareAtPrice?: number | string | null
+  sortOrder: number
+}
+export type AdminDealCampaign = {
+  id: string
+  kind: DealCampaignKind
+  titleTh: string
+  titleEn?: string | null
+  titleZh?: string | null
+  startsAt: string
+  endsAt?: string | null
+  active: boolean
+  sortOrder: number
+  productCount: number
+  createdAt?: string | null
+  updatedAt?: string | null
+  products?: AdminDealCampaignProduct[]
+}
+export type DealCampaignWrite = {
+  kind: DealCampaignKind
+  titleTh: string
+  titleEn?: string
+  titleZh?: string
+  startsAt: string
+  endsAt?: string | null
+  active?: boolean
+  sortOrder?: number
+}
+export const dealAdminApi = {
+  list: (kind?: DealCampaignKind) =>
+    request<AdminDealCampaign[]>(`/api/admin/deal-campaigns${kind ? `?kind=${kind}` : ''}`, {}, true),
+  get: (id: string) => request<AdminDealCampaign>(`/api/admin/deal-campaigns/${encodeURIComponent(id)}`, {}, true),
+  create: (body: DealCampaignWrite) =>
+    request<AdminDealCampaign>('/api/admin/deal-campaigns', { method: 'POST', body: JSON.stringify(body) }, true),
+  update: (id: string, body: DealCampaignWrite) =>
+    request<AdminDealCampaign>(`/api/admin/deal-campaigns/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(body) }, true),
+  remove: (id: string) =>
+    request<void>(`/api/admin/deal-campaigns/${encodeURIComponent(id)}`, { method: 'DELETE' }, true),
+  attachProducts: (id: string, productIds: string[]) =>
+    request<AdminDealCampaign>(`/api/admin/deal-campaigns/${encodeURIComponent(id)}/products`, {
+      method: 'POST', body: JSON.stringify({ productIds }),
+    }, true),
+  detachProduct: (id: string, productId: string) =>
+    request<AdminDealCampaign>(
+      `/api/admin/deal-campaigns/${encodeURIComponent(id)}/products/${encodeURIComponent(productId)}`,
+      { method: 'DELETE' },
+      true,
+    ),
+}
+export type ProductReviewImage = { id: string; url: string }
+export type ProductReview = {
+  id: string
+  rating: number
+  comment?: string | null
+  reviewerName: string
+  createdAt: string
+  optionLabel?: string | null
+  images?: ProductReviewImage[]
+}
+export type ReviewFilterCounts = {
+  all: number
+  withPhotos: number
+  star1: number
+  star2: number
+  star3: number
+  star4: number
+  star5: number
+}
+export type ProductReviewPage = {
+  items: ProductReview[]
+  page: number
+  size: number
+  total: number
+  ratingAvg?: number | null
+  reviewCount: number
+  filters?: ReviewFilterCounts | null
+}
+export type ReviewStatus = { orderId: string; reviewedOrderItemIds: string[] }
+export type ReviewListQuery = {
+  shopSlug?: string
+  page?: number
+  size?: number
+  rating?: number
+  withPhotos?: boolean
 }
 export type ProductPage<T> = { items: T[]; page: number; size: number; total: number }
 export type ProductImportError = { row: number; message: string; productKey?: string | null; skuCode?: string | null }
@@ -770,6 +898,27 @@ function uploadForm<T>(path: string, body: FormData, onProgress?: (ratio: number
       throw error
     }
   })()
+}
+
+export const reviewApi = {
+  list: (productIdOrSlug: string, query: ReviewListQuery = {}) => {
+    const params = new URLSearchParams()
+    Object.entries(query).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return
+      params.set(key, String(value))
+    })
+    const qs = params.toString()
+    return request<ProductReviewPage>(`/api/products/${encodeURIComponent(productIdOrSlug)}/reviews${qs ? `?${qs}` : ''}`)
+  },
+  status: (orderId: string) =>
+    request<ReviewStatus>(`/api/me/reviews/status?orderId=${encodeURIComponent(orderId)}`, { cache: 'no-store' }, true),
+  uploadImage: (file: File, onProgress?: (ratio: number) => void) => {
+    const body = new FormData()
+    body.append('file', file)
+    return uploadForm<{ id: string; url: string }>('/api/me/reviews/images', body, onProgress)
+  },
+  create: (body: { orderItemId: string; rating: number; comment?: string; imageIds?: string[] }) =>
+    request<ProductReview>('/api/me/reviews', { method: 'POST', body: JSON.stringify(body) }, true),
 }
 
 /** AG2: CUSTOM theme media library (images / MP4 / WOFF2). Errors keep the backend code (e.g. THEME_MEDIA_QUOTA_EXCEEDED). */

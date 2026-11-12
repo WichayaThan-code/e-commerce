@@ -448,6 +448,31 @@
       "buyAgainBusy": "正在加入购物车…",
       "buyAgainFailed": "无法加入购物车，部分商品可能缺货或已下架"
     },
+    "review": {
+      "action": "评分",
+      "done": "已评价",
+      "title": "为商品评分",
+      "message": "选择 1–5 星，并可填写评论（可选）",
+      "option": "购买规格：{{option}}",
+      "comment": "评论（可选）",
+      "commentPh": "分享你对这件商品的体验",
+      "photos": "评价图片",
+      "photosHint": "{{count}}/{{max}} 张",
+      "photoAdd": "添加图片",
+      "photoRemove": "删除图片",
+      "photosUploading": "上传中…",
+      "imagesMax": "最多可上传 5 张图片",
+      "imagesType": "仅支持 JPG、PNG 或 WEBP",
+      "imagesSize": "每张图片不超过 5 MB",
+      "imagesFail": "图片上传失败",
+      "submit": "提交评价",
+      "submitting": "提交中…",
+      "cancel": "取消",
+      "ratingRequired": "请选择星级",
+      "success": "评价已提交",
+      "fail": "评价提交失败",
+      "already": "你已评价过此商品"
+    },
     "products": "商品",
     "address": "收货地址",
     "note": "给店铺留言",
@@ -774,7 +799,20 @@
       "qrProductHint": "扫码打开此商品",
       "qrCheckoutHint": "扫码立即购买（需登录，然后结算）",
       "qrLocal": "当前运行于 localhost：此二维码仅在本机可用",
-      "qrDownload": "下载 PNG"
+      "qrDownload": "下载 PNG",
+      "rating": "商品评分",
+      "ratingLoading": "正在加载评价…",
+      "noReviews": "暂无评价",
+      "noFilteredReviews": "没有符合此筛选的评价",
+      "reviewCount": "{{count}} 条评价",
+      "reviewsTitle": "买家评价",
+      "loadMoreReviews": "加载更多评价",
+      "reviewFilters": "筛选评价",
+      "reviewFilterAll": "全部",
+      "reviewFilterPhotos": "有图",
+      "reviewFilterStars": "{{stars}} 星",
+      "reviewOption": "购买：{{option}}",
+      "reviewPhotoOpen": "查看评价图片"
     },
     "productsPageAria": "商品分页",
     "productError": "无法打开该商品",
@@ -1519,5 +1557,108 @@
       "noContent": "这篇文章暂无此语言的内容。",
       "previewBanner": "预览模式（状态：{{status}}）——发布前访客无法看到此页面"
     }
+  },
+  "deals": {
+    "breadcrumb": { "home": "首页", "current": "优惠活动" },
+    "heroAlt": "优惠活动，每天超值选购来自泰国店铺的优质商品",
+    "tabsLabel": "优惠活动分类",
+    "tabs": {
+      "today": "今日优惠",
+      "weekly": "每周优惠",
+      "flash": "限时抢购",
+      "under199": "不超过199.-",
+      "bogo": "买一送一",
+      "coupons": "优惠券",
+      "special": "特价商品"
+    },
+    "leads": {
+      "today": "精选优惠，专为你准备",
+      "weekly": "每周更新的特惠商品",
+      "flash": "限时大幅折扣",
+      "under199": "199泰铢以内好物",
+      "bogo": "精选买一送一活动",
+      "coupons": "先领券再购物更省",
+      "special": "带划线价的特价商品"
+    },
+    "filters": {
+      "category": "优惠分类",
+      "price": "价格区间",
+      "discount": "折扣",
+      "all": "全部"
+    },
+    "priceBands": {
+      "all": "全部",
+      "under100": "低于100泰铢",
+      "100-300": "100 - 300泰铢",
+      "301-500": "301 - 500泰铢",
+      "501-1000": "501 - 1,000泰铢",
+      "over1000": "超过1,000泰铢"
+    },
+    "discountMin": "{{value}}%及以上",
+    "countdown": {
+      "endsIn": "距结束",
+      "ended": "已结束",
+      "hours": "小时",
+      "minutes": "分钟",
+      "seconds": "秒"
+    },
+    "seeAll": "查看全部",
+    "favorite": "加入收藏",
+    "addToCart": "加入购物车",
+    "sold": "已售 {{count}}",
+    "resultCount": "显示 {{shown}} / {{total}}",
+    "error": "优惠加载失败",
+    "retry": "重试",
+    "empty": {
+      "productsTitle": "此优惠暂无商品",
+      "productsBody": "请尝试其他分类或筛选条件",
+      "couponsTitle": "暂无公开优惠券",
+      "couponsBody": "店铺公开优惠券将显示在这里"
+    },
+    "coupon": {
+      "percent": "减{{value}}%",
+      "fixed": "减฿{{value}}",
+      "freeShipping": "包邮",
+      "minOrder": "满฿{{value}}",
+      "collect": "领取",
+      "collected": "已领取"
+    },
+    "banners": {
+      "flashTitle": "限时闪购优惠",
+      "shopNow": "马上买",
+      "upTo": "最高减",
+      "couponTitle": "先领券再结算更划算",
+      "collectNow": "立即领券"
+    },
+    "toast": {
+      "favorited": "已加入收藏",
+      "unfavorited": "已取消收藏",
+      "favoriteFail": "收藏更新失败",
+      "chooseVariant": "请选择商品规格",
+      "outOfStock": "库存不足",
+      "insufficientStock": "库存不足",
+      "addedToCart": "已加入购物车",
+      "addFail": "加入购物车失败",
+      "couponCollected": "优惠券已领取",
+      "couponAlready": "您已领取过此券",
+      "couponFail": "领取优惠券失败"
+    }
+  },
+  "favorites": {
+    "kicker": "已收藏",
+    "title": "我的收藏",
+    "subtitle": "你点过心的商品都在这里，可随时加入购物车",
+    "countLabel": "件",
+    "listTitle": "收藏的商品",
+    "browseCta": "查看推荐商品",
+    "loading": "正在加载收藏…",
+    "empty": "还没有收藏",
+    "emptyHint": "在商品卡片上点击心形即可收藏到这里",
+    "emptyCta": "去看热销商品",
+    "loadFail": "收藏加载失败",
+    "retry": "重试",
+    "removed": "已取消收藏",
+    "added": "已加入收藏",
+    "actionFail": "收藏更新失败"
   }
 }

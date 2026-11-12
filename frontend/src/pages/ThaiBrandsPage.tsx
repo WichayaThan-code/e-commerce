@@ -13,11 +13,14 @@ import {
   Store,
 } from "lucide-react";
 import EmptyState from "../components/feedback/EmptyState";
+import { useAuth } from "../contexts/AuthContext";
 import { loginPathForCart, useOptionalCart } from "../contexts/CartContext";
+import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import {
   ApiError,
   bestSellerApi,
   catalogApi,
+  favoritesApi,
   mediaUrl,
   recommendationApi,
   type BestSellerProduct,
@@ -28,6 +31,7 @@ import thaiBrandReference from "../assets/images/references/storefront/thai-bran
 import "../styles/recommended-products.css";
 import "../styles/best-seller.css";
 import "../styles/thai-brands.css";
+import "../styles/product-card.css";
 
 /** Hub categories that define “Thai products” for this page. */
 const THAI_SCOPES = [
@@ -131,6 +135,8 @@ async function loadThaiProducts(opts: {
 }
 
 export default function ThaiBrandsPage() {
+  const { user } = useAuth();
+  const { tp } = usePublicTranslation();
   const cartApi = useOptionalCart();
   const [activeScope, setActiveScope] = useState(0);
   const [activeTab, setActiveTab] = useState(0);
@@ -139,7 +145,7 @@ export default function ThaiBrandsPage() {
   const [appliedQuery, setAppliedQuery] = useState("");
   const [sort, setSort] = useState("ยอดนิยม");
   const [grid, setGrid] = useState(true);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [items, setItems] = useState<BestSellerProduct[]>([]);
   const [fetching, setFetching] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -161,6 +167,40 @@ export default function ThaiBrandsPage() {
       .catch(() => setCategoryList([]))
       .finally(() => setCategoriesReady(true));
   }, []);
+
+  useEffect(() => {
+    if (!user) { setFavorites(new Set()); return; }
+    favoritesApi.list()
+      .then((rows) => setFavorites(new Set(rows.map((row) => row.productId))))
+      .catch(() => setFavorites(new Set()));
+  }, [user]);
+
+  const toggleFavorite = async (productId: string) => {
+    if (!user) {
+      window.location.assign(`/login?next=${encodeURIComponent("/thai-brands")}`);
+      return;
+    }
+    const liked = favorites.has(productId);
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (liked) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+    try {
+      if (liked) await favoritesApi.remove(productId);
+      else await favoritesApi.add(productId);
+      notify(liked ? tp("favorites.removed") : tp("favorites.added"));
+    } catch (error) {
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (liked) next.add(productId);
+        else next.delete(productId);
+        return next;
+      });
+      notify(error instanceof ApiError ? error.message : tp("favorites.actionFail"));
+    }
+  };
 
   const otopIds = useMemo(
     () => new Set(categoryList.filter(isOtopCategory).map((c) => c.id)),
@@ -491,13 +531,9 @@ export default function ThaiBrandsPage() {
                       <span className={`thai-tag ${badge.tone}`}>{badge.label}</span>
                       <button
                         type="button"
-                        className={favorites.includes(p.id) ? "liked" : ""}
-                        onClick={() =>
-                          setFavorites((v) =>
-                            v.includes(p.id) ? v.filter((id) => id !== p.id) : [...v, p.id],
-                          )
-                        }
-                        aria-label="รายการโปรด"
+                        className={favorites.has(p.id) ? "liked" : ""}
+                        onClick={() => void toggleFavorite(p.id)}
+                        aria-label={tp("catalog.favorite")}
                       >
                         <Heart />
                       </button>
@@ -525,13 +561,13 @@ export default function ThaiBrandsPage() {
                       </p>
                       <p className="thai-meta">
                         {p.rating != null ? (
-                          <span>
-                            <b>★ {p.rating}</b> ({(p.reviewCount ?? 0).toLocaleString()})
+                          <span className="pcard-rating">
+                            <b>★ {p.rating}</b>
+                            <span className="pcard-reviews">({(p.reviewCount ?? 0).toLocaleString()})</span>
                           </span>
-                        ) : (
-                          <span />
-                        )}
-                        <span>ขายแล้ว {p.soldCount.toLocaleString()} ชิ้น</span>
+                        ) : null}
+                        {p.rating != null ? <span className="pcard-sep" aria-hidden="true">·</span> : null}
+                        <span className="pcard-sold">ขายแล้ว {p.soldCount.toLocaleString()} ชิ้น</span>
                       </p>
                       <button type="button" onClick={() => void addToCart(p)}>
                         <ShoppingCart />

@@ -10,6 +10,7 @@ import { mediaUrl, type PublicProduct, type PublicShop } from "../../services/ap
 import { localizedText } from "../../services/catalogText";
 import { useOptionalShopPublic } from "../../contexts/ShopPublicContext";
 import { TsfProductCard } from "./general/GeneralStorefront";
+import "../../styles/product-card.css";
 
 export type ProductCardVariant = "catalog" | "featured-row" | "featured-large" | "menu-row";
 
@@ -212,15 +213,16 @@ function LegacyProductCard({
 
   const meta = (rating != null || sold != null) ? (
     <p className="shop-product-meta">
-      {rating != null && (
-        <span className="shop-rating-badge">
+      {rating != null ? (
+        <span className="pcard-rating shop-rating-badge">
           <Star />
           <b className="num">{rating.toFixed(1)}</b>
         </span>
-      )}
-      {sold != null && (
-        <span className="shop-sold muted">{tp("shop.soldCount", { count: sold })}</span>
-      )}
+      ) : null}
+      {rating != null && sold != null ? <span className="pcard-sep" aria-hidden="true">·</span> : null}
+      {sold != null ? (
+        <span className="pcard-sold shop-sold muted">{tp("shop.soldCount", { count: sold })}</span>
+      ) : null}
     </p>
   ) : null;
 

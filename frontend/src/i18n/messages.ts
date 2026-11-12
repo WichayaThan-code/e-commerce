@@ -15,6 +15,7 @@ export type MessageKey =
   | 'account.store'
   | 'account.cart'
   | 'account.deals'
+  | 'account.favorites'
   | 'account.help'
   | 'account.logout'
   | 'account.loggingOut'

@@ -19,11 +19,13 @@ import {
   Utensils,
   Wine,
 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 import { loginPathForCart, useOptionalCart } from "../contexts/CartContext";
 import {
   ApiError,
   bestSellerApi,
   catalogApi,
+  favoritesApi,
   mediaUrl,
   type BestSellerProduct,
   type ProductCategory,
@@ -34,6 +36,7 @@ import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import "../styles/recommended-products.css";
 import "../styles/best-seller.css";
 import "../styles/shop-page.css";
+import "../styles/product-card.css";
 
 /** Chip icons (design order); labels come from /api/categories. Chip 0 = "ทั้งหมด". */
 const categoryIcons = [
@@ -86,6 +89,7 @@ const primaryImage = (p: BestSellerProduct) =>
 
 export default function BestSellerPage() {
   const { tp } = usePublicTranslation();
+  const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState(0);
   const [activeRank, setActiveRank] = useState(0);
   const cartApi = useOptionalCart();
@@ -102,7 +106,7 @@ export default function BestSellerPage() {
   const [notice, setNotice] = useState("");
   const [sort, setSort] = useState("ยอดขายสูงสุด");
   const [grid, setGrid] = useState(true);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const notify = (message: string) => {
@@ -115,6 +119,38 @@ export default function BestSellerPage() {
       .then(setCategoryList)
       .catch(() => setCategoryList([]));
   }, []);
+  useEffect(() => {
+    if (!user) { setFavorites(new Set()); return; }
+    favoritesApi.list()
+      .then((rows) => setFavorites(new Set(rows.map((row) => row.productId))))
+      .catch(() => setFavorites(new Set()));
+  }, [user]);
+  const toggleFavorite = async (productId: string) => {
+    if (!user) {
+      window.location.assign(`/login?next=${encodeURIComponent("/best-sellers")}`);
+      return;
+    }
+    const liked = favorites.has(productId);
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (liked) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+    try {
+      if (liked) await favoritesApi.remove(productId);
+      else await favoritesApi.add(productId);
+      notify(liked ? tp("favorites.removed") : tp("favorites.added"));
+    } catch (error) {
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (liked) next.add(productId);
+        else next.delete(productId);
+        return next;
+      });
+      notify(error instanceof ApiError ? error.message : tp("favorites.actionFail"));
+    }
+  };
   const chips = useMemo(
     () => [
       { id: undefined as number | undefined, label: "ทั้งหมด" },
@@ -394,15 +430,10 @@ export default function BestSellerPage() {
                     </span>
                   )}
                   <button
-                    className={favorites.includes(p.id) ? "liked" : ""}
-                    onClick={() =>
-                      setFavorites((v) =>
-                        v.includes(p.id)
-                          ? v.filter((x) => x !== p.id)
-                          : [...v, p.id],
-                      )
-                    }
-                    aria-label="รายการโปรด"
+                    type="button"
+                    className={favorites.has(p.id) ? "liked" : ""}
+                    onClick={() => void toggleFavorite(p.id)}
+                    aria-label={tp("catalog.favorite")}
                   >
                     <Heart />
                   </button>
@@ -427,11 +458,13 @@ export default function BestSellerPage() {
                   </p>
                   <p className="best-meta">
                     {p.rating != null ? (
-                      <>
-                        <b>★ {p.rating}</b> ({(p.reviewCount ?? 0).toLocaleString()}){" "}
-                      </>
+                      <span className="pcard-rating">
+                        <b>★ {p.rating}</b>
+                        <span className="pcard-reviews">({(p.reviewCount ?? 0).toLocaleString()})</span>
+                      </span>
                     ) : null}
-                    <span>ขายแล้ว {p.soldCount.toLocaleString()} ชิ้น</span>
+                    {p.rating != null ? <span className="pcard-sep" aria-hidden="true">·</span> : null}
+                    <span className="pcard-sold">ขายแล้ว {p.soldCount.toLocaleString()} ชิ้น</span>
                   </p>
                   <button onClick={() => void addToCart(p)}>
                     <ShoppingCart />

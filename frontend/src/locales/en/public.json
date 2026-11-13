@@ -449,6 +449,31 @@
       "buyAgainBusy": "Adding to cart…",
       "buyAgainFailed": "Couldn’t add items to cart. Some may be out of stock or unavailable"
     },
+    "review": {
+      "action": "Rate product",
+      "done": "Reviewed",
+      "title": "Rate this product",
+      "message": "Choose 1–5 stars and optionally leave a comment",
+      "option": "Purchased option: {{option}}",
+      "comment": "Comment (optional)",
+      "commentPh": "Share your experience with this product",
+      "photos": "Review photos",
+      "photosHint": "{{count}}/{{max}} photos",
+      "photoAdd": "Add photo",
+      "photoRemove": "Remove photo",
+      "photosUploading": "Uploading…",
+      "imagesMax": "You can attach up to 5 photos",
+      "imagesType": "Only JPG, PNG, or WEBP are supported",
+      "imagesSize": "Each file must be 5 MB or less",
+      "imagesFail": "Could not upload photo",
+      "submit": "Submit review",
+      "submitting": "Submitting…",
+      "cancel": "Cancel",
+      "ratingRequired": "Please select a star rating",
+      "success": "Review submitted",
+      "fail": "Could not submit review",
+      "already": "You already reviewed this item"
+    },
     "products": "Products",
     "address": "Shipping address",
     "note": "Note to shop",
@@ -783,7 +808,20 @@
       "qrProductHint": "Scan to open this product",
       "qrCheckoutHint": "Scan to buy now (sign-in required, then checkout)",
       "qrLocal": "Running on localhost: this QR only works on this computer",
-      "qrDownload": "Download PNG"
+      "qrDownload": "Download PNG",
+      "rating": "Product rating",
+      "ratingLoading": "Loading reviews…",
+      "noReviews": "No reviews yet",
+      "noFilteredReviews": "No reviews match this filter",
+      "reviewCount": "{{count}} reviews",
+      "reviewsTitle": "Customer reviews",
+      "loadMoreReviews": "Load more reviews",
+      "reviewFilters": "Filter reviews",
+      "reviewFilterAll": "All",
+      "reviewFilterPhotos": "With photos",
+      "reviewFilterStars": "{{stars}} star",
+      "reviewOption": "Bought: {{option}}",
+      "reviewPhotoOpen": "View review photo"
     },
     "productsPageAria": "Product pages",
     "productError": "Could not open this product",
@@ -1128,10 +1166,9 @@
     ],
     "rating": "Product rating",
     "ratingRanges": [
-      "4.5 and up",
-      "4.0 and up",
-      "3.5 and up",
-      "3.0 and up"
+      "5 and up",
+      "4 and up",
+      "3 and up"
     ],
     "brands": "Brands",
     "brandSearch": "Search brands...",
@@ -1529,5 +1566,108 @@
       "noContent": "This article has no content in this language yet.",
       "previewBanner": "Preview mode (status: {{status}}) — visitors cannot see this page until it is published"
     }
+  },
+  "deals": {
+    "breadcrumb": { "home": "Home", "current": "Special deals" },
+    "heroAlt": "Special deals — better shopping every day with quality products from Thai shops",
+    "tabsLabel": "Special deals tabs",
+    "tabs": {
+      "today": "Today's deals",
+      "weekly": "Weekly deals",
+      "flash": "Flash Sale",
+      "under199": "Under 199",
+      "bogo": "Buy 1 Get 1",
+      "coupons": "Discount coupons",
+      "special": "Special price"
+    },
+    "leads": {
+      "today": "Hand-picked offers just for you",
+      "weekly": "Weekly deals refreshed every week",
+      "flash": "Limited-time flash discounts",
+      "under199": "Great finds under 199 baht",
+      "bogo": "Buy 1 Get 1 from curated campaigns",
+      "coupons": "Collect coupons before you shop",
+      "special": "Products with a clear strikethrough price"
+    },
+    "filters": {
+      "category": "Deal categories",
+      "price": "Price range",
+      "discount": "Discount",
+      "all": "All"
+    },
+    "priceBands": {
+      "all": "All",
+      "under100": "Under 100 baht",
+      "100-300": "100 - 300 baht",
+      "301-500": "301 - 500 baht",
+      "501-1000": "501 - 1,000 baht",
+      "over1000": "Over 1,000 baht"
+    },
+    "discountMin": "{{value}}% and up",
+    "countdown": {
+      "endsIn": "Ends in",
+      "ended": "Ended",
+      "hours": "Hours",
+      "minutes": "Minutes",
+      "seconds": "Seconds"
+    },
+    "seeAll": "See all",
+    "favorite": "Add to favorites",
+    "addToCart": "Add to cart",
+    "sold": "Sold {{count}}",
+    "resultCount": "Showing {{shown}} of {{total}}",
+    "error": "Could not load deals",
+    "retry": "Try again",
+    "empty": {
+      "productsTitle": "No products in this deal yet",
+      "productsBody": "Try another tab, category, or filter",
+      "couponsTitle": "No public coupons yet",
+      "couponsBody": "Public shop coupons will appear here"
+    },
+    "coupon": {
+      "percent": "{{value}}% off",
+      "fixed": "฿{{value}} off",
+      "freeShipping": "Free shipping",
+      "minOrder": "Min ฿{{value}}",
+      "collect": "Collect",
+      "collected": "Collected"
+    },
+    "banners": {
+      "flashTitle": "Flash deals for a limited time",
+      "shopNow": "Shop now",
+      "upTo": "Up to",
+      "couponTitle": "Collect coupons before you checkout",
+      "collectNow": "Collect now"
+    },
+    "toast": {
+      "favorited": "Added to favorites",
+      "unfavorited": "Removed from favorites",
+      "favoriteFail": "Could not update favorites",
+      "chooseVariant": "Please choose a product option",
+      "outOfStock": "Out of stock",
+      "insufficientStock": "Not enough stock",
+      "addedToCart": "Added to cart",
+      "addFail": "Could not add to cart",
+      "couponCollected": "Coupon collected",
+      "couponAlready": "You already have this coupon",
+      "couponFail": "Could not collect coupon"
+    }
+  },
+  "favorites": {
+    "kicker": "Saved for later",
+    "title": "My favorites",
+    "subtitle": "Products you liked with the heart button — browse and add them to cart anytime",
+    "countLabel": "items",
+    "listTitle": "Liked products",
+    "browseCta": "Browse recommendations",
+    "loading": "Loading favorites…",
+    "empty": "No favorites yet",
+    "emptyHint": "Tap the heart on a product card to save it here",
+    "emptyCta": "See best sellers",
+    "loadFail": "Could not load favorites",
+    "retry": "Try again",
+    "removed": "Removed from favorites",
+    "added": "Added to favorites",
+    "actionFail": "Could not update favorites"
   }
 }

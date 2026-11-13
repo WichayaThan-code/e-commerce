@@ -18,6 +18,7 @@ import { loginPathForCart, useOptionalCart } from "../contexts/CartContext";
 import {
   ApiError,
   catalogApi,
+  favoritesApi,
   mediaUrl,
   recommendationApi,
   type BestSellerProduct,
@@ -32,11 +33,20 @@ import {
 } from "../components/marketplace/categoryTiles";
 import "../styles/recommended-products.css";
 import "../styles/shop-page.css";
+import "../styles/product-card.css";
 
-const ratingStars = ["★★★★", "★★★½", "★★★", "★★"] as const;
-/** Same order as catalog.priceRanges / catalog.ratingRanges in the locale files. */
-const priceBands: [number | undefined, number | undefined][] = [[undefined, 99.99], [100, 300], [301, 500], [501, 1000], [1000.01, undefined]];
-const ratingMins = [4.5, 4, 3.5, 3];
+/** Whole-star options — same order as catalog.ratingRanges. */
+const ratingStars = ["★★★★★", "★★★★", "★★★"] as const;
+const ratingMins = [5, 4, 3];
+/** Index 0 = all; remaining align with catalog.priceRanges. */
+const priceBounds: [number | undefined, number | undefined][] = [
+  [undefined, undefined],
+  [undefined, 99.99],
+  [100, 300],
+  [301, 500],
+  [501, 1000],
+  [1000.01, undefined],
+];
 type SortKey = "featured" | "price" | "best";
 const sortParam: Record<SortKey, RecommendationSort> = { featured: "featured", price: "price_asc", best: "best" };
 const PAGE_SIZE = 12;
@@ -50,9 +60,9 @@ const primaryImage = (p: BestSellerProduct) =>
 const fillImage = { left: 0, top: 0, width: "100%", height: "100%", objectFit: "cover" as const };
 
 const texts = {
-  th: { all: "ทั้งหมด", login: "กรุณาเข้าสู่ระบบก่อน", blocked: "บัญชีนี้ไม่สามารถใช้ตะกร้าสินค้าได้", pick: "กรุณาเลือกตัวเลือกสินค้า", out: "สินค้าหมด", low: "สินค้าในสต็อกไม่เพียงพอ", added: "เพิ่มสินค้าลงตะกร้าแล้ว", failed: "เพิ่มสินค้าไม่สำเร็จ", error: "โหลดสินค้าแนะนำไม่สำเร็จ", retry: "ลองใหม่", empty: "ยังไม่มีสินค้าที่ตรงกับตัวกรอง", noBrand: "ยังไม่มีแบรนด์", end: "แสดงสินค้าครบแล้ว" },
-  en: { all: "All", login: "Please sign in first", blocked: "This account cannot use the cart", pick: "Please choose product options", out: "Out of stock", low: "Not enough stock", added: "Added to cart", failed: "Could not add to cart", error: "Could not load recommendations", retry: "Retry", empty: "No products match these filters", noBrand: "No brands yet", end: "You've seen everything" },
-  zh: { all: "全部", login: "请先登录", blocked: "此账户无法使用购物车", pick: "请选择商品规格", out: "已售罄", low: "库存不足", added: "已加入购物车", failed: "加入购物车失败", error: "推荐商品加载失败", retry: "重试", empty: "没有符合筛选条件的商品", noBrand: "暂无品牌", end: "已显示全部商品" },
+  th: { all: "ทั้งหมด", login: "กรุณาเข้าสู่ระบบก่อน", blocked: "บัญชีนี้ไม่สามารถใช้ตะกร้าสินค้าได้", pick: "กรุณาเลือกตัวเลือกสินค้า", out: "สินค้าหมด", low: "สินค้าในสต็อกไม่เพียงพอ", added: "เพิ่มสินค้าลงตะกร้าแล้ว", failed: "เพิ่มสินค้าไม่สำเร็จ", error: "โหลดสินค้าแนะนำไม่สำเร็จ", retry: "ลองใหม่", empty: "ยังไม่มีสินค้าที่ตรงกับตัวกรอง", noBrand: "ยังไม่มีแบรนด์", end: "แสดงสินค้าครบแล้ว", priceMin: "฿ ขั้นต่ำ", priceMax: "฿ สูงสุด", priceApply: "ตกลง", priceApplied: "ใช้ตัวกรองราคาแล้ว", priceInvalid: "กรุณากรอกราคาเป็นตัวเลข" },
+  en: { all: "All", login: "Please sign in first", blocked: "This account cannot use the cart", pick: "Please choose product options", out: "Out of stock", low: "Not enough stock", added: "Added to cart", failed: "Could not add to cart", error: "Could not load recommendations", retry: "Retry", empty: "No products match these filters", noBrand: "No brands yet", end: "You've seen everything", priceMin: "฿ Min", priceMax: "฿ Max", priceApply: "Apply", priceApplied: "Price filter applied", priceInvalid: "Please enter a valid number" },
+  zh: { all: "全部", login: "请先登录", blocked: "此账户无法使用购物车", pick: "请选择商品规格", out: "已售罄", low: "库存不足", added: "已加入购物车", failed: "加入购物车失败", error: "推荐商品加载失败", retry: "重试", empty: "没有符合筛选条件的商品", noBrand: "暂无品牌", end: "已显示全部商品", priceMin: "฿ 最低", priceMax: "฿ 最高", priceApply: "确定", priceApplied: "已应用价格筛选", priceInvalid: "请输入有效数字" },
 };
 
 type RecommendBanner = { title: string; text: string; btn: string; toast: string };
@@ -73,9 +83,12 @@ export default function RecommendedProductsPage() {
   const [sort, setSort] = useState<SortKey>("featured");
   const [grid, setGrid] = useState(true);
   const [brandQuery, setBrandQuery] = useState("");
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [priceChecked, setPriceChecked] = useState<number[]>([]);
-  const [ratingChecked, setRatingChecked] = useState<number[]>([]);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [priceBand, setPriceBand] = useState(0);
+  const [appliedPrice, setAppliedPrice] = useState<{ min?: number; max?: number }>({});
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [ratingIndex, setRatingIndex] = useState<number | null>(null);
   const [brandChecked, setBrandChecked] = useState<string[]>([]);
   const [knownBrands, setKnownBrands] = useState<string[]>([]);
   const [items, setItems] = useState<BestSellerProduct[]>([]);
@@ -86,6 +99,7 @@ export default function RecommendedProductsPage() {
   const [reload, setReload] = useState(0);
 
   const priceRanges = tp("catalog.priceRanges", { returnObjects: true }) as unknown as string[];
+  const priceLabels = useMemo(() => [t.all, ...priceRanges], [t.all, priceRanges]);
   const ratingRanges = tp("catalog.ratingRanges", { returnObjects: true }) as unknown as string[];
   const banners = tp("recommend.banners", { returnObjects: true }) as unknown as RecommendBanner[];
   const fallbackCategories = tp("home.categories", { returnObjects: true }) as unknown as string[];
@@ -100,6 +114,13 @@ export default function RecommendedProductsPage() {
       .then(setCategoryList)
       .catch(() => setCategoryList([]));
   }, []);
+
+  useEffect(() => {
+    if (!user) { setFavorites(new Set()); return; }
+    favoritesApi.list()
+      .then((rows) => setFavorites(new Set(rows.map((row) => row.productId))))
+      .catch(() => setFavorites(new Set()));
+  }, [user]);
 
   // Keep local selection in sync with the URL (back/forward + direct edits).
   useEffect(() => {
@@ -139,16 +160,29 @@ export default function RecommendedProductsPage() {
     if (toast) notify(tp("catalog.pickCategory", { name: label.replace(/\n/g, " ") }));
   };
 
+  const [bandMin, bandMax] = priceBounds[priceBand] ?? [undefined, undefined];
   const priceQuery = useMemo(() => {
-    if (!priceChecked.length) return {};
-    const bands = priceChecked.map((i) => priceBands[i]);
-    const min = bands.some(([lo]) => lo === undefined) ? undefined : Math.min(...bands.map(([lo]) => lo as number));
-    const max = bands.some(([, hi]) => hi === undefined) ? undefined : Math.max(...bands.map(([, hi]) => hi as number));
-    return { minPrice: min, maxPrice: max };
-  }, [priceChecked]);
-  const minRating = ratingChecked.length ? Math.min(...ratingChecked.map((i) => ratingMins[i])) : undefined;
+    const min = appliedPrice.min ?? bandMin;
+    const max = appliedPrice.max ?? bandMax;
+    return {
+      ...(min !== undefined ? { minPrice: min } : {}),
+      ...(max !== undefined ? { maxPrice: max } : {}),
+    };
+  }, [appliedPrice, bandMin, bandMax]);
+  const minRating = ratingIndex != null ? ratingMins[ratingIndex] : undefined;
   const brands = brandChecked.join(",");
   const filterKey = JSON.stringify([selectedCategoryId, priceQuery, minRating, brands, sort, reload]);
+
+  const applyPrice = () => {
+    const min = minPrice.trim() === "" ? undefined : Number(minPrice);
+    const max = maxPrice.trim() === "" ? undefined : Number(maxPrice);
+    if ((min !== undefined && Number.isNaN(min)) || (max !== undefined && Number.isNaN(max))) {
+      notify(t.priceInvalid);
+      return;
+    }
+    setAppliedPrice({ min, max });
+    notify(t.priceApplied);
+  };
 
   useEffect(() => { setPage(0); }, [filterKey]);
 
@@ -176,13 +210,32 @@ export default function RecommendedProductsPage() {
   const toggle = <T,>(setter: (fn: (v: T[]) => T[]) => void, value: T) =>
     setter((v) => (v.includes(value) ? v.filter((x) => x !== value) : [...v, value]));
 
-  const toggleFavorite = (id: string) => {
+  const toggleFavorite = async (id: string) => {
     if (!user) {
       notify(t.login);
       navigate(`/login?next=${encodeURIComponent("/recommendations")}`);
       return;
     }
-    setFavorites((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]));
+    const liked = favorites.has(id);
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (liked) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    try {
+      if (liked) await favoritesApi.remove(id);
+      else await favoritesApi.add(id);
+      notify(liked ? tp("favorites.removed") : tp("favorites.added"));
+    } catch (error) {
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (liked) next.add(id);
+        else next.delete(id);
+        return next;
+      });
+      notify(error instanceof ApiError ? error.message : tp("favorites.actionFail"));
+    }
   };
 
   const addToCart = async (p: BestSellerProduct) => {
@@ -208,7 +261,12 @@ export default function RecommendedProductsPage() {
   const shownBrands = [...new Set([...knownBrands, ...brandChecked])].filter((x) => x.toLowerCase().includes(brandQuery.trim().toLowerCase()));
   const hasMore = items.length < total;
   const hasActiveFilters =
-    brandChecked.length > 0 || priceChecked.length > 0 || ratingChecked.length > 0 || selectedCategoryId != null;
+    brandChecked.length > 0
+    || priceBand !== 0
+    || appliedPrice.min != null
+    || appliedPrice.max != null
+    || ratingIndex != null
+    || selectedCategoryId != null;
   const bannerEmojis = ["🎁", "🚚", "🌍"];
 
   return (
@@ -275,18 +333,59 @@ export default function RecommendedProductsPage() {
           <h2>{tp("catalog.filters")}</h2>
           <hr />
           <h3>{tp("catalog.price")}</h3>
-          {priceRanges.map((x, index) => (
-            <label key={x}>
-              <input type="checkbox" checked={priceChecked.includes(index)} onChange={() => toggle(setPriceChecked, index)} />
-              {x}
+          {priceLabels.map((label, index) => (
+            <label key={label}>
+              <input
+                type="radio"
+                name="recommend-price"
+                checked={priceBand === index}
+                onChange={() => {
+                  setPriceBand(index);
+                  setAppliedPrice({});
+                  setMinPrice("");
+                  setMaxPrice("");
+                }}
+              />
+              {label}
             </label>
           ))}
+          <div className="recommend-price-range">
+            <input
+              aria-label={t.priceMin}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={minPrice}
+              onChange={(e) => setMinPrice(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+" || e.key === ".") e.preventDefault();
+              }}
+              placeholder={t.priceMin}
+            />
+            <span>-</span>
+            <input
+              aria-label={t.priceMax}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+" || e.key === ".") e.preventDefault();
+              }}
+              placeholder={t.priceMax}
+            />
+            <button type="button" onClick={applyPrice}>{t.priceApply}</button>
+          </div>
           <hr />
           <h3>{tp("catalog.rating")}</h3>
           {ratingRanges.map((text, index) => (
             <label className="rating-filter" key={text}>
-              <input type="checkbox" checked={ratingChecked.includes(index)} onChange={() => toggle(setRatingChecked, index)} />
-              <b>{ratingStars[index]}</b>
+              <input
+                type="radio"
+                name="recommend-rating"
+                checked={ratingIndex === index}
+                onChange={() => setRatingIndex(index)}
+              />
+              <b aria-hidden="true">{ratingStars[index]}</b>
               {text}
             </label>
           ))}
@@ -347,8 +446,8 @@ export default function RecommendedProductsPage() {
                       </div>
                       <button
                         type="button"
-                        className={favorites.includes(p.id) ? "liked" : ""}
-                        onClick={() => toggleFavorite(p.id)}
+                        className={favorites.has(p.id) ? "liked" : ""}
+                        onClick={() => void toggleFavorite(p.id)}
                         aria-label={tp("catalog.favorite")}
                       >
                         <Heart />
@@ -367,16 +466,18 @@ export default function RecommendedProductsPage() {
                         {discount > 0 && <em>-{discount}%</em>}
                       </p>
                       <p className="recommend-meta">
-                        {p.rating !== null && p.rating !== undefined && (
-                          <>
-                            <b>★ {Number(p.rating).toLocaleString(localeTag)}</b> ({(p.reviewCount ?? 0).toLocaleString(localeTag)}){" "}
-                          </>
-                        )}
-                        {p.soldCount > 0 && (
-                          <span>
+                        {p.rating !== null && p.rating !== undefined ? (
+                          <span className="pcard-rating">
+                            <b>★ {Number(p.rating).toLocaleString(localeTag)}</b>
+                            <span className="pcard-reviews">({(p.reviewCount ?? 0).toLocaleString(localeTag)})</span>
+                          </span>
+                        ) : null}
+                        {p.rating != null && p.soldCount > 0 ? <span className="pcard-sep" aria-hidden="true">·</span> : null}
+                        {p.soldCount > 0 ? (
+                          <span className="pcard-sold">
                             {tp("common.sold")} {p.soldCount.toLocaleString(localeTag)}
                           </span>
-                        )}
+                        ) : null}
                       </p>
                       <button type="button" onClick={() => void addToCart(p)}>
                         <ShoppingCart />

@@ -1,0 +1,170 @@
+/* Shared marketplace / hub product-card rhythm:
+   title → shop → price group → rating·sold cluster → CTA */
+
+.best-info,
+.recommend-product-info,
+.thai-info,
+.deal-info {
+  gap: 6px;
+  padding: 10px 12px 12px;
+}
+
+.best-info h2,
+.recommend-product-info h2,
+.thai-info h2 {
+  margin: 0;
+}
+
+.best-shop,
+.recommend-shop,
+.thai-shop {
+  margin: 0;
+}
+
+.best-price,
+.recommend-price,
+.thai-price,
+.deal-info > p.deal-price,
+.product-info > .pcard-price {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 0;
+}
+
+.best-price em,
+.recommend-price em,
+.thai-price em,
+.product-info > .pcard-price em {
+  margin-left: 0 !important;
+  float: none !important;
+}
+
+.best-meta,
+.recommend-meta,
+.thai-meta,
+.deal-info > .pcard-meta,
+.product-info > .pcard-meta,
+.shop-product-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start !important;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #607795;
+}
+
+.pcard-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-weight: 700;
+}
+
+.pcard-rating:not(.shop-rating-badge) {
+  color: #ff8200;
+}
+
+.pcard-rating b {
+  color: inherit;
+  font-weight: 700;
+}
+
+.deal-info > p.deal-price del {
+  margin-left: 0;
+}
+
+.pcard-reviews {
+  color: #607795;
+  font-weight: 600;
+}
+
+.pcard-sep {
+  color: #b0becf;
+  font-weight: 700;
+}
+
+.pcard-sold {
+  color: #607795;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.best-info > button,
+.recommend-product-info > button,
+.thai-info > button,
+.deal-info > button {
+  margin-top: auto;
+}
+
+/* List views: keep meta clustered left (do not stretch rating vs sold). */
+.best-product-grid.list-view .best-meta,
+.recommend-product-grid.list-view .recommend-meta,
+.thai-product-grid.list-view .thai-meta {
+  justify-content: flex-start !important;
+}
+
+.best-product-grid.list-view .best-price em,
+.recommend-product-grid.list-view .recommend-price em,
+.thai-product-grid.list-view .thai-price em {
+  margin-left: 0 !important;
+}
+
+/* Shop mall legacy card */
+.shop-mall-card .recommend-product-info {
+  gap: 6px;
+  padding: 10px 12px 12px;
+}
+
+.shop-mall-card .shop-discount-inline {
+  margin-left: 0;
+}
+
+.shop-mall-card .shop-product-meta {
+  margin: 0;
+}
+
+.shop-mall-card .shop-price-catalog,
+.shop-mall-card .shop-price-featured {
+  margin-top: 0;
+}
+
+/* Home mini cards */
+.product-info {
+  gap: 6px;
+  padding: 10px 10px 11px;
+}
+
+.product-info h3 {
+  margin: 0;
+}
+
+.product-info > .pcard-price strong {
+  font-size: 17px;
+  color: #fc2343;
+}
+
+.product-info > .pcard-price del {
+  margin-left: 0;
+  font-size: 10px;
+  color: #8290a5;
+}
+
+.product-info > .pcard-price em {
+  background: #ff3855;
+  color: #fff;
+  border-radius: 9px;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.product-info > .pcard-meta {
+  font-size: 10px;
+}

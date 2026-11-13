@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import ConfigurationSummary from "../components/cart/ConfigurationSummary";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-  CheckCircle2, ChevronRight, Copy, MapPin,
-  Package, SearchX, ShoppingCart, Store, Truck, Wallet,
+  CheckCircle2, ChevronRight, Copy, ImagePlus, MapPin,
+  Package, SearchX, ShoppingCart, Star, Store, Truck, Wallet, X,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import EmptyState from "../components/feedback/EmptyState";
 import { Skeleton } from "../components/feedback/Skeleton";
+import ConfirmDialog from "../components/form/ConfirmDialog";
+import StarRating from "../components/reviews/StarRating";
 import { formatBaht } from "../components/cart/cartFormat";
 import PaymentTransferAccount from "../components/payments/PaymentTransferAccount";
 import {
@@ -18,7 +20,9 @@ import {
   buyerOrderApi,
   mediaUrl,
   moneyValue,
+  reviewApi,
   type OrderDetail,
+  type OrderItem,
   type OrderPaymentInfo,
   type OrderTimelineEntry,
 } from "../services/api";
@@ -31,10 +35,14 @@ import "../styles/cart.css";
 import "../styles/checkout.css";
 import "../styles/orders.css";
 import "../styles/shop-page.css";
+import "../styles/product-management.css";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const MAX_SLIP = 5 * 1024 * 1024;
 const SLIP_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
+const MAX_REVIEW_IMAGES = 5;
+const REVIEW_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp";
+type ReviewDraftImage = { id: string; url: string; preview: string };
 const CANCEL_REASON_KEYS = [
   "CHANGE_ADDRESS",
   "CHANGE_VOUCHER",
@@ -94,7 +102,9 @@ export default function MyOrderDetailPage() {
   const cart = useCart();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { tp, localeTag } = usePublicTranslation();
+  const reviewPromptHandled = useRef(false);
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [payment, setPayment] = useState<OrderPaymentInfo | null>(null);
   const [timeline, setTimeline] = useState<OrderTimelineEntry[]>([]);
@@ -120,6 +130,16 @@ export default function MyOrderDetailPage() {
   const [slipBank, setSlipBank] = useState("");
   const [slipProvider, setSlipProvider] = useState("BANK_TRANSFER");
   const [slipQrHint, setSlipQrHint] = useState<"reading" | "filled" | "miss" | "">("");
+  const [reviewedItemIds, setReviewedItemIds] = useState<Set<string>>(new Set());
+  const [reviewStatusReady, setReviewStatusReady] = useState(false);
+  const [reviewItem, setReviewItem] = useState<OrderItem | null>(null);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewImages, setReviewImages] = useState<ReviewDraftImage[]>([]);
+  const [reviewImageBusy, setReviewImageBusy] = useState(false);
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const [reviewNotice, setReviewNotice] = useState("");
+  const reviewFileRef = useRef<HTMLInputElement>(null);
   const payRef = useRef<HTMLElement | null>(null);
   const blobUrls = useRef<string[]>([]);
   const slipQrToken = useRef(0);
@@ -176,8 +196,153 @@ export default function MyOrderDetailPage() {
   const canCancel = transitions.includes("CANCELLED");
   const canComplete = transitions.includes("COMPLETED");
   const canBuyAgain = order?.status === "COMPLETED" && (order.items?.length ?? 0) > 0;
+  const canReview = order?.status === "DELIVERED" || order?.status === "COMPLETED";
   const needPayNow = order?.status === "PENDING_PAYMENT" && order.paymentMethod !== "COD";
   const showShipment = order ? shouldShowShipmentCard(order) : false;
+
+  useEffect(() => {
+    if (!order?.id || !canReview) {
+      setReviewedItemIds(new Set());
+      setReviewStatusReady(false);
+      return;
+    }
+    let alive = true;
+    setReviewStatusReady(false);
+    reviewApi.status(order.id)
+      .then((status) => {
+        if (!alive) return;
+        setReviewedItemIds(new Set(status.reviewedOrderItemIds ?? []));
+        setReviewStatusReady(true);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setReviewedItemIds(new Set());
+        setReviewStatusReady(true);
+      });
+    return () => { alive = false; };
+  }, [order?.id, canReview, reload]);
+
+  const clearReviewDraft = () => {
+    setReviewImages((prev) => {
+      prev.forEach((image) => URL.revokeObjectURL(image.preview));
+      return [];
+    });
+    setReviewItem(null);
+    setReviewRating(0);
+    setReviewComment("");
+    setReviewImageBusy(false);
+  };
+
+  const openReview = (item: OrderItem) => {
+    setReviewImages((prev) => {
+      prev.forEach((image) => URL.revokeObjectURL(image.preview));
+      return [];
+    });
+    setReviewItem(item);
+    setReviewRating(0);
+    setReviewComment("");
+    setReviewImageBusy(false);
+    setActionError("");
+  };
+
+  useEffect(() => {
+    if (
+      reviewPromptHandled.current
+      || searchParams.get("review") !== "1"
+      || !order
+      || !canReview
+      || !reviewStatusReady
+    ) return;
+    const target = (order.items ?? []).find((item) => !reviewedItemIds.has(item.id));
+    reviewPromptHandled.current = true;
+    const next = new URLSearchParams(searchParams);
+    next.delete("review");
+    setSearchParams(next, { replace: true });
+    document.getElementById("orders-review-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (target) openReview(target);
+  }, [searchParams, order, canReview, reviewStatusReady, reviewedItemIds, setSearchParams]);
+
+  const addReviewImages = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const remaining = MAX_REVIEW_IMAGES - reviewImages.length;
+    if (remaining <= 0) {
+      setActionError(tp("orders.review.imagesMax"));
+      return;
+    }
+    const picked = Array.from(files).slice(0, remaining);
+    setReviewImageBusy(true);
+    setActionError("");
+    try {
+      for (const file of picked) {
+        if (!REVIEW_IMAGE_ACCEPT.split(",").includes(file.type)) {
+          setActionError(tp("orders.review.imagesType"));
+          break;
+        }
+        if (file.size > MAX_SLIP) {
+          setActionError(tp("orders.review.imagesSize"));
+          break;
+        }
+        const uploaded = await reviewApi.uploadImage(file);
+        const preview = URL.createObjectURL(file);
+        setReviewImages((prev) => {
+          if (prev.length >= MAX_REVIEW_IMAGES || prev.some((image) => image.id === uploaded.id)) {
+            URL.revokeObjectURL(preview);
+            return prev;
+          }
+          return [...prev, { id: uploaded.id, url: uploaded.url, preview }];
+        });
+      }
+    } catch (error) {
+      setActionError(error instanceof ApiError ? error.message : tp("orders.review.imagesFail"));
+    } finally {
+      setReviewImageBusy(false);
+      if (reviewFileRef.current) reviewFileRef.current.value = "";
+    }
+  };
+
+  const removeReviewImage = (id: string) => {
+    setReviewImages((prev) => {
+      const next: ReviewDraftImage[] = [];
+      for (const image of prev) {
+        if (image.id === id) URL.revokeObjectURL(image.preview);
+        else next.push(image);
+      }
+      return next;
+    });
+  };
+
+  const submitReview = async () => {
+    if (!reviewItem) return;
+    if (reviewRating < 1 || reviewRating > 5) {
+      setActionError(tp("orders.review.ratingRequired"));
+      return;
+    }
+    setReviewBusy(true);
+    setActionError("");
+    try {
+      await reviewApi.create({
+        orderItemId: reviewItem.id,
+        rating: reviewRating,
+        comment: reviewComment.trim() || undefined,
+        imageIds: reviewImages.map((image) => image.id),
+      });
+      setReviewedItemIds((prev) => new Set(prev).add(reviewItem.id));
+      clearReviewDraft();
+      setReviewNotice(tp("orders.review.success"));
+      window.setTimeout(() => setReviewNotice(""), 2200);
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "REVIEW_ALREADY_EXISTS") {
+        setReviewedItemIds((prev) => new Set(prev).add(reviewItem.id));
+        clearReviewDraft();
+        setReviewNotice(tp("orders.review.already"));
+        window.setTimeout(() => setReviewNotice(""), 2200);
+      } else {
+        setActionError(error instanceof ApiError ? error.message : tp("orders.review.fail"));
+      }
+    } finally {
+      setReviewBusy(false);
+    }
+  };
   const tone = statusTone(order?.status);
   const proofs = useMemo(
     () => (payment?.payments ?? []).flatMap((row) => (row.proofs ?? []).map((proof) => ({ ...proof, provider: row.provider }))),
@@ -674,7 +839,7 @@ export default function MyOrderDetailPage() {
             {showShipment ? <OrderShipmentCard order={order} /> : null}
 
             {/* 4. Products + money summary */}
-            <section className="orders-detail-card">
+            <section className="orders-detail-card" id="orders-review-section">
               <div className="orders-detail-card-head">
                 <Package size={18} aria-hidden="true" />
                 <div>
@@ -683,22 +848,34 @@ export default function MyOrderDetailPage() {
                 </div>
               </div>
               <div className="orders-detail-lines">
-                {(order.items ?? []).map((item) => (
-                  <div key={item.id} className="orders-line">
-                    {item.imageUrl
-                      ? <img src={mediaUrl(item.imageUrl)} alt="" width={56} height={56} />
-                      : <span className="orders-line-ph" aria-hidden="true" />}
-                    <div>
-                      <h3>{item.productName}</h3>
-                      {item.optionLabel ? <small>{item.optionLabel}</small> : null}
-                      <ConfigurationSummary configuration={item.configuration} localeTag={localeTag} />
-                      <small className="num">{money(item.unitPrice)} × {item.quantity}</small>
+                {(order.items ?? []).map((item) => {
+                  const reviewed = reviewedItemIds.has(item.id);
+                  return (
+                    <div key={item.id} className="orders-line">
+                      {item.imageUrl
+                        ? <img src={mediaUrl(item.imageUrl)} alt="" width={56} height={56} />
+                        : <span className="orders-line-ph" aria-hidden="true" />}
+                      <div>
+                        <h3>{item.productName}</h3>
+                        {item.optionLabel ? <small>{item.optionLabel}</small> : null}
+                        <ConfigurationSummary configuration={item.configuration} localeTag={localeTag} />
+                        <small className="num">{money(item.unitPrice)} × {item.quantity}</small>
+                        {canReview ? (
+                          reviewed ? (
+                            <span className="orders-review-done"><Star aria-hidden="true" size={14} />{tp("orders.review.done")}</span>
+                          ) : (
+                            <button type="button" className="orders-review-btn" onClick={() => openReview(item)}>
+                              <Star aria-hidden="true" size={14} />{tp("orders.review.action")}
+                            </button>
+                          )
+                        ) : null}
+                      </div>
+                      <div className="orders-line-total">
+                        <b className="num">{money(item.lineTotal)}</b>
+                      </div>
                     </div>
-                    <div className="orders-line-total">
-                      <b className="num">{money(item.lineTotal)}</b>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="orders-detail-totals">
                 <p><span>{tp("orders.subtotal")}</span><b className="num">{money(order.subtotal)}</b></p>
@@ -798,6 +975,91 @@ export default function MyOrderDetailPage() {
           </div>
         )}
       </div>
+
+      {reviewItem ? (
+        <ConfirmDialog
+          title={tp("orders.review.title")}
+          message={tp("")}
+          confirmLabel={reviewBusy ? tp("orders.review.submitting") : tp("orders.review.submit")}
+          cancelLabel={tp("orders.review.cancel")}
+          confirmDisabled={reviewBusy || reviewImageBusy || reviewRating < 1}
+          escapeDisabled={reviewBusy || reviewImageBusy}
+          focusPrimary
+          confirmIcon={reviewBusy ? null : <Star aria-hidden="true" />}
+          onCancel={() => { if (!reviewBusy && !reviewImageBusy) clearReviewDraft(); }}
+          onConfirm={() => void submitReview()}
+        >
+          <div className="orders-review-form">
+            <div className="orders-review-product-block">
+              <p className="orders-review-product">{reviewItem.productName}</p>
+              {reviewItem.optionLabel ? (
+                <p className="orders-review-option">{tp("orders.review.option", { option: reviewItem.optionLabel })}</p>
+              ) : null}
+            </div>
+            <StarRating
+              value={reviewRating}
+              onChange={setReviewRating}
+              size={28}
+              ariaLabel={tp("orders.review.title")}
+            />
+            <label>
+              <span>{tp("orders.review.comment")}</span>
+              <textarea
+                value={reviewComment}
+                maxLength={2000}
+                rows={4}
+                placeholder={tp("orders.review.commentPh")}
+                onChange={(e) => setReviewComment(e.target.value)}
+                disabled={reviewBusy || reviewImageBusy}
+              />
+            </label>
+            <div className="orders-review-photos">
+              <div className="orders-review-photos-head">
+                <span>{tp("orders.review.photos")}</span>
+                <small>{tp("orders.review.photosHint", { count: reviewImages.length, max: MAX_REVIEW_IMAGES })}</small>
+              </div>
+              <div className="orders-review-photos-grid">
+                {reviewImages.map((image) => (
+                  <div className="orders-review-photo" key={image.id}>
+                    <img src={image.preview} alt="" />
+                    <button
+                      type="button"
+                      className="orders-review-photo-remove"
+                      aria-label={tp("orders.review.photoRemove")}
+                      disabled={reviewBusy || reviewImageBusy}
+                      onClick={() => removeReviewImage(image.id)}
+                    >
+                      <X aria-hidden="true" size={14} />
+                    </button>
+                  </div>
+                ))}
+                {reviewImages.length < MAX_REVIEW_IMAGES ? (
+                  <button
+                    type="button"
+                    className="orders-review-photo-add"
+                    disabled={reviewBusy || reviewImageBusy}
+                    onClick={() => reviewFileRef.current?.click()}
+                  >
+                    <ImagePlus aria-hidden="true" size={18} />
+                    <span>{reviewImageBusy ? tp("orders.review.photosUploading") : tp("orders.review.photoAdd")}</span>
+                  </button>
+                ) : null}
+              </div>
+              <input
+                ref={reviewFileRef}
+                type="file"
+                accept={REVIEW_IMAGE_ACCEPT}
+                multiple
+                hidden
+                onChange={(e) => void addReviewImages(e.target.files)}
+              />
+            </div>
+            {actionError ? <p className="orders-form-error" role="alert">{actionError}</p> : null}
+          </div>
+        </ConfirmDialog>
+      ) : null}
+
+      {reviewNotice ? <div className="orders-toast" role="status">{reviewNotice}</div> : null}
     </main>
   );
 }

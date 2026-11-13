@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  ChevronLeft, ChevronRight, Package, Search, SearchX, Store, Truck, Wallet, X,
+  ChevronLeft, ChevronRight, Package, Search, SearchX, Star, Store, Truck, Wallet, X,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useCart } from "../contexts/CartContext";
@@ -569,14 +569,23 @@ export default function MyOrdersPage() {
                           </span>
                           <div className="orders-card-actions">
                             {order.status === "COMPLETED" ? (
-                              <button
-                                type="button"
-                                className="orders-card-cta"
-                                disabled={buyingAgainId === order.id || cart.access !== "buyer"}
-                                onClick={() => void onBuyAgain(order.id)}
-                              >
-                                {buyingAgainId === order.id ? tp("orders.detail.buyAgainBusy") : cta}
-                              </button>
+                              <>
+                                <Link
+                                  className="orders-card-cta is-secondary"
+                                  to={`/account/orders/${order.id}?review=1`}
+                                >
+                                  <Star aria-hidden="true" size={14} />
+                                  {tp("orders.review.action")}
+                                </Link>
+                                <button
+                                  type="button"
+                                  className="orders-card-cta"
+                                  disabled={buyingAgainId === order.id || cart.access !== "buyer"}
+                                  onClick={() => void onBuyAgain(order.id)}
+                                >
+                                  {buyingAgainId === order.id ? tp("orders.detail.buyAgainBusy") : cta}
+                                </button>
+                              </>
                             ) : (
                               <Link className="orders-card-cta" to={`/account/orders/${order.id}`}>
                                 {cta}

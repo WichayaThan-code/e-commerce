@@ -190,7 +190,20 @@ export default function CartPage() {
           />
         ) : (
           <>
-            <div className="cart-select-row"><label><input type="checkbox" checked={allSelected} disabled={busy || !items.length} onChange={() => run(() => cart.setSelected([], !allSelected))}/>{tp("cart.selectAll")}</label><button disabled={busy || !selectedItems.length} onClick={() => setConfirmRemoveSelected(true)}><Trash2/>{tp("cart.removeSelected")}</button></div>
+            <div className="cart-select-row">
+              <input
+                id="cart-select-all"
+                type="checkbox"
+                checked={allSelected}
+                disabled={busy || !items.length}
+                onChange={() => run(() => cart.setSelected([], !allSelected))}
+              />
+              <label htmlFor="cart-select-all">{tp("cart.selectAll")}</label>
+              <button type="button" disabled={busy || !selectedItems.length} onClick={() => setConfirmRemoveSelected(true)}>
+                <Trash2 />
+                {tp("cart.removeSelected")}
+              </button>
+            </div>
             <section className="cart-list" aria-busy={showSkeleton || undefined}>
               {showSkeleton && !data && [0, 1, 2].map((key) => <article key={key} aria-hidden="true">
                 <span/><Skeleton className="cart-photo"/><div className="cart-item-copy"><Skeleton width="70%" height={16}/><Skeleton width="40%" height={13}/></div>

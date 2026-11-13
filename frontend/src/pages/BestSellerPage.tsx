@@ -9,11 +9,13 @@ import {
   ShoppingCart,
   Store,
 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 import { loginPathForCart, useOptionalCart } from "../contexts/CartContext";
 import {
   ApiError,
   bestSellerApi,
   catalogApi,
+  favoritesApi,
   mediaUrl,
   type BestSellerProduct,
   type ProductCategory,
@@ -25,6 +27,8 @@ import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import "../styles/recommended-products.css";
 import "../styles/best-seller.css";
 import "../styles/shop-page.css";
+import "../styles/product-card.css";
+
 /** Sidebar price radios -> [min, max] (inclusive, baht). */
 const priceBands: [string, number | undefined, number | undefined][] = [
   ["ทั้งหมด", undefined, undefined],
@@ -62,6 +66,7 @@ const primaryImage = (p: BestSellerProduct) =>
 
 export default function BestSellerPage() {
   const { tp, localeTag } = usePublicTranslation();
+  const { user } = useAuth();
   const lang = localeTag.startsWith("zh") ? "zh" : localeTag.startsWith("en") ? "en" : "th";
   const allLabel = lang === "en" ? "All" : lang === "zh" ? "全部" : "ทั้งหมด";
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined);
@@ -80,7 +85,7 @@ export default function BestSellerPage() {
   const [notice, setNotice] = useState("");
   const [sort, setSort] = useState("ยอดขายสูงสุด");
   const [grid, setGrid] = useState(true);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const fallbackCategories = tp("home.categories", { returnObjects: true }) as unknown as string[];
@@ -94,6 +99,38 @@ export default function BestSellerPage() {
       .then(setCategoryList)
       .catch(() => setCategoryList([]));
   }, []);
+  useEffect(() => {
+    if (!user) { setFavorites(new Set()); return; }
+    favoritesApi.list()
+      .then((rows) => setFavorites(new Set(rows.map((row) => row.productId))))
+      .catch(() => setFavorites(new Set()));
+  }, [user]);
+  const toggleFavorite = async (productId: string) => {
+    if (!user) {
+      window.location.assign(`/login?next=${encodeURIComponent("/best-sellers")}`);
+      return;
+    }
+    const liked = favorites.has(productId);
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (liked) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+    try {
+      if (liked) await favoritesApi.remove(productId);
+      else await favoritesApi.add(productId);
+      notify(liked ? tp("favorites.removed") : tp("favorites.added"));
+    } catch (error) {
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (liked) next.add(productId);
+        else next.delete(productId);
+        return next;
+      });
+      notify(error instanceof ApiError ? error.message : tp("favorites.actionFail"));
+    }
+  };
   const categoryTiles = useMemo(
     () => buildRecommendCategoryTiles(categoryList, fallbackCategories, localeTag, allLabel),
     [categoryList, fallbackCategories, localeTag, allLabel],
@@ -276,18 +313,28 @@ export default function BestSellerPage() {
           <div className="best-price-range">
             <input
               aria-label="ราคาต่ำสุด"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={minPrice}
-              onChange={(e) => setMinPrice(e.target.value)}
+              onChange={(e) => setMinPrice(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+" || e.key === ".") e.preventDefault();
+              }}
               placeholder="฿ ขั้นต่ำ"
             />
             <span>-</span>
             <input
               aria-label="ราคาสูงสุด"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
+              onChange={(e) => setMaxPrice(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+" || e.key === ".") e.preventDefault();
+              }}
               placeholder="฿ สูงสุด"
             />
-            <button onClick={applyPrice}>ตกลง</button>
+            <button type="button" onClick={applyPrice}>ตกลง</button>
           </div>
         </aside>
         <div className="best-results">
@@ -386,15 +433,10 @@ export default function BestSellerPage() {
                     </span>
                   )}
                   <button
-                    className={favorites.includes(p.id) ? "liked" : ""}
-                    onClick={() =>
-                      setFavorites((v) =>
-                        v.includes(p.id)
-                          ? v.filter((x) => x !== p.id)
-                          : [...v, p.id],
-                      )
-                    }
-                    aria-label="รายการโปรด"
+                    type="button"
+                    className={favorites.has(p.id) ? "liked" : ""}
+                    onClick={() => void toggleFavorite(p.id)}
+                    aria-label={tp("catalog.favorite")}
                   >
                     <Heart />
                   </button>
@@ -419,11 +461,13 @@ export default function BestSellerPage() {
                   </p>
                   <p className="best-meta">
                     {p.rating != null ? (
-                      <>
-                        <b>★ {p.rating}</b> ({(p.reviewCount ?? 0).toLocaleString()}){" "}
-                      </>
+                      <span className="pcard-rating">
+                        <b>★ {p.rating}</b>
+                        <span className="pcard-reviews">({(p.reviewCount ?? 0).toLocaleString()})</span>
+                      </span>
                     ) : null}
-                    <span>ขายแล้ว {p.soldCount.toLocaleString()} ชิ้น</span>
+                    {p.rating != null ? <span className="pcard-sep" aria-hidden="true">·</span> : null}
+                    <span className="pcard-sold">ขายแล้ว {p.soldCount.toLocaleString()} ชิ้น</span>
                   </p>
                   <button onClick={() => void addToCart(p)}>
                     <ShoppingCart />

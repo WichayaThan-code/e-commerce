@@ -22,6 +22,7 @@ public class ProductReview {
     @Column(nullable = false) private short rating;
     @Column(length = 150) private String title;
     @Column(columnDefinition = "text") private String body;
+    @Column(name = "option_label", length = 255) private String optionLabel;
     @ColumnDefault("'PUBLISHED'") @Column(nullable = false, length = 30) private String status = PUBLISHED;
     @Column(name = "deleted_at") private Instant deletedAt;
     @Column(name = "created_date_time", nullable = false) private Instant createdDateTime;
@@ -31,7 +32,8 @@ public class ProductReview {
 
     protected ProductReview() {}
 
-    public ProductReview(UUID shopId, UUID productId, UUID orderId, UUID orderItemId, UUID buyerUserId, int rating, String body) {
+    public ProductReview(UUID shopId, UUID productId, UUID orderId, UUID orderItemId, UUID buyerUserId,
+                         int rating, String body, String optionLabel) {
         var now = Instant.now();
         this.id = UUID.randomUUID();
         this.shopId = shopId;
@@ -41,6 +43,7 @@ public class ProductReview {
         this.buyerUserId = buyerUserId;
         this.rating = (short) rating;
         this.body = body;
+        this.optionLabel = optionLabel == null || optionLabel.isBlank() ? null : optionLabel.trim();
         this.createdDateTime = now;
         this.modifiedDateTime = now;
         this.createdBy = buyerUserId;
@@ -54,6 +57,7 @@ public class ProductReview {
     public UUID getBuyerUserId() { return buyerUserId; }
     public int getRating() { return rating; }
     public String getBody() { return body; }
+    public String getOptionLabel() { return optionLabel; }
     public String getStatus() { return status; }
     public Instant getCreatedDateTime() { return createdDateTime; }
 }

@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "./LanguageSwitcher";
 import {
   Menu, Search, ShoppingCart, UserRound, ChevronDown,
-  ChevronRight, Gift, Headphones, LogOut, X, Store, Package
+  ChevronRight, Heart, Headphones, LogOut, X, Store, Package
 } from "lucide-react";
 import SiteBrand from "./SiteBrand";
 import { useFirstShopLogo } from "../hooks/useFirstShopLogo";
@@ -126,7 +126,7 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
                     <Link to="/account/orders"><Package /> {t('account.orders')} <ChevronRight /></Link>
                   )}
                   <Link to="/track-order"><Package /> {t('account.trackOrder')} <ChevronRight /></Link>
-                  <Link to="/deals"><Gift /> {t('account.deals')} <ChevronRight /></Link>
+                  <Link to="/favorites"><Heart /> {t('account.favorites')} <ChevronRight /></Link>
                   <Link to="/help"><Headphones /> {t('account.help')} <ChevronRight /></Link>
                   <button className="member-signout" disabled={signingOut} onClick={() => void signOut()}>
                     <LogOut /> {signingOut ? t('account.loggingOut') : t('account.logout')}
@@ -152,7 +152,8 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
             <button className="drawer-close" onClick={() => setMenuOpen(false)}><X /></button>
             <SiteBrand homeAria={homeAria} />
             <Link to="/#categories" onClick={() => setMenuOpen(false)}>{t('nav.categories')} <ChevronRight size={17} /></Link>
-            <Link to="/deals" onClick={() => setMenuOpen(false)}>{t('nav.deals')} <ChevronRight size={17} /></Link>
+            {/* FUTURE: ดีลพิเศษ — เปิดเมนูเมื่อพร้อมใช้งาน */}
+            {/* <Link to="/deals" onClick={() => setMenuOpen(false)}>{t('nav.deals')} <ChevronRight size={17} /></Link> */}
             <Link to="/recommendations" onClick={() => setMenuOpen(false)}>{t('nav.recommended')} <ChevronRight size={17} /></Link>
             <Link to="/shops" onClick={() => setMenuOpen(false)}>{t('nav.shops')} <ChevronRight size={17} /></Link>
             <Link to="/best-sellers" onClick={() => setMenuOpen(false)}>{t('nav.best')} <ChevronRight size={17} /></Link>

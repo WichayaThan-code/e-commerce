@@ -47,6 +47,7 @@ public class MediaFile extends AuditedEntity {
 
     public UUID getId() { return id; }
     public UUID getShopId() { return shopId; }
+    public UUID getUploaderId() { return uploaderId; }
     public String getPurpose() { return purpose; }
     public String getStorageKey() { return storageKey; }
     public String getOriginalFilename() { return originalFilename; }

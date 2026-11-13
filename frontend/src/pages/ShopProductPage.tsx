@@ -4,14 +4,26 @@ import { Skeleton, SkeletonText } from "../components/feedback/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, QrCode, ShoppingCart, Store, Truck } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, QrCode, ShoppingCart, Store, Truck, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { loginPathForCart, useCart } from "../contexts/CartContext";
 import { cartErrorMessage, isOwnShop } from "../components/cart/cartFormat";
+import StarRating from "../components/reviews/StarRating";
 import { useShopCrumb, useShopPublic } from "../contexts/ShopPublicContext";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import { localizedText } from "../services/catalogText";
-import { ApiError, mediaUrl, recommendationApi, shopApi, type PublicProduct, type PublicShopCategory, type PublicSku } from "../services/api";
+import {
+  ApiError,
+  mediaUrl,
+  recommendationApi,
+  reviewApi,
+  shopApi,
+  type ProductReview,
+  type ReviewFilterCounts,
+  type PublicProduct,
+  type PublicShopCategory,
+  type PublicSku,
+} from "../services/api";
 import { shopCategoryPath, shopPath, shopProductPath } from "../services/shopRoutes";
 import NotFoundPage from "./NotFoundPage";
 import ProductConfiguratorPanel from "../components/shop/ProductConfiguratorPanel";
@@ -20,6 +32,9 @@ import ProductQrModal from "../components/shop/ProductQrModal";
 import { copyText, productPageUrl, productShareLink } from "../utils/productLinks";
 import "../styles/recommended-products.css";
 import "../styles/shop-page.css";
+
+const REVIEW_PAGE_SIZE = 10;
+type ReviewFilter = "all" | "photos" | 1 | 2 | 3 | 4 | 5;
 
 type Group = { key: string; label: string; values: string[] };
 
@@ -100,6 +115,23 @@ export default function ShopProductPage() {
   const [thumbOverflow, setThumbOverflow] = useState(false);
   const [thumbCanPrev, setThumbCanPrev] = useState(false);
   const [thumbCanNext, setThumbCanNext] = useState(false);
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [reviewAvg, setReviewAvg] = useState<number | null>(null);
+  const [reviewCount, setReviewCount] = useState(0);
+  const [reviewFilteredTotal, setReviewFilteredTotal] = useState(0);
+  const [reviewFilters, setReviewFilters] = useState<ReviewFilterCounts | null>(null);
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
+  const [reviewPage, setReviewPage] = useState(0);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsLoadingMore, setReviewsLoadingMore] = useState(false);
+  const [reviewLightbox, setReviewLightbox] = useState<string | null>(null);
+
+  const reviewListQuery = (page: number) => {
+    const base = { shopSlug: slug, page, size: REVIEW_PAGE_SIZE };
+    if (reviewFilter === "photos") return { ...base, withPhotos: true as const };
+    if (typeof reviewFilter === "number") return { ...base, rating: reviewFilter };
+    return base;
+  };
 
   const load = () => {
     setState("loading");
@@ -131,8 +163,70 @@ export default function ShopProductPage() {
   useEffect(() => { if (product?.id) recommendationApi.recordView(product.id).catch(() => {}); }, [product?.id]);
 
   useEffect(() => {
+    if (!product?.slug) {
+      setReviews([]);
+      setReviewAvg(null);
+      setReviewCount(0);
+      setReviewFilteredTotal(0);
+      setReviewFilters(null);
+      setReviewPage(0);
+      setReviewFilter("all");
+      return;
+    }
+    let cancelled = false;
+    setReviewsLoading(true);
+    reviewApi.list(product.slug, reviewListQuery(0))
+      .then((page) => {
+        if (cancelled) return;
+        setReviews(page.items ?? []);
+        setReviewAvg(page.ratingAvg != null ? Number(page.ratingAvg) : null);
+        setReviewCount(page.reviewCount ?? 0);
+        setReviewFilteredTotal(page.total ?? page.items?.length ?? 0);
+        setReviewFilters(page.filters ?? null);
+        setReviewPage(page.page ?? 0);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setReviews([]);
+        setReviewAvg(null);
+        setReviewCount(0);
+        setReviewFilteredTotal(0);
+        setReviewFilters(null);
+        setReviewPage(0);
+      })
+      .finally(() => { if (!cancelled) setReviewsLoading(false); });
+    return () => { cancelled = true; };
+  }, [product?.slug, slug, reviewFilter]);
+
+  useEffect(() => {
     if (state === "ok" && product) markHasData();
   }, [state, product, markHasData]);
+
+  const loadMoreReviews = async () => {
+    if (!product?.slug || reviewsLoadingMore || reviews.length >= reviewFilteredTotal) return;
+    setReviewsLoadingMore(true);
+    try {
+      const nextPage = reviewPage + 1;
+      const page = await reviewApi.list(product.slug, reviewListQuery(nextPage));
+      setReviews((prev) => [...prev, ...(page.items ?? [])]);
+      setReviewPage(page.page ?? nextPage);
+      setReviewAvg(page.ratingAvg != null ? Number(page.ratingAvg) : reviewAvg);
+      setReviewCount(page.reviewCount ?? reviewCount);
+      setReviewFilteredTotal(page.total ?? reviewFilteredTotal);
+      if (page.filters) setReviewFilters(page.filters);
+    } catch {
+      /* keep current list */
+    } finally {
+      setReviewsLoadingMore(false);
+    }
+  };
+
+  const filterCount = (filter: ReviewFilter) => {
+    if (!reviewFilters) return 0;
+    if (filter === "all") return reviewFilters.all;
+    if (filter === "photos") return reviewFilters.withPhotos;
+    return reviewFilters[`star${filter}` as keyof ReviewFilterCounts] as number;
+  };
 
   const notify = (text: string) => {
     setToast(text);
@@ -398,6 +492,19 @@ export default function ShopProductPage() {
             </div>
             <div className="buyer-info">
               <h1>{name}</h1>
+              <div className="buyer-rating-row">
+                {reviewsLoading ? (
+                  <span className="is-muted">{tp("shop.view.ratingLoading")}</span>
+                ) : reviewCount > 0 && reviewAvg != null ? (
+                  <>
+                    <StarRating value={reviewAvg} readOnly size={18} ariaLabel={tp("shop.view.rating")} />
+                    <b className="num">{reviewAvg.toFixed(1)}</b>
+                    <span>({tp("shop.view.reviewCount", { count: reviewCount })})</span>
+                  </>
+                ) : (
+                  <span className="is-muted">{tp("shop.view.noReviews")}</span>
+                )}
+              </div>
               <div className="buyer-price">
                 <b className="num">{currentPrice != null ? money(currentPrice, localeTag) : low != null && high != null && low !== high ? `${money(low, localeTag)} – ${money(high, localeTag)}` : low != null ? money(low, localeTag) : "—"}</b>
                 {discount > 0 && compare != null ? <><s className="num">{money(compare, localeTag)}</s><em className="num">{tp("shop.view.discount", { percent: discount })}</em></> : null}
@@ -498,6 +605,112 @@ export default function ShopProductPage() {
               </dl>
             </div>
           </section>
+          <section className="buyer-card buyer-reviews" aria-label={tp("shop.view.reviewsTitle")}>
+            <div className="buyer-reviews-head">
+              <div>
+                <h2>{tp("shop.view.reviewsTitle")}</h2>
+                {reviewCount > 0 ? (
+                  <p className="buyer-reviews-count">{tp("shop.view.reviewCount", { count: reviewCount })}</p>
+                ) : null}
+              </div>
+              {reviewCount > 0 && reviewAvg != null ? (
+                <div className="buyer-reviews-summary">
+                  <strong className="num">{reviewAvg.toFixed(1)}</strong>
+                  <div>
+                    <StarRating value={reviewAvg} readOnly size={18} ariaLabel={tp("shop.view.rating")} />
+                    <span>{tp("shop.view.reviewCount", { count: reviewCount })}</span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            {reviewCount > 0 ? (
+              <div className="buyer-review-filters" role="toolbar" aria-label={tp("shop.view.reviewFilters")}>
+                {([
+                  { key: "all" as const, label: tp("shop.view.reviewFilterAll") },
+                  { key: "photos" as const, label: tp("shop.view.reviewFilterPhotos") },
+                  { key: 5 as const, label: tp("shop.view.reviewFilterStars", { stars: 5 }) },
+                  { key: 4 as const, label: tp("shop.view.reviewFilterStars", { stars: 4 }) },
+                  { key: 3 as const, label: tp("shop.view.reviewFilterStars", { stars: 3 }) },
+                  { key: 2 as const, label: tp("shop.view.reviewFilterStars", { stars: 2 }) },
+                  { key: 1 as const, label: tp("shop.view.reviewFilterStars", { stars: 1 }) },
+                ]).map((chip) => {
+                  const count = filterCount(chip.key);
+                  const active = reviewFilter === chip.key;
+                  return (
+                    <button
+                      key={String(chip.key)}
+                      type="button"
+                      className={`buyer-review-filter${active ? " is-active" : ""}`}
+                      aria-pressed={active}
+                      disabled={chip.key !== "all" && count === 0}
+                      onClick={() => setReviewFilter(chip.key)}
+                    >
+                      <span>{chip.label}</span>
+                      <em className="num">{count}</em>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+            {reviewsLoading ? (
+              <p className="buyer-reviews-empty">{tp("shop.view.ratingLoading")}</p>
+            ) : reviews.length === 0 ? (
+              <p className="buyer-reviews-empty">
+                {reviewCount > 0 ? tp("shop.view.noFilteredReviews") : tp("shop.view.noReviews")}
+              </p>
+            ) : (
+              <>
+                <div className="buyer-review-list">
+                  {reviews.map((review) => {
+                    const initial = (review.reviewerName || "?").trim().charAt(0);
+                    const images = review.images ?? [];
+                    return (
+                      <article className="buyer-review-item" key={review.id}>
+                        <span className="buyer-review-avatar" aria-hidden="true">{initial}</span>
+                        <div className="buyer-review-body">
+                          <div className="buyer-review-meta">
+                            <b>{review.reviewerName}</b>
+                            <time dateTime={review.createdAt}>
+                              {new Date(review.createdAt).toLocaleDateString(
+                                localeTag.startsWith("en") ? "en-US" : localeTag.startsWith("zh") ? "zh-CN" : "th-TH",
+                              )}
+                            </time>
+                          </div>
+                          <div className="buyer-review-stars">
+                            <StarRating value={review.rating} readOnly size={15} ariaLabel={tp("shop.view.rating")} />
+                          </div>
+                          {review.optionLabel ? (
+                            <p className="buyer-review-option">{tp("shop.view.reviewOption", { option: review.optionLabel })}</p>
+                          ) : null}
+                          {review.comment ? <p>{review.comment}</p> : null}
+                          {images.length > 0 ? (
+                            <div className="buyer-review-photos">
+                              {images.map((image) => (
+                                <button
+                                  key={image.id}
+                                  type="button"
+                                  className="buyer-review-photo"
+                                  onClick={() => setReviewLightbox(image.url)}
+                                  aria-label={tp("shop.view.reviewPhotoOpen")}
+                                >
+                                  <img src={mediaUrl(image.url)} alt="" loading="lazy" />
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+                {reviews.length < reviewFilteredTotal ? (
+                  <button type="button" className="buyer-reviews-more" disabled={reviewsLoadingMore} onClick={() => void loadMoreReviews()}>
+                    {reviewsLoadingMore ? tp("shop.view.ratingLoading") : tp("shop.view.loadMoreReviews")}
+                  </button>
+                ) : null}
+              </>
+            )}
+          </section>
           {others.length > 0 && (
             <section className="buyer-more">
               <h2>{tp("shop.view.more")}</h2>
@@ -529,6 +742,12 @@ export default function ShopProductPage() {
           onCurrentChange={onPreviewCurrentChange}
           returnFocusRef={mainImageRef}
         />
+      ) : null}
+      {reviewLightbox ? (
+        <div className="buyer-lightbox" role="dialog" aria-modal="true" onClick={() => setReviewLightbox(null)}>
+          <button type="button" className="close" aria-label={tp("shop.view.close")} onClick={() => setReviewLightbox(null)}><X /></button>
+          <img src={mediaUrl(reviewLightbox)} alt="" onClick={(e) => e.stopPropagation()} />
+        </div>
       ) : null}
       {toast ? <div className="buyer-toast" role="status">{toast}</div> : null}
     </div>

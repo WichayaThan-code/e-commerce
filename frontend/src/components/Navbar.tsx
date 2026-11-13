@@ -4,7 +4,7 @@ import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Menu,
-  Gift,
+  // Gift, // FUTURE: ดีลพิเศษ
   Sparkles,
   Store, // ใช้ตัวนี้แทน StoreCheck
   Flame,
@@ -23,13 +23,15 @@ export interface NavItem {
 }
 
 const ICON_MAP: Record<string, LucideIcon> = {
-  Menu, Gift, Sparkles, Store, Flame, Award, BookOpen, HelpCircle,PlusCircle,
+  // Gift, // FUTURE: ดีลพิเศษ
+  Menu, Sparkles, Store, Flame, Award, BookOpen, HelpCircle, PlusCircle,
 };
 
 export const MOCK_NAV_ITEMS: NavItem[] = [
   { id: "categories", labelKey: "nav.categories", path: "/#categories", iconName: "Menu" },
   { id: "store-opening", labelKey: "nav.openStore", path: "/merchant/register", iconName: "PlusCircle" },
-  { id: "deals", labelKey: "nav.deals", path: "/deals", iconName: "Gift" },
+  // FUTURE: ดีลพิเศษ — เปิดเมนูเมื่อพร้อมใช้งาน
+  // { id: "deals", labelKey: "nav.deals", path: "/deals", iconName: "Gift" },
   { id: "recommendations", labelKey: "nav.recommended", path: "/recommendations", iconName: "Sparkles" },
   { id: "shops", labelKey: "nav.shops", path: "/shops", iconName: "Store" },
   { id: "best-sellers", labelKey: "nav.best", path: "/best-sellers", iconName: "Flame" },

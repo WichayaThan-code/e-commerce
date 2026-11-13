@@ -131,7 +131,13 @@
 .application-drawer-avatar{overflow:hidden}
 .application-drawer-avatar img{width:100%;height:100%;object-fit:cover;display:block}
 .application-drawer-avatar span{font-weight:800;font-size:18px;color:#0c3e91}
-.application-drawer .owner-siblings{display:block;margin-top:4px;color:#6682aa;font-size:11px}
+/* Header title: shop name + "same owner as shop: …" on the same line; wraps below the name when narrow. */
+.om-drawer.application-drawer .cm-detail-id h2{display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px;min-width:0;white-space:normal;overflow:visible}
+.application-drawer .application-drawer-title{display:contents}
+.application-drawer .application-drawer-title__name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.application-drawer .owner-siblings{flex:0 1 auto;min-width:0;max-width:100%;display:inline-flex;align-items:center;gap:6px;color:#0b5fc9;font-size:13px;font-weight:600;line-height:1.4}
+.application-drawer .owner-siblings span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.application-drawer .owner-siblings svg{width:14px;height:14px;flex:none}
 .om-drawer.application-drawer .cm-contact-row{
   grid-template-columns:28px 90px minmax(0,1fr);
 }

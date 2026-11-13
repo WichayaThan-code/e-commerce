@@ -6,6 +6,8 @@ import { hasMerchantAccess } from "../services/permissions";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import MerchantPendingStatus from "./MerchantPendingStatus";
 import MerchantSuspendedStatus from "./MerchantSuspendedStatus";
+import Header from "./Header";
+import { CartProvider } from "../contexts/CartContext";
 import { merchantApi, type StoreAccess } from "../services/api";
 import "../styles/merchant-signup-gate.css";
 
@@ -73,26 +75,32 @@ export default function MerchantStoreGuard() {
     return null;
   }
   if (gate === "no-shop") {
+    // Same chrome as the pending gate: public site Header (no merchant menus are usable without a shop).
     return (
-      <main className="merchant-signup-gate">
-        <div className="merchant-signup-gate__glow" aria-hidden="true" />
-        <div className="merchant-signup-gate__layout">
-          <div className="merchant-signup-gate__copy">
-            <div role="alert">
-              <h1 className="merchant-signup-gate__title">{t("pendingGate.noShopTitle")}</h1>
-              <p className="merchant-signup-gate__lead">{t("pendingGate.noShopDescription")}</p>
+      <CartProvider>
+        <div className="merchant-gate-page">
+          <Header hideNavbar />
+          <main className="merchant-signup-gate merchant-signup-gate--with-header">
+            <div className="merchant-signup-gate__glow" aria-hidden="true" />
+            <div className="merchant-signup-gate__layout">
+              <div className="merchant-signup-gate__copy">
+                <div role="alert">
+                  <h1 className="merchant-signup-gate__title">{t("pendingGate.noShopTitle")}</h1>
+                  <p className="merchant-signup-gate__lead">{t("pendingGate.noShopDescription")}</p>
+                </div>
+                <div className="merchant-signup-gate__actions">
+                  <Link className="merchant-signup-gate__btn merchant-signup-gate__btn--primary" to="/merchant/register">
+                    {t("pendingGate.register")}
+                  </Link>
+                  <Link className="merchant-signup-gate__btn merchant-signup-gate__btn--secondary" to="/">
+                    {t("pendingGate.home")}
+                  </Link>
+                </div>
+              </div>
             </div>
-            <div className="merchant-signup-gate__actions">
-              <Link className="merchant-signup-gate__btn merchant-signup-gate__btn--primary" to="/merchant/register">
-                {t("pendingGate.register")}
-              </Link>
-              <Link className="merchant-signup-gate__btn merchant-signup-gate__btn--secondary" to="/">
-                {t("pendingGate.home")}
-              </Link>
-            </div>
-          </div>
+          </main>
         </div>
-      </main>
+      </CartProvider>
     );
   }
   if (gate === "locked") {

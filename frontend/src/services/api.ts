@@ -139,7 +139,7 @@ export type MerchantApplication = {
   houseNo?:string;villageNo?:string;building?:string;alley?:string;road?:string;province?:string;district?:string;subdistrict?:string;postalCode?:string
   bankName?:string;bankAccountMasked?:string;bankAccountName?:string;documents:MerchantDocument[];submittedAt?:string
   shopPath?:string|null; ownerId?:string|null
-  /** Server-decided: the linked owner already runs another (non-rejected) shop, so owner info and documents are reused. */
+  /** Server-decided: the linked owner already runs another (non-rejected) shop. Informational only: owner info and owner documents were prefilled from it; every step is still shown and validated. */
   existingOwner?:boolean
 }
 export type MerchantOwner = {
@@ -250,6 +250,8 @@ export function mediaUrl(path?:string|null) {
 }
 export type MerchantShopPayload = {shopName:string;shopNameEn:string;description:string;category:string;saleType:'OWNER'|'RESELLER';website:string;lineId:string;facebookUrl:string;instagramUrl:string;tiktokUrl:string;address:string;province:string;district:string;subdistrict:string;postalCode:string}
 export type MerchantOwnerPayload = {ownerType:'PERSON'|'COMPANY';title:string;firstName:string;lastName:string;citizenId:string;birthDate:string;nationality:string;phone:string;email:string;houseNo:string;villageNo:string;building:string;alley:string;road:string;province:string;district:string;subdistrict:string;postalCode:string;bankName:string;bankAccountNumber:string;bankAccountName:string}
+/** Owner step for a draft linked to an existing owner (second shop): the citizen id stays the linked owner's. */
+export type MerchantLinkedOwnerPayload = Omit<MerchantOwnerPayload, 'citizenId'>
 export type MerchantShopOption = { shopId:number; shopName:string; status:NonNullable<StoreAccess['status']>; slug:string; ownerId?:string|null; logoUrl?:string|null }
 
 function withShop(path:string, shopId?:number|null) {
@@ -266,6 +268,7 @@ export const merchantApi = {
   validateOwner: (payload:MerchantOwnerPayload) => request<void>('/api/merchant-applications/validate-owner', {method:'POST',body:JSON.stringify(payload)}, true),
   owners: () => request<MerchantOwner[]>('/api/merchant/owners', {}, true),
   updateOwner: (id:string, payload:MerchantOwnerPayload) => request<MerchantOwner>(`/api/merchant/owners/${id}`, {method:'PUT', body:JSON.stringify(payload)}, true),
+  saveLinkedOwner: (payload:MerchantLinkedOwnerPayload) => request<MerchantApplication>('/api/merchant-applications/draft/owner/linked', {method:'PUT',body:JSON.stringify(payload)}, true),
   attachOwner: (ownerId:string) => request<MerchantApplication>(`/api/merchant-applications/draft/owner/${ownerId}`, {method:'POST'}, true),
   uploadDocument: (type:DocumentType,file:File) => {const body=new FormData();body.append('file',file);return request<MerchantApplication>(`/api/merchant-applications/draft/documents/${type}`,{method:'POST',body},true)},
   documentBlob: (type: DocumentType) => authorizedBlob(`/api/merchant-applications/draft/documents/${type}`),

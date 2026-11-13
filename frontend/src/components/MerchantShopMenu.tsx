@@ -48,7 +48,8 @@ export default function MerchantShopMenu() {
     setBusy(true);
     try {
       await merchantApi.openAnotherShop(ownerId);
-      writeMerchantDraft(user?.id, { ownerId, documentsConfirmed: true });
+      // New draft linked to this owner; the owner step prefills from it and no step is skipped.
+      writeMerchantDraft(user?.id, { ownerId });
       window.location.assign("/merchant/register");
     } catch (error) {
       setBusy(false);

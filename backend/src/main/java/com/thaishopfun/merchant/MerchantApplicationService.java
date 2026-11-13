@@ -89,11 +89,41 @@ public class MerchantApplicationService {
         return response(applications.save(application));
     }
 
+    /**
+     * Links an owner the user already has (picked on the owner step) and prefills it: owner/personal details are
+     * copied from the owner profile, owner-level documents (ID card, portrait) are copied from the owner's earlier
+     * application when this draft has none yet. Payout details and shop/company documents are not prefilled.
+     * The owner step and the document step are still shown and validated like a first application.
+     */
     @Transactional
     public MerchantDtos.ApplicationResponse attachOwner(UUID userId, UUID ownerId) {
         var application = getOrCreate(userId);
         editable(application);
-        application.attachOwner(ownerAccounts.requireOwned(userId, ownerId));
+        var owner = ownerAccounts.requireOwned(userId, ownerId);
+        application.attachOwner(owner);
+        application.clearPayout();
+        applications.save(application);
+        copyOwnerDocuments(application, owner, false);
+        return response(application);
+    }
+
+    /**
+     * Saves the owner step for an application linked to an existing owner (second shop). Only this application's
+     * snapshot changes: the shared owner profile (and the shops already running on it) is left untouched, so a
+     * different payout account for this shop does not rewrite the other shops' owner data. The citizen id stays the
+     * linked owner's.
+     */
+    @Transactional
+    public MerchantDtos.ApplicationResponse saveLinkedOwner(UUID userId, MerchantDtos.LinkedOwnerRequest request) {
+        var application = getOrCreate(userId);
+        editable(application);
+        var linked = application.getLinkedOwner();
+        if (linked == null) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "OWNER_REQUIRED", "กรุณาเลือกหรือกรอกข้อมูลเจ้าของร้านก่อน");
+        }
+        var owner = ownerAccounts.requireOwned(userId, linked.getId());
+        application.updateOwner(request.asOwnerRequest(), owner.getCitizenIdEncrypted(), owner.getCitizenIdHash(),
+            cipher.encrypt(request.bankAccountNumber().replaceAll("[^0-9]", "")));
         return response(applications.save(application));
     }
 
@@ -148,13 +178,72 @@ public class MerchantApplicationService {
         editable(draft);
         draft.clearShopDetails();
         draft.attachOwner(owner);
+        draft.clearPayout();
         applications.save(draft);
-        documents.findByApplication_IdAndType(draft.getId(), DocumentType.LOGO).ifPresent(existing -> {
-            documents.delete(existing);
-            documents.flush();
-            storage.deleteQuietly(existing.getStoragePath());
-        });
+        copyOwnerDocuments(draft, owner, true);
         return response(draft);
+    }
+
+    /** Documents about the owner as a person; prefilled for a reused owner. Everything else belongs to the shop. */
+    static final java.util.Set<DocumentType> OWNER_DOCUMENTS = java.util.EnumSet.of(DocumentType.IDENTITY, DocumentType.PORTRAIT);
+
+    /**
+     * Gives the draft its own copies of the owner-level documents from the owner's earlier application (approved shop
+     * first, then pending/suspended; never rejected). Each copy is a new file + a new merchant_documents row, so
+     * replacing or deleting it in this draft never touches the earlier application. With {@code reset} the draft starts
+     * clean (new shop): every existing draft document is removed first, so shop/company documents
+     * (logo, shop address proof, company certificate) must be uploaded again.
+     */
+    private void copyOwnerDocuments(MerchantApplication draft, Owner owner, boolean reset) {
+        var existing = documents.findByApplication_Id(draft.getId());
+        var removedPaths = new java.util.ArrayList<String>();
+        var present = java.util.EnumSet.noneOf(DocumentType.class);
+        for (var document : existing) {
+            if (reset) {
+                documents.delete(document);
+                removedPaths.add(document.getStoragePath());
+            } else {
+                present.add(document.getType());
+            }
+        }
+        if (reset) {
+            documents.flush();
+            draft.setLogoPath(null);
+        }
+        var sources = previousApplications(owner, draft);
+        var created = new java.util.ArrayList<String>();
+        try {
+            for (var type : OWNER_DOCUMENTS) {
+                if (present.contains(type)) continue;
+                var source = sources.stream()
+                    .map(app -> documents.findByApplication_IdAndType(app.getId(), type).orElse(null))
+                    .filter(java.util.Objects::nonNull)
+                    .filter(document -> storage.openStoredFile(document.getStoragePath()).isPresent())
+                    .findFirst().orElse(null);
+                if (source == null) continue;
+                var file = storage.openStoredFile(source.getStoragePath()).orElseThrow();
+                var copy = storage.copyInto(draft.getId(), file, type.name(), source.getContentType());
+                created.add(copy.path());
+                documents.save(new MerchantDocument(draft, type, source.getOriginalFilename(), copy.storedName(), copy.path(),
+                    copy.contentType(), copy.size(), source.getSha256()));
+            }
+            documents.flush();
+        } catch (RuntimeException exception) {
+            created.forEach(storage::deleteQuietly);
+            throw exception;
+        }
+        removedPaths.forEach(storage::deleteQuietly);
+    }
+
+    /** The owner's other applications to prefill from: approved shops first, newest first; rejected shops are skipped. */
+    private java.util.List<MerchantApplication> previousApplications(Owner owner, MerchantApplication draft) {
+        return shopRepository.findByOwner_IdOrderByShopIdAsc(owner.getId()).stream()
+            .filter(shop -> shop.getStatus() != ShopStatus.REJECTED && shop.getApplication() != null
+                && !draft.getId().equals(shop.getApplication().getId()))
+            .sorted(java.util.Comparator.comparing((Shop shop) -> shop.getStatus() == ShopStatus.APPROVED ? 0 : 1)
+                .thenComparing(Shop::getId, java.util.Comparator.reverseOrder()))
+            .map(Shop::getApplication)
+            .toList();
     }
 
     @Transactional
@@ -201,11 +290,11 @@ public class MerchantApplicationService {
     private void validateComplete(MerchantApplication a) {
         if (blank(a.getShopName())||blank(a.getCategory())||a.getSaleType()==null||blank(a.getShopAddress())||blank(a.getShopProvince())||blank(a.getShopDistrict())||blank(a.getShopSubdistrict())||blank(a.getShopPostalCode())) incomplete("กรุณากรอกข้อมูลร้านค้าให้ครบถ้วน");
         if (a.getOwnerType()==null||blank(a.getOwnerFirstName())||blank(a.getOwnerLastName())||blank(a.getCitizenIdEncrypted())||a.getBirthDate()==null||blank(a.getOwnerPhone())||blank(a.getOwnerEmail())||blank(a.getOwnerHouseNo())||blank(a.getOwnerProvince())||blank(a.getOwnerDistrict())||blank(a.getOwnerSubdistrict())||blank(a.getOwnerPostalCode())||blank(a.getBankName())||blank(a.getBankAccountEncrypted())||blank(a.getBankAccountName())) incomplete("กรุณากรอกข้อมูลเจ้าของร้านและข้อมูลรับเงินให้ครบถ้วน");
-        // Owner already runs another shop: identity documents were verified with that shop (decided server-side).
-        boolean reuse = existingOwner(a);
-        if (!reuse && !hasDocument(a, DocumentType.IDENTITY)) incomplete("กรุณาอัปโหลดเอกสารยืนยันตัวตน");
-        if (!reuse && !hasDocument(a, DocumentType.ADDRESS)) incomplete("กรุณาอัปโหลดเอกสารยืนยันที่อยู่");
-        if (!reuse && a.getOwnerType()==OwnerType.COMPANY && !hasDocument(a, DocumentType.BUSINESS)) incomplete("กรุณาอัปโหลดเอกสารยืนยันธุรกิจ");
+        // Same rules for every application, also a second shop of an existing owner: the documents must be on this
+        // application (owner documents are copied in when the owner is reused; shop documents are uploaded fresh).
+        if (!hasDocument(a, DocumentType.IDENTITY)) incomplete("กรุณาอัปโหลดเอกสารยืนยันตัวตน");
+        if (!hasDocument(a, DocumentType.ADDRESS)) incomplete("กรุณาอัปโหลดเอกสารยืนยันที่อยู่");
+        if (a.getOwnerType()==OwnerType.COMPANY && !hasDocument(a, DocumentType.BUSINESS)) incomplete("กรุณาอัปโหลดเอกสารยืนยันธุรกิจ");
     }
 
     private MerchantDtos.ApplicationResponse response(MerchantApplication a) {
@@ -216,7 +305,7 @@ public class MerchantApplicationService {
 
     /**
      * True when the linked owner already has another shop that is not rejected (pending, approved or suspended).
-     * Such an owner opens further shops without re-entering owner info or re-uploading identity documents.
+     * Informational for the UI (owner details were prefilled from that shop); it no longer skips any step or check.
      */
     private boolean existingOwner(MerchantApplication application) {
         var owner = application.getLinkedOwner();
@@ -227,9 +316,7 @@ public class MerchantApplicationService {
     }
 
     private boolean hasDocument(MerchantApplication application, DocumentType type) {
-        if (documents.findByApplication_IdAndType(application.getId(), type).isPresent()) return true;
-        var owner = application.getLinkedOwner();
-        return owner != null && documents.existsByApplication_LinkedOwner_IdAndType(owner.getId(), type);
+        return documents.findByApplication_IdAndType(application.getId(), type).isPresent();
     }
 
     private void editable(MerchantApplication a){try{a.ensureEditable();}catch(IllegalStateException e){throw new AuthException(HttpStatus.CONFLICT,"APPLICATION_ALREADY_SUBMITTED",e.getMessage());}}

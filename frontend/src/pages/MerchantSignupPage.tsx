@@ -32,8 +32,8 @@ import FormGrid from "../components/form/FormGrid";
 import "../styles/form-fields.css";
 import "../styles/login.css";
 import { readMerchantDraft, writeMerchantDraft } from "../services/merchantDraft";
-import { autofillSyncHandlers, readFormTextValue } from "../hooks/autofillSync";
-import { focusFirstInvalid, MAX_LOGO_BYTES, mergeFieldError, validateShop, type ShopInput } from "../services/merchantApplicationValidation";
+import { autofillSyncHandlers, isAutofillAnimation, readFormTextValue } from "../hooks/autofillSync";
+import { focusFirstInvalid, MAX_LOGO_BYTES, mergeFieldError, stripThaiScript, validateShop, type ShopInput } from "../services/merchantApplicationValidation";
 import { isShopImage, SHOP_IMAGE_ACCEPT } from "../services/shopImage";
 import i18n from "../i18n";
 import { catalogApi, merchantApi, type ProductCategory } from "../services/api";
@@ -75,6 +75,9 @@ export default function MerchantSignupPage() {
 
   const [shopName, setShopName] = useState(savedDraft.shopName || "");
   const [shopNameEnglish, setShopNameEnglish] = useState(savedDraft.shopNameEnglish || "");
+  const [englishThaiBlocked, setEnglishThaiBlocked] = useState(false);
+  const englishComposing = useRef(false);
+  const lastShopNameEnglish = useRef(shopNameEnglish);
   const [description, setDescription] = useState(savedDraft.description || "");
   const [social, setSocial] = useState<ShopSocialDraft>(() => readSocial(savedDraft));
   const [address, setAddress] = useState(savedDraft.address || "");
@@ -97,8 +100,6 @@ export default function MerchantSignupPage() {
     : r.categoryOptions;
   const categoryLabel = categoryChoices.find((option) => option.value === selectedCategory)?.label || "";
 
-  // Only after shops() resolves true — avoid a green empty/flash bar while hasShop is still null.
-  const reuseOwner = Boolean(savedDraft.ownerId) && hasShop === true;
 
   useEffect(() => {
     if (!user) return;
@@ -178,10 +179,42 @@ export default function MerchantSignupPage() {
     onValue: setShopName,
     onClearError: () => clearFieldError("shopName"),
   });
-  const shopNameEnglishHandlers = autofillSyncHandlers({
-    onValue: setShopNameEnglish,
-    onClearError: () => clearFieldError("shopNameEnglish"),
-  });
+  // English shop name: strip Thai script as the user types/pastes/autofills, keeping the caret in place.
+  // While an IME composition is open the raw text is kept; it is cleaned once the composition ends.
+  const acceptShopNameEnglish = (el: HTMLInputElement) => {
+    const raw = el.value;
+    if (englishComposing.current) {
+      lastShopNameEnglish.current = raw;
+      setShopNameEnglish(raw);
+      return;
+    }
+    const clean = stripThaiScript(raw);
+    if (clean !== raw) {
+      const caret = el.selectionStart ?? raw.length;
+      const nextCaret = stripThaiScript(raw.slice(0, caret)).length;
+      el.value = clean;
+      if (document.activeElement === el) el.setSelectionRange(nextCaret, nextCaret);
+      setEnglishThaiBlocked(true);
+    } else if (raw !== lastShopNameEnglish.current) {
+      // A new clean edit (not the echo of the strip above, since onChange and onInput both fire) hides the hint.
+      setEnglishThaiBlocked(false);
+    }
+    lastShopNameEnglish.current = clean;
+    setShopNameEnglish(clean);
+    clearFieldError("shopNameEnglish");
+  };
+  const shopNameEnglishHandlers = {
+    onChange: (event: React.ChangeEvent<HTMLInputElement>) => acceptShopNameEnglish(event.currentTarget),
+    onInput: (event: React.FormEvent<HTMLInputElement>) => acceptShopNameEnglish(event.currentTarget),
+    onAnimationStart: (event: React.AnimationEvent<HTMLInputElement>) => {
+      if (isAutofillAnimation(event.animationName)) acceptShopNameEnglish(event.currentTarget);
+    },
+    onCompositionStart: () => { englishComposing.current = true; },
+    onCompositionEnd: (event: React.CompositionEvent<HTMLInputElement>) => {
+      englishComposing.current = false;
+      acceptShopNameEnglish(event.currentTarget);
+    },
+  };
   const descriptionHandlers = autofillSyncHandlers({
     onValue: setDescription,
     onClearError: () => clearFieldError("description"),
@@ -296,7 +329,8 @@ export default function MerchantSignupPage() {
       postalCode: thaiAddress.postalCode,
       logoBase64,
     });
-    navigate(reuseOwner ? "/merchant/review" : "/merchant/owner-info");
+    // Never skip the owner + document steps, also for a second shop of an existing owner (they are prefilled there).
+    navigate("/merchant/owner-info");
   };
 
   return (
@@ -414,7 +448,7 @@ export default function MerchantSignupPage() {
                   className="flush"
                   label={r.shopNameEn}
                   icon={Type}
-                  error={fieldErrors.shopNameEnglish}
+                  error={fieldErrors.shopNameEnglish || (englishThaiBlocked ? i18n.t("validation.shopNameEnThaiBlocked", { ns: "merchant" }) : undefined)}
                   errorId="field-error-shopNameEnglish"
                 >
                   <input
@@ -424,9 +458,10 @@ export default function MerchantSignupPage() {
                     value={shopNameEnglish}
                     autoComplete="off"
                     aria-invalid={Boolean(fieldErrors.shopNameEnglish)}
-                    aria-describedby={fieldErrors.shopNameEnglish ? "field-error-shopNameEnglish" : undefined}
+                    aria-describedby={fieldErrors.shopNameEnglish || englishThaiBlocked ? "field-error-shopNameEnglish" : undefined}
+                    lang="en"
                     {...shopNameEnglishHandlers}
-                    onBlur={() => blurShop("shopNameEnglish")}
+                    onBlur={() => { setEnglishThaiBlocked(false); blurShop("shopNameEnglish"); }}
                   />
                 </FormField>
               </FormGrid>

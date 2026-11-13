@@ -1,5 +1,5 @@
 import i18n from '../i18n'
-import type { MerchantOwnerPayload } from './api'
+import type { MerchantLinkedOwnerPayload, MerchantOwnerPayload } from './api'
 import type { MerchantDraft, OwnerDraft } from './merchantDraft'
 
 export type FieldErrors = Record<string, string>
@@ -103,6 +103,18 @@ export function citizenIdChecksumOk(value: string) {
   return (11 - (sum % 11)) % 10 === Number(digits[12])
 }
 
+/** Thai script block (U+0E00–U+0E7F). The English shop name must not contain it; the Thai name may contain English. */
+const THAI_SCRIPT = /[\u0E00-\u0E7F]/
+const THAI_SCRIPT_ALL = /[\u0E00-\u0E7F]/g
+
+export function hasThaiScript(value: string) {
+  return THAI_SCRIPT.test(value)
+}
+
+export function stripThaiScript(value: string) {
+  return value.replace(THAI_SCRIPT_ALL, '')
+}
+
 export type ShopInput = {
   shopName: string
   shopNameEnglish: string
@@ -126,7 +138,8 @@ export function validateShop(input: ShopInput, requireLogo = true): FieldErrors 
   const shopName = input.shopName.trim()
   if (!shopName) errors.shopName = text('validation.shopNameRequired')
   else if (shopName.length > 100) errors.shopName = text('validation.shopNameMax', { max: 100 })
-  if (input.shopNameEnglish.trim().length > 100) errors.shopNameEnglish = text('validation.shopNameEnMax', { max: 100 })
+  if (hasThaiScript(input.shopNameEnglish)) errors.shopNameEnglish = text('validation.shopNameEnNoThai')
+  else if (input.shopNameEnglish.trim().length > 100) errors.shopNameEnglish = text('validation.shopNameEnMax', { max: 100 })
   if (input.description.trim().length > 500) errors.description = text('validation.descriptionMax', { max: 500 })
   if (!input.category.trim()) errors.category = text('validation.category')
   const address = input.address.trim()
@@ -148,7 +161,8 @@ export function validateShop(input: ShopInput, requireLogo = true): FieldErrors 
   return errors
 }
 
-export function validateOwner(input: OwnerDraft): FieldErrors {
+/** linkedOwner: the draft is linked to an existing owner (second shop); the citizen id is that owner's and is not edited. */
+export function validateOwner(input: OwnerDraft, options: { linkedOwner?: boolean } = {}): FieldErrors {
   const errors: FieldErrors = {}
   if (!input.title.trim()) errors.title = text('validation.title')
   else if (input.title.trim().length > 30) errors.title = text('validation.titleMax', { max: 30 })
@@ -156,7 +170,7 @@ export function validateOwner(input: OwnerDraft): FieldErrors {
   else if (input.firstName.trim().length > 100) errors.firstName = text('validation.firstNameMax', { max: 100 })
   if (!input.lastName.trim()) errors.lastName = text('validation.lastName')
   else if (input.lastName.trim().length > 100) errors.lastName = text('validation.lastNameMax', { max: 100 })
-  if (!citizenIdChecksumOk(input.citizenId)) errors.citizenId = text('validation.citizenId')
+  if (!options.linkedOwner && !citizenIdChecksumOk(input.citizenId)) errors.citizenId = text('validation.citizenId')
   if (!input.birthDate) errors.birthDate = text('validation.birthDate')
   if (!input.nationality.trim()) errors.nationality = text('validation.nationality')
   else if (input.nationality.trim().length > 100) errors.nationality = text('validation.nationalityMax', { max: 100 })
@@ -208,6 +222,12 @@ export function ownerPayload(input: OwnerDraft): MerchantOwnerPayload {
   }
 }
 
+export function linkedOwnerPayload(input: OwnerDraft): MerchantLinkedOwnerPayload {
+  const { citizenId: _citizenId, ...rest } = ownerPayload(input)
+  void _citizenId
+  return rest
+}
+
 export const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024
 export const MAX_LOGO_BYTES = 2 * 1024 * 1024
 
@@ -230,8 +250,11 @@ export function validateDocuments(ownerType: OwnerDraft['ownerType'] | undefined
 
 export type ReviewGap = { href: string; message: string }
 
-/** existingOwner comes from the server (application.existingOwner); owner info and documents are reused from the earlier shop. */
-export function reviewGap(draft: MerchantDraft, uploaded: string[], existingOwner = false): ReviewGap | null {
+/**
+ * Same steps and rules for every application, also a second shop of an existing owner (owner details and owner
+ * documents are only prefilled there). With draft.ownerId the citizen id belongs to the linked owner.
+ */
+export function reviewGap(draft: MerchantDraft, uploaded: string[]): ReviewGap | null {
   const shopErrors = validateShop({
     shopName: draft.shopName || '',
     shopNameEnglish: draft.shopNameEnglish || '',
@@ -250,9 +273,8 @@ export function reviewGap(draft: MerchantDraft, uploaded: string[], existingOwne
     logoBase64: draft.logoBase64 || (uploaded.includes('LOGO') ? 'server' : ''),
   }, !uploaded.includes('LOGO'))
   if (Object.keys(shopErrors).length > 0) return { href: '/merchant/register', message: text('validation.stepShop') }
-  if (existingOwner) return null
-  if (!draft.ownerId) {
-    if (!draft.owner || Object.keys(validateOwner(draft.owner)).length > 0) return { href: '/merchant/owner-info', message: text('validation.stepOwner') }
+  if (!draft.owner || Object.keys(validateOwner(draft.owner, { linkedOwner: Boolean(draft.ownerId) })).length > 0) {
+    return { href: '/merchant/owner-info', message: text('validation.stepOwner') }
   }
   const docs = validateDocuments(draft.owner?.ownerType, uploaded)
   if (docs.PORTRAIT) return { href: '/merchant/owner-info', message: text('validation.stepDocuments') }

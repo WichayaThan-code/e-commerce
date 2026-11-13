@@ -105,6 +105,16 @@ public class TranslationService {
         repository.save(row);
     }
 
+    /** Removes every stored translation (machine or manual, all target locales) for one field. */
+    @Transactional
+    public void clearField(TranslationEntityType entityType, String entityId, String fieldName) {
+        if (entityType == null || entityId == null || fieldName == null) return;
+        for (var locale : TARGET_LOCALES) {
+            repository.findByEntityTypeAndEntityIdAndFieldNameAndLocale(entityType, entityId, fieldName, locale)
+                .ifPresent(repository::delete);
+        }
+    }
+
     @Transactional
     public void revertToMachine(TranslationEntityType entityType, String entityId, String fieldName, String locale, String thaiSource) {
         repository.findByEntityTypeAndEntityIdAndFieldNameAndLocale(entityType, entityId, fieldName, locale)

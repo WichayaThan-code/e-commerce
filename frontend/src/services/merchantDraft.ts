@@ -46,6 +46,8 @@ export type MerchantDraft = {
   documentNames?: Partial<Record<"IDENTITY" | "PORTRAIT" | "ADDRESS" | "BUSINESS" | "LOGO", string>>;
   documentsConfirmed?: boolean;
   ownerId?: string;
+  /** Owner id whose details/documents were already prefilled into this draft (second shop), so a reload keeps the user's edits. */
+  ownerPrefilledFor?: string;
 };
 
 function storageKey(userId: string) {

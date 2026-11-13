@@ -37,6 +37,10 @@ type ReasonDialogProps = {
   reasonCodes?: readonly string[] | { value: string; label: string }[]
   /** Suspend: confirm disabled until a code is chosen. */
   requireReasonCode?: boolean
+  /** 'cards': reason codes as a radio-chip group instead of a dropdown. */
+  reasonCodeStyle?: 'select' | 'cards'
+  /** Shown above the reason fields (e.g. what happens on suspend). */
+  notice?: ReactNode
   /** When true, free-text reason is optional (0–reasonMax chars). */
   reasonOptional?: boolean
   reasonMax?: number
@@ -51,7 +55,7 @@ type ReasonDialogProps = {
  */
 export default function ReasonDialog({
   title, message, confirmLabel, danger = true, busy = false, error = '', children, extraValid = true,
-  reasonCodes, requireReasonCode = false, reasonOptional = false,
+  reasonCodes, requireReasonCode = false, reasonOptional = false, reasonCodeStyle = 'select', notice,
   reasonMax = reasonOptional ? REASON_TEXT_MAX_OPTIONAL : REASON_MAX,
   reasonMin = reasonOptional ? 0 : REASON_MIN,
   onCancel, onConfirm,
@@ -84,7 +88,30 @@ export default function ReasonDialog({
       onConfirm={() => { if (valid && extraValid && !busy) onConfirm(trimmed, reasonCode || undefined) }}
     >
       <div className="ap-reason">
-        {codeOptions.length > 0 && (
+        {notice ? <div className="ap-reason-notice">{notice}</div> : null}
+        {codeOptions.length > 0 && reasonCodeStyle === 'cards' && (
+          <fieldset className="ap-reason-codes">
+            <legend>
+              {t('adminPlatform.reason.codeLabel')}
+              {requireReasonCode ? <em aria-hidden="true"> *</em> : null}
+            </legend>
+            <div className="ap-reason-chips" role="radiogroup" aria-required={requireReasonCode || undefined}>
+              {codeOptions.map(option => (
+                <label key={option.value} className={reasonCode === option.value ? 'is-checked' : undefined}>
+                  <input
+                    type="radio"
+                    name="ap-reason-code"
+                    value={option.value}
+                    checked={reasonCode === option.value}
+                    onChange={() => setReasonCode(option.value)}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+        {codeOptions.length > 0 && reasonCodeStyle === 'select' && (
           <AdminSelect
             label={t('adminPlatform.reason.codeLabel')}
             value={reasonCode}
@@ -96,7 +123,10 @@ export default function ReasonDialog({
           />
         )}
         <label>
-          <span>{reasonOptional ? t('adminPlatform.reason.optionalLabel') : t('adminPlatform.reason.label')}</span>
+          {/* With a reason code above, the text box is the details, so it must not repeat the "reason" label. */}
+          <span>{codeOptions.length > 0
+            ? (reasonOptional ? t('adminPlatform.reason.detailsOptionalLabel') : t('adminPlatform.reason.detailsLabel'))
+            : (reasonOptional ? t('adminPlatform.reason.optionalLabel') : t('adminPlatform.reason.label'))}</span>
           <textarea
             value={reason}
             onChange={event => setReason(event.target.value)}
@@ -105,7 +135,7 @@ export default function ReasonDialog({
             rows={4}
             required={!reasonOptional}
             aria-invalid={touched && !textOk}
-            placeholder={t('adminPlatform.reason.placeholder')}
+            placeholder={codeOptions.length > 0 ? t('adminPlatform.reason.detailsPlaceholder') : t('adminPlatform.reason.placeholder')}
           />
         </label>
         <small className={touched && !textOk ? 'invalid' : ''}>

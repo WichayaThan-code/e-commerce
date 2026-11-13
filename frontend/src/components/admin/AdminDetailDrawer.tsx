@@ -18,6 +18,8 @@ type Props = {
   open?: boolean;
   onClose: () => void;
   title: ReactNode;
+  /** Dialog name when title is not plain text */
+  ariaLabel?: string;
   /** Status pill, muted date, id chips — shown under the title */
   meta?: ReactNode;
   /** Extra controls in the header row (before close), e.g. edit buttons */
@@ -46,6 +48,7 @@ export default function AdminDetailDrawer({
   open = true,
   onClose,
   title,
+  ariaLabel,
   meta,
   headerActions,
   avatar,
@@ -104,7 +107,7 @@ export default function AdminDetailDrawer({
           .join(" ")}
         role="dialog"
         aria-modal="true"
-        aria-label={typeof title === "string" ? title : undefined}
+        aria-label={ariaLabel ?? (typeof title === "string" ? title : undefined)}
       >
         {empty != null ? (
           <div className="om-drawer-body cm-detail-body">{empty}</div>

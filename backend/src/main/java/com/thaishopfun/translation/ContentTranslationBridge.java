@@ -22,26 +22,38 @@ public class ContentTranslationBridge {
         this.translations = translations;
     }
 
+    /**
+     * Product name/description are never machine-translated on save (no provider call, no PENDING job).
+     * English/Chinese come from the merchant's own optional input; a blank field stores the Thai text as a
+     * MANUAL translation so the storefront shows Thai and nothing later re-queues or overwrites it.
+     */
     public void onProductSaved(Product product, CatalogDtos.ProductWriteRequest request) {
         if (product == null || product.getId() == null) return;
         try {
             var entityId = product.getId().toString();
-            var thaiFields = new LinkedHashMap<String, String>();
-            thaiFields.put("name", product.getNameTh());
-            if (product.getDescriptionTh() != null && !product.getDescriptionTh().isBlank()) {
-                thaiFields.put("description", product.getDescriptionTh());
-            }
-            translations.requestTranslation(TranslationEntityType.PRODUCT, entityId, thaiFields);
+            storeManualOrThai(entityId, "name", product.getNameTh(),
+                request == null ? null : request.nameEn(), request == null ? null : request.nameZh());
+            storeManualOrThai(entityId, "description", product.getDescriptionTh(),
+                request == null ? null : request.descriptionEn(), request == null ? null : request.descriptionZh());
             queueOptions(product, entityId);
-            if (request != null) {
-                translations.recordHuman(TranslationEntityType.PRODUCT, entityId, "name", "en", product.getNameTh(), request.nameEn());
-                translations.recordHuman(TranslationEntityType.PRODUCT, entityId, "name", "zh", product.getNameTh(), request.nameZh());
-                translations.recordHuman(TranslationEntityType.PRODUCT, entityId, "description", "en", product.getDescriptionTh(), request.descriptionEn());
-                translations.recordHuman(TranslationEntityType.PRODUCT, entityId, "description", "zh", product.getDescriptionTh(), request.descriptionZh());
-            }
         } catch (Exception exception) {
-            log.warn("product translation queue skipped — {}", exception.getMessage());
+            log.warn("product translation save skipped — {}", exception.getMessage());
         }
+    }
+
+    private void storeManualOrThai(String entityId, String field, String thai, String english, String chinese) {
+        var source = TranslationTextSupport.blankToNull(thai);
+        if (source == null) {
+            translations.clearField(TranslationEntityType.PRODUCT, entityId, field);
+            return;
+        }
+        translations.recordHuman(TranslationEntityType.PRODUCT, entityId, field, "en", source, orThai(english, source));
+        translations.recordHuman(TranslationEntityType.PRODUCT, entityId, field, "zh", source, orThai(chinese, source));
+    }
+
+    private static String orThai(String value, String thai) {
+        var text = TranslationTextSupport.blankToNull(value);
+        return text == null ? thai : text;
     }
 
     private void queueOptions(Product product, String entityId) {

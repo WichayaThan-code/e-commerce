@@ -25,7 +25,7 @@ import FieldError from "../components/form/FieldError";
 import { ApiError, merchantApi, type MerchantApplication, type MerchantOwnerPayload, type MerchantShopPayload } from "../services/api";
 import { describeApiError, showApiFailure } from "../services/apiErrors";
 import { clearMerchantDraft, readMerchantDraft } from "../services/merchantDraft";
-import { focusFirstInvalid, reviewGap } from "../services/merchantApplicationValidation";
+import { focusFirstInvalid, linkedOwnerPayload, reviewGap } from "../services/merchantApplicationValidation";
 import i18n from "../i18n";
 import "../styles/doc-confirm.css";
 import "../styles/verify-send.css";
@@ -213,7 +213,7 @@ export default function VerifySendPage() {
   const existingOwner = Boolean(application?.existingOwner);
   const ownerReusedLabel = i18n.t("review.ownerReused", { ns: "merchant" });
   const docsGap = application
-    ? reviewGap({ ...localDraft, ownerId: localDraft.ownerId || application.ownerId || undefined }, uploadedTypes, existingOwner)
+    ? reviewGap({ ...localDraft, ownerId: localDraft.ownerId || application.ownerId || undefined }, uploadedTypes)
     : null;
 
   useEffect(() => {
@@ -259,7 +259,7 @@ export default function VerifySendPage() {
       ...Object.keys(draft.documentNames || {}),
       ...(application?.documents.map((document) => document.type) || []),
     ];
-    const gap = reviewGap({ ...draft, ownerId: draft.ownerId || application?.ownerId || undefined }, uploaded, existingOwner);
+    const gap = reviewGap({ ...draft, ownerId: draft.ownerId || application?.ownerId || undefined }, uploaded);
     if (gap) {
       setApplyResult("error");
       setMessage(gap.message);
@@ -318,6 +318,9 @@ export default function VerifySendPage() {
           bankAccountName: ownerDraft.bankAccountName,
         };
         await merchantApi.saveOwner(ownerPayload);
+      } else if (ownerDraft && draft.ownerId) {
+        // Second shop of an existing owner: save the (possibly edited) owner + this shop's payout to this application only.
+        await merchantApi.saveLinkedOwner(linkedOwnerPayload(ownerDraft));
       }
       const result = await merchantApi.submit();
       setApplication(result);
@@ -478,10 +481,10 @@ export default function VerifySendPage() {
             <ReviewSection
               icon={UserRound}
               title={rv.sectionOwner}
-              edit={existingOwner ? undefined : ownerEditHref}
+              edit={ownerEditHref}
               locked={submitted}
               status={existingOwner ? ownerReusedLabel : undefined}
-              needsFix={!existingOwner && errorSection === "owner"}
+              needsFix={errorSection === "owner"}
               labels={sectionLabels}
               onEdit={clearSubmitError}
             >
@@ -503,8 +506,8 @@ export default function VerifySendPage() {
             <ReviewSection
               icon={FileCheck2}
               title={rv.sectionDocs}
-              status={existingOwner ? ownerReusedLabel : (hasDoc("IDENTITY") && hasDoc("ADDRESS")) ? rv.uploaded : rv.incomplete}
-              edit={existingOwner ? undefined : "/merchant/documents"}
+              status={(hasDoc("IDENTITY") && hasDoc("ADDRESS")) ? rv.uploaded : rv.incomplete}
+              edit="/merchant/documents"
               locked={submitted}
               needsFix={errorSection === "docs"}
               labels={sectionLabels}
@@ -512,9 +515,9 @@ export default function VerifySendPage() {
             >
               <dl>
                 <dt>{rv.idDoc}</dt>
-                <dd>{existingOwner || hasDoc("IDENTITY") ? (<><CheckCircle2 aria-hidden="true" />{rv.uploadedOk}</>) : rv.empty}</dd>
+                <dd>{hasDoc("IDENTITY") ? (<><CheckCircle2 aria-hidden="true" />{rv.uploadedOk}</>) : rv.empty}</dd>
                 <dt>{rv.homeDoc}</dt>
-                <dd>{existingOwner || hasDoc("ADDRESS") ? (<><CheckCircle2 aria-hidden="true" />{rv.uploadedOk}</>) : rv.empty}</dd>
+                <dd>{hasDoc("ADDRESS") ? (<><CheckCircle2 aria-hidden="true" />{rv.uploadedOk}</>) : rv.empty}</dd>
                 <dt>{rv.businessDoc}</dt>
                 <dd>{hasDoc("BUSINESS") ? (<><CheckCircle2 aria-hidden="true" />{rv.uploadedOk}</>) : rv.empty}</dd>
               </dl>
@@ -538,10 +541,9 @@ export default function VerifySendPage() {
             <ReviewSection
               icon={Landmark}
               title={rv.sectionPayout}
-              edit={existingOwner ? undefined : ownerEditHref}
+              edit={ownerEditHref}
               locked={submitted}
-              status={existingOwner ? ownerReusedLabel : undefined}
-              needsFix={!existingOwner && errorSection === "payout"}
+              needsFix={errorSection === "payout"}
               labels={sectionLabels}
               onEdit={clearSubmitError}
             >
@@ -601,7 +603,7 @@ export default function VerifySendPage() {
               </p>
             ) : null}
             <div className="verify-actions">
-              <a href={existingOwner ? "/merchant/register" : "/merchant/documents"}>
+              <a href="/merchant/documents">
                 <ArrowLeft aria-hidden="true" />
                 {ob.common.back}
               </a>
@@ -623,7 +625,7 @@ export default function VerifySendPage() {
                     ...Object.keys(draft.documentNames || {}),
                     ...(application?.documents.map((document) => document.type) || []),
                   ];
-                  const gap = reviewGap({ ...draft, ownerId: draft.ownerId || application?.ownerId || undefined }, uploaded, existingOwner);
+                  const gap = reviewGap({ ...draft, ownerId: draft.ownerId || application?.ownerId || undefined }, uploaded);
                   if (gap) {
                     setMessage(gap.message);
                     setStepHref(gap.href);

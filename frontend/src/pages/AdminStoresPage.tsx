@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Check, ChevronDown,
-  CircleX, Clock3, Download, MoreVertical, Plus,
+  CircleX, Clock3, Download, ExternalLink, MoreVertical, Plus,
   Search, SlidersHorizontal, Store,
 } from 'lucide-react'
 import { SkeletonTable, SkeletonForm, LoadError } from '../components/feedback/Skeleton'
@@ -413,6 +413,14 @@ export default function AdminStoresPage(){
     return text || '—'
   }
 
+  // Facts from ShopSuspensionService / public catalog filters (APPROVED only) / store-access guard.
+  const suspendEffects = <ul>
+    <li>{t('confirm.suspendStoreEffectHidden')}</li>
+    <li>{t('confirm.suspendStoreEffectManage')}</li>
+    <li>{t('confirm.suspendStoreEffectNotify')}</li>
+    <li>{t('confirm.suspendStoreEffectRestore')}</li>
+  </ul>
+
   return <main className="admin-shell stores-shell">
     <AdminHeader user={user} />
 
@@ -503,13 +511,17 @@ export default function AdminStoresPage(){
         className="store-detail-drawer"
         title={detail?.name || selectedRow?.name || (hasAppeal ? td('reinstatementTitle') : td('title'))}
         subtitle={
-          <>
+          <span className="store-drawer-ref">
             {detail ? <Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill> : null}
-            <span className="store-drawer-ref">
-              <span className="num">#{selectedId}</span>
-              {(detail?.name || selectedRow?.name) ? <span className="store-drawer-ref-name">{hasAppeal ? td('reinstatementTitle') : td('title')}</span> : null}
-            </span>
-          </>
+            <span className="num">#{selectedId}</span>
+            {detail?.slug ? <span className="store-drawer-ref-slug">@{detail.slug}</span> : null}
+            {detail?.slug ? (
+              <a className="store-drawer-ref-link" href={`/shop/${encodeURIComponent(detail.slug)}`} target="_blank" rel="noreferrer">
+                {td('openStorefront')}
+                <ExternalLink aria-hidden="true" />
+              </a>
+            ) : null}
+          </span>
         }
         avatar={
           selectedRow?.logoUrl
@@ -541,28 +553,6 @@ export default function AdminStoresPage(){
           <SkeletonForm fields={6} />
         ) : (
           <div className="store-drawer">
-            <section className="store-drawer-summary" aria-label={td('info')}>
-              <i className={`store-drawer-logo ${selectedRow?.logoClass || 'garden'}`} aria-hidden>
-                {selectedRow?.logoUrl
-                  ? <img src={mediaUrl(selectedRow.logoUrl)} alt="" />
-                  : (selectedRow?.logo || detail.name.trim().charAt(0) || 'S')}
-              </i>
-              <div className="store-drawer-summary-copy">
-                <h3>{detail.name}</h3>
-                <div className="store-drawer-summary-meta">
-                  <Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill>
-                  {detail.slug ? (
-                    <a href={`/shop/${encodeURIComponent(detail.slug)}`} target="_blank" rel="noreferrer">
-                      @{detail.slug}
-                    </a>
-                  ) : null}
-                  {detail.slug ? (
-                    <a href={`/shop/${encodeURIComponent(detail.slug)}`} target="_blank" rel="noreferrer">{td('openStorefront')}</a>
-                  ) : null}
-                </div>
-              </div>
-            </section>
-
             {hasAppeal && (
               <section className="store-drawer-appeal" aria-label={td('reinstatementSection')}>
                 <div className="store-drawer-appeal-top">
@@ -606,12 +596,6 @@ export default function AdminStoresPage(){
             <section className="store-drawer-section" aria-label={td('info')}>
               <h4>{td('info')}</h4>
               <dl className="store-drawer-fields">
-                {!showSuspension && (
-                  <div>
-                    <dt>{td('status')}</dt>
-                    <dd><Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill></dd>
-                  </div>
-                )}
                 <div>
                   <dt>{td('createdAt')}</dt>
                   <dd className="num">{formatDateTime(detail.createdAt)}</dd>
@@ -712,12 +696,18 @@ export default function AdminStoresPage(){
     )}
     {storeConfirm && (
       <ReasonDialog
-        title={t(storeConfirm.status === 'SUSPENDED' ? 'confirm.reactivateStoreTitle' : 'confirm.suspendStoreTitle')}
-        message={[
-          t(storeConfirm.status === 'SUSPENDED' ? 'confirm.reactivateStoreBody' : 'confirm.suspendStoreBody', { name: storeConfirm.name }),
-          storeConfirm.status === 'SUSPENDED' && storeConfirm.appeal ? t('confirm.appealNote', { appeal: storeConfirm.appeal }) : '',
-        ].filter(Boolean).join(' ')}
-        confirmLabel={t('confirm.confirm')}
+        title={storeConfirm.status === 'SUSPENDED'
+          ? t('confirm.reactivateStoreTitle')
+          : t('confirm.suspendStoreTitleNamed', { name: storeConfirm.name })}
+        message={storeConfirm.status === 'SUSPENDED'
+          ? [
+              t('confirm.reactivateStoreBody', { name: storeConfirm.name }),
+              storeConfirm.appeal ? t('confirm.appealNote', { appeal: storeConfirm.appeal }) : '',
+            ].filter(Boolean).join(' ')
+          : t('confirm.suspendStoreLead')}
+        notice={storeConfirm.status === 'SUSPENDED' ? undefined : suspendEffects}
+        reasonCodeStyle="cards"
+        confirmLabel={t(storeConfirm.status === 'SUSPENDED' ? 'confirm.confirm' : 'confirm.suspendStoreConfirm')}
         danger={storeConfirm.status !== 'SUSPENDED'}
         busy={busyId === storeConfirm.id}
         error={confirmError}
@@ -732,10 +722,12 @@ export default function AdminStoresPage(){
         title={t(bulkConfirm === 'suspend' ? 'confirm.bulkSuspendTitle' : 'confirm.bulkReactivateTitle', {
           count: bulkConfirm === 'suspend' ? selectedActive.length : selectedSuspended.length,
         })}
-        message={t(bulkConfirm === 'suspend' ? 'confirm.bulkSuspendBody' : 'confirm.bulkReactivateBody', {
-          count: bulkConfirm === 'suspend' ? selectedActive.length : selectedSuspended.length,
-        })}
-        confirmLabel={t('confirm.confirm')}
+        message={bulkConfirm === 'suspend'
+          ? t('confirm.bulkSuspendLead')
+          : t('confirm.bulkReactivateBody', { count: selectedSuspended.length })}
+        notice={bulkConfirm === 'suspend' ? suspendEffects : undefined}
+        reasonCodeStyle="cards"
+        confirmLabel={t(bulkConfirm === 'suspend' ? 'confirm.suspendStoreConfirm' : 'confirm.confirm')}
         danger={bulkConfirm === 'suspend'}
         busy={busyId === -1}
         error={confirmError}
@@ -764,12 +756,18 @@ export default function AdminStoresPage(){
     )}
     {drawerConfirm && detail && (
       <ReasonDialog
-        title={t(drawerConfirm === 'suspend' ? 'confirm.suspendStoreTitle' : 'confirm.reactivateStoreTitle')}
-        message={[
-          t(drawerConfirm === 'suspend' ? 'confirm.suspendStoreBody' : 'confirm.reactivateStoreBody', { name: detail.name }),
-          drawerConfirm === 'reactivate' && hasAppeal ? t('confirm.appealNote', { appeal: appealMessage }) : '',
-        ].filter(Boolean).join(' ')}
-        confirmLabel={t('confirm.confirm')}
+        title={drawerConfirm === 'suspend'
+          ? t('confirm.suspendStoreTitleNamed', { name: detail.name })
+          : t('confirm.reactivateStoreTitle')}
+        message={drawerConfirm === 'suspend'
+          ? t('confirm.suspendStoreLead')
+          : [
+              t('confirm.reactivateStoreBody', { name: detail.name }),
+              hasAppeal ? t('confirm.appealNote', { appeal: appealMessage }) : '',
+            ].filter(Boolean).join(' ')}
+        notice={drawerConfirm === 'suspend' ? suspendEffects : undefined}
+        reasonCodeStyle="cards"
+        confirmLabel={t(drawerConfirm === 'suspend' ? 'confirm.suspendStoreConfirm' : 'confirm.confirm')}
         danger={drawerConfirm === 'suspend'}
         busy={drawerBusy}
         error={drawerActionError}

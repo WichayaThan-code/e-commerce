@@ -361,3 +361,20 @@
     max-width: 360px;
   }
 }
+
+/* Pending / rejected gate with the site Header on top: header + gate together fill exactly one viewport. */
+.merchant-gate-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.merchant-gate-page > .site-header {
+  flex: none;
+}
+
+.merchant-signup-gate.merchant-signup-gate--with-header {
+  flex: 1 0 auto;
+  min-height: 0;
+}

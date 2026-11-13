@@ -13,6 +13,7 @@ import {
   emptySku,
   optionKey,
   reconcileVariants,
+  sanitizeWeight,
   skuAxesFromGroups,
   variantIssues,
   type OptionGroupDraft,
@@ -178,7 +179,7 @@ export default function VariantEditor({
       const next = { ...sku };
       if (bulk.costPrice.trim()) { next.costPrice = bulk.costPrice; marks.push(`${sku.clientKey}.costPrice`); }
       if (bulk.initialStock.trim()) { next.initialStock = bulk.initialStock; marks.push(`${sku.clientKey}.initialStock`); }
-      if (bulk.weightGrams.trim()) { next.weightGrams = bulk.weightGrams; marks.push(`${sku.clientKey}.weightGrams`); }
+      if (bulk.weightGrams.trim()) { next.weightGrams = sanitizeWeight(bulk.weightGrams); marks.push(`${sku.clientKey}.weightGrams`); }
       if (bulk.image) {
         marks.push(`${sku.clientKey}.imageId`);
         if (bulk.image.startsWith("local:")) {
@@ -323,7 +324,7 @@ export default function VariantEditor({
     : [];
 
   return (
-    <section className="variant-editor">
+    <section className="variant-editor" data-error-scope>
       <h3>{t("catalog.variants.title")}</h3>
       <div className="variant-groups">
         {groups.map((group, groupIndex) => (
@@ -427,7 +428,11 @@ export default function VariantEditor({
       </div>
       {matrixError ? <FieldError text={t("catalog.variants.tooMany")} /> : null}
       {(submitAttempted && visibleIssues.length > 0) || looseErrors.length > 0 ? (
-        <div className="variant-problems" id="variant-problems">
+        <div
+          className="variant-problems"
+          id="variant-problems"
+          data-error-anchor={looseErrors.length > 0 || visibleIssues.some((issue) => issue.index < 0) ? "" : undefined}
+        >
           <strong>{t("catalog.variants.problems", { count: visibleIssues.length + looseErrors.length })}</strong>
           {looseErrors.map(([field, code]) => (
             <span key={field}>{message(code)}</span>
@@ -567,7 +572,7 @@ export default function VariantEditor({
                     <FieldError text={message(barcodeError)} />
                   </td>
                   <td className="col-qty">
-                    <input className="num" title={sku.weightGrams || undefined} inputMode="numeric" aria-label={named(t("catalog.variants.weight"))} aria-invalid={Boolean(weightError)} value={sku.weightGrams} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "weightGrams")} onChange={(event) => { touch(sku.clientKey, "weightGrams"); patchSku(index, { weightGrams: event.target.value }); }} />
+                    <input className="num" title={sku.weightGrams || undefined} inputMode="numeric" aria-label={named(t("catalog.variants.weight"))} aria-invalid={Boolean(weightError)} value={sku.weightGrams} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "weightGrams")} onChange={(event) => { touch(sku.clientKey, "weightGrams"); patchSku(index, { weightGrams: sanitizeWeight(event.target.value) }); }} />
                     <FieldError text={message(weightError)} />
                   </td>
                   <td className="col-qty">

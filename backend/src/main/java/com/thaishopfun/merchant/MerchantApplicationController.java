@@ -30,6 +30,8 @@ public class MerchantApplicationController {
     @RequirePermission("SHOP_APPLICATION_UPDATE")
     @PutMapping("/owner") public MerchantDtos.ApplicationResponse owner(@AuthenticationPrincipal Jwt jwt,@Valid @RequestBody MerchantDtos.OwnerRequest request){return service.saveOwner(userId(jwt),request);}
     @RequirePermission("SHOP_APPLICATION_UPDATE")
+    @PutMapping("/owner/linked") public MerchantDtos.ApplicationResponse linkedOwner(@AuthenticationPrincipal Jwt jwt,@Valid @RequestBody MerchantDtos.LinkedOwnerRequest request){return service.saveLinkedOwner(userId(jwt),request);}
+    @RequirePermission("SHOP_APPLICATION_UPDATE")
     @PostMapping("/owner/{ownerId}") public MerchantDtos.ApplicationResponse attachOwner(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID ownerId){return service.attachOwner(userId(jwt),ownerId);}
     @RequirePermission("SHOP_APPLICATION_FILE_UPLOAD")
     @PostMapping(value="/documents/{type}",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)

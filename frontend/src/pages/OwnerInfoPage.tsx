@@ -11,7 +11,7 @@ import RegisterStepper from '../components/merchant/RegisterStepper'
 import MerchantHeader from '../components/MerchantHeader'
 import SearchableSelect from '../components/SearchableSelect'
 import ThaiAddressFields, { emptyThaiAddress, type ThaiAddressValue } from '../components/ThaiAddressFields'
-import { merchantApi, type MerchantOwner } from '../services/api'
+import { merchantApi, type MerchantApplication, type MerchantOwner } from '../services/api'
 import { showApiFailure } from '../services/apiErrors'
 import DatePicker from '../components/form/DatePicker'
 import FieldError from '../components/form/FieldError'
@@ -174,11 +174,15 @@ export default function OwnerInfoPage() {
   const uploadLabels = { drop: o.uploadDrop, types: o.uploadTypes, pick: o.uploadPick, change: o.uploadChange, uploading: o.uploading, fail: o.uploadFail }
   const navigate = useNavigate()
   const saved = readMerchantDraft(user?.id).owner
+  // Draft linked to an owner the user already has (second shop): owner details are prefilled and editable,
+  // the citizen id stays that owner's (shown masked, not editable).
+  const [linkedOwnerId, setLinkedOwnerId] = useState(() => readMerchantDraft(user?.id).ownerId || '')
+  const linked = Boolean(linkedOwnerId)
   const [ownerType, setOwnerType] = useState<OwnerDraft['ownerType']>(saved?.ownerType || 'person')
   const [title, setTitle] = useState(saved?.title || o.titles[0])
   const [firstName, setFirstName] = useState(saved?.firstName || user?.firstName || '')
   const [lastName, setLastName] = useState(saved?.lastName || user?.lastName || '')
-  const [citizenId, setCitizenId] = useState(formatCitizenId(saved?.citizenId || ''))
+  const [citizenId, setCitizenId] = useState(() => linkedOwnerId ? (saved?.citizenId || '') : formatCitizenId(saved?.citizenId || ''))
   const [birthDate, setBirthDate] = useState(saved?.birthDate || '')
   const [nationality, setNationality] = useState(saved?.nationality || o.nationalities[0])
   const [phone, setPhone] = useState(formatPhoneNumber(saved?.phone || user?.phone || ''))
@@ -219,6 +223,68 @@ export default function OwnerInfoPage() {
   const onDocError = (type: OwnerDocType, message: string) => {
     setFieldErrors((prev) => mergeFieldError(prev, docFieldKey(type), message || undefined))
   }
+
+  /**
+   * Prefill from the server draft linked to an existing owner: owner/personal details and the owner documents the
+   * server copied into this draft (ID card, portrait). Payout details are left blank — they belong to the new shop.
+   */
+  const applyPrefill = (app: MerchantApplication, ownerId: string) => {
+    if (!user) return
+    setOwnerType(app.ownerType === 'COMPANY' ? 'company' : 'person')
+    if (app.title) setTitle(app.title)
+    setFirstName(app.firstName || '')
+    setLastName(app.lastName || '')
+    setCitizenId(app.citizenIdMasked || '')
+    setBirthDate(app.birthDate || '')
+    if (app.nationality) setNationality(app.nationality)
+    setPhone(formatPhoneNumber(app.phone || ''))
+    setEmail(app.email || '')
+    setSameAddress(false)
+    setHouseNo(app.houseNo || '')
+    setVillageNo(app.villageNo || '')
+    setBuilding(app.building || '')
+    setAlley(app.alley || '')
+    setRoad(app.road || '')
+    setThaiAddress({ province: app.province || '', district: app.district || '', subdistrict: app.subdistrict || '', postalCode: app.postalCode || '' })
+    setBankName('')
+    setBankAccountNumber('')
+    setBankAccountName('')
+    const identity = app.documents.find((doc) => doc.type === 'IDENTITY')
+    const portrait = app.documents.find((doc) => doc.type === 'PORTRAIT')
+    if (identity) rememberDocumentName(user.id, 'IDENTITY', identity.originalFilename)
+    if (portrait) rememberDocumentName(user.id, 'PORTRAIT', portrait.originalFilename)
+    setIdentityFile(identity?.originalFilename || '')
+    setPortraitFile(portrait?.originalFilename || '')
+    setLinkedOwnerId(ownerId)
+    setAdding(true)
+    setFieldErrors({})
+    writeMerchantDraft(user.id, { ...readMerchantDraft(user.id), ownerId, ownerPrefilledFor: ownerId })
+  }
+
+  const unlinkOwner = () => {
+    if (!user) return
+    setLinkedOwnerId('')
+    setCitizenId('')
+    setFieldErrors({})
+    setAdding(true)
+    writeMerchantDraft(user.id, { ...readMerchantDraft(user.id), ownerId: undefined, ownerPrefilledFor: undefined })
+  }
+
+  useEffect(() => {
+    if (!user || !linkedOwnerId) return
+    const local = readMerchantDraft(user.id)
+    if (local.ownerPrefilledFor === linkedOwnerId && local.owner) return
+    let active = true
+    merchantApi.getDraft().then((app) => {
+      if (!active) return
+      if (app.ownerId !== linkedOwnerId) {
+        unlinkOwner()
+        return
+      }
+      applyPrefill(app, linkedOwnerId)
+    }).catch(() => undefined)
+    return () => { active = false }
+  }, [user])
 
   useEffect(() => {
     if (!user) return
@@ -270,7 +336,7 @@ export default function OwnerInfoPage() {
   })
 
   const blurOwner = (field: string, overrides?: Partial<OwnerDraft>) => {
-    setFieldErrors((prev) => mergeFieldError(prev, field, validateOwner({ ...currentOwner(), ...overrides })[field]))
+    setFieldErrors((prev) => mergeFieldError(prev, field, validateOwner({ ...currentOwner(), ...overrides }, { linkedOwner: linked })[field]))
   }
 
   const patchThaiAddress = (next: ThaiAddressValue) => {
@@ -325,7 +391,7 @@ export default function OwnerInfoPage() {
     const form = event.currentTarget
     const syncedFirstName = readFormTextValue(form, 'firstName', firstName)
     const syncedLastName = readFormTextValue(form, 'lastName', lastName)
-    const syncedCitizenId = formatCitizenId(readFormTextValue(form, 'citizenId', citizenId))
+    const syncedCitizenId = linked ? citizenId : formatCitizenId(readFormTextValue(form, 'citizenId', citizenId))
     const syncedPhone = formatPhoneNumber(readFormTextValue(form, 'phone', phone))
     const syncedEmail = readFormTextValue(form, 'email', email)
     const syncedHouseNo = readFormTextValue(form, 'houseNo', houseNo)
@@ -350,7 +416,7 @@ export default function OwnerInfoPage() {
       bankAccountNumber: syncedBankAccountNumber,
       bankAccountName: syncedBankAccountName,
     }
-    const nextErrors = validateOwner(owner)
+    const nextErrors = validateOwner(owner, { linkedOwner: linked })
     if (!identityFile) nextErrors.identityDoc = i18n.t('validation.identityDoc', { ns: 'merchant' })
     if (!portraitFile) nextErrors.portraitDoc = i18n.t('validation.portraitDoc', { ns: 'merchant' })
     if (identityUploading || portraitUploading) {
@@ -367,8 +433,9 @@ export default function OwnerInfoPage() {
     }
     setSubmitting(true)
     try {
-      await merchantApi.validateOwner(ownerPayload(owner))
-      writeMerchantDraft(user.id, { ...readMerchantDraft(user.id), owner, ownerId: undefined })
+      // A linked owner keeps its citizen id (already checked); its details are saved to this application on submit.
+      if (!linked) await merchantApi.validateOwner(ownerPayload(owner))
+      writeMerchantDraft(user.id, { ...readMerchantDraft(user.id), owner, ownerId: linked ? linkedOwnerId : undefined })
       navigate('/merchant/documents')
     } catch (error) {
       showApiFailure(error, setMessage, setFieldErrors)
@@ -382,9 +449,8 @@ export default function OwnerInfoPage() {
     setPicking(true)
     setMessage('')
     try {
-      await merchantApi.attachOwner(ownerId)
-      writeMerchantDraft(user.id, { ...readMerchantDraft(user.id), ownerId, documentsConfirmed: true })
-      navigate('/merchant/review')
+      // Prefill only: the form (and the document step) stay required, like a first application.
+      applyPrefill(await merchantApi.attachOwner(ownerId), ownerId)
     } catch (error) {
       showApiFailure(error, setMessage)
     } finally {
@@ -413,7 +479,7 @@ export default function OwnerInfoPage() {
           <div className="owner-card">
             <div className="owner-title"><h1>{o.pageTitle}</h1><p>{o.pageLead}</p></div>
             <RegisterStepper currentStep={2} />
-            {owners.length > 0 && !adding ? (
+            {owners.length > 0 && !adding && !linked ? (
               <div className="owner-choice">
                 <p>{o.reuseHint}</p>
                 {owners.map((owner) => (
@@ -425,8 +491,8 @@ export default function OwnerInfoPage() {
                 {message && <p className="owner-message" role="alert">{message}</p>}
               </div>
             ) : null}
-            {owners.length > 0 && adding ? <button type="button" className="owner-choice-back" onClick={() => setAdding(false)}>{o.reuseLabel}</button> : null}
-            <form onSubmit={(event) => void submit(event)} hidden={owners.length > 0 && !adding} noValidate>
+            {owners.length > 0 && adding && !linked ? <button type="button" className="owner-choice-back" onClick={() => setAdding(false)}>{o.reuseLabel}</button> : null}
+            <form onSubmit={(event) => void submit(event)} hidden={owners.length > 0 && !adding && !linked} noValidate>
               {message && <p className="form-alert" role="alert">{message}</p>}
               <fieldset className="owner-type">
                 <legend>{o.ownerType}</legend>
@@ -454,7 +520,7 @@ export default function OwnerInfoPage() {
                       placeholder={o.citizenPh}
                       value={citizenId}
                       aria-invalid={Boolean(fieldErrors.citizenId)}
-                      {...citizenIdHandlers}
+                      {...(linked ? { readOnly: true, 'aria-readonly': true, title: o.citizenLocked } : citizenIdHandlers)}
                       onBlur={() => blurOwner('citizenId')}
                     />
                   </FormField>

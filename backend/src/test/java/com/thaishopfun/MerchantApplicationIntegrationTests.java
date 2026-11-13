@@ -131,6 +131,15 @@ class MerchantApplicationIntegrationTests {
         mvc.perform(get("/api/shops/missing")).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("SHOP_NOT_FOUND"));
     }
 
+    @Test void englishShopNameRejectsThaiCharactersButThaiNameMayContainEnglish() throws Exception {
+        String token = tokenFor("en-name@example.com", "0855555556");
+        saveShop(token, "ร้าน ThaiShop", "Thai Shop ร้าน").andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+            .andExpect(jsonPath("$.fieldErrors[0].field").value("shopNameEn"))
+            .andExpect(jsonPath("$.fieldErrors[0].code").value("INVALID"));
+        saveShop(token, "ร้าน ThaiShop", "Thai Shop 2026 & Co.").andExpect(status().isOk());
+    }
+
     @Test void checksShopNameAvailabilityWithTheSaveShopRule() throws Exception {
         String first = tokenFor("name-a@example.com", "0866666666");
         String second = tokenFor("name-b@example.com", "0877777777");
@@ -186,25 +195,112 @@ class MerchantApplicationIntegrationTests {
             .andExpect(jsonPath("$.fieldErrors[?(@.field == 'email')]").isNotEmpty());
     }
 
-    @Test void secondShopReusesTheSameOwnerWithoutUploadingDocumentsAgain() throws Exception {
+    @Test void secondShopPrefillsOwnerAndOwnerDocumentsButStillRequiresTheOwnerAndDocumentSteps() throws Exception {
         String token = tokenFor("again@example.com", "0866666666");
         saveShop(token, "ร้านแรก", "First Shop").andExpect(status().isOk());
         saveOwner(token, "4444444444444").andExpect(status().isOk());
         upload(token, "IDENTITY", "identity.png");
+        upload(token, "PORTRAIT", "portrait.png");
         upload(token, "ADDRESS", "address.png");
+        upload(token, "LOGO", "logo.png");
         mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+        var firstApplication = applications.findAll().get(0).getId();
+        var firstDocs = documents.findByApplication_Id(firstApplication);
         var listed = mvc.perform(get("/api/merchant/owners").header("Authorization", "Bearer " + token)).andExpect(status().isOk()).andReturn();
         String ownerId = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].id");
-        mvc.perform(post("/api/merchant/shops?ownerId=" + ownerId).header("Authorization", "Bearer " + token))
-          .andExpect(status().isOk()).andExpect(jsonPath("$.ownerId").value(ownerId)).andExpect(jsonPath("$.documents.length()").value(0));
+
+        // Open a second shop: owner details + owner documents (ID card, portrait) prefilled; payout + shop documents are not.
+        var opened = mvc.perform(post("/api/merchant/shops?ownerId=" + ownerId).header("Authorization", "Bearer " + token))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.ownerId").value(ownerId))
+          .andExpect(jsonPath("$.existingOwner").value(true))
+          .andExpect(jsonPath("$.firstName").value("สมหญิง")).andExpect(jsonPath("$.citizenIdMasked").value("*********4444"))
+          .andExpect(jsonPath("$.bankName").doesNotExist()).andExpect(jsonPath("$.bankAccountMasked").doesNotExist())
+          .andExpect(jsonPath("$.documents.length()").value(2))
+          .andExpect(jsonPath("$.documents[?(@.type == 'IDENTITY')]").isNotEmpty())
+          .andExpect(jsonPath("$.documents[?(@.type == 'PORTRAIT')]").isNotEmpty())
+          .andExpect(jsonPath("$.documents[?(@.type == 'ADDRESS')]").isEmpty())
+          .andExpect(jsonPath("$.documents[?(@.type == 'LOGO')]").isEmpty())
+          .andReturn();
+        String draftId = JsonPath.read(opened.getResponse().getContentAsString(), "$.id");
+        var copies = documents.findByApplication_Id(java.util.UUID.fromString(draftId));
+        for (var copy : copies) {
+            var source = firstDocs.stream().filter(doc -> doc.getType() == copy.getType()).findFirst().orElseThrow();
+            org.junit.jupiter.api.Assertions.assertNotEquals(source.getId(), copy.getId());
+            org.junit.jupiter.api.Assertions.assertNotEquals(source.getStoragePath(), copy.getStoragePath());
+            org.junit.jupiter.api.Assertions.assertEquals(source.getOriginalFilename(), copy.getOriginalFilename());
+            org.junit.jupiter.api.Assertions.assertTrue(java.nio.file.Files.isRegularFile(java.nio.file.Path.of(copy.getStoragePath())));
+        }
+        mvc.perform(get("/api/merchant-applications/draft/documents/IDENTITY").header("Authorization", "Bearer " + token))
+          .andExpect(status().isOk()).andExpect(content().contentType("image/png"));
+
+        // Not skipped any more: shop details, payout and the shop address document are still required.
         saveShop(token, "ร้านสอง", "Second Shop").andExpect(status().isOk());
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + token))
+          .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("APPLICATION_INCOMPLETE"));
+        saveLinkedOwner(token, "COMPANY", "SCB", "9876543210", "บริษัท ร้านสอง จำกัด").andExpect(status().isOk())
+          .andExpect(jsonPath("$.citizenIdMasked").value("*********4444"))
+          .andExpect(jsonPath("$.bankAccountMasked").value("******3210"))
+          .andExpect(jsonPath("$.bankAccountName").value("บริษัท ร้านสอง จำกัด"))
+          .andExpect(jsonPath("$.phone").value("0899999999"));
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + token))
+          .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("APPLICATION_INCOMPLETE"));
+        upload(token, "ADDRESS", "address-2.png");
+        // Replacing a prefilled copy only affects the new application.
+        upload(token, "IDENTITY", "identity-2.png");
+        // owner type changed to a company for this shop: the company certificate is required, as for a first application
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + token))
+          .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("APPLICATION_INCOMPLETE"));
+        upload(token, "BUSINESS", "company.png");
         mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+
+        var stillThere = documents.findByApplication_Id(firstApplication);
+        org.junit.jupiter.api.Assertions.assertEquals(firstDocs.size(), stillThere.size());
+        for (var doc : stillThere) org.junit.jupiter.api.Assertions.assertTrue(java.nio.file.Files.isRegularFile(java.nio.file.Path.of(doc.getStoragePath())));
+        // The shared owner profile keeps its own payout account; the new shop's account lives on its application.
+        var owner = owners.findAll().get(0);
+        org.junit.jupiter.api.Assertions.assertEquals("สมหญิง ใจดี", owner.getBankAccountName());
+        org.junit.jupiter.api.Assertions.assertEquals("0822222222", owner.getPhone());
+        org.junit.jupiter.api.Assertions.assertEquals("NONE", owner.getSensitiveReview());
         mvc.perform(get("/api/merchant/shops").header("Authorization", "Bearer " + token))
           .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
           .andExpect(jsonPath("$[0].ownerId").value(ownerId))
           .andExpect(jsonPath("$[1].ownerId").value(ownerId));
         org.junit.jupiter.api.Assertions.assertEquals(1, owners.count());
         org.junit.jupiter.api.Assertions.assertEquals(2, shops.count());
+    }
+
+    @Test void pickingAnExistingOwnerOnTheOwnerStepCopiesOnlyMissingOwnerDocuments() throws Exception {
+        String token = tokenFor("pick@example.com", "0867777777");
+        saveShop(token, "ร้านเลือกเจ้าของ", "Pick Shop").andExpect(status().isOk());
+        saveOwner(token, "5555555555555").andExpect(status().isOk());
+        upload(token, "IDENTITY", "identity.png");
+        upload(token, "PORTRAIT", "portrait.png");
+        upload(token, "ADDRESS", "address.png");
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+        var listed = mvc.perform(get("/api/merchant/owners").header("Authorization", "Bearer " + token)).andExpect(status().isOk()).andReturn();
+        String ownerId = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].id");
+
+        saveShop(token, "ร้านเลือกเจ้าของสอง", "Pick Shop Two").andExpect(status().isOk());
+        saveLinkedOwner(token, "SCB", "9876543210", "x").andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("OWNER_REQUIRED"));
+        upload(token, "PORTRAIT", "portrait-new.png");
+        var beforePick = mvc.perform(get("/api/merchant-applications/draft").header("Authorization", "Bearer " + token)).andExpect(status().isOk()).andReturn();
+        java.util.List<String> ownPortrait = JsonPath.read(beforePick.getResponse().getContentAsString(), "$.documents[?(@.type == 'PORTRAIT')].id");
+        String ownPortraitId = ownPortrait.get(0);
+        mvc.perform(post("/api/merchant-applications/draft/owner/" + ownerId).header("Authorization", "Bearer " + token))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.ownerId").value(ownerId))
+          .andExpect(jsonPath("$.bankName").doesNotExist())
+          .andExpect(jsonPath("$.documents.length()").value(2))
+          .andExpect(jsonPath("$.documents[?(@.type == 'IDENTITY')]").isNotEmpty())
+          .andExpect(jsonPath("$.documents[?(@.type == 'ADDRESS')]").isEmpty());
+        // the PORTRAIT uploaded for this draft is kept, not overwritten by the earlier one
+        var current = mvc.perform(get("/api/merchant-applications/draft").header("Authorization", "Bearer " + token)).andExpect(status().isOk()).andReturn();
+        java.util.List<String> portraitIds = JsonPath.read(current.getResponse().getContentAsString(), "$.documents[?(@.type == 'PORTRAIT')].id");
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of(ownPortraitId), portraitIds);
+        saveLinkedOwner(token, "KBANK", "12-3456-7890", "สมหญิง ใจดี").andExpect(status().isOk());
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + token))
+          .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("APPLICATION_INCOMPLETE"));
+        upload(token, "ADDRESS", "address-2.png");
+        mvc.perform(post("/api/merchant-applications/draft/submit").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
     }
 
     @Test void approvalUnlocksStoreManagementAndRejectionClosesIt() throws Exception {
@@ -379,6 +475,16 @@ class MerchantApplicationIntegrationTests {
         return mvc.perform(put("/api/merchant-applications/draft/shop").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content("""
           {"shopName":"%s","shopNameEn":"%s","description":"สินค้า","category":"อาหารและเครื่องดื่ม","saleType":"OWNER","website":"","address":"88 Silom Rd.","province":"กรุงเทพมหานคร","district":"บางรัก","subdistrict":"สีลม","postalCode":"10500"}
           """.formatted(shopName, shopNameEn)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions saveLinkedOwner(String token, String bank, String account, String accountName) throws Exception {
+        return saveLinkedOwner(token, "PERSON", bank, account, accountName);
+    }
+
+    private org.springframework.test.web.servlet.ResultActions saveLinkedOwner(String token, String ownerType, String bank, String account, String accountName) throws Exception {
+        return mvc.perform(put("/api/merchant-applications/draft/owner/linked").header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content("""
+          {"ownerType":"%s","title":"นาง","firstName":"สมหญิง","lastName":"ใจดี","birthDate":"1980-08-15","nationality":"ไทย","phone":"0899999999","email":"second@example.com","houseNo":"1","province":"กรุงเทพมหานคร","district":"บางรัก","subdistrict":"สีลม","postalCode":"10500","bankName":"%s","bankAccountNumber":"%s","bankAccountName":"%s"}
+          """.formatted(ownerType, bank, account, accountName)));
     }
 
     private org.springframework.test.web.servlet.ResultActions saveOwner(String token) throws Exception {

@@ -18,11 +18,35 @@ import { labelForCategory } from "../services/categories";
 import { catalogMessage } from "../services/catalogText";
 import { ApiError, catalogApi, merchantPlanUsageApi, productApi, type MerchantPlanUsage, type Product, type ProductCategory } from "../services/api";
 import {
-  applyDefaultPricing, axesFromGroups, axesFromSkus, emptyDraft, emptySku, englishStem, fromProduct, groupsFromAxes, optionKey, randomStem, toWrite, uncoveredOptionLabels, validateDraft, variantIssues,
+  applyDefaultPricing, applyTranslationMode, axesFromGroups, axesFromSkus, emptyDraft, emptySku, englishStem, fromProduct, groupsFromAxes, hasOwnTranslations, optionKey, randomStem, sanitizeWeight, toWrite, uncoveredOptionLabels, validateDraft, variantIssues, withoutThaiCopies,
   type VariantIssue,
   type OptionGroupDraft, type ProductDraft,
 } from "./productFormModel";
 import "../styles/form-fields.css";
+
+const FOCUSABLE = "input:not([type=hidden]):not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled])";
+
+/**
+ * Scrolls to and focuses the first invalid control in document order. Inputs mark themselves with
+ * aria-invalid; errors without an input (images, option matrix, form-level) carry data-error-anchor and
+ * focus the first control inside their nearest data-error-scope.
+ */
+function focusFirstError(root: HTMLElement | null) {
+  if (!root) return;
+  const all = Array.from(root.querySelectorAll<HTMLElement>('[aria-invalid="true"], [data-error-anchor]'))
+    .filter((element) => !(element as HTMLInputElement).disabled);
+  const target = all.find((element) => element.getClientRects().length > 0) || all[0];
+  if (!target) return;
+  const scope = target.hasAttribute("data-error-anchor") ? target.closest<HTMLElement>("[data-error-scope]") : null;
+  const focusable = target.matches(FOCUSABLE) ? target : scope?.querySelector<HTMLElement>(FOCUSABLE) || null;
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (focusable) {
+    focusable.focus({ preventScroll: true });
+    return;
+  }
+  if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+  target.focus({ preventScroll: true });
+}
 
 export default function ProductFormPage() {
   const { productId } = useParams();
@@ -46,10 +70,14 @@ export default function ProductFormPage() {
   const [notice, setNotice] = useState("");
   const [tone, setTone] = useState<"ok" | "fail">("ok");
   const [planUsage, setPlanUsage] = useState<MerchantPlanUsage | null>(null);
+  const [manualTranslation, setManualTranslation] = useState(false);
+  const [manualBaseline, setManualBaseline] = useState(false);
   const product = remote[0];
   const snapshot = JSON.stringify(draft);
-  const dirty = snapshot !== baseline || local.length > 0;
+  const dirty = snapshot !== baseline || local.length > 0 || manualTranslation !== manualBaseline;
   const skipBlock = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [focusRequest, setFocusRequest] = useState(0);
   const fallbackStem = useRef("");
   if (!fallbackStem.current) fallbackStem.current = randomStem();
   const codeStem = englishStem(draft.nameEn) || fallbackStem.current;
@@ -83,9 +111,12 @@ export default function ProductFormPage() {
     setLoading(true);
     productApi.get(shopId, productId).then((data) => {
       if (!active) return;
-      const next = fromProduct(data);
+      const next = withoutThaiCopies(fromProduct(data));
+      const manual = hasOwnTranslations(next);
       setDraft(next);
       setBaseline(JSON.stringify(next));
+      setManualTranslation(manual);
+      setManualBaseline(manual);
       setGroups(groupsFromAxes(next.optionSchema.length ? next.optionSchema : axesFromSkus(next.skus)));
       setRemote([data]);
     }).catch((caught) => {
@@ -116,20 +147,6 @@ export default function ProductFormPage() {
     setNotice(text);
   };
 
-  const applyTranslation = async (kind: "auto" | "retry", field: "name" | "description", locale: "en" | "zh") => {
-    if (shopId == null || !productId) return;
-    try {
-      const saved = kind === "retry"
-        ? await productApi.retryTranslation(shopId, productId, { field, locale })
-        : await productApi.useAutoTranslation(shopId, productId, { field, locale });
-      setRemote([saved]);
-      setDraft(fromProduct(saved));
-      toast(t(kind === "retry" ? "catalog.form.translationRetry" : "catalog.form.useAutoTranslation"), "ok");
-    } catch (caught) {
-      toast(catalogMessage(t, caught), "fail");
-    }
-  };
-
   const onVariantIssues = useCallback((next: VariantIssue[]) => {
     setVariantIssuesList((current) => {
       if (current.length === next.length && current.every((item, index) => item.index === next[index].index && item.field === next[index].field && item.code === next[index].code)) return current;
@@ -141,14 +158,14 @@ export default function ProductFormPage() {
     [draft.productType, draft.skus, groups],
   );
   const submitAttempted = submitAttempt > 0;
+  // After a failed save (client or server validation), wait for the error state to render, then focus it.
   useEffect(() => {
-    if (!submitAttempted || draft.productType !== "VARIABLE") return;
-    const taken = new Set(variantIssuesList.filter((issue) => issue.code === "SKU_CODE_TAKEN").map((issue) => draft.skus[issue.index]?.skuCode.trim() || "").filter(Boolean));
-    const live = variantIssues({ productType: "VARIABLE", skus: draft.skus, optionSchema: axesFromGroups(groups) }, taken);
-    const first = live.find((issue) => issue.index >= 0);
-    const target = first ? document.getElementById(`variant-row-${first.index}`) : document.getElementById("variant-problems");
-    target?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [submitAttempt]);
+    if (!focusRequest) return;
+    let frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(() => focusFirstError(formRef.current));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRequest]);
 
   const productMetric = planUsage?.metrics.find((metric) => metric.code === "PRODUCTS");
   const publishLimit = productMetric?.limit.kind === "FINITE" ? productMetric.limit.value : null;
@@ -188,12 +205,15 @@ export default function ProductFormPage() {
       ? variantIssues({ productType: "VARIABLE", skus: synced.skus, optionSchema: axesFromGroups(groups) }, taken)
       : [];
     const gaps = synced.productType === "VARIABLE" ? uncoveredOptionLabels(axesFromGroups(groups), synced.skus) : [];
-    if (Object.keys(nextErrors).length || liveIssues.length > 0 || gaps.length > 0) return;
+    if (Object.keys(nextErrors).length || liveIssues.length > 0 || gaps.length > 0) {
+      setFocusRequest((current) => current + 1);
+      return;
+    }
     setSaving(publish ? "publish" : "draft");
     setStockConfirm(null);
     let savedId = productId;
     try {
-      const payload = toWrite({ ...synced, optionSchema: axesFromGroups(groups), confirmRemoveStocked });
+      const payload = toWrite({ ...applyTranslationMode(synced, manualTranslation), optionSchema: axesFromGroups(groups), confirmRemoveStocked });
       let saved = editing && productId ? await productApi.update(shopId, productId, payload) : await productApi.create(shopId, payload);
       savedId = saved.id;
       if (local.length) {
@@ -228,7 +248,7 @@ export default function ProductFormPage() {
             };
           });
           saved = await productApi.update(shopId, saved.id, toWrite({
-            ...synced,
+            ...applyTranslationMode(synced, manualTranslation),
             skus: boundSkus,
             optionSchema: axesFromGroups(groups),
             confirmRemoveStocked,
@@ -271,7 +291,10 @@ export default function ProductFormPage() {
           } else mapped[item.field] = item.code;
         });
       }
-      if (Object.keys(mapped).length) setErrors(mapped);
+      if (Object.keys(mapped).length) {
+        setErrors(mapped);
+        setFocusRequest((current) => current + 1);
+      }
       toast(catalogMessage(t, caught), "fail");
       if (!editing && savedId && savedId !== productId) {
         skipBlock.current = true;
@@ -312,8 +335,8 @@ export default function ProductFormPage() {
           retryLabel={t("catalog.actions.retry")}
         />
       ) : shopId == null ? null : (!editing || !loading) ? (
-        <form className="product-form-card" onSubmit={(event) => { event.preventDefault(); void save(false); }}>
-          {errors.form ? <p className="form-field-error">{t(`catalog.errors.${errors.form}`)}</p> : null}
+        <form ref={formRef} className="product-form-card" noValidate onSubmit={(event) => { event.preventDefault(); void save(false); }}>
+          {errors.form ? <p className="form-field-error" data-error-anchor>{t(`catalog.errors.${errors.form}`)}</p> : null}
           <h3>{t("catalog.form.general")}</h3>
           <p className="pm-lang-hint">{t("catalog.form.langsHint")}</p>
           <div className="pm-lang-block">
@@ -338,9 +361,8 @@ export default function ProductFormPage() {
             </label>
           </div>
           <ProductTranslationPanel
-            shopId={shopId}
-            productId={productId}
-            product={product}
+            manual={manualTranslation}
+            onManualChange={setManualTranslation}
             nameTh={draft.nameTh}
             descriptionTh={draft.descriptionTh}
             nameEn={draft.nameEn}
@@ -348,8 +370,6 @@ export default function ProductFormPage() {
             descriptionEn={draft.descriptionEn}
             descriptionZh={draft.descriptionZh}
             onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
-            onUseAuto={(field, locale) => void applyTranslation("auto", field, locale)}
-            onRetry={(field, locale) => void applyTranslation("retry", field, locale)}
           />
           <div className="merchant-two">
             <SearchableSelect
@@ -404,7 +424,7 @@ export default function ProductFormPage() {
               </button>
             </div>
           </fieldset>
-          {errors.skus ? <FieldError text={t(`catalog.errors.${errors.skus}`)} /> : null}
+          {errors.skus ? <div data-error-anchor><FieldError text={t(`catalog.errors.${errors.skus}`)} /></div> : null}
           <h3>{t("catalog.form.price")}</h3>
           {draft.productType === "VARIABLE" ? (
             <p className="pm-lang-hint">{t("catalog.form.priceDefaultHint")}</p>
@@ -452,7 +472,13 @@ export default function ProductFormPage() {
             </label>
             <label>
               <span className="pm-lang-label">{t("catalog.form.weight")}</span>
-              <input className="num" inputMode="numeric" value={draft.weightGrams} aria-invalid={Boolean(errors.weightGrams)} onChange={(event) => setDraft({ ...draft, weightGrams: event.target.value })} />
+              <input
+                className="num"
+                inputMode="numeric"
+                value={draft.weightGrams}
+                aria-invalid={Boolean(errors.weightGrams)}
+                onChange={(event) => setDraft({ ...draft, weightGrams: sanitizeWeight(event.target.value) })}
+              />
               <FieldError text={fieldError("weightGrams")} />
             </label>
           </div>
@@ -541,16 +567,18 @@ export default function ProductFormPage() {
             </div>
           </div>
           )}
-          <ProductImagesField
-            shopId={shopId}
-            productId={product?.id}
-            remote={product?.images || []}
-            local={local}
-            onLocal={setLocal}
-            onRemote={(saved) => setRemote([saved])}
-            onError={(code) => toast(t(`catalog.errors.${code}`), "fail")}
-          />
-          {errors.images ? <FieldError text={t(`catalog.errors.${errors.images}`)} /> : null}
+          <div data-error-scope>
+            <ProductImagesField
+              shopId={shopId}
+              productId={product?.id}
+              remote={product?.images || []}
+              local={local}
+              onLocal={setLocal}
+              onRemote={(saved) => setRemote([saved])}
+              onError={(code) => toast(t(`catalog.errors.${code}`), "fail")}
+            />
+            {errors.images ? <div data-error-anchor><FieldError text={t(`catalog.errors.${errors.images}`)} /></div> : null}
+          </div>
           <ProductConfiguratorEditor shopId={shopId} productId={product?.id} />
           {publishQuotaBlocked ? (
             <p className="form-alert" role="alert">

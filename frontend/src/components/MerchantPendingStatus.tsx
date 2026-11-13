@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import BrandLogo from "./BrandLogo";
+import Header from "./Header";
+import { CartProvider } from "../contexts/CartContext";
 import "../styles/merchant-signup-gate.css";
 
 type Props = {
@@ -100,7 +101,11 @@ function PendingGateArt({ rejected }: { rejected: boolean }) {
   );
 }
 
-/** Full-page gate when shop is pending review or rejected — same pattern as signup gate; blocks all merchant menus. */
+/**
+ * Full-page gate when shop is pending review or rejected — same pattern as signup gate; blocks all merchant menus.
+ * Shows the public site Header (logo, search, language, account menu / sign-out) because no merchant menu is usable yet.
+ * Header reads the cart context, so it is wrapped in CartProvider (merchant accounts never load a buyer cart).
+ */
 export default function MerchantPendingStatus({ shopName, rejected = false }: Props) {
   const { t } = useTranslation("merchant");
   const trimmed = shopName?.trim();
@@ -111,14 +116,13 @@ export default function MerchantPendingStatus({ shopName, rejected = false }: Pr
     : t(rejected ? "pendingGate.rejectedDescriptionFallback" : "pendingGate.descriptionFallback");
 
   return (
-    <main className="merchant-signup-gate">
+    <CartProvider>
+    <div className="merchant-gate-page">
+    <Header hideNavbar />
+    <main className="merchant-signup-gate merchant-signup-gate--with-header">
       <div className="merchant-signup-gate__glow" aria-hidden="true" />
       <div className="merchant-signup-gate__layout">
         <div className="merchant-signup-gate__copy">
-          <Link to="/" className="merchant-signup-gate__brand" aria-label="ThaiShopFun">
-            <BrandLogo variant="withName" alt="" />
-          </Link>
-
           <div role="alert">
             <p
               className={`merchant-signup-gate__badge${rejected ? " merchant-signup-gate__badge--reject" : ""}`}
@@ -172,5 +176,7 @@ export default function MerchantPendingStatus({ shopName, rejected = false }: Pr
         <PendingGateArt rejected={rejected} />
       </div>
     </main>
+    </div>
+    </CartProvider>
   );
 }

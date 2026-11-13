@@ -22,6 +22,7 @@ import {
   Phone,
   Store,
   UsersRound,
+  Link2,
 } from "lucide-react";
 import { mediaUrl } from "../../services/api";
 import { maskEmail, maskPhone } from "../../utils/maskContact";
@@ -152,7 +153,20 @@ export default function AdminApplicationDrawer({
       onClose={onClose}
       className="application-drawer"
       closeLabel={labels.close}
-      title={item?.shop || ""}
+      ariaLabel={item?.shop || ""}
+      title={
+        item ? (
+          <span className="application-drawer-title">
+            <span className="application-drawer-title__name">{item.shop}</span>
+            {item.otherShops ? (
+              <span className="owner-siblings" title={labels.otherShops(item.otherShops)}>
+                <Link2 aria-hidden="true" />
+                <span>{labels.otherShops(item.otherShops)}</span>
+              </span>
+            ) : null}
+          </span>
+        ) : ""
+      }
       empty={!item ? <p className="om-empty">{labels.emptyDetail}</p> : undefined}
       avatarClassName={item ? `application-drawer-avatar ${item.logoClass}` : undefined}
       avatar={
@@ -249,10 +263,7 @@ export default function AdminApplicationDrawer({
               <div className="cm-contact-row">
                 <span className="cm-icon-chip" aria-hidden="true"><UsersRound /></span>
                 <dt>{labels.fieldOwner}</dt>
-                <dd>
-                  {item.owner}
-                  {item.otherShops ? <small className="owner-siblings">{labels.otherShops(item.otherShops)}</small> : null}
-                </dd>
+                <dd>{item.owner}</dd>
               </div>
               <div className="cm-contact-row">
                 <span className="cm-icon-chip" aria-hidden="true"><Mail /></span>

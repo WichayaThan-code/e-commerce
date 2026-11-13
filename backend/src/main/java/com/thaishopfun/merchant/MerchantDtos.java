@@ -12,7 +12,8 @@ public final class MerchantDtos {
     private MerchantDtos(){}
     public record ShopRequest(
         @NotBlank @Size(max=100) String shopName,
-        @Size(max=100) String shopNameEn,
+        // English shop name must not contain Thai script (U+0E00–U+0E7F); the Thai name may contain English.
+        @Size(max=100) @Pattern(regexp="^[^\\u0E00-\\u0E7F]*$", message="ชื่อร้านภาษาอังกฤษต้องไม่มีตัวอักษรภาษาไทย") String shopNameEn,
         @Size(max=500) String description,
         @NotBlank @Size(max=100) String category,
         @NotNull SaleType saleType,
@@ -50,6 +51,38 @@ public final class MerchantDtos {
         @NotBlank @Size(max = 30) @Pattern(regexp = "^[0-9 -]{8,20}$") String bankAccountNumber,
         @NotBlank @Size(max = 255, message = "ชื่อบัญชียาวเกิน 255 ตัวอักษร") String bankAccountName
     ){}
+    /**
+     * Owner details for an application linked to an owner the user already has (second shop). Same rules as
+     * {@link OwnerRequest} except the citizen id, which stays the linked owner's (a different id = a different owner).
+     */
+    public record LinkedOwnerRequest(
+        @NotNull OwnerType ownerType,
+        @NotBlank @Size(max = 30, message = "คำนำหน้ายาวเกิน 30 ตัวอักษร") String title,
+        @NotBlank @Size(max = 100) String firstName,
+        @NotBlank @Size(max = 100) String lastName,
+        @NotNull LocalDate birthDate,
+        @NotBlank @Size(max = 100, message = "สัญชาติยาวเกิน 100 ตัวอักษร") String nationality,
+        @NotBlank @Size(max = 30, message = "เบอร์โทรยาวเกิน 30 ตัวอักษร") @Pattern(regexp = "^[0-9+ -]{9,20}$") String phone,
+        @NotBlank @Email @Size(max = 255) String email,
+        @NotBlank @Size(max = 50, message = "บ้านเลขที่ยาวเกิน 50 ตัวอักษร") String houseNo,
+        @Size(max = 50, message = "หมู่บ้านยาวเกิน 50 ตัวอักษร") String villageNo,
+        @Size(max = 255, message = "อาคาร/หมู่บ้านยาวเกิน 255 ตัวอักษร") String building,
+        @Size(max = 255, message = "ซอยยาวเกิน 255 ตัวอักษร") String alley,
+        @Size(max = 255, message = "ถนนยาวเกิน 255 ตัวอักษร") String road,
+        @NotBlank @Size(max = 100, message = "จังหวัดยาวเกิน 100 ตัวอักษร") String province,
+        @NotBlank @Size(max = 100, message = "อำเภอ/เขตยาวเกิน 100 ตัวอักษร") String district,
+        @NotBlank @Size(max = 100, message = "ตำบล/แขวงยาวเกิน 100 ตัวอักษร") String subdistrict,
+        @NotBlank @Size(max = 10) @Pattern(regexp = "^[0-9]{5}$") String postalCode,
+        @NotBlank @Size(max = 100, message = "ชื่อธนาคารยาวเกิน 100 ตัวอักษร") String bankName,
+        @NotBlank @Size(max = 30) @Pattern(regexp = "^[0-9 -]{8,20}$") String bankAccountNumber,
+        @NotBlank @Size(max = 255, message = "ชื่อบัญชียาวเกิน 255 ตัวอักษร") String bankAccountName
+    ){
+        /** Same shape as OwnerRequest for the shared snapshot setter; the citizen id is supplied by the linked owner. */
+        OwnerRequest asOwnerRequest() {
+            return new OwnerRequest(ownerType, title, firstName, lastName, null, birthDate, nationality, phone, email, houseNo,
+                villageNo, building, alley, road, province, district, subdistrict, postalCode, bankName, bankAccountNumber, bankAccountName);
+        }
+    }
     public record DocumentResponse(UUID id,DocumentType type,String originalFilename,String contentType,long fileSize,String sha256,Instant uploadedAt){static DocumentResponse from(MerchantDocument d){return new DocumentResponse(d.getId(),d.getType(),d.getOriginalFilename(),d.getContentType(),d.getFileSize(),d.getSha256(),d.getUploadedAt());}}
     public record ApplicationResponse(
         UUID id,ApplicationStatus status,String referenceNo,

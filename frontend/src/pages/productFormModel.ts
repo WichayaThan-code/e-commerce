@@ -56,7 +56,7 @@ export function emptySku(partial: Partial<SkuDraft> = {}): SkuDraft {
     price: "",
     compareAtPrice: "",
     costPrice: "",
-    weightGrams: "",
+    weightGrams: "0",
     initialStock: "0",
     safetyStock: "0",
     active: true,
@@ -78,7 +78,7 @@ export function emptyDraft(): ProductDraft {
     productType: "SIMPLE",
     basePrice: "",
     compareAtPrice: "",
-    weightGrams: "",
+    weightGrams: "0",
     optionSchema: [],
     skus: [emptySku()],
   };
@@ -97,7 +97,7 @@ export function fromProduct(product: Product): ProductDraft {
     productType: product.productType,
     basePrice: product.basePrice == null ? "" : String(product.basePrice),
     compareAtPrice: product.compareAtPrice == null ? "" : String(product.compareAtPrice),
-    weightGrams: product.weightGrams == null ? "" : String(product.weightGrams),
+    weightGrams: product.weightGrams == null ? "0" : String(product.weightGrams),
     optionSchema: product.optionSchema?.length
       ? product.optionSchema.map((group) => ({ name: group.name, values: [...group.values] }))
       : axesFromSkus(product.skus.map((sku) => emptySku({ optionValues: sku.optionValues || {} }))),
@@ -112,7 +112,7 @@ export function fromProduct(product: Product): ProductDraft {
           price: String(sku.price ?? ""),
           compareAtPrice: sku.compareAtPrice == null ? "" : String(sku.compareAtPrice),
           costPrice: sku.costPrice == null ? "" : String(sku.costPrice),
-          weightGrams: sku.weightGrams == null ? "" : String(sku.weightGrams),
+          weightGrams: sku.weightGrams == null ? "0" : String(sku.weightGrams),
           initialStock: String(sku.onHand ?? 0),
           safetyStock: String(sku.safetyStock ?? 0),
           active: sku.active,
@@ -155,6 +155,29 @@ export function axesFromSkus(skus: SkuDraft[]): OptionAxis[] {
 }
 
 const GROUP_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+const TRANSLATION_KEYS = ["nameEn", "nameZh", "descriptionEn", "descriptionZh"] as const;
+
+/** Saved EN/ZH equal to the Thai source are the "no manual translation" fallback: show them as blank inputs. */
+export function withoutThaiCopies(draft: ProductDraft): ProductDraft {
+  const same = (value: string, thai: string) => Boolean(value.trim()) && value.trim() === thai.trim();
+  return {
+    ...draft,
+    nameEn: same(draft.nameEn, draft.nameTh) ? "" : draft.nameEn,
+    nameZh: same(draft.nameZh, draft.nameTh) ? "" : draft.nameZh,
+    descriptionEn: same(draft.descriptionEn, draft.descriptionTh) ? "" : draft.descriptionEn,
+    descriptionZh: same(draft.descriptionZh, draft.descriptionTh) ? "" : draft.descriptionZh,
+  };
+}
+
+export function hasOwnTranslations(draft: ProductDraft) {
+  return TRANSLATION_KEYS.some((key) => Boolean(draft[key].trim()));
+}
+
+/** Toggle off: send no EN/ZH so the backend stores the Thai text for both languages. */
+export function applyTranslationMode(draft: ProductDraft, manual: boolean): ProductDraft {
+  return manual ? draft : { ...draft, nameEn: "", nameZh: "", descriptionEn: "", descriptionZh: "" };
+}
 
 export function englishStem(nameEn: string) {
   const letters = nameEn.toUpperCase().replace(/[^A-Z]/g, "");
@@ -356,10 +379,25 @@ function money(value: string) {
   return Number.isFinite(amount) ? amount : Number.NaN;
 }
 
-function weight(value: string) {
-  if (!value.trim()) return null;
-  const amount = Number(value);
+export const MAX_WEIGHT_GRAMS = 1_000_000;
+
+/** Weight inputs never go empty: keep digits only, drop leading zeros, and fall back to "0". */
+export function sanitizeWeight(raw: string) {
+  const digits = raw.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  return digits || "0";
+}
+
+/** Whole grams; an empty value counts as 0. */
+export function weight(value: string) {
+  const text = value.trim();
+  if (!text) return 0;
+  const amount = Number(text);
   return Number.isInteger(amount) ? amount : Number.NaN;
+}
+
+export function weightInvalid(value: string) {
+  const grams = weight(value);
+  return Number.isNaN(grams) || grams < 0 || grams > MAX_WEIGHT_GRAMS;
 }
 
 export function validateDraft(draft: ProductDraft, publishing: boolean, imageCount: number) {
@@ -367,10 +405,9 @@ export function validateDraft(draft: ProductDraft, publishing: boolean, imageCou
   if (!draft.nameTh.trim()) errors.nameTh = "NAME_REQUIRED";
   const price = money(draft.basePrice);
   const compare = money(draft.compareAtPrice);
-  const grams = weight(draft.weightGrams);
   if (draft.basePrice.trim() && (price == null || Number.isNaN(price) || price < 0)) errors.basePrice = "PRICE_INVALID";
   if (compare != null && (Number.isNaN(compare) || (price != null && !Number.isNaN(price) && compare <= price))) errors.compareAtPrice = "COMPARE_PRICE_INVALID";
-  if (grams != null && (Number.isNaN(grams) || grams < 0)) errors.weightGrams = "WEIGHT_INVALID";
+  if (weightInvalid(draft.weightGrams)) errors.weightGrams = "WEIGHT_INVALID";
   const active = draft.skus.filter((sku) => !sku.removed);
   if (draft.productType === "SIMPLE" && active.length !== 1) errors.skus = "SIMPLE_SKU_COUNT";
   if (draft.productType === "VARIABLE" && active.length < 1) errors.skus = "SKU_REQUIRED";
@@ -398,10 +435,15 @@ export function validateDraft(draft: ProductDraft, publishing: boolean, imageCou
   return errors;
 }
 
+/** Always a number for the API (never null). Invalid input is blocked by validation; 0 is the safe fallback. */
+function validWeight(value: string) {
+  const grams = weight(value);
+  return Number.isNaN(grams) || grams < 0 ? 0 : grams;
+}
+
 export function toWrite(draft: ProductDraft): ProductWrite {
   const price = money(draft.basePrice);
   const compare = money(draft.compareAtPrice);
-  const grams = weight(draft.weightGrams);
   const skus: SkuWrite[] = draft.skus.filter((sku) => !sku.removed).map((sku) => ({
     id: sku.id,
     skuCode: sku.skuCode.trim(),
@@ -411,7 +453,7 @@ export function toWrite(draft: ProductDraft): ProductWrite {
     price: money(sku.price) ?? 0,
     costPrice: money(sku.costPrice),
     compareAtPrice: money(sku.compareAtPrice),
-    weightGrams: weight(sku.weightGrams),
+    weightGrams: draft.productType === "SIMPLE" ? validWeight(draft.weightGrams) : validWeight(sku.weightGrams),
     initialStock: sku.id ? null : Number(sku.initialStock || "0"),
     imageId: sku.imageId || null,
     active: sku.active,
@@ -429,7 +471,7 @@ export function toWrite(draft: ProductDraft): ProductWrite {
     brand: draft.brand.trim() || null,
     basePrice: price != null && !Number.isNaN(price) ? price : null,
     compareAtPrice: compare != null && !Number.isNaN(compare) ? compare : null,
-    weightGrams: grams != null && !Number.isNaN(grams) ? grams : null,
+    weightGrams: validWeight(draft.weightGrams),
     optionSchema: draft.productType === "VARIABLE" ? draft.optionSchema : [],
     confirmRemoveStocked: Boolean(draft.confirmRemoveStocked),
     skus,
@@ -461,6 +503,7 @@ export function variantIssues(draft: Pick<ProductDraft, "productType" | "skus" |
     else combos.set(key, index);
     const opening = Number(sku.initialStock || "0");
     if (!sku.id && (!Number.isInteger(opening) || opening < 0)) issues.push({ index, field: "initialStock", code: "INVALID_ADJUSTMENT" });
+    if (weightInvalid(sku.weightGrams)) issues.push({ index, field: "weightGrams", code: "WEIGHT_INVALID" });
   });
   return issues;
 }

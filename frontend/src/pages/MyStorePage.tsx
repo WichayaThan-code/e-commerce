@@ -18,6 +18,7 @@ import {
   Shield,
   Store,
   Truck,
+  Type,
   type LucideIcon,
 } from "lucide-react";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
@@ -39,6 +40,8 @@ const ShopMapPinEditor = lazy(() => import("../components/maps/ShopMapPinEditor"
 import { ApiError, catalogApi, mediaUrl, merchantApi, type MerchantSettings, type MerchantSettingsPayload, type ShopHour } from "../services/api";
 import { MERCHANT_CATEGORY_VALUES } from "../i18n/merchantOnboardingCopy";
 import { isShopImage, SHOP_IMAGE_ACCEPT } from "../services/shopImage";
+import { hasThaiScript } from "../services/merchantApplicationValidation";
+import { useNoThaiInput } from "../hooks/useNoThaiInput";
 import "../styles/merchant-dashboard.css";
 import "../styles/product-management.css";
 import "../styles/settings.css";
@@ -155,6 +158,9 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
   };
   const toastClass=noticeTone==="fail"?"merchant-toast fail":noticeTone==="warning"?"merchant-toast warning":"merchant-toast ok";
   const patch=(next:Partial<StoreForm>)=>setForm(current=>({...current,...next}));
+  // English shop name: same no-Thai rule as /merchant/register (strip on type/paste/autofill, IME-safe, caret kept).
+  const [shopNameEnError,setShopNameEnError]=useState("");
+  const shopNameEnInput=useNoThaiInput(form.shopNameEn,(shopNameEn)=>{patch({shopNameEn});setShopNameEnError("");});
   const onThemeDirty=useCallback((dirty:boolean)=>setThemeDirty(dirty),[]);
   const onHoursDirty=useCallback((dirty:boolean)=>setHoursDirty(dirty),[]);
   const infoDirty=!formLoading&&editableSnapshot(form)!==editableSnapshot(baseline.current);
@@ -224,6 +230,12 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
     if(saving)return;
     const publicPhone=form.publicPhone.trim();
     const publicEmail=form.publicEmail.trim();
+    if(hasThaiScript(form.shopNameEn)){
+      const message=t("validation.shopNameEnNoThai");
+      setShopNameEnError(message);
+      notify(message,"warning");
+      return;
+    }
     if(publicPhone && !PUBLIC_PHONE_RE.test(publicPhone)){
       notify("เบอร์ติดต่อหน้าร้านต้องเป็นตัวเลข 9–20 ตัว (อนุญาต +, ช่องว่าง, -)","warning");
       return;
@@ -235,7 +247,7 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
     setSaving(true);
     try{
       const payload: MerchantSettingsPayload={
-        shopName:form.shopName.trim(), shopNameEn:form.shopNameEn, description:form.description, category:form.category,
+        shopName:form.shopName.trim(), shopNameEn:form.shopNameEn.trim(), description:form.description, category:form.category,
         phone:form.phone.trim(), email:form.email.trim(),
         website:form.website, lineId:form.lineId, facebookUrl:form.facebookUrl, instagramUrl:form.instagramUrl, tiktokUrl:form.tiktokUrl,
         address:form.address.trim(), province:form.province.trim(), district:form.district.trim(), subdistrict:form.subdistrict.trim(), postalCode:form.postalCode.trim(),
@@ -333,6 +345,27 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
             <div className="store-info-stack">
               <FormField label={<>ชื่อร้านค้า <i>*</i></>} icon={Store} aside={<span>{form.shopName.length}/100</span>} className="flush">
                 <input value={form.shopName} maxLength={100} onChange={(e) => patch({ shopName: e.target.value })} />
+              </FormField>
+              <FormField
+                label="ชื่อร้านค้า (ภาษาอังกฤษ)"
+                icon={Type}
+                aside={<span>{form.shopNameEn.length}/100</span>}
+                error={shopNameEnError || (shopNameEnInput.blocked ? t("validation.shopNameEnThaiBlocked") : undefined)}
+                errorId="field-error-shopNameEn"
+                className="flush"
+              >
+                <input
+                  name="shopNameEn"
+                  value={form.shopNameEn}
+                  maxLength={100}
+                  placeholder="Shop name (English)"
+                  autoComplete="off"
+                  lang="en"
+                  aria-invalid={Boolean(shopNameEnError)}
+                  aria-describedby={shopNameEnError || shopNameEnInput.blocked ? "field-error-shopNameEn" : undefined}
+                  {...shopNameEnInput.handlers}
+                  onBlur={shopNameEnInput.clearBlocked}
+                />
               </FormField>
               <FormField label="คำอธิบายร้านค้า" multiline aside={<span>{form.description.length}/500</span>} className="flush">
                 <textarea value={form.description} maxLength={500} onChange={(e) => patch({ description: e.target.value })} />

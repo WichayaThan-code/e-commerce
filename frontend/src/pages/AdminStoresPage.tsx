@@ -566,11 +566,8 @@ export default function AdminStoresPage(){
             {showSuspension && (
               <section className="store-drawer-section" aria-label={td('suspension')}>
                 <h4>{td('suspension')}</h4>
+                {/* Status is already shown in the drawer header. */}
                 <dl className="store-drawer-fields">
-                  <div>
-                    <dt>{td('shopStatus')}</dt>
-                    <dd><Pill tone={statusTone(detail.status)}>{tp(`status.${detail.status}`, { defaultValue: detail.status })}</Pill></dd>
-                  </div>
                   {suspension?.suspendedAt && (
                     <div>
                       <dt>{td('suspendedAt')}</dt>

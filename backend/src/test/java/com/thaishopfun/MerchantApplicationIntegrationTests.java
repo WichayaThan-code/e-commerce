@@ -382,6 +382,20 @@ class MerchantApplicationIntegrationTests {
           .andExpect(status().isOk()).andExpect(jsonPath("$.approved").value(true)).andExpect(jsonPath("$.status").value("APPROVED"));
         mvc.perform(get("/api/merchant/settings").header("Authorization", "Bearer " + merchant))
           .andExpect(status().isOk()).andExpect(jsonPath("$.shopName").value("ร้านรออนุมัติ"));
+
+        // Shop settings: the English name rejects Thai script (same rule as register); the Thai name may contain English.
+        mvc.perform(put("/api/merchant/settings?shopId=" + shopId).header("Authorization", "Bearer " + merchant).contentType(MediaType.APPLICATION_JSON)
+            .content(settingsBody("ร้านรออนุมัติ Shop", "Pending ร้าน")))
+          .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        mvc.perform(put("/api/merchant/settings?shopId=" + shopId).header("Authorization", "Bearer " + merchant).contentType(MediaType.APPLICATION_JSON)
+            .content(settingsBody("ร้านรออนุมัติ Shop", "Pending Shop")))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.shopName").value("ร้านรออนุมัติ Shop")).andExpect(jsonPath("$.shopNameEn").value("Pending Shop"));
+    }
+
+    private static String settingsBody(String shopName, String shopNameEn) {
+        return ("{\"shopName\":\"%s\",\"shopNameEn\":\"%s\",\"description\":\"\",\"category\":\"อาหารและเครื่องดื่ม\",\"phone\":\"0844444444\","
+            + "\"email\":\"seller@example.com\",\"address\":\"9 ถนนนิมมาน\",\"province\":\"เชียงใหม่\",\"district\":\"เมือง\","
+            + "\"subdistrict\":\"ศรีภูมิ\",\"postalCode\":\"50200\"}").formatted(shopName, shopNameEn);
     }
 
     @Test void submittedShopCreatesStoreOwnerMembershipAndNumericShopId() throws Exception {

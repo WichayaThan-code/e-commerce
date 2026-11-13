@@ -174,7 +174,8 @@ public final class MerchantDtos {
     public record ProductCategoryResponse(long id, String nameTh, String nameEn, String nameZh) {}
     public record MerchantSettingsUpdateRequest(
         @NotBlank @Size(max=100) String shopName,
-        @Size(max=100) String shopNameEn,
+        // Same rule as ShopRequest (register): no Thai script in the English name; the Thai name may contain English.
+        @Size(max=100) @Pattern(regexp="^[^\\u0E00-\\u0E7F]*$", message="ชื่อร้านภาษาอังกฤษต้องไม่มีตัวอักษรภาษาไทย") String shopNameEn,
         @Size(max=500) String description,
         @NotBlank @Size(max=100) String category,
         @NotBlank @Pattern(regexp="^[0-9+ -]{9,20}$") String phone,

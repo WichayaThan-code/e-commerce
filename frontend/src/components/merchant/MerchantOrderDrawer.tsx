@@ -10,6 +10,7 @@ import {
   CircleDollarSign,
   Clock3,
   CreditCard,
+  ExternalLink,
   MapPin,
   Package,
   PackageCheck,
@@ -178,6 +179,7 @@ export default function MerchantOrderDrawer({
   const [codRequest, setCodRequest] = useState(0);
   const [refundRequest, setRefundRequest] = useState<RefundDialogRequest>(null);
   const [workTab, setWorkTab] = useState<"detail" | "history">("detail");
+  const [deliverTrackingUrl, setDeliverTrackingUrl] = useState<string | null>(null);
   const [printing, setPrinting] = useState(false);
 
   const loadAux = useCallback(async (gen: number) => {
@@ -366,6 +368,26 @@ export default function MerchantOrderDrawer({
 
   const needsTracking = !!dialog && (dialog.trackingRequired || dialog.action === "SHIP");
   const dialogInvalid = !!dialog && ((dialog.reasonRequired && !reason.trim()) || (needsTracking && (!carrierCode.trim() || !trackingNumber.trim())));
+  const deliverTrackingNumber = order?.shipment?.trackingNumber?.trim() || trackingNumber.trim() || "";
+
+  useEffect(() => {
+    if (dialog?.action !== "DELIVER") {
+      setDeliverTrackingUrl(null);
+      return;
+    }
+    let active = true;
+    setDeliverTrackingUrl(null);
+    merchantShipmentApi.get(shopId, orderId)
+      .then((shipment) => {
+        if (!active) return;
+        const url = shipment.trackingUrl?.trim();
+        setDeliverTrackingUrl(url || null);
+      })
+      .catch(() => {
+        if (active) setDeliverTrackingUrl(null);
+      });
+    return () => { active = false; };
+  }, [dialog?.action, shopId, orderId]);
 
   const confirmDialog = () => {
     if (!dialog || dialogInvalid) return;
@@ -927,6 +949,29 @@ export default function MerchantOrderDrawer({
                 <div className="om-deliver-order">
                   <span>{t("orderManagement.dialogs.DELIVER_ORDER")}</span>
                   <b className="num">{order.orderNumber}</b>
+                </div>
+                <div className="om-deliver-tracking">
+                  <div className="om-deliver-tracking-row">
+                    <span>{t("orderManagement.dialogs.DELIVER_TRACKING")}</span>
+                    <b className="num">{deliverTrackingNumber || "—"}</b>
+                  </div>
+                  {order.shipment?.carrierCode ? (
+                    <div className="om-deliver-tracking-row">
+                      <span>{t("orderManagement.drawer.carrier")}</span>
+                      <b>{carrierName(order.shipment.carrierCode)}</b>
+                    </div>
+                  ) : null}
+                  {deliverTrackingUrl && deliverTrackingNumber ? (
+                    <a
+                      className="om-deliver-track-link"
+                      href={deliverTrackingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink aria-hidden="true" />
+                      {t("orderManagement.dialogs.DELIVER_TRACK_WEB")}
+                    </a>
+                  ) : null}
                 </div>
                 <div className="om-deliver-verify">
                   <span className="om-deliver-verify-icon" aria-hidden="true"><Truck /></span>

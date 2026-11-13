@@ -692,8 +692,13 @@
 }
 .shop-brand-search svg{width:16px;height:16px;flex:none}
 .shop-brand-search input{
-  border:0;outline:0;width:100%;background:transparent;color:var(--shop-text);
-  font:13px var(--shop-font),sans-serif;
+  border:0;outline:0;box-shadow:none;width:100%;background:transparent;color:var(--shop-text);
+  font:13px var(--shop-font),sans-serif;-webkit-appearance:none;appearance:none;
+}
+.shop-brand-search input:focus,
+.shop-brand-search input:focus-visible{border:0;outline:0;box-shadow:none}
+.shop-brand-search:focus-within{
+  border-color:var(--shop-primary,#0878f5);box-shadow:var(--focus-ring);
 }
 .shop-brand-more{justify-self:start;margin-top:6px;padding:4px 0}
 
@@ -1412,6 +1417,26 @@
   font-size:16px;
   font-weight:700;
 }
+.buyer-detail-rich,
+.buyer-detail-rich.help-richtext{
+  font-size:14px;
+  line-height:1.55;
+  color:inherit;
+}
+.buyer-detail-rich p{margin:0 0 10px}
+.buyer-detail-rich p:last-child{margin-bottom:0}
+.buyer-detail-rich img{
+  max-width:100%;
+  height:auto;
+  border-radius:10px;
+  display:block;
+  margin:10px 0;
+}
+.buyer-detail-rich ul,
+.buyer-detail-rich ol{margin:0 0 10px;padding-left:1.25rem}
+.buyer-detail-rich .hc-size-sm{font-size:12px}
+.buyer-detail-rich .hc-size-md{font-size:14px}
+.buyer-detail-rich .hc-size-lg{font-size:18px}
 .shop-themed .buyer-product[data-page="product"] .buyer-detail dl{
   margin:0;display:grid;gap:10px;
 }

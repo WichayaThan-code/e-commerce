@@ -41,6 +41,7 @@ import {
 } from "../../../services/shopRoutes";
 import { parseShopSortKey, type ShopCatalogControls } from "../sections/types";
 import StoreMiniMap from "../../maps/StoreMiniMap";
+import BrandLogo from "../../BrandLogo";
 import "../../../styles/tsf-general.css";
 
 function shopTemplateKey(shop: PublicShop, override?: ShopThemeTemplateKey | string): ShopThemeTemplateKey {
@@ -560,21 +561,23 @@ function useCardAddToCart(shop: PublicShop, product: PublicProduct, to: string, 
   return { add, adding };
 }
 
-export function TsfProductCard({ shop, product, categoryName, favorite, onToggleFavorite, ratio, onNotify }: {
-  shop: PublicShop; product: PublicProduct; categoryName?: string; favorite: boolean; onToggleFavorite: (id: string) => void; ratio?: string;
+export function TsfProductCard({ shop, product, favorite, onToggleFavorite, ratio, onNotify }: {
+  shop: PublicShop; product: PublicProduct; favorite: boolean; onToggleFavorite: (id: string) => void; ratio?: string;
   onNotify?: (message: string) => void;
 }) {
   const { tp, localeTag } = usePublicTranslation();
   const name = localizedText(localeTag, product.nameTh, product.nameEn, product.nameZh) || product.nameTh;
+  const shopName = localizedText(localeTag, shop.name, shop.nameEn, shop.nameZh) || shop.name;
   const price = num(product.basePrice ?? product.skus[0]?.price);
   const compare = num(product.compareAtPrice ?? product.skus[0]?.compareAtPrice);
   const sale = price != null && compare != null && compare > price;
   const pct = sale ? Math.round((1 - price! / compare!) * 100) : 0;
   const image = [...product.images].sort((a, b) => Number(b.primary) - Number(a.primary) || a.sortOrder - b.sortOrder)[0];
   const sold = product.soldCount ?? 0;
+  const rating = num(product.rating);
+  const reviews = product.reviewCount != null ? Number(product.reviewCount) : 0;
   const createdMs = product.createdAt ? Date.parse(product.createdAt) : NaN;
   const isNew = Number.isFinite(createdMs) && Date.now() - createdMs < 14 * 24 * 60 * 60 * 1000;
-  const meta = [categoryName, sold > 0 ? tp("shop.general.soldCount", { n: sold }) : null].filter(Boolean).join(" · ");
   const to = shopProductPath(shop.slug, product.slug);
   const { add, adding } = useCardAddToCart(shop, product, to, onNotify);
   return (
@@ -588,12 +591,25 @@ export function TsfProductCard({ shop, product, categoryName, favorite, onToggle
       </button>
       <Link to={to} aria-label={name}><TsfImageSlot src={image ? mediaUrl(image.url) : null} alt={image?.altText || name} ratio={ratio} /></Link>
       <div className="tsf-card-body">
-        {meta ? <span className="tsf-card-meta">{meta}</span> : null}
+        {shopName ? <span className="tsf-card-shop">{shopName}</span> : null}
         <h3 className="tsf-card-name"><Link to={to}>{name}</Link></h3>
         <div className="tsf-card-price">
           <span className={sale ? "is-sale" : undefined}>{price == null ? "—" : baht(price)}</span>
           {sale ? <s>{baht(compare!)}</s> : null}
         </div>
+        {(rating != null && rating > 0) || sold > 0 ? (
+          <p className="tsf-card-stats">
+            {rating != null && rating > 0 ? (
+              <span className="tsf-card-rating">
+                <TsfIcon name="star" size={12} />
+                <b>{rating.toFixed(1)}</b>
+                {reviews > 0 ? <span className="tsf-card-reviews">({reviews.toLocaleString(localeTag)})</span> : null}
+              </span>
+            ) : null}
+            {rating != null && rating > 0 && sold > 0 ? <span className="tsf-card-sep" aria-hidden="true">·</span> : null}
+            {sold > 0 ? <span className="tsf-card-sold">{tp("shop.general.soldCount", { n: sold })}</span> : null}
+          </p>
+        ) : null}
         <button type="button" className="tsf-btn tsf-btn-secondary tsf-btn-s tsf-card-add" disabled={adding} onClick={add} aria-label={`${tp("shop.general.addToCart")} ${name}`}>
           <TsfIcon name="bag" size={16} />{tp("shop.general.addToCart")}
         </button>
@@ -603,21 +619,38 @@ export function TsfProductCard({ shop, product, categoryName, favorite, onToggle
 }
 
 /** Artifact MenuRow (ProductSection MENU): thumb · name/meta/price · + (opens the product to choose options). */
-export function TsfMenuRow({ shop, product, categoryName }: { shop: PublicShop; product: PublicProduct; categoryName?: string }) {
+export function TsfMenuRow({ shop, product }: { shop: PublicShop; product: PublicProduct }) {
   const { tp, localeTag } = usePublicTranslation();
   const name = localizedText(localeTag, product.nameTh, product.nameEn, product.nameZh) || product.nameTh;
+  const shopName = localizedText(localeTag, shop.name, shop.nameEn, shop.nameZh) || shop.name;
   const price = num(product.basePrice ?? product.skus[0]?.price);
   const compare = num(product.compareAtPrice ?? product.skus[0]?.compareAtPrice);
   const sale = price != null && compare != null && compare > price;
+  const sold = product.soldCount ?? 0;
+  const rating = num(product.rating);
+  const reviews = product.reviewCount != null ? Number(product.reviewCount) : 0;
   const image = [...product.images].sort((a, b) => Number(b.primary) - Number(a.primary) || a.sortOrder - b.sortOrder)[0];
   const to = shopProductPath(shop.slug, product.slug);
   return (
     <article className="tsf-menu-row">
       <Link to={to} aria-label={name}><TsfImageSlot src={image ? mediaUrl(image.url) : null} alt={image?.altText || name} /></Link>
       <div>
+        {shopName ? <p className="tsf-card-shop">{shopName}</p> : null}
         <h3><Link to={to}>{name}</Link>{sale ? <> <TsfBadge tone="sale">-{Math.round((1 - price! / compare!) * 100)}%</TsfBadge></> : null}</h3>
-        {categoryName ? <p>{categoryName}</p> : null}
         <div className="tsf-card-price"><span className={sale ? "is-sale" : undefined}>{price == null ? "—" : baht(price)}</span>{sale ? <s>{baht(compare!)}</s> : null}</div>
+        {(rating != null && rating > 0) || sold > 0 ? (
+          <p className="tsf-card-stats">
+            {rating != null && rating > 0 ? (
+              <span className="tsf-card-rating">
+                <TsfIcon name="star" size={12} />
+                <b>{rating.toFixed(1)}</b>
+                {reviews > 0 ? <span className="tsf-card-reviews">({reviews.toLocaleString(localeTag)})</span> : null}
+              </span>
+            ) : null}
+            {rating != null && rating > 0 && sold > 0 ? <span className="tsf-card-sep" aria-hidden="true">·</span> : null}
+            {sold > 0 ? <span className="tsf-card-sold">{tp("shop.general.soldCount", { n: sold })}</span> : null}
+          </p>
+        ) : null}
       </div>
       <Link className="tsf-add" to={to} aria-label={`${tp("shop.general.addToCart")} ${name}`}>+</Link>
     </article>
@@ -626,22 +659,22 @@ export function TsfMenuRow({ shop, product, categoryName }: { shop: PublicShop; 
 
 export type TsfProductLayout = "GRID" | "LARGE" | "MENU";
 
-export function TsfProductSection({ shop, title, products, link, background, categories, favorites, onToggleFavorite, columns = 4, variant = "GRID", cardRadius, cardGap, after, onNotify }: {
+export function TsfProductSection({ shop, title, products, link, background, favorites, onToggleFavorite, columns = 4, variant = "GRID", cardRadius, cardGap, after, onNotify }: {
   shop: PublicShop; title: string; products: PublicProduct[]; link?: { to: string; label: string }; background?: "SURFACE";
-  categories: Map<number, string>; favorites: string[]; onToggleFavorite: (id: string) => void; columns?: number;
+  /** @deprecated Cards show shop name; kept optional for call-site compatibility. */
+  categories?: Map<number, string>; favorites: string[]; onToggleFavorite: (id: string) => void; columns?: number;
   variant?: TsfProductLayout | null; cardRadius?: "NONE" | "ROUNDED"; cardGap?: "TIGHT" | "SPACED";
   after?: ReactNode; onNotify?: (message: string) => void;
 }) {
   if (!products.length) return null;
-  const cat = (product: PublicProduct) => (product.categoryId != null ? categories.get(product.categoryId) : undefined);
   let body: ReactNode;
   if (variant === "MENU") {
-    body = <div className="tsf-menu">{products.map((product) => <TsfMenuRow key={product.id} shop={shop} product={product} categoryName={cat(product)} />)}</div>;
+    body = <div className="tsf-menu">{products.map((product) => <TsfMenuRow key={product.id} shop={shop} product={product} />)}</div>;
   } else if (variant === "LARGE") {
     body = (
       <div className="tsf-rail" tabIndex={0} aria-label={title}>
         {products.map((product) => (
-          <TsfProductCard key={product.id} shop={shop} product={product} ratio="4 / 5" categoryName={cat(product)} onNotify={onNotify}
+          <TsfProductCard key={product.id} shop={shop} product={product} ratio="4 / 5" onNotify={onNotify}
             favorite={favorites.includes(product.id)} onToggleFavorite={onToggleFavorite} />
         ))}
         {after}
@@ -651,7 +684,7 @@ export function TsfProductSection({ shop, title, products, link, background, cat
     body = (
       <div className="tsf-grid" style={{ ["--tsf-cols" as string]: columns }}>
         {products.map((product) => (
-          <TsfProductCard key={product.id} shop={shop} product={product} categoryName={cat(product)} onNotify={onNotify}
+          <TsfProductCard key={product.id} shop={shop} product={product} onNotify={onNotify}
             favorite={favorites.includes(product.id)} onToggleFavorite={onToggleFavorite} />
         ))}
       </div>
@@ -701,7 +734,10 @@ export function TsfStoreFooter({ shop }: { shop: PublicShop }) {
         </div>
         <div className="tsf-footer-base">
           <span>© {year} {shop.name}</span>
-          <span>Powered by ThaiShopFun</span>
+          <Link to="/" className="tsf-footer-powered" aria-label={tp("shop.general.footerPowered")}>
+            <span className="tsf-footer-powered-label">{tp("shop.general.footerPoweredBy")}</span>
+            <BrandLogo variant="withName" alt="" className="tsf-footer-powered-logo" />
+          </Link>
         </div>
       </div>
     </footer>
@@ -808,7 +844,6 @@ export function TsfCatalogPage({ shop, title, products, catalog, activeCategoryI
             <div className="tsf-grid" style={{ ["--tsf-cols" as string]: 4 }}>
               {products.map((product) => (
                 <TsfProductCard key={product.id} shop={shop} product={product} onNotify={catalog.onNotify}
-                  categoryName={product.categoryId != null ? categories.get(product.categoryId) : undefined}
                   favorite={catalog.favorites.includes(product.id)} onToggleFavorite={catalog.onToggleFavorite} />
               ))}
             </div>

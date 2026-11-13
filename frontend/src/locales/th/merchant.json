@@ -608,6 +608,27 @@
       "namePh": "ชื่อที่ลูกค้าเห็น",
       "description": "รายละเอียด",
       "descriptionPh": "อธิบายสินค้า",
+      "descriptionToolbar": "เครื่องมือจัดรูปแบบรายละเอียด",
+      "descriptionBold": "ตัวหนา",
+      "descriptionItalic": "ตัวเอียง",
+      "descriptionAlignLeft": "ชิดซ้าย",
+      "descriptionAlignCenter": "จัดกลาง",
+      "descriptionBullet": "รายการสัญลักษณ์",
+      "descriptionOrdered": "รายการเลข",
+      "descriptionInsertImage": "ใส่รูป",
+      "descriptionImageType": "รองรับเฉพาะ JPG, PNG หรือ WEBP",
+      "descriptionImageFailed": "อัปโหลดรูปไม่สำเร็จ",
+      "descriptionSize": {
+        "sm": "เล็ก",
+        "md": "ปกติ",
+        "lg": "ใหญ่"
+      },
+      "descriptionImageSize": {
+        "s": "33%",
+        "m": "50%",
+        "l": "75%",
+        "full": "เต็ม"
+      },
       "category": "หมวดหมู่",
       "categoryPh": "เลือกหมวด",
       "brandPh": "ชื่อแบรนด์ ถ้ามี",
@@ -2630,8 +2651,10 @@
       "SHIP": "ระบุขนส่งและเลขพัสดุเพื่อจัดส่งคำสั่งซื้อ {{number}}",
       "DELIVER": "ยืนยันว่าพัสดุของคำสั่งซื้อนี้ส่งถึงลูกค้าแล้ว",
       "DELIVER_ORDER": "เลขคำสั่งซื้อ",
+      "DELIVER_TRACKING": "เลขพัสดุ",
+      "DELIVER_TRACK_WEB": "ติดตามบนเว็บ",
       "DELIVER_VERIFY_TITLE": "ตรวจสถานะกับขนส่งก่อนบันทึก",
-      "DELIVER_VERIFY_HINT": "หากพัสดุยังไม่ถึงตามสถานะขนส่ง ระบบจะยังไม่บันทึกว่าส่งถึงลูกค้าแล้ว",
+      "DELIVER_VERIFY_HINT": "เปิดหน้าติดตามของขนส่งให้แน่ใจว่าพัสดุส่งถึงแล้ว ก่อนกดยืนยัน (ถ้าระบบเชื่อมขนส่งได้ จะตรวจอัตโนมัติ)",
       "CANCEL": "ยกเลิกคำสั่งซื้อ {{number}} ออเดอร์ที่ชำระแล้วจะถูกคืนเงินเต็มจำนวน"
     },
     "errors": {

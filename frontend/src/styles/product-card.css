@@ -121,6 +121,17 @@
   padding: 10px 12px 12px;
 }
 
+.shop-card-shop {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 600;
+  color: #607795;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .shop-mall-card .shop-discount-inline {
   margin-left: 0;
 }

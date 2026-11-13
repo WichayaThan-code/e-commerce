@@ -2,6 +2,7 @@ package com.thaishopfun.translation;
 
 import com.thaishopfun.catalog.CatalogDtos;
 import com.thaishopfun.catalog.Product;
+import com.thaishopfun.catalog.ProductDescriptionHtml;
 import com.thaishopfun.merchant.ProductCategory;
 import com.thaishopfun.merchant.Shop;
 import org.slf4j.Logger;
@@ -28,16 +29,17 @@ public class ContentTranslationBridge {
             var entityId = product.getId().toString();
             var thaiFields = new LinkedHashMap<String, String>();
             thaiFields.put("name", product.getNameTh());
-            if (product.getDescriptionTh() != null && !product.getDescriptionTh().isBlank()) {
-                thaiFields.put("description", product.getDescriptionTh());
+            var descriptionPlain = ProductDescriptionHtml.plainText(product.getDescriptionTh());
+            if (!descriptionPlain.isBlank()) {
+                thaiFields.put("description", descriptionPlain);
             }
             translations.requestTranslation(TranslationEntityType.PRODUCT, entityId, thaiFields);
             queueOptions(product, entityId);
             if (request != null) {
                 translations.recordHuman(TranslationEntityType.PRODUCT, entityId, "name", "en", product.getNameTh(), request.nameEn());
                 translations.recordHuman(TranslationEntityType.PRODUCT, entityId, "name", "zh", product.getNameTh(), request.nameZh());
-                translations.recordHuman(TranslationEntityType.PRODUCT, entityId, "description", "en", product.getDescriptionTh(), request.descriptionEn());
-                translations.recordHuman(TranslationEntityType.PRODUCT, entityId, "description", "zh", product.getDescriptionTh(), request.descriptionZh());
+                translations.recordHuman(TranslationEntityType.PRODUCT, entityId, "description", "en", descriptionPlain, request.descriptionEn());
+                translations.recordHuman(TranslationEntityType.PRODUCT, entityId, "description", "zh", descriptionPlain, request.descriptionZh());
             }
         } catch (Exception exception) {
             log.warn("product translation queue skipped — {}", exception.getMessage());

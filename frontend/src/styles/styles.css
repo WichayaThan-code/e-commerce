@@ -27,7 +27,11 @@ header.site-header .nav.page-width{
 .brand-logo--with-name { height:36px; width:auto; max-width:min(220px,42vw); }
 .brand-logo--symbol { height:40px; width:40px; }
 .search { flex:1; height:40px; display:flex; border:1px solid #dbe4f1; border-radius:7px; overflow:hidden; background:#f9fbfe; box-shadow:0 3px 12px rgba(4,38,95,.04); }
-.search input { border:0; outline:0; flex:1; padding:0 16px; color:var(--navy); background:transparent; min-width:50px; }.search input::placeholder{color:#73809a}
+.search input { border:0; outline:0; box-shadow:none; flex:1; padding:0 16px; color:var(--navy); background:transparent; min-width:50px; -webkit-appearance:none; appearance:none; }
+.search input:focus,
+.search input:focus-visible { border:0; outline:0; box-shadow:none; }
+.search input::placeholder{color:#73809a}
+.search:focus-within { border-color:#0878fa; box-shadow:var(--focus-ring); }
 .search button { width:50px; border:0; color:white; background:linear-gradient(135deg,#075ce0,#0878fa); display:grid; place-items:center; }
 .account-actions { display:flex; align-items:center; gap:18px; flex:0 0 auto; }
 .account-actions button,.account-actions a { background:none; border:0; color:var(--navy); display:flex; align-items:center; gap:8px; font-weight:600; }

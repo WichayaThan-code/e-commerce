@@ -26,6 +26,7 @@ import {
 } from "../services/api";
 import { shopCategoryPath, shopPath, shopProductPath } from "../services/shopRoutes";
 import NotFoundPage from "./NotFoundPage";
+import ProductDescriptionHtml, { productDescriptionPlainText } from "../components/merchant/ProductDescriptionHtml";
 import ProductConfiguratorPanel from "../components/shop/ProductConfiguratorPanel";
 import ProductImagePreview, { buildProductPreviewItems } from "../components/shop/ProductImagePreview";
 import ProductQrModal from "../components/shop/ProductQrModal";
@@ -385,7 +386,10 @@ export default function ShopProductPage() {
     : "";
   const shopName = lang === "en" && shop.nameEn ? shop.nameEn : shop.name;
   useShopCrumb(name || null);
-  useDocumentMeta({ title: name ? `${name} · ${shopName}` : null, description: description || null });
+  useDocumentMeta({
+    title: name ? `${name} · ${shopName}` : null,
+    description: description ? productDescriptionPlainText(description) || null : null,
+  });
   const stats = [
     productTotal != null ? [tp("shop.view.productCount"), String(productTotal)] : null,
     shop.category ? [tp("shop.view.category"), shop.category] : null,
@@ -589,7 +593,12 @@ export default function ShopProductPage() {
           </section>
           <section className="buyer-card buyer-detail">
             <div className="buyer-detail-desc">
-              {description ? <><h2>{tp("shop.view.details")}</h2><p>{description}</p></> : null}
+              {description ? (
+                <>
+                  <h2>{tp("shop.view.details")}</h2>
+                  <ProductDescriptionHtml value={description} className="buyer-detail-rich" />
+                </>
+              ) : null}
             </div>
             <div className="buyer-detail-specs">
               <h2>{tp("shop.view.specs")}</h2>

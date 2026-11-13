@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   Grid2X2,
   Heart,
   LayoutGrid,
@@ -49,7 +50,24 @@ const priceBounds: [number | undefined, number | undefined][] = [
 ];
 type SortKey = "featured" | "price" | "best";
 const sortParam: Record<SortKey, RecommendationSort> = { featured: "featured", price: "price_asc", best: "best" };
-const PAGE_SIZE = 12;
+/** 30 per page → 6 rows × 5 columns on desktop grid. */
+const PAGE_SIZE = 30;
+
+/** Compact page list: 0-based indexes + "gap" ellipsis markers. */
+function pageWindow(current: number, total: number): Array<number | "gap"> {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i);
+  const picks = new Set<number>([0, total - 1, current]);
+  for (let i = current - 1; i <= current + 1; i++) {
+    if (i > 0 && i < total - 1) picks.add(i);
+  }
+  const sorted = [...picks].sort((a, b) => a - b);
+  const out: Array<number | "gap"> = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i]! - sorted[i - 1]! > 1) out.push("gap");
+    out.push(sorted[i]!);
+  }
+  return out;
+}
 
 const num = (value: number | string | null | undefined) =>
   value === null || value === undefined || value === "" ? null : Number(value);
@@ -95,8 +113,12 @@ export default function RecommendedProductsPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [fetching, setFetching] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [reload, setReload] = useState(0);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const itemsLenRef = useRef(0);
+  itemsLenRef.current = items.length;
 
   const priceRanges = tp("catalog.priceRanges", { returnObjects: true }) as unknown as string[];
   const priceLabels = useMemo(() => [t.all, ...priceRanges], [t.all, priceRanges]);
@@ -186,15 +208,23 @@ export default function RecommendedProductsPage() {
 
   useEffect(() => { setPage(0); }, [filterKey]);
 
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  useEffect(() => {
+    if (total > 0 && page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
+  }, [total, page, pageCount]);
+
   useEffect(() => {
     let alive = true;
-    setFetching(true);
+    const keepVisible = itemsLenRef.current > 0;
+    if (keepVisible) setRefreshing(true);
+    else setFetching(true);
     setLoadError(false);
     recommendationApi
       .list({ categoryId: selectedCategoryId, ...priceQuery, minRating, brands: brands || undefined, sort: sortParam[sort], page, size: PAGE_SIZE })
       .then((result) => {
         if (!alive) return;
-        setItems((prev) => (page === 0 ? result.items : [...prev, ...result.items.filter((p) => !prev.some((x) => x.id === p.id))]));
+        setItems(result.items);
         setTotal(result.total);
         setKnownBrands((prev) => {
           const next = new Set(prev);
@@ -202,8 +232,16 @@ export default function RecommendedProductsPage() {
           return [...next].sort((a, b) => a.localeCompare(b));
         });
       })
-      .catch(() => { if (alive) { setLoadError(true); if (page === 0) { setItems([]); setTotal(0); } } })
-      .finally(() => { if (alive) setFetching(false); });
+      .catch(() => {
+        if (!alive) return;
+        setLoadError(true);
+        if (!keepVisible) { setItems([]); setTotal(0); }
+      })
+      .finally(() => {
+        if (!alive) return;
+        setFetching(false);
+        setRefreshing(false);
+      });
     return () => { alive = false; };
   }, [filterKey, page]);
 
@@ -259,7 +297,7 @@ export default function RecommendedProductsPage() {
   const productName = (p: BestSellerProduct) => (lang === "en" ? p.nameEn : lang === "zh" ? p.nameZh : p.nameTh) || p.nameTh;
   const shopName = (p: BestSellerProduct) => (lang !== "th" && p.shopNameEn) || p.shopName;
   const shownBrands = [...new Set([...knownBrands, ...brandChecked])].filter((x) => x.toLowerCase().includes(brandQuery.trim().toLowerCase()));
-  const hasMore = items.length < total;
+  const safePage = Math.min(page, pageCount - 1);
   const hasActiveFilters =
     brandChecked.length > 0
     || priceBand !== 0
@@ -268,6 +306,12 @@ export default function RecommendedProductsPage() {
     || ratingIndex != null
     || selectedCategoryId != null;
   const bannerEmojis = ["🎁", "🚚", "🌍"];
+
+  const goPage = (next: number) => {
+    if (next === page || next < 0 || next >= pageCount || refreshing || fetching) return;
+    setPage(next);
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <main className="recommend-page">
@@ -403,7 +447,7 @@ export default function RecommendedProductsPage() {
             </label>
           ))}
         </aside>
-        <div className="recommend-results">
+        <div className="recommend-results" ref={resultsRef}>
           <div className="recommend-tools">
             <span>{tp("common.sortBy")}</span>
             <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label={tp("catalog.sortAria")}>
@@ -431,74 +475,115 @@ export default function RecommendedProductsPage() {
               <EmptyState icon={Package} title={tp("home.emptyRecommended")} />
             )
           ) : (
-            <div className={`recommend-product-grid ${grid ? "" : "list-view"}`} aria-busy={fetching}>
-              {items.map((p) => {
-                const image = primaryImage(p);
-                const price = priceOf(p);
-                const compare = compareOf(p);
-                const discount = compare && compare > price ? Math.round((1 - price / compare) * 100) : 0;
-                const href = `/shop/${p.shopSlug}/product/${p.slug}`;
-                return (
-                  <article className="recommend-product" key={p.id}>
-                    <div className="recommend-photo">
-                      <div className="recommend-sprite" role="link" tabIndex={0} onClick={() => navigate(href)} onKeyDown={(e) => { if (e.key === "Enter") navigate(href); }} aria-label={productName(p)} style={{ cursor: "pointer" }}>
-                        {image && <img src={mediaUrl(image.url)} alt={productName(p)} style={fillImage} loading="lazy" />}
+            <div
+              className={`recommend-product-grid ${grid ? "" : "list-view"}${refreshing ? " is-refreshing" : ""}`}
+              aria-busy={fetching || refreshing}
+            >
+              {fetching && items.length === 0
+                ? Array.from({ length: 10 }, (_, i) => (
+                    <article className="recommend-product recommend-skeleton" key={`skeleton-${i}`} aria-hidden="true">
+                      <div className="recommend-photo" />
+                      <div className="recommend-product-info">
+                        <h2><span /></h2>
+                        <p className="recommend-shop"><span /></p>
+                        <p className="recommend-price"><span /></p>
                       </div>
-                      <button
-                        type="button"
-                        className={favorites.has(p.id) ? "liked" : ""}
-                        onClick={() => void toggleFavorite(p.id)}
-                        aria-label={tp("catalog.favorite")}
-                      >
-                        <Heart />
-                      </button>
-                    </div>
-                    <div className="recommend-product-info">
-                      <h2>
-                        <Link to={href}><span>{productName(p)}</span></Link>
-                      </h2>
-                      <p className="recommend-shop">
-                        <Store /> <Link to={`/shop/${p.shopSlug}`}>{shopName(p)}</Link>
-                      </p>
-                      <p className="recommend-price">
-                        <b>฿{price.toLocaleString(localeTag)}</b>
-                        {discount > 0 && compare && <del>฿{compare.toLocaleString(localeTag)}</del>}
-                        {discount > 0 && <em>-{discount}%</em>}
-                      </p>
-                      <p className="recommend-meta">
-                        {p.rating !== null && p.rating !== undefined ? (
-                          <span className="pcard-rating">
-                            <b>★ {Number(p.rating).toLocaleString(localeTag)}</b>
-                            <span className="pcard-reviews">({(p.reviewCount ?? 0).toLocaleString(localeTag)})</span>
-                          </span>
-                        ) : null}
-                        {p.rating != null && p.soldCount > 0 ? <span className="pcard-sep" aria-hidden="true">·</span> : null}
-                        {p.soldCount > 0 ? (
-                          <span className="pcard-sold">
-                            {tp("common.sold")} {p.soldCount.toLocaleString(localeTag)}
-                          </span>
-                        ) : null}
-                      </p>
-                      <button type="button" onClick={() => void addToCart(p)}>
-                        <ShoppingCart />
-                        {tp("recommend.addToCart")}
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-              {fetching &&
-                Array.from({ length: page === 0 ? 6 : 3 }, (_, i) => (
-                  <article className="recommend-product" key={`skeleton-${i}`} aria-hidden="true" style={{ opacity: 0.55 }}>
-                    <div className="recommend-photo" style={{ background: "#eef0f3" }} />
-                    <div className="recommend-product-info">
-                      <h2><span style={{ display: "block", height: 14, width: "80%", background: "#eef0f3", borderRadius: 6 }} /></h2>
-                      <p className="recommend-shop"><span style={{ display: "block", height: 10, width: "50%", background: "#eef0f3", borderRadius: 6 }} /></p>
-                      <p className="recommend-price"><span style={{ display: "block", height: 14, width: "35%", background: "#eef0f3", borderRadius: 6 }} /></p>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  ))
+                : items.map((p) => {
+                    const image = primaryImage(p);
+                    const price = priceOf(p);
+                    const compare = compareOf(p);
+                    const discount = compare && compare > price ? Math.round((1 - price / compare) * 100) : 0;
+                    const href = `/shop/${p.shopSlug}/product/${p.slug}`;
+                    return (
+                      <article className="recommend-product" key={p.id}>
+                        <div className="recommend-photo">
+                          <div className="recommend-sprite" role="link" tabIndex={0} onClick={() => navigate(href)} onKeyDown={(e) => { if (e.key === "Enter") navigate(href); }} aria-label={productName(p)} style={{ cursor: "pointer" }}>
+                            {image && <img src={mediaUrl(image.url)} alt={productName(p)} style={fillImage} loading="lazy" />}
+                          </div>
+                          <button
+                            type="button"
+                            className={favorites.has(p.id) ? "liked" : ""}
+                            onClick={() => void toggleFavorite(p.id)}
+                            aria-label={tp("catalog.favorite")}
+                          >
+                            <Heart />
+                          </button>
+                        </div>
+                        <div className="recommend-product-info">
+                          <h2>
+                            <Link to={href}><span>{productName(p)}</span></Link>
+                          </h2>
+                          <p className="recommend-shop">
+                            <Store /> <Link to={`/shop/${p.shopSlug}`}>{shopName(p)}</Link>
+                          </p>
+                          <p className="recommend-price">
+                            <b>฿{price.toLocaleString(localeTag)}</b>
+                            {discount > 0 && compare && <del>฿{compare.toLocaleString(localeTag)}</del>}
+                            {discount > 0 && <em>-{discount}%</em>}
+                          </p>
+                          <p className="recommend-meta">
+                            {p.rating !== null && p.rating !== undefined ? (
+                              <span className="pcard-rating">
+                                <b>★ {Number(p.rating).toLocaleString(localeTag)}</b>
+                                <span className="pcard-reviews">({(p.reviewCount ?? 0).toLocaleString(localeTag)})</span>
+                              </span>
+                            ) : null}
+                            {p.rating != null && p.soldCount > 0 ? <span className="pcard-sep" aria-hidden="true">·</span> : null}
+                            {p.soldCount > 0 ? (
+                              <span className="pcard-sold">
+                                {tp("common.sold")} {p.soldCount.toLocaleString(localeTag)}
+                              </span>
+                            ) : null}
+                          </p>
+                          <button type="button" onClick={() => void addToCart(p)}>
+                            <ShoppingCart />
+                            {tp("recommend.addToCart")}
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
             </div>
+          )}
+          {total > PAGE_SIZE && (
+            <nav className="recommend-pagination" aria-label={tp("shops.pageAria")}>
+              <button
+                type="button"
+                disabled={safePage <= 0 || refreshing}
+                onClick={() => goPage(safePage - 1)}
+                aria-label={tp("shops.pagePrev")}
+              >
+                <ChevronLeft />
+              </button>
+              {pageWindow(safePage, pageCount).map((entry, index) =>
+                entry === "gap" ? (
+                  <span className="recommend-pagination-gap" key={`gap-${index}`} aria-hidden="true">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className={safePage === entry ? "current" : ""}
+                    key={entry}
+                    disabled={refreshing}
+                    aria-current={safePage === entry ? "page" : undefined}
+                    onClick={() => goPage(entry)}
+                  >
+                    {entry + 1}
+                  </button>
+                ),
+              )}
+              <button
+                type="button"
+                disabled={safePage >= pageCount - 1 || refreshing}
+                onClick={() => goPage(safePage + 1)}
+                aria-label={tp("shops.pageNext")}
+              >
+                <ChevronRight />
+              </button>
+            </nav>
           )}
           <div className="recommend-banners">
             {banners.map((banner, index) => (
@@ -521,20 +606,6 @@ export default function RecommendedProductsPage() {
               </article>
             ))}
           </div>
-          {items.length > 0 && (
-            <button
-              className="view-all"
-              type="button"
-              disabled={fetching || !hasMore}
-              onClick={() => {
-                if (!hasMore) { notify(t.end); return; }
-                notify(tp("recommend.loadMore"));
-                setPage((v) => v + 1);
-              }}
-            >
-              {hasMore ? tp("recommend.viewAllRecommended") : t.end} <ArrowRight />
-            </button>
-          )}
         </div>
       </section>
       {notice && (

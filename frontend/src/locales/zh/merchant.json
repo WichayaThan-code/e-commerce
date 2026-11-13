@@ -606,6 +606,27 @@
       "namePh": "顾客看到的名称",
       "description": "详情",
       "descriptionPh": "描述商品",
+      "descriptionToolbar": "详情格式工具栏",
+      "descriptionBold": "粗体",
+      "descriptionItalic": "斜体",
+      "descriptionAlignLeft": "左对齐",
+      "descriptionAlignCenter": "居中",
+      "descriptionBullet": "项目符号",
+      "descriptionOrdered": "编号列表",
+      "descriptionInsertImage": "插入图片",
+      "descriptionImageType": "仅支持 JPG、PNG 或 WEBP",
+      "descriptionImageFailed": "图片上传失败",
+      "descriptionSize": {
+        "sm": "小",
+        "md": "中",
+        "lg": "大"
+      },
+      "descriptionImageSize": {
+        "s": "33%",
+        "m": "50%",
+        "l": "75%",
+        "full": "满宽"
+      },
       "category": "分类",
       "categoryPh": "选择分类",
       "brandPh": "品牌名（可选）",
@@ -2629,8 +2650,10 @@
       "SHIP": "填写快递公司和运单号以发出订单 {{number}}",
       "DELIVER": "确认此订单包裹已送达买家",
       "DELIVER_ORDER": "订单号",
-      "DELIVER_VERIFY_TITLE": "会先核对承运商状态",
-      "DELIVER_VERIFY_HINT": "若运单尚未显示已送达，系统将不会保存“已送达”",
+      "DELIVER_TRACKING": "运单号",
+      "DELIVER_TRACK_WEB": "在网页跟踪",
+      "DELIVER_VERIFY_TITLE": "请先核对承运商状态",
+      "DELIVER_VERIFY_HINT": "请打开承运商跟踪页确认已送达后再保存（已对接的承运商会自动核对）",
       "CANCEL": "取消订单 {{number}}。已付款订单将全额退款。"
     },
     "errors": {

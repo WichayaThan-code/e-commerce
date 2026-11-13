@@ -8,6 +8,7 @@ import ConfirmDialog from "../components/form/ConfirmDialog";
 import SearchableSelect from "../components/SearchableSelect";
 import MerchantShell from "../components/merchant/MerchantShell";
 import AuthImage from "../components/merchant/AuthImage";
+import ProductDescriptionHtml from "../components/merchant/ProductDescriptionHtml";
 import ProductQrModal from "../components/shop/ProductQrModal";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { catalogMessage, formatMoney, formatWhen } from "../services/catalogText";
@@ -233,7 +234,7 @@ export default function ProductDetailPage() {
                 <article key={lang}>
                   <b>{t(`catalog.form.lang${lang === "th" ? "Th" : lang === "en" ? "En" : "Zh"}`)}</b>
                   <p>{names[lang] || "—"}</p>
-                  {descriptions[lang] ? <p>{descriptions[lang]}</p> : null}
+                  {descriptions[lang] ? <ProductDescriptionHtml value={descriptions[lang]} /> : null}
                 </article>
               ))}
             </div>

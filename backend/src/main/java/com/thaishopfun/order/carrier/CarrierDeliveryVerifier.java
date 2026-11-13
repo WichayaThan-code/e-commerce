@@ -16,6 +16,8 @@ import java.util.List;
 /**
  * Before a merchant/admin marks an order DELIVERED, ask the carrier (poll + prior webhook/poll events)
  * whether the parcel is actually delivered. SYSTEM / carrier-driven transitions skip this gate.
+ * <p>When no poll provider is registered for the carrier (current production: none), the merchant may
+ * confirm delivery manually after checking the carrier site — we must not reject every DELIVER attempt.
  */
 @Component
 public class CarrierDeliveryVerifier {
@@ -50,12 +52,13 @@ public class CarrierDeliveryVerifier {
         }
 
         var provider = registry.find(shipment.getCarrierCode()).filter(CarrierTrackingProvider::supportsPoll).orElse(null);
-        if (provider != null) {
-            for (ShipmentService.CarrierUpdate update : provider.poll(tracking)) {
-                if (isDeliveredStatus(update.status())) return;
-            }
+        if (provider == null) {
+            // No live carrier API for this code yet (e.g. SPX) — merchant confirms using the public tracking page.
+            return;
         }
-
+        for (ShipmentService.CarrierUpdate update : provider.poll(tracking)) {
+            if (isDeliveredStatus(update.status())) return;
+        }
         reject(shipment.statusEnum(), "ตรวจกับขนส่งแล้วยังไม่พบว่าพัสดุส่งถึงแล้ว — ยังบันทึกส่งถึงลูกค้าไม่ได้");
     }
 

@@ -562,6 +562,10 @@ export type PublicProduct = {
   soldCount?: number | null
   /** ISO timestamp the product was created (public storefront DTO). */
   createdAt?: string | null
+  /** Average published review rating (1 decimal); null when none. */
+  rating?: number | string | null
+  /** Published review count; null when none. */
+  reviewCount?: number | null
 }
 /** GET /api/products/best-sellers row: public product fields + rank / sold quantity / shop. rating & reviewCount are null until reviews exist. */
 export type BestSellerProduct = {
@@ -979,6 +983,11 @@ export const productApi = {
   publish: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/publish`), { method: 'POST' }, true),
   archive: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/archive`), { method: 'POST' }, true),
   unarchive: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/unarchive`), { method: 'POST' }, true),
+  uploadDescriptionImage: (shopId: number, file: File, onProgress?: (ratio: number) => void) => {
+    const body = new FormData()
+    body.append('file', file)
+    return uploadForm<{ id: string; url: string }>(shopProducts(shopId, '/products/description-images'), body, onProgress)
+  },
   addImage: (shopId: number, productId: string, file: File, onProgress?: (ratio: number) => void) => {
     const body = new FormData()
     body.append('file', file)

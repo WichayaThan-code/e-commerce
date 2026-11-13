@@ -58,8 +58,13 @@ public class MerchantProductController {
         @RequestBody CatalogDtos.TranslationPreviewRequest request
     ) {
         RequestUser.id(jwt); // auth gate; shop access comes from @RequireShopPermission(shopId)
+        java.util.Map<String, String> fields = request == null ? null : request.fields();
+        if (fields != null && fields.containsKey("description")) {
+            fields = new java.util.LinkedHashMap<>(fields);
+            fields.put("description", ProductDescriptionHtml.plainText(fields.get("description")));
+        }
         return new CatalogDtos.TranslationPreviewResponse(
-            translations.preview(request == null ? null : request.fields(), request == null ? null : request.locales())
+            translations.preview(fields, request == null ? null : request.locales())
         );
     }
 
@@ -237,6 +242,16 @@ public class MerchantProductController {
     @PostMapping("/products/{productId}/unarchive")
     public CatalogDtos.MerchantProductResponse unarchive(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId, @PathVariable UUID productId) {
         return products.unarchive(RequestUser.id(jwt), shopId, productId);
+    }
+
+    @RequireShopPermission("PRODUCT_UPDATE")
+    @PostMapping(value = "/products/description-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public CatalogDtos.DescriptionImageUpload uploadDescriptionImage(
+        @AuthenticationPrincipal Jwt jwt,
+        @PathVariable Long shopId,
+        @RequestPart("file") MultipartFile file
+    ) {
+        return products.uploadDescriptionImage(RequestUser.id(jwt), shopId, file);
     }
 
     @RequireShopPermission("PRODUCT_UPDATE")

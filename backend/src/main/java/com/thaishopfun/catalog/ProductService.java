@@ -14,6 +14,8 @@ import com.thaishopfun.merchant.Shop;
 import com.thaishopfun.merchant.ShopRepository;
 import com.thaishopfun.merchant.ShopStatus;
 import com.thaishopfun.merchant.plan.PlanQuotaService;
+import com.thaishopfun.order.MediaFile;
+import com.thaishopfun.order.MediaFileRepository;
 import com.thaishopfun.order.OrderStatus;
 import com.thaishopfun.order.PaymentStatus;
 import com.thaishopfun.translation.ContentTranslationBridge;
@@ -22,7 +24,12 @@ import com.thaishopfun.translation.TranslationEntityType;
 import com.thaishopfun.translation.TranslationService;
 import jakarta.persistence.EntityManager;
 import jakarta.validation.Validator;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +37,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -53,6 +61,9 @@ public class ProductService {
     private static final int MAX_SKUS = 100;
     /** Cap on spreadsheet rows (one product can expand to many SKU rows). */
     static final int EXPORT_MAX_ROWS = 10_000;
+    static final String DESCRIPTION_IMAGE_PURPOSE = "PRODUCT_DESCRIPTION_IMAGE";
+    static final String DESCRIPTION_IMAGE_FOLDER = "product-description-images";
+    static final String DESCRIPTION_IMAGE_URL_PREFIX = "/api/product-description-images/";
     private final ShopRepository shops;
     private final ProductRepository products;
     private final ProductSkuRepository skus;
@@ -61,6 +72,7 @@ public class ProductService {
     private final InventoryLedgerRepository ledger;
     private final ProductCategoryRepository categories;
     private final MerchantStorageService storage;
+    private final MediaFileRepository mediaFiles;
     private final EntityManager entities;
     private final ContentTranslationBridge translationBridge;
     private final TranslationService translations;
@@ -79,6 +91,7 @@ public class ProductService {
         InventoryLedgerRepository ledger,
         ProductCategoryRepository categories,
         MerchantStorageService storage,
+        MediaFileRepository mediaFiles,
         EntityManager entities,
         ContentTranslationBridge translationBridge,
         TranslationService translations,
@@ -96,6 +109,7 @@ public class ProductService {
         this.ledger = ledger;
         this.categories = categories;
         this.storage = storage;
+        this.mediaFiles = mediaFiles;
         this.entities = entities;
         this.translationBridge = translationBridge;
         this.translations = translations;
@@ -374,6 +388,44 @@ public class ProductService {
         return merchantView(product);
     }
 
+    /** Inline image for the product description editor (independent of gallery / product id). */
+    @Transactional
+    public CatalogDtos.DescriptionImageUpload uploadDescriptionImage(UUID userId, Long shopId, MultipartFile file) {
+        var shop = requireSellableShop(userId, shopId);
+        if (file == null || file.isEmpty()) throw bad("FILE_REQUIRED", "กรุณาเลือกรูป (JPG, PNG หรือ WEBP)");
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw bad("INVALID_FILE", "ไม่สามารถอ่านไฟล์ได้");
+        }
+        var stored = storage.storePlatformImage(DESCRIPTION_IMAGE_FOLDER, bytes, DESCRIPTION_IMAGE_PURPOSE);
+        deleteFileOnRollback(stored.path());
+        var name = file.getOriginalFilename() == null || file.getOriginalFilename().isBlank()
+            ? stored.storedName() : file.getOriginalFilename();
+        if (name.length() > 255) name = name.substring(name.length() - 255);
+        var row = new MediaFile(shop.getUuid(), userId, DESCRIPTION_IMAGE_PURPOSE, stored.path(), name,
+            stored.contentType(), stored.size(), stored.sha256(), null);
+        row.makePublic();
+        row.stamp(userId);
+        mediaFiles.save(row);
+        return new CatalogDtos.DescriptionImageUpload(row.getId(), DESCRIPTION_IMAGE_URL_PREFIX + row.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<Resource> serveDescriptionImage(UUID mediaId) {
+        var file = mediaFiles.findById(mediaId)
+            .filter(m -> DESCRIPTION_IMAGE_PURPOSE.equals(m.getPurpose()) && "PUBLIC".equals(m.getVisibility()))
+            .orElseThrow(() -> notFound("IMAGE_NOT_FOUND", "ไม่พบรูปในรายละเอียดสินค้า"));
+        var path = storage.openPublicImage(file.getStorageKey())
+            .orElseThrow(() -> notFound("IMAGE_NOT_FOUND", "ไม่พบรูปในรายละเอียดสินค้า"));
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(file.getContentType()))
+            .header("X-Content-Type-Options", "nosniff")
+            .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
+            .body(new FileSystemResource(path));
+    }
+
     @Transactional
     public UUID addImportedImage(UUID userId, Long shopId, UUID productId, byte[] bytes) {
         requireSellableShop(userId, shopId);
@@ -578,9 +630,16 @@ public class ProductService {
         var ids = result.items().stream().map(product -> product.getId().toString()).toList();
         var index = translations.loadIndex(TranslationEntityType.PRODUCT, ids);
         var options = translations.loadIndex(TranslationEntityType.PRODUCT_OPTION, ids);
-        var sold = soldCounts(result.items().stream().map(Product::getId).toList());
+        var idsUuid = result.items().stream().map(Product::getId).toList();
+        var sold = soldCounts(idsUuid);
+        var ratings = reviewAggregates(idsUuid);
         return new CatalogDtos.PageResponse<>(result.items().stream()
-            .map(product -> toPublic(product, index, options, locale).withSoldCount(sold.getOrDefault(product.getId(), 0L)))
+            .map(product -> {
+                var stats = ratings.get(product.getId());
+                return toPublic(product, index, options, locale)
+                    .withSoldCount(sold.getOrDefault(product.getId(), 0L))
+                    .withReviewStats(stats == null ? null : stats[0], stats == null ? null : stats[1].longValue());
+            })
             .toList(), result.page(), result.size(), result.total());
     }
 
@@ -607,9 +666,16 @@ public class ProductService {
         var ids = items.stream().map(product -> product.getId().toString()).toList();
         var index = translations.loadIndex(TranslationEntityType.PRODUCT, ids);
         var options = translations.loadIndex(TranslationEntityType.PRODUCT_OPTION, ids);
-        var sold = soldCounts(items.stream().map(Product::getId).toList());
+        var idsUuid = items.stream().map(Product::getId).toList();
+        var sold = soldCounts(idsUuid);
+        var ratings = reviewAggregates(idsUuid);
         return items.stream()
-            .map(product -> toPublic(product, index, options, locale).withSoldCount(sold.getOrDefault(product.getId(), 0L)))
+            .map(product -> {
+                var stats = ratings.get(product.getId());
+                return toPublic(product, index, options, locale)
+                    .withSoldCount(sold.getOrDefault(product.getId(), 0L))
+                    .withReviewStats(stats == null ? null : stats[0], stats == null ? null : stats[1].longValue());
+            })
             .toList();
     }
 
@@ -864,9 +930,9 @@ public class ProductService {
         product.setNameTh(requireName(request == null ? null : request.nameTh()));
         product.setNameEn(blank(request.nameEn()));
         product.setNameZh(blank(request.nameZh()));
-        product.setDescriptionTh(blank(request.descriptionTh()));
-        product.setDescriptionEn(blank(request.descriptionEn()));
-        product.setDescriptionZh(blank(request.descriptionZh()));
+        product.setDescriptionTh(ProductDescriptionHtml.optional(request.descriptionTh(), "descriptionTh"));
+        product.setDescriptionEn(ProductDescriptionHtml.optional(request.descriptionEn(), "descriptionEn"));
+        product.setDescriptionZh(ProductDescriptionHtml.optional(request.descriptionZh(), "descriptionZh"));
         product.setProductType(type);
         product.setBrand(blank(request.brand()));
         product.setBasePrice(money(request.basePrice(), true));

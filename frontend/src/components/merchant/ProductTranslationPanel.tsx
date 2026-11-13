@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import ToggleSwitch from "../form/ToggleSwitch";
 import { productApi, type Product, type TranslationMeta } from "../../services/api";
+import ProductDescriptionEditor from "./ProductDescriptionEditor";
+import ProductDescriptionHtml, { productDescriptionHasContent, productDescriptionPlainText } from "./ProductDescriptionHtml";
 
 type Locale = "en" | "zh";
 type FieldKey = "name" | "description";
@@ -108,13 +110,16 @@ export default function ProductTranslationPanel({
   }, [product, productId]);
 
   const sourceKey = useMemo(
-    () => JSON.stringify({ nameTh: nameTh.trim(), descriptionTh: descriptionTh.trim() }),
+    () => JSON.stringify({
+      nameTh: nameTh.trim(),
+      descriptionTh: productDescriptionPlainText(descriptionTh).trim(),
+    }),
     [nameTh, descriptionTh],
   );
 
   useEffect(() => {
     const name = nameTh.trim();
-    const description = descriptionTh.trim();
+    const description = productDescriptionPlainText(descriptionTh).trim();
     if (!name && !description) {
       setPreview({ en: { name: "", description: "" }, zh: { name: "", description: "" } });
       setStatus("idle");
@@ -206,7 +211,9 @@ export default function ProductTranslationPanel({
             const display = edit
               ? draftValue
               : (preview[locale][field] || (isManual(meta) ? "" : draftValue) || "");
-            const sourceEmpty = field === "name" ? !nameTh.trim() : !descriptionTh.trim();
+            const sourceEmpty = field === "name"
+              ? !nameTh.trim()
+              : !productDescriptionHasContent(descriptionTh);
             const pending = !edit && status === "loading" && !sourceEmpty;
             return (
               <div className="pm-translation-field" key={`${locale}-${field}`}>
@@ -232,12 +239,21 @@ export default function ProductTranslationPanel({
                       placeholder={t("catalog.form.namePh")}
                     />
                   ) : (
-                    <textarea
+                    <ProductDescriptionEditor
+                      shopId={shopId}
+                      compact
                       value={draftValue}
-                      onChange={(event) => onChange({ [draftKey(locale, field)]: event.target.value })}
+                      onChange={(html) => onChange({ [draftKey(locale, field)]: html })}
                       placeholder={t("catalog.form.descriptionPh")}
                     />
                   )
+                ) : field === "description" && display ? (
+                  <div
+                    className={`pm-translation-display pm-translation-display-html${pending ? " is-loading" : ""}`}
+                    role="status"
+                  >
+                    {pending ? t("catalog.form.translationPending") : <ProductDescriptionHtml value={display} />}
+                  </div>
                 ) : (
                   <div
                     className={`pm-translation-display${pending ? " is-loading" : ""}${!display && !pending ? " is-empty" : ""}`}

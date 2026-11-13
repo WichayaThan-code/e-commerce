@@ -99,3 +99,18 @@ export function parseCategoryParam(value: string | null | undefined): number | u
   const id = Number(value);
   return Number.isFinite(id) ? id : undefined;
 }
+
+/** Match a hub category by Thai/EN/ZH name hints (case-insensitive substring). */
+export function findCategoryIdByHints(
+  rows: ProductCategory[] | null | undefined,
+  hints: string[],
+): number | undefined {
+  if (!rows?.length || hints.length === 0) return undefined;
+  const needles = hints.map((hint) => hint.trim().toLowerCase()).filter(Boolean);
+  if (!needles.length) return undefined;
+  const found = rows.find((row) => {
+    const hay = `${row.nameTh} ${row.nameEn ?? ""} ${row.nameZh ?? ""}`.toLowerCase();
+    return needles.some((needle) => hay.includes(needle));
+  });
+  return found?.id;
+}

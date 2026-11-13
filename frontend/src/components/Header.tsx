@@ -143,7 +143,7 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
         </div>
       </div>
 
-      {!hideNavbar && <Navbar />}
+      {!hideNavbar && !shopMatch && <Navbar />}
 
       {menuOpen && (
         <div className="drawer-wrap" onClick={() => setMenuOpen(false)}>

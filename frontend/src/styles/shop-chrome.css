@@ -114,7 +114,15 @@
   display:flex;align-items:center;border:1px solid rgba(127,127,127,.5);border-radius:999px;background:var(--shop-bg);color:var(--shop-text);overflow:hidden;
 }
 .shop-themed[data-template="CUSTOM"] .shop-chrome-search input{
-  width:150px;min-width:0;border:0;outline:0;background:transparent;color:inherit;padding:7px 4px 7px 14px;font:inherit;font-size:13px;
+  width:150px;min-width:0;border:0;outline:0;box-shadow:none;background:transparent;color:inherit;padding:7px 4px 7px 14px;font:inherit;font-size:13px;
+  -webkit-appearance:none;appearance:none;
+}
+.shop-themed[data-template="CUSTOM"] .shop-chrome-search input:focus,
+.shop-themed[data-template="CUSTOM"] .shop-chrome-search input:focus-visible{
+  border:0;outline:0;box-shadow:none;
+}
+.shop-themed[data-template="CUSTOM"] .shop-chrome-search:focus-within{
+  border-color:var(--shop-primary,#0878f5);box-shadow:var(--focus-ring);
 }
 .shop-themed[data-template="CUSTOM"] .shop-chrome-search button{
   display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;color:inherit;padding:6px 10px;cursor:pointer;

@@ -42,7 +42,10 @@ public class ProductShareController {
         try {
             var product = products.publicGet(shopSlug, productSlug, "th");
             title = firstNonBlank(product.nameTh(), product.nameEn(), title);
-            description = shorten(firstNonBlank(product.descriptionTh(), product.descriptionEn(), ""));
+            description = shorten(firstNonBlank(
+                ProductDescriptionHtml.plainText(product.descriptionTh()),
+                ProductDescriptionHtml.plainText(product.descriptionEn()),
+                ""));
             if (product.images() != null && !product.images().isEmpty()) {
                 var picked = product.images().stream().filter(CatalogDtos.ImageResponse::primary).findFirst().orElse(product.images().get(0));
                 image = absolute(picked.url());

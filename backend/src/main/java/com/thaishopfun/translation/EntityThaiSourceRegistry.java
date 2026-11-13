@@ -1,5 +1,6 @@
 package com.thaishopfun.translation;
 
+import com.thaishopfun.catalog.ProductDescriptionHtml;
 import com.thaishopfun.catalog.ProductRepository;
 import com.thaishopfun.merchant.ProductCategoryRepository;
 import com.thaishopfun.merchant.ShopRepository;
@@ -33,7 +34,7 @@ public class EntityThaiSourceRegistry {
         if (product == null) return null;
         return switch (field) {
             case "name" -> product.getNameTh();
-            case "description" -> product.getDescriptionTh();
+            case "description" -> ProductDescriptionHtml.plainText(product.getDescriptionTh());
             default -> null;
         };
     }

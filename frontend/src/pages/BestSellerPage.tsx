@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   BarChart3,
   TrendingUp,
@@ -22,7 +23,11 @@ import {
 } from "../services/api";
 import bestSellerReference from "../assets/images/references/storefront/best-seller.png";
 import EmptyState from "../components/feedback/EmptyState";
-import { buildRecommendCategoryTiles } from "../components/marketplace/categoryTiles";
+import {
+  buildRecommendCategoryTiles,
+  findCategoryIdByHints,
+  parseCategoryParam,
+} from "../components/marketplace/categoryTiles";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import "../styles/recommended-products.css";
 import "../styles/best-seller.css";
@@ -67,9 +72,12 @@ const primaryImage = (p: BestSellerProduct) =>
 export default function BestSellerPage() {
   const { tp, localeTag } = usePublicTranslation();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const lang = localeTag.startsWith("zh") ? "zh" : localeTag.startsWith("en") ? "en" : "th";
   const allLabel = lang === "en" ? "All" : lang === "zh" ? "全部" : "ทั้งหมด";
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(() =>
+    parseCategoryParam(searchParams.get("category")),
+  );
   const [activeRank, setActiveRank] = useState(0);
   const cartApi = useOptionalCart();
   const [categoryList, setCategoryList] = useState<ProductCategory[] | null>(null);
@@ -105,6 +113,46 @@ export default function BestSellerPage() {
       .then((rows) => setFavorites(new Set(rows.map((row) => row.productId))))
       .catch(() => setFavorites(new Set()));
   }, [user]);
+
+  useEffect(() => {
+    const fromId = parseCategoryParam(searchParams.get("category"));
+    if (fromId != null) {
+      setSelectedCategoryId(fromId);
+      return;
+    }
+    const hint = searchParams.get("categoryName")?.trim();
+    if (hint) {
+      if (!categoryList?.length) return;
+      const matched = findCategoryIdByHints(categoryList, [hint]);
+      if (matched == null) {
+        setSelectedCategoryId(undefined);
+        return;
+      }
+      setSelectedCategoryId(matched);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("categoryName");
+        next.set("category", String(matched));
+        return next;
+      }, { replace: true });
+      return;
+    }
+    setSelectedCategoryId(undefined);
+  }, [searchParams, categoryList, setSearchParams]);
+
+  useEffect(() => {
+    if (!categoryList || categoryList.length === 0) return;
+    if (selectedCategoryId == null) return;
+    if (categoryList.some((c) => c.id === selectedCategoryId)) return;
+    setSelectedCategoryId(undefined);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("category");
+      next.delete("categoryName");
+      return next;
+    }, { replace: true });
+  }, [categoryList, selectedCategoryId, setSearchParams]);
+
   const toggleFavorite = async (productId: string) => {
     if (!user) {
       window.location.assign(`/login?next=${encodeURIComponent("/best-sellers")}`);
@@ -137,8 +185,18 @@ export default function BestSellerPage() {
   );
   const otopTab = activeRank === 3;
   const selectedCategory = otopTab ? undefined : selectedCategoryId;
-  const selectCategory = (id: number | undefined, label: string) => {
+  const setCategoryInUrl = (id: number | undefined) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("categoryName");
+      if (id == null) next.delete("category");
+      else next.set("category", String(id));
+      return next;
+    }, { replace: true });
     setSelectedCategoryId(id);
+  };
+  const selectCategory = (id: number | undefined, label: string) => {
+    setCategoryInUrl(id);
     notify(tp("catalog.pickCategory", { name: label.replace(/\n/g, " ") }));
   };
   const [bandMin, bandMax] = [priceBands[priceBand][1], priceBands[priceBand][2]];
@@ -287,7 +345,7 @@ export default function BestSellerPage() {
               <input
                 type="checkbox"
                 checked={c.id == null ? selectedCategoryId == null : selectedCategoryId === c.id}
-                onChange={() => setSelectedCategoryId(c.id)}
+                onChange={() => setCategoryInUrl(c.id)}
               />
               {c.nameTh}
             </label>

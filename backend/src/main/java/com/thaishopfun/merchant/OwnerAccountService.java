@@ -28,7 +28,13 @@ public class OwnerAccountService {
 
     @Transactional(readOnly = true)
     public List<MerchantDtos.MerchantOwnerResponse> list(UUID userId) {
-        return owners.findByUser_IdOrderByCreatedAtAsc(userId).stream().map(owner -> toResponse(owner)).toList();
+        return owners.findByUser_IdOrderByCreatedAtAsc(userId).stream().map(this::toResponse).toList();
+    }
+
+    /** Oldest owner profile for this user, if any (used to prefill a second-shop draft). */
+    @Transactional(readOnly = true)
+    public java.util.Optional<Owner> primaryOwned(UUID userId) {
+        return owners.findByUser_IdOrderByCreatedAtAsc(userId).stream().findFirst();
     }
 
     @Transactional
@@ -86,9 +92,21 @@ public class OwnerAccountService {
     }
 
     private MerchantDtos.MerchantOwnerResponse toResponse(Owner owner) {
+        String citizen = null;
+        String bank = null;
+        try {
+            if (owner.getCitizenIdEncrypted() != null) citizen = digits(cipher.decrypt(owner.getCitizenIdEncrypted()));
+        } catch (RuntimeException ignored) { /* rotated secret: keep masked-only */ }
+        try {
+            if (owner.getBankAccountEncrypted() != null) bank = digits(cipher.decrypt(owner.getBankAccountEncrypted()));
+        } catch (RuntimeException ignored) { /* rotated secret */ }
         return new MerchantDtos.MerchantOwnerResponse(
             owner.getId(), owner.getOwnerType(), owner.getTitle(), owner.getFirstName(), owner.getLastName(),
-            cipher.mask(owner.getCitizenIdEncrypted()), owner.getPhone(), owner.getEmail(), owner.getSensitiveReview()
+            cipher.mask(owner.getCitizenIdEncrypted()), owner.getPhone(), owner.getEmail(), owner.getSensitiveReview(),
+            citizen, owner.getBirthDate(), owner.getNationality(),
+            owner.getHouseNo(), owner.getVillageNo(), owner.getBuilding(), owner.getAlley(), owner.getRoad(),
+            owner.getProvince(), owner.getDistrict(), owner.getSubdistrict(), owner.getPostalCode(),
+            owner.getBankName(), bank, owner.getBankAccountName()
         );
     }
 

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   BarChart3,
+  ChevronLeft,
+  ChevronRight,
   TrendingUp,
   Grid2X2,
   Heart,
@@ -96,10 +98,30 @@ export default function BestSellerPage() {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [catCanPrev, setCatCanPrev] = useState(false);
+  const [catCanNext, setCatCanNext] = useState(false);
+  const categoryScrollerRef = useRef<HTMLDivElement>(null);
   const fallbackCategories = tp("home.categories", { returnObjects: true }) as unknown as string[];
   const notify = (message: string) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 1900);
+  };
+  const updateCategoryArrows = useCallback(() => {
+    const node = categoryScrollerRef.current;
+    if (!node) {
+      setCatCanPrev(false);
+      setCatCanNext(false);
+      return;
+    }
+    const max = Math.max(0, node.scrollWidth - node.clientWidth);
+    setCatCanPrev(node.scrollLeft > 2);
+    setCatCanNext(node.scrollLeft < max - 2);
+  }, []);
+  const scrollCategories = (direction: -1 | 1) => {
+    const node = categoryScrollerRef.current;
+    if (!node) return;
+    const step = Math.max(210, Math.floor(node.clientWidth * 0.7));
+    node.scrollBy({ left: direction * step, behavior: "smooth" });
   };
   useEffect(() => {
     catalogApi
@@ -180,9 +202,25 @@ export default function BestSellerPage() {
     }
   };
   const categoryTiles = useMemo(
-    () => buildRecommendCategoryTiles(categoryList, fallbackCategories, localeTag, allLabel),
+    () => buildRecommendCategoryTiles(categoryList, fallbackCategories, localeTag, allLabel, { unlimited: true }),
     [categoryList, fallbackCategories, localeTag, allLabel],
   );
+
+  useEffect(() => {
+    const node = categoryScrollerRef.current;
+    if (!node) return;
+    updateCategoryArrows();
+    const onScroll = () => updateCategoryArrows();
+    node.addEventListener("scroll", onScroll, { passive: true });
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => updateCategoryArrows()) : null;
+    ro?.observe(node);
+    window.addEventListener("resize", updateCategoryArrows);
+    return () => {
+      node.removeEventListener("scroll", onScroll);
+      ro?.disconnect();
+      window.removeEventListener("resize", updateCategoryArrows);
+    };
+  }, [categoryTiles, updateCategoryArrows]);
   const otopTab = activeRank === 3;
   const selectedCategory = otopTab ? undefined : selectedCategoryId;
   const setCategoryInUrl = (id: number | undefined) => {
@@ -300,41 +338,61 @@ export default function BestSellerPage() {
           alt="สินค้าขายดี สินค้ายอดนิยมจากร้านค้าไทย ที่ลูกค้าเลือกซื้อมากที่สุด"
         />
       </section>
-      <section className="recommend-categories best-categories recommend-width" aria-label={tp("home.shopByCategory")}>
-        {categoryTiles.map((tile) => {
-          const isAll = tile.key === "all";
-          const isActive = isAll
-            ? selectedCategoryId == null
-            : tile.categoryId != null && tile.categoryId === selectedCategoryId;
-          return (
-            <button
-              className={`category${isActive ? " is-active" : ""}`}
-              key={tile.key}
-              type="button"
-              aria-pressed={isActive}
-              onClick={() => {
-                if (isAll || tile.categoryId == null) {
-                  selectCategory(undefined, tile.label);
-                  return;
-                }
-                selectCategory(tile.categoryId, tile.label);
-              }}
-            >
-              {isAll ? (
-                <span className="category-more-icon" aria-hidden="true">
-                  <LayoutGrid />
-                </span>
-              ) : (
-                <span aria-hidden="true">{tile.emoji}</span>
-              )}
-              <b>
-                {tile.label.split("\n").map((line, j) => (
-                  <span key={j}>{line}</span>
-                ))}
-              </b>
-            </button>
-          );
-        })}
+      <section className="best-categories-rail recommend-width" aria-label={tp("home.shopByCategory")}>
+        <button
+          type="button"
+          className={`best-categories-arrow is-prev${catCanPrev ? "" : " is-disabled"}`}
+          onClick={() => scrollCategories(-1)}
+          aria-label={tp("shops.pagePrev")}
+          disabled={!catCanPrev}
+        >
+          <ChevronLeft aria-hidden="true" />
+        </button>
+        <div className="recommend-categories best-categories" ref={categoryScrollerRef}>
+          {categoryTiles.map((tile) => {
+            const isAll = tile.key === "all";
+            const isActive = isAll
+              ? selectedCategoryId == null
+              : tile.categoryId != null && tile.categoryId === selectedCategoryId;
+            return (
+              <button
+                className={`category${isActive ? " is-active" : ""}`}
+                key={tile.key}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => {
+                  if (isAll || tile.categoryId == null) {
+                    selectCategory(undefined, tile.label);
+                    return;
+                  }
+                  selectCategory(tile.categoryId, tile.label);
+                }}
+              >
+                {isAll ? (
+                  <span className="category-more-icon" aria-hidden="true">
+                    <LayoutGrid />
+                  </span>
+                ) : (
+                  <span aria-hidden="true">{tile.emoji}</span>
+                )}
+                <b>
+                  {tile.label.split("\n").map((line, j) => (
+                    <span key={j}>{line}</span>
+                  ))}
+                </b>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          className={`best-categories-arrow is-next${catCanNext ? "" : " is-disabled"}`}
+          onClick={() => scrollCategories(1)}
+          aria-label={tp("shops.pageNext")}
+          disabled={!catCanNext}
+        >
+          <ChevronRight aria-hidden="true" />
+        </button>
       </section>
       <section className="best-catalog recommend-width">
         <aside className="best-filters">

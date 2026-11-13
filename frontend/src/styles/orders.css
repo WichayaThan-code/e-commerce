@@ -1113,6 +1113,194 @@
   margin-top: 12px;
 }
 
+.orders-shipment-card {
+  display: grid;
+  gap: 14px;
+}
+
+.orders-ship-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.orders-ship-head h2 {
+  margin: 0;
+  font: 700 17px/1.3 var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  color: var(--shop-text, #0e326b);
+}
+
+.orders-ship-ico {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: #e8f2ff;
+  color: #087bf5;
+  flex: none;
+}
+
+.orders-ship-skel {
+  display: grid;
+  gap: 10px;
+}
+
+.orders-ship-summary {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid #d7e5f3;
+  background: linear-gradient(180deg, #f7fbff, #fff);
+}
+
+.orders-ship-status,
+.orders-ship-carrier,
+.orders-ship-tracking {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.orders-ship-status > span,
+.orders-ship-carrier > span,
+.orders-ship-tracking > span {
+  font: 600 12px/1.3 var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  color: #6780a3;
+}
+
+.orders-ship-status > b {
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #e8f2ff;
+  color: #0b5ccc;
+  font: 700 13px/1.3 var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+}
+
+.orders-ship-carrier > b {
+  font: 600 14px/1.35 var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  color: #0e326b;
+}
+
+.orders-ship-tracking-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.orders-ship-tracking-row > b {
+  font: 800 15px/1.2 var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  color: #0e326b;
+  letter-spacing: 0.02em;
+  word-break: break-all;
+}
+
+.orders-ship-tracking-row button,
+.orders-ship-tracking-row a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid #cfe0f5;
+  background: #fff;
+  color: #087bf5;
+  font: 600 12px/1 var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.orders-ship-tracking-row a:hover,
+.orders-ship-tracking-row button:hover {
+  background: #f3f8ff;
+  border-color: #aecff3;
+}
+
+.orders-ship-timeline {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: grid;
+}
+
+.orders-ship-timeline li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 0 16px;
+}
+
+.orders-ship-timeline li:last-child {
+  padding-bottom: 0;
+}
+
+.orders-ship-timeline li:not(:last-child) .orders-ship-dot::after {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 16px;
+  bottom: -16px;
+  width: 2px;
+  background: #d7e5f3;
+}
+
+.orders-ship-dot {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 2px solid #087bf5;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.orders-ship-timeline li.is-latest .orders-ship-dot {
+  background: #087bf5;
+  box-shadow: 0 0 0 4px #e8f2ff;
+}
+
+.orders-ship-event {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.orders-ship-event time {
+  font: 500 12px/1.35 var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  color: #7a90ad;
+}
+
+.orders-ship-event b {
+  font: 700 14px/1.35 var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  color: #16345d;
+}
+
+.orders-ship-timeline li.is-latest .orders-ship-event b {
+  color: #0b5ccc;
+}
+
+.orders-ship-event small {
+  font: 500 12.5px/1.4 var(--font-sans), "IBM Plex Sans Thai", sans-serif;
+  color: #6780a3;
+}
+
+@media (min-width: 720px) {
+  .orders-ship-summary {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    align-items: start;
+  }
+  .orders-ship-tracking {
+    grid-column: 1 / -1;
+  }
+}
+
 .orders-dialog-fields {
   display: grid;
   gap: 10px;

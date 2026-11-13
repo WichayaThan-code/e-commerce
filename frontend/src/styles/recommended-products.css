@@ -194,3 +194,81 @@
   .recommend-page .recommend-categories .category:nth-child(n+10){display:none}
   .recommend-page .recommend-categories .category[aria-pressed="true"]{display:flex}
 }
+
+/* Category strip with < > arrows (same pattern as best sellers). */
+.recommend-page .recommend-categories-rail{
+  display:grid;
+  grid-template-columns:36px minmax(0,1fr) 36px;
+  align-items:center;
+  gap:8px;
+  margin-bottom:19px;
+}
+.recommend-page .recommend-categories-arrow{
+  width:36px;
+  height:36px;
+  border:1px solid #d5e3f2;
+  border-radius:999px;
+  background:#fff;
+  color:#09255e;
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  box-shadow:0 2px 8px #08245d12;
+}
+.recommend-page .recommend-categories-arrow svg{width:18px;height:18px}
+.recommend-page .recommend-categories-arrow:not(:disabled):hover{
+  border-color:#0879f6;
+  color:#0879f6;
+}
+.recommend-page .recommend-categories-arrow.is-disabled,
+.recommend-page .recommend-categories-arrow:disabled{
+  opacity:.35;
+  cursor:not-allowed;
+  box-shadow:none;
+}
+.recommend-page .recommend-categories-rail .recommend-categories{
+  display:flex;
+  flex-wrap:nowrap;
+  align-items:stretch;
+  gap:12px;
+  height:auto;
+  min-height:96px;
+  margin:0;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scroll-behavior:smooth;
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+  grid-template-columns:none;
+}
+.recommend-page .recommend-categories-rail .recommend-categories::-webkit-scrollbar{display:none}
+.recommend-page .recommend-categories-rail .recommend-categories > button{
+  flex:0 0 118px;
+  min-width:118px;
+  max-width:118px;
+  height:96px;
+  padding:8px 6px;
+  box-sizing:border-box;
+  white-space:normal;
+  overflow:hidden;
+}
+.recommend-page .recommend-categories-rail .recommend-categories > button b{
+  display:block;
+  width:100%;
+  padding:0 2px;
+  font-size:10px;
+  line-height:1.25;
+  text-align:center;
+  overflow:hidden;
+}
+.recommend-page .recommend-categories-rail .recommend-categories > button b span{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+@media(max-width:767px){
+  .recommend-page .recommend-categories-rail{grid-template-columns:32px minmax(0,1fr) 32px;gap:6px;margin-bottom:10px}
+  .recommend-page .recommend-categories-arrow{width:32px;height:32px}
+  .recommend-page .recommend-categories-rail .recommend-categories{min-height:88px;gap:10px}
+  .recommend-page .recommend-categories-rail .recommend-categories > button{flex-basis:108px;min-width:108px;max-width:108px;height:88px}
+}

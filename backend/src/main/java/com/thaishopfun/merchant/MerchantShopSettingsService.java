@@ -42,7 +42,7 @@ public class MerchantShopSettingsService {
         var allowed = authorization.shopsWithPermission(userId, permission);
         return shops.findMemberShops(userId).stream()
             .filter(shop -> allowed.contains(shop.getId()))
-            .map(shop -> new MerchantDtos.MerchantShopSummary(shop.getId(), shop.getName(), shop.getStatus(), shop.getSlug(), shop.getOwner() == null ? null : shop.getOwner().getId()))
+            .map(shop -> new MerchantDtos.MerchantShopSummary(shop.getId(), shop.getName(), shop.getStatus(), shop.getSlug(), shop.getOwner() == null ? null : shop.getOwner().getId(), logoUrl(shop)))
             .toList();
     }
 

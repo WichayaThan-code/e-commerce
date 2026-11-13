@@ -1415,8 +1415,7 @@ public class ProductService {
             var level = stock.stream().filter(item -> item.getSku().getId().equals(sku.getId())).findFirst().orElse(null);
             var available = level == null ? 0 : level.getAvailable();
             total += available;
-            var threshold = level == null ? null : level.getLowStockThreshold();
-            if (available > 0 && threshold != null && available <= threshold) low++;
+            if (level != null && level.isLowStock()) low++;
             if (sku.getPrice() == null) continue;
             if (min == null || sku.getPrice().compareTo(min) < 0) min = sku.getPrice();
             if (max == null || sku.getPrice().compareTo(max) > 0) max = sku.getPrice();
@@ -1694,10 +1693,12 @@ public class ProductService {
     private static String stockClause(String stock) {
         if (stock == null) return "";
         var active = "select l from InventoryLevel l where l.sku.product = p and l.sku.deletedAt is null and l.sku.active = true";
+        // Match InventoryLevel.isLowStock: available > 0 and available < limit (threshold → safetyStock → 5).
+        var lowLimit = "coalesce(l.lowStockThreshold, case when l.safetyStock > 0 then l.safetyStock else 5 end)";
         return switch (stock) {
             case "out" -> " and not exists (" + active + " and l.available > 0)";
-            case "low" -> " and exists (" + active + " and l.available > 0 and l.lowStockThreshold is not null and l.available <= l.lowStockThreshold)";
-            default -> " and exists (" + active + " and l.available > 0 and (l.lowStockThreshold is null or l.available > l.lowStockThreshold))";
+            case "low" -> " and exists (" + active + " and l.available > 0 and l.available < " + lowLimit + ")";
+            default -> " and exists (" + active + " and l.available > 0 and l.available >= " + lowLimit + ")";
         };
     }
 

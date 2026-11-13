@@ -242,7 +242,8 @@ export default function ShippingPage(){
           <h1><Truck aria-hidden />{t("shippingPage.title")}</h1>
           <p>{t("shippingPage.subtitle")}</p>
         </div>
-        <div className="pm-actions">
+        {/* //เพิ่มขนส่ง */}
+        {/* <div className="pm-actions">
           <button
             type="button"
             disabled={!canConfigure}
@@ -252,7 +253,7 @@ export default function ShippingPage(){
           >
             <Plus aria-hidden />{t("shippingPage.connectMore")}
           </button>
-        </div>
+        </div> */}
       </header>
 
       <section className="shipping-kpis" aria-label={t("shippingPage.title")}>
@@ -279,21 +280,6 @@ export default function ShippingPage(){
 
       <div className="shipping-layout">
       <div className="shipping-main">
-      <div className="pm-tabs" role="tablist" aria-label={t("shippingPage.title")}>
-        {TABS.map(([key, value], i) => (
-          <button
-            type="button"
-            role="tab"
-            aria-selected={status === value}
-            className={status === value ? "active" : ""}
-            onClick={() => { setStatus(value); setPage(0); }}
-            key={key}
-          >
-            {t(`shippingPage.tabs.${key}`)}
-            {kpis[i] != null ? <i>{kpis[i]}</i> : null}
-          </button>
-        ))}
-      </div>
       <article className="shipping-table-card">
         <form
           className="om-filters"

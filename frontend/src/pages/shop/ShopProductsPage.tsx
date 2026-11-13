@@ -13,7 +13,8 @@ export default function ShopProductsPage() {
   useShopCrumb(label);
   useDocumentMeta({ title: `${label} · ${shop.name}` });
 
-  const { products, catalog } = useShopCatalog({ slug });
+  /** Desktop grid 4×6 → 24 items per page on /shop/:slug/products. */
+  const { products, catalog } = useShopCatalog({ slug, pageSize: 24 });
   const section = theme.config.sections.find((item) => item.key === "CATALOG");
 
   if (usesTsfTree(theme.templateKey)) {

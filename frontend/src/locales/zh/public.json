@@ -1181,8 +1181,11 @@
       "环保商品"
     ],
     "sortFeatured": "推荐商品",
+    "sortPopular": "人气",
+    "sortNewest": "最新",
     "sortPrice": "价格最低",
-    "sortBest": "销量最高",
+    "sortPriceHigh": "价格最高",
+    "sortBest": "畅销商品",
     "sortAria": "商品排序",
     "favorite": "收藏",
     "pickCategory": "已选择分类 {{name}}",

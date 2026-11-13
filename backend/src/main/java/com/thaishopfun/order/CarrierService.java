@@ -153,8 +153,9 @@ public class CarrierService {
         var rows = shopCarriers.findByShopId(shopId);
         boolean restricted = !rows.isEmpty();
         var items = carriers.findAllByOrderBySortOrderAscCodeAsc().stream()
-            .map(c -> new ShipmentDtos.ShopCarrierView(c.getCode(), c.getNameTh(), c.getNameEn(), c.getTrackingPattern(), c.isActive(),
-                c.isActive() && (!restricted || rows.stream().anyMatch(r -> r.isActive() && r.getCarrierCode().equals(c.getCode())))))
+            .filter(Carrier::isActive)
+            .map(c -> new ShipmentDtos.ShopCarrierView(c.getCode(), c.getNameTh(), c.getNameEn(), c.getTrackingPattern(), true,
+                !restricted || rows.stream().anyMatch(r -> r.isActive() && r.getCarrierCode().equals(c.getCode()))))
             .toList();
         return new ShipmentDtos.ShopCarriersResponse(restricted, items);
     }

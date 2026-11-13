@@ -18,7 +18,7 @@ import FieldError from '../components/form/FieldError'
 import FormField from '../components/form/FormField'
 import FormGrid from '../components/form/FormGrid'
 import { SHOP_IMAGE_ACCEPT } from '../services/shopImage'
-import { readMerchantDraft, rememberDocumentName, writeMerchantDraft, type OwnerDraft } from '../services/merchantDraft'
+import { ownerDraftFromProfile, readMerchantDraft, rememberDocumentName, writeMerchantDraft, type OwnerDraft } from '../services/merchantDraft'
 import {
   digitsOnly,
   documentFileError,
@@ -220,10 +220,47 @@ export default function OwnerInfoPage() {
     setFieldErrors((prev) => mergeFieldError(prev, docFieldKey(type), message || undefined))
   }
 
+  const applyOwnerDraft = (owner: OwnerDraft) => {
+    setOwnerType(owner.ownerType)
+    setTitle(owner.title || o.titles[0])
+    setFirstName(owner.firstName)
+    setLastName(owner.lastName)
+    setCitizenId(formatCitizenId(owner.citizenId))
+    setBirthDate(owner.birthDate)
+    setNationality(owner.nationality || o.nationalities[0])
+    setPhone(formatPhoneNumber(owner.phone))
+    setEmail(owner.email)
+    setHouseNo(owner.houseNo)
+    setVillageNo(owner.villageNo)
+    setBuilding(owner.building)
+    setAlley(owner.alley)
+    setRoad(owner.road)
+    setSameAddress(false)
+    setThaiAddress({
+      province: owner.province,
+      district: owner.district,
+      subdistrict: owner.subdistrict,
+      postalCode: owner.postalCode,
+    })
+    setBankName(owner.bankName)
+    setBankAccountNumber(digitsOnly(owner.bankAccountNumber, 20))
+    setBankAccountName(owner.bankAccountName)
+  }
+
   useEffect(() => {
     if (!user) return
     let active = true
-    merchantApi.owners().then((rows) => { if (active) setOwners(rows) }).catch(() => { if (active) setOwners([]) })
+    merchantApi.owners().then((rows) => {
+      if (!active) return
+      setOwners(rows)
+      // Returning merchant with empty local form: prefill personal + bank from first owner profile.
+      const draft = readMerchantDraft(user.id)
+      if ((!draft.owner?.firstName || !draft.owner?.bankAccountNumber) && rows[0]) {
+        const filled = ownerDraftFromProfile(rows[0])
+        applyOwnerDraft(filled)
+        writeMerchantDraft(user.id, { ...draft, owner: filled, ownerId: draft.ownerId || rows[0].id })
+      }
+    }).catch(() => { if (active) setOwners([]) })
     return () => { active = false }
   }, [user])
 
@@ -383,7 +420,14 @@ export default function OwnerInfoPage() {
     setMessage('')
     try {
       await merchantApi.attachOwner(ownerId)
-      writeMerchantDraft(user.id, { ...readMerchantDraft(user.id), ownerId, documentsConfirmed: true })
+      const profile = owners.find((row) => row.id === ownerId)
+      const owner = profile ? ownerDraftFromProfile(profile) : readMerchantDraft(user.id).owner
+      writeMerchantDraft(user.id, {
+        ...readMerchantDraft(user.id),
+        ownerId,
+        owner,
+        documentsConfirmed: true,
+      })
       navigate('/merchant/review')
     } catch (error) {
       showApiFailure(error, setMessage)

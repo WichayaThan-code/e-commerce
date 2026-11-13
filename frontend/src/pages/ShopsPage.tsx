@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowRight,
   ChevronLeft,
   ChevronRight,
   CircleEllipsis,
@@ -17,6 +16,7 @@ import EmptyState from "../components/feedback/EmptyState";
 import ShopLogo from "../components/ShopLogo";
 import { categoryEmoji } from "../components/shop/categoryIcons";
 import { categoryLabelLines } from "../components/marketplace/categoryTiles";
+import { shopPageWindow } from "../components/shop/sections/types";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import recommendReference from "../assets/images/references/storefront/recommend-product.png";
 import type { Locale } from "../i18n";
@@ -25,7 +25,8 @@ import { labelForCategory } from "../services/categories";
 import "../styles/recommended-products.css";
 import "../styles/shop-page.css";
 
-const PAGE_SIZE = 30;
+/** Desktop shop grid is 5 columns → 4 rows = 20 shops per page (same density as recommended products). */
+const PAGE_SIZE = 20;
 type ListState = "loading" | "empty" | "error" | "ok";
 type SortKey = "latest" | "name";
 type CategoryTab = {
@@ -66,6 +67,7 @@ export default function ShopsPage() {
   const [sort, setSort] = useState<SortKey>("latest");
   const [grid, setGrid] = useState(true);
   const [page, setPage] = useState(1);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -205,6 +207,12 @@ export default function ShopsPage() {
     if (page > pageCount) setPage(pageCount);
   }, [page, pageCount]);
 
+  const goPage = (next: number) => {
+    if (next === page || next < 1 || next > pageCount) return;
+    setPage(next);
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const toggleProvince = (province: string) => {
     setProvinces((current) =>
       current.includes(province) ? current.filter((item) => item !== province) : [...current, province],
@@ -300,7 +308,7 @@ export default function ShopsPage() {
           )}
         </aside>
 
-        <div className="recommend-results">
+        <div className="recommend-results" ref={resultsRef}>
           <div className="recommend-tools">
             <span>{tp("common.sortBy")}</span>
             <select value={sort} onChange={(event) => setSort(event.target.value as SortKey)} aria-label={tp("shops.sortAria")}>
@@ -323,16 +331,12 @@ export default function ShopsPage() {
                     <ShopLogo src={shop.logoUrl} name={shop.name} />
                   </div>
                   <div className="shop-card-body">
-                    <span className="shop-chip">{shop.category}</span>
-                    <h2>{shop.name}</h2>
-                    {shop.nameEn && <p className="shop-card-en">{shop.nameEn}</p>}
+                    <h2 title={shop.name}>{shop.name}</h2>
                     <p className="shop-card-place">
-                      <MapPin /> {[shop.district, shop.province].filter(Boolean).join(" ")}
+                      <MapPin aria-hidden="true" />
+                      <span>{shop.province?.trim() || "—"}</span>
                     </p>
-                    <p className="shop-card-text">{shop.description || tp("common.defaultShopBlurb")}</p>
-                    <span className="shop-enter">
-                      {tp("shops.enterShop")} <ArrowRight />
-                    </span>
+                    <p className="shop-card-text">{shop.description?.trim() || tp("common.defaultShopBlurb")}</p>
                   </div>
                 </Link>
               ))}
@@ -354,16 +358,28 @@ export default function ShopsPage() {
           )}
 
           {visibleShops.length > PAGE_SIZE && (
-            <nav className="shop-pagination" aria-label={tp("shops.pageAria")}>
-              <button type="button" disabled={safePage <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} aria-label={tp("shops.pagePrev")}>
+            <nav className="recommend-pagination" aria-label={tp("shops.pageAria")}>
+              <button type="button" disabled={safePage <= 1} onClick={() => goPage(safePage - 1)} aria-label={tp("shops.pagePrev")}>
                 <ChevronLeft />
               </button>
-              {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => (
-                <button type="button" className={safePage === number ? "current" : ""} key={number} onClick={() => setPage(number)}>
-                  {number}
-                </button>
-              ))}
-              <button type="button" disabled={safePage >= pageCount} onClick={() => setPage((value) => Math.min(pageCount, value + 1))} aria-label={tp("shops.pageNext")}>
+              {shopPageWindow(safePage, pageCount).map((entry, index) =>
+                entry === "gap" ? (
+                  <span className="recommend-pagination-gap" key={`gap-${index}`} aria-hidden="true">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className={safePage === entry ? "current" : ""}
+                    key={entry}
+                    aria-current={safePage === entry ? "page" : undefined}
+                    onClick={() => goPage(entry)}
+                  >
+                    {entry}
+                  </button>
+                ),
+              )}
+              <button type="button" disabled={safePage >= pageCount} onClick={() => goPage(safePage + 1)} aria-label={tp("shops.pageNext")}>
                 <ChevronRight />
               </button>
             </nav>

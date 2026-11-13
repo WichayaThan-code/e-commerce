@@ -183,7 +183,10 @@ public class MerchantApplicationService {
      */
     private MerchantApplication getOrCreate(UUID userId) {
         var existing = findDraft(userId);
-        if (existing != null) return existing;
+        if (existing != null) {
+            ensureOwnerPrefill(existing, userId);
+            return existing;
+        }
         try {
             drafts.createDraft(userId);
         } catch (org.springframework.dao.DataIntegrityViolationException raced) {
@@ -191,7 +194,20 @@ public class MerchantApplicationService {
         }
         var draft = findDraft(userId);
         if (draft == null) throw new AuthException(HttpStatus.CONFLICT, "DRAFT_CONFLICT", "กำลังสร้างใบสมัคร กรุณาลองใหม่อีกครั้ง");
+        ensureOwnerPrefill(draft, userId);
         return draft;
+    }
+
+    /**
+     * Returning merchants: copy personal + bank details from their existing owner profile onto the draft
+     * so the second shop does not require re-entry (documents are also reused via {@link #existingOwner}).
+     */
+    private void ensureOwnerPrefill(MerchantApplication draft, UUID userId) {
+        if (draft == null || draft.getLinkedOwner() != null) return;
+        ownerAccounts.primaryOwned(userId).ifPresent(owner -> {
+            draft.attachOwner(owner);
+            applications.save(draft);
+        });
     }
 
     private MerchantApplication findDraft(UUID userId) {

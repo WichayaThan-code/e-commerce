@@ -145,6 +145,10 @@ export type MerchantApplication = {
 export type MerchantOwner = {
   id:string; ownerType:'PERSON'|'COMPANY'; title:string; firstName:string; lastName:string
   citizenIdMasked?:string|null; phone:string; email:string; sensitiveReview:string
+  citizenId?:string|null; birthDate?:string|null; nationality?:string|null
+  houseNo?:string|null; villageNo?:string|null; building?:string|null; alley?:string|null; road?:string|null
+  province?:string|null; district?:string|null; subdistrict?:string|null; postalCode?:string|null
+  bankName?:string|null; bankAccountNumber?:string|null; bankAccountName?:string|null
 }
 export type TranslationMeta = { origin: 'MACHINE' | 'HUMAN' | 'MANUAL'; status: 'PENDING' | 'DONE' | 'FAILED' }
 
@@ -250,7 +254,7 @@ export function mediaUrl(path?:string|null) {
 }
 export type MerchantShopPayload = {shopName:string;shopNameEn:string;description:string;category:string;saleType:'OWNER'|'RESELLER';website:string;lineId:string;facebookUrl:string;instagramUrl:string;tiktokUrl:string;address:string;province:string;district:string;subdistrict:string;postalCode:string}
 export type MerchantOwnerPayload = {ownerType:'PERSON'|'COMPANY';title:string;firstName:string;lastName:string;citizenId:string;birthDate:string;nationality:string;phone:string;email:string;houseNo:string;villageNo:string;building:string;alley:string;road:string;province:string;district:string;subdistrict:string;postalCode:string;bankName:string;bankAccountNumber:string;bankAccountName:string}
-export type MerchantShopOption = { shopId:number; shopName:string; status:NonNullable<StoreAccess['status']>; slug:string; ownerId?:string|null }
+export type MerchantShopOption = { shopId:number; shopName:string; status:NonNullable<StoreAccess['status']>; slug:string; ownerId?:string|null; logoUrl?:string|null }
 
 function withShop(path:string, shopId?:number|null) {
   if (shopId == null) return path
@@ -2197,8 +2201,9 @@ export const publicOrderApi = {
 }
 /** AB3: backend share page with Open Graph tags (Facebook / LINE previews). null when the API is on localhost (crawlers cannot reach it). */
 export function productShareUrl(shopSlug: string, productSlug: string): string | null {
-  if (/\/\/(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(API_URL)) return null
-  return `${API_URL}/share/p/${encodeURIComponent(shopSlug)}/${encodeURIComponent(productSlug)}`
+  const base = API_URL || (typeof window !== 'undefined' ? window.location.origin : '')
+  if (!/^https?:\/\//.test(base) || /\/\/(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(base)) return null
+  return `${base}/share/p/${encodeURIComponent(shopSlug)}/${encodeURIComponent(productSlug)}`
 }
 
 

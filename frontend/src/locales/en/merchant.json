@@ -1807,7 +1807,7 @@
     },
     "payment": {
       "accountsTitle": "Receiving accounts",
-      "accountsLead": "Accounts customers transfer to when paying by slip",
+      "accountsLead": "Starts from your registration bank details — edit or add PromptPay anytime",
       "methodsTitle": "Payment methods",
       "methodsLead": "Enable or disable payment options for this shop",
       "bankTransfer": "Bank transfer",

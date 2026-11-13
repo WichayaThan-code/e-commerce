@@ -62,9 +62,17 @@ public final class MerchantDtos {
     ){}
     /** Shop-name availability for the register step (same rule as saveShop/submit). */
     public record ShopNameCheckResponse(boolean available){}
+    /**
+     * Owner profile for the authenticated user. Includes decrypted citizen/bank so a returning merchant
+     * can open another shop without retyping personal + payout details.
+     */
     public record MerchantOwnerResponse(
         UUID id, OwnerType ownerType, String title, String firstName, String lastName,
-        String citizenIdMasked, String phone, String email, String sensitiveReview
+        String citizenIdMasked, String phone, String email, String sensitiveReview,
+        String citizenId, java.time.LocalDate birthDate, String nationality,
+        String houseNo, String villageNo, String building, String alley, String road,
+        String province, String district, String subdistrict, String postalCode,
+        String bankName, String bankAccountNumber, String bankAccountName
     ){}
     public record OwnerShopRef(Long shopId, String shopName, ShopStatus status){}
     public record PublicShopResponse(
@@ -113,7 +121,7 @@ public final class MerchantDtos {
     public record ReinstatementResponse(Long shopId, String status, String message, Instant createdAt) {}
     public record ReinstatementRequestBody(@NotBlank @Size(max = 1000) String message) {}
     public record StoreAccessResponse(boolean approved,boolean hasShop,ShopStatus status,String shopName,String slug,Long shopId){}
-    public record MerchantShopSummary(Long shopId,String shopName,ShopStatus status,String slug,UUID ownerId){}
+    public record MerchantShopSummary(Long shopId,String shopName,ShopStatus status,String slug,UUID ownerId,String logoUrl){}
     public record MerchantSettingsResponse(
         Long shopId, ShopStatus status, boolean canOperate,
         String shopName, String shopNameEn, String description, String category,

@@ -1,4 +1,4 @@
--- V67: Platform deal campaigns for the public /deals page (TODAY / WEEKLY / FLASH / BOGO).
+﻿-- V67: Platform deal campaigns for the public /deals page (TODAY / WEEKLY / FLASH / BOGO).
 
 CREATE TABLE deal_campaigns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

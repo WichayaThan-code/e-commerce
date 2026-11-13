@@ -3,7 +3,10 @@ package com.thaishopfun.payment;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.common.FieldViolation;
 import com.thaishopfun.common.ValidationException;
+import com.thaishopfun.merchant.MerchantApplication;
+import com.thaishopfun.merchant.Owner;
 import com.thaishopfun.merchant.SensitiveDataCipher;
+import com.thaishopfun.merchant.ShopRepository;
 import com.thaishopfun.order.OrderJson;
 import com.thaishopfun.order.ShopPaymentGateway;
 import com.thaishopfun.order.ShopPaymentGatewayRepository;
@@ -27,15 +30,18 @@ import java.util.regex.Pattern;
 @Service
 public class PaymentAccountService {
     public static final List<String> MANUAL_PROVIDERS = List.of("BANK_TRANSFER", "PROMPTPAY");
-    private static final Pattern ACCOUNT_NUMBER = Pattern.compile("[0-9]{10,15}");
+    /** Align with merchant registration (8–20 digits); Thai bank accounts are typically 10–15. */
+    private static final Pattern ACCOUNT_NUMBER = Pattern.compile("[0-9]{8,20}");
     private static final Pattern PROMPTPAY_ID = Pattern.compile("[0-9]{10}|[0-9]{13}|[0-9]{15}");
 
     private final ShopPaymentGatewayRepository gateways;
     private final SensitiveDataCipher cipher;
+    private final ShopRepository shops;
 
-    public PaymentAccountService(ShopPaymentGatewayRepository gateways, SensitiveDataCipher cipher) {
+    public PaymentAccountService(ShopPaymentGatewayRepository gateways, SensitiveDataCipher cipher, ShopRepository shops) {
         this.gateways = gateways;
         this.cipher = cipher;
+        this.shops = shops;
     }
 
     public static String provider(String raw) {
@@ -53,8 +59,10 @@ public class PaymentAccountService {
     }
 
     /** What a buyer may see for an order awaiting payment: active manual accounts, unmasked. */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PaymentDtos.PaymentAccountView> activeForBuyer(UUID shopId) {
+        shops.findById(shopId).ifPresent(shop ->
+            ensureBankFromRegistration(shopId, shop.getApplication(), shop.getOwner(), null));
         return gateways.findByShopIdAndProviderInAndActiveTrue(shopId, MANUAL_PROVIDERS).stream()
             .sorted(java.util.Comparator.comparing(ShopPaymentGateway::getProvider)).map(g -> view(g, false)).toList();
     }
@@ -79,7 +87,7 @@ public class PaymentAccountService {
             if (bank == null) violations.add(new FieldViolation("bankName", "REQUIRED", "กรุณาระบุธนาคาร"));
             else if (bank.length() > 100) violations.add(new FieldViolation("bankName", "MAX_LENGTH", "ชื่อธนาคารยาวเกิน 100 ตัวอักษร"));
             if (number == null) violations.add(new FieldViolation("accountNumber", "REQUIRED", "กรุณาระบุเลขบัญชี"));
-            else if (!ACCOUNT_NUMBER.matcher(number).matches()) violations.add(new FieldViolation("accountNumber", "INVALID", "เลขบัญชีต้องเป็นตัวเลข 10-15 หลัก"));
+            else if (!ACCOUNT_NUMBER.matcher(number).matches()) violations.add(new FieldViolation("accountNumber", "INVALID", "เลขบัญชีต้องเป็นตัวเลข 8-20 หลัก"));
             config.put("bankName", bank);
             config.put("accountNumber", number);
         } else {
@@ -97,6 +105,47 @@ public class PaymentAccountService {
         gateway.setActive(req.active() == null || req.active());
         gateway.stamp(userId);
         return view(gateways.save(gateway), false);
+    }
+
+    /**
+     * First-time BANK_TRANSFER row from merchant registration (application, then owner fallback).
+     * No-op when a BANK_TRANSFER gateway already exists or registration bank data is incomplete.
+     * PromptPay is left empty for the merchant to add later in settings.
+     */
+    @Transactional
+    public boolean ensureBankFromRegistration(UUID shopId, MerchantApplication application, Owner owner, UUID userId) {
+        if (shopId == null) return false;
+        if (gateways.findByShopIdAndProvider(shopId, "BANK_TRANSFER").isPresent()) return false;
+
+        String bank = application == null ? null : clean(application.getBankName());
+        String accountName = application == null ? null : clean(application.getBankAccountName());
+        String encrypted = application == null ? null : application.getBankAccountEncrypted();
+        if ((bank == null || accountName == null || encrypted == null) && owner != null) {
+            bank = clean(owner.getBankName());
+            accountName = clean(owner.getBankAccountName());
+            encrypted = owner.getBankAccountEncrypted();
+        }
+
+        String number = null;
+        try {
+            if (encrypted != null) number = digits(cipher.decrypt(encrypted));
+        } catch (RuntimeException ignored) {
+            return false;
+        }
+        if (bank == null || accountName == null || number == null || !ACCOUNT_NUMBER.matcher(number).matches()) {
+            return false;
+        }
+        var config = new LinkedHashMap<String, Object>();
+        config.put("accountName", accountName);
+        config.put("bankName", bank);
+        config.put("accountNumber", number);
+        var gateway = new ShopPaymentGateway(shopId, "BANK_TRANSFER");
+        gateway.setDisplayName("โอนเงินผ่านธนาคาร");
+        gateway.setConfigEncrypted(cipher.encrypt(OrderJson.write(config)));
+        gateway.setActive(true);
+        gateway.stamp(userId);
+        gateways.save(gateway);
+        return true;
     }
 
     @Transactional

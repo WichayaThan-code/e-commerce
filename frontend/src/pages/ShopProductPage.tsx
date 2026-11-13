@@ -4,7 +4,7 @@ import { Skeleton, SkeletonText } from "../components/feedback/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, QrCode, ShoppingCart, Store, Truck, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, QrCode, ShoppingCart, Store, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { loginPathForCart, useCart } from "../contexts/CartContext";
 import { cartErrorMessage, isOwnShop } from "../components/cart/cartFormat";
@@ -514,7 +514,6 @@ export default function ShopProductPage() {
                 {discount > 0 && compare != null ? <><s className="num">{money(compare, localeTag)}</s><em className="num">{tp("shop.view.discount", { percent: discount })}</em></> : null}
               </div>
               <dl>
-                <div><dt>{tp("shop.view.shipping")}</dt><dd><Truck aria-hidden="true" />{tp("shop.view.shippingNote")}</dd></div>
                 {groups.map((group) => (
                   <div key={group.key}>
                     <dt>{group.label}</dt>

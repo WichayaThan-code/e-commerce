@@ -22,10 +22,19 @@ export function localizedCategory(c: ProductCategory, localeTag: string) {
 export function categoryLabelLines(name: string) {
   const trimmed = name.trim();
   if (trimmed.includes("\n")) return trimmed;
-  const parts = trimmed.split(/\s+/);
+  const parts = trimmed.split(/\s+/).filter(Boolean);
   if (parts.length >= 2 && trimmed.length > 10) {
     const mid = Math.ceil(parts.length / 2);
     return `${parts.slice(0, mid).join(" ")}\n${parts.slice(mid).join(" ")}`;
+  }
+  // Thai labels often have no spaces ("หนังสือและเครื่องเขียน") — break at "และ".
+  const conj = trimmed.match(/^(.+?)(และ)(.+)$/);
+  if (conj && trimmed.length > 10) {
+    return `${conj[1]}${conj[2]}\n${conj[3]}`;
+  }
+  if (trimmed.length > 12) {
+    const mid = Math.ceil(trimmed.length / 2);
+    return `${trimmed.slice(0, mid)}\n${trimmed.slice(mid)}`;
   }
   return trimmed;
 }
@@ -70,7 +79,9 @@ export function buildMarketplaceCategoryTiles(
 }
 
 /**
- * Recommended page tiles: “ทั้งหมด” + the same category slots as Marketplace (no “more”).
+ * Recommended / best-seller tiles: “ทั้งหมด” + hub categories (no “more”).
+ * Default matches Marketplace’s first {@link CATEGORY_SLOT_COUNT} slots.
+ * Pass `{ unlimited: true }` to include every active category (e.g. Best Sellers).
  * Fallback tiles without id do not filter when clicked.
  */
 export function buildRecommendCategoryTiles(
@@ -78,18 +89,47 @@ export function buildRecommendCategoryTiles(
   fallbackLabels: string[],
   localeTag: string,
   allLabel: string,
+  options?: { unlimited?: boolean },
 ): CategoryTile[] {
+  const allTile: CategoryTile = {
+    key: "all",
+    label: allLabel,
+    emoji: "",
+    isMore: false,
+    categoryId: undefined,
+  };
+
+  if (options?.unlimited) {
+    const rows = categories && categories.length > 0 ? categories : [];
+    if (rows.length === 0) {
+      const fallback = fallbackLabels
+        .slice(0, Math.max(0, fallbackLabels.length - 1))
+        .map((label, index) => {
+          const flat = label.replace(/\n/g, " ");
+          return {
+            key: `fallback-${index}`,
+            label,
+            emoji: categoryEmoji({ nameTh: flat, nameEn: flat }),
+            isMore: false,
+            categoryId: undefined as number | undefined,
+          };
+        });
+      return [allTile, ...fallback];
+    }
+    return [
+      allTile,
+      ...rows.map((row) => ({
+        key: String(row.id),
+        label: categoryLabelLines(localizedCategory(row, localeTag)),
+        emoji: categoryEmoji(row),
+        isMore: false,
+        categoryId: row.id as number | undefined,
+      })),
+    ];
+  }
+
   const marketplace = buildMarketplaceCategoryTiles(categories, fallbackLabels, localeTag).filter((tile) => !tile.isMore);
-  return [
-    {
-      key: "all",
-      label: allLabel,
-      emoji: "",
-      isMore: false,
-      categoryId: undefined,
-    },
-    ...marketplace,
-  ];
+  return [allTile, ...marketplace];
 }
 
 /** Parse `?category=` — only plain positive integers; otherwise undefined (treat as all). */

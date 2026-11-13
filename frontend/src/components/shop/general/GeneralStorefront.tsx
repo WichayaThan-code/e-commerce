@@ -15,7 +15,7 @@ import {
 } from "../../../theme/shopTheme";
 import { useMemo, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { Package } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package } from "lucide-react";
 import EmptyState from "../../feedback/EmptyState";
 import { useAuth } from "../../../contexts/AuthContext";
 import { loginPathForCart, useOptionalCart } from "../../../contexts/CartContext";
@@ -39,7 +39,8 @@ import {
   shopProductsPath,
   shopSearchPath,
 } from "../../../services/shopRoutes";
-import { parseShopSortKey, type ShopCatalogControls } from "../sections/types";
+import { shopPageWindow, type ShopCatalogControls } from "../sections/types";
+import ShopSortSelect from "../ShopSortSelect";
 import StoreMiniMap from "../../maps/StoreMiniMap";
 import BrandLogo from "../../BrandLogo";
 import "../../../styles/tsf-general.css";
@@ -819,14 +820,7 @@ export function TsfCatalogPage({ shop, title, products, catalog, activeCategoryI
         <div className="tsf-wrap">
           <div className="tsf-section-head">
             <div><h2 className="tsf-display">{title}</h2>{catalog.productState === "ok" ? <p className="tsf-catalog-count">{tp("shop.productResultCount", { count: catalog.total })}</p> : null}</div>
-            <label className="tsf-sort">
-              <span className="visually-hidden">{tp("common.sortBy")}</span>
-              <select value={catalog.sort} onChange={(event) => catalog.onSort(parseShopSortKey(event.target.value))} aria-label={tp("catalog.sortAria")}>
-                <option value="featured">{tp("catalog.sortFeatured")}</option>
-                <option value="price">{tp("catalog.sortPrice")}</option>
-                <option value="price_desc">{tp("shop.sortPriceHigh")}</option>
-              </select>
-            </label>
+            <ShopSortSelect value={catalog.sort} onChange={catalog.onSort} className="tsf-sort" />
           </div>
           {rows.length > 0 && !catalog.categoryLocked ? (
             <div className="tsf-cats tsf-catalog-chips" data-style="chip" role="toolbar">
@@ -850,11 +844,27 @@ export function TsfCatalogPage({ shop, title, products, catalog, activeCategoryI
           ) : catalog.productState === "ok" ? <EmptyState icon={Package} title={tp("shop.productsEmpty")} /> : null}
           {pageCount > 1 ? (
             <nav className="tsf-pager" aria-label={tp("shop.productsPageAria")}>
-              <button type="button" className="tsf-chip" disabled={catalog.page <= 1} onClick={() => catalog.onPage(Math.max(1, catalog.page - 1))} aria-label={tp("shops.pagePrev")}>‹</button>
-              {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => (
-                <button key={number} type="button" className="tsf-chip" aria-pressed={catalog.page === number} onClick={() => catalog.onPage(number)}>{number}</button>
-              ))}
-              <button type="button" className="tsf-chip" disabled={catalog.page >= pageCount} onClick={() => catalog.onPage(Math.min(pageCount, catalog.page + 1))} aria-label={tp("shops.pageNext")}>›</button>
+              <button type="button" disabled={catalog.page <= 1} onClick={() => catalog.onPage(Math.max(1, catalog.page - 1))} aria-label={tp("shops.pagePrev")}>
+                <ChevronLeft size={18} />
+              </button>
+              {shopPageWindow(catalog.page, pageCount).map((entry, index) =>
+                entry === "gap" ? (
+                  <span key={`gap-${index}`} className="tsf-pager-gap" aria-hidden="true">…</span>
+                ) : (
+                  <button
+                    key={entry}
+                    type="button"
+                    className={catalog.page === entry ? "current" : undefined}
+                    aria-current={catalog.page === entry ? "page" : undefined}
+                    onClick={() => catalog.onPage(entry)}
+                  >
+                    {entry}
+                  </button>
+                ),
+              )}
+              <button type="button" disabled={catalog.page >= pageCount} onClick={() => catalog.onPage(Math.min(pageCount, catalog.page + 1))} aria-label={tp("shops.pageNext")}>
+                <ChevronRight size={18} />
+              </button>
             </nav>
           ) : null}
         </div>

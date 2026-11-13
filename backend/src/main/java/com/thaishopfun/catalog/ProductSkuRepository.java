@@ -27,7 +27,7 @@ public interface ProductSkuRepository extends JpaRepository<ProductSku, UUID> {
                coalesce(sum(l.available), 0),
                min(s.price),
                max(s.price),
-               coalesce(sum(case when l.available > 0 and l.low_stock_threshold is not null and l.available <= l.low_stock_threshold then 1 else 0 end), 0)
+               coalesce(sum(case when l.available > 0 and l.available < coalesce(l.low_stock_threshold, nullif(l.safety_stock, 0), 5) then 1 else 0 end), 0)
         from product_skus s
         left join inventory_levels l on l.sku_id = s.id
         where s.product_id in (:ids) and s.is_active = true and s.deleted_at is null

@@ -31,7 +31,10 @@ public class MerchantPaymentAccountController {
     @GetMapping
     public List<PaymentDtos.PaymentAccountView> list(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId) {
         var shop = queries.requireShop(shopId);
-        boolean full = authz.checkShop(RequestUser.id(jwt), shopId, "SHOP_UPDATE") == AuthorizationService.ShopDecision.GRANTED;
+        var userId = RequestUser.id(jwt);
+        // Existing shops: seed BANK_TRANSFER once from registration if settings are still empty.
+        accounts.ensureBankFromRegistration(shop.getUuid(), shop.getApplication(), shop.getOwner(), userId);
+        boolean full = authz.checkShop(userId, shopId, "SHOP_UPDATE") == AuthorizationService.ShopDecision.GRANTED;
         return accounts.list(shop.getUuid(), !full);
     }
 

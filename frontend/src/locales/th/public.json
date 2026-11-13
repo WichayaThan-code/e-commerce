@@ -1181,8 +1181,11 @@
       "สินค้ารักษ์โลก"
     ],
     "sortFeatured": "สินค้าแนะนำ",
+    "sortPopular": "ยอดนิยม",
+    "sortNewest": "ล่าสุด",
     "sortPrice": "ราคาต่ำสุด",
-    "sortBest": "ขายดีที่สุด",
+    "sortPriceHigh": "ราคาสูงสุด",
+    "sortBest": "สินค้าขายดี",
     "sortAria": "เรียงสินค้า",
     "favorite": "รายการโปรด",
     "pickCategory": "เลือกหมวด {{name}}",

@@ -96,7 +96,7 @@ export function useShopCatalog(options: {
   const onSort = useCallback((next: ShopSortKey) => {
     writeParams((params) => {
       params.delete("page");
-      if (next === "featured") params.delete("sort");
+      if (next === "popular") params.delete("sort");
       else params.set("sort", next);
     });
   }, [writeParams]);

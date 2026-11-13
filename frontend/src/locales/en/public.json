@@ -1182,7 +1182,10 @@
       "Eco-friendly products"
     ],
     "sortFeatured": "Recommended",
+    "sortPopular": "Popular",
+    "sortNewest": "Newest",
     "sortPrice": "Lowest price",
+    "sortPriceHigh": "Highest price",
     "sortBest": "Best sellers",
     "sortAria": "Sort products",
     "favorite": "Favorites",

@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { ChevronDown, LogOut, Plus, Store } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useActiveShop } from "../contexts/ActiveShopContext";
-import { ApiError, merchantApi, type StoreAccess } from "../services/api";
-import { writeMerchantDraft } from "../services/merchantDraft";
+import { ApiError, mediaUrl, merchantApi, type StoreAccess } from "../services/api";
+import { ownerDraftFromProfile, writeMerchantDraft } from "../services/merchantDraft";
 import { useMerchantSignOut } from "./merchant/MerchantLogoutButton";
 import "../styles/product-management.css";
 
@@ -29,6 +29,7 @@ export default function MerchantShopMenu() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [failedLogos, setFailedLogos] = useState<Record<string, true>>({});
   const root = useRef<HTMLDivElement>(null);
   const current = shops.find((shop) => shop.shopId === shopId);
 
@@ -42,12 +43,19 @@ export default function MerchantShopMenu() {
   }, [open]);
 
   const addShop = async () => {
-    const ownerId = current?.ownerId;
-    if (!ownerId || busy) return;
+    if (busy) return;
     setBusy(true);
     try {
-      await merchantApi.openAnotherShop(ownerId);
-      writeMerchantDraft(user?.id, { ownerId, documentsConfirmed: true });
+      const owners = await merchantApi.owners();
+      const ownerId = current?.ownerId || owners[0]?.id;
+      if (!ownerId) throw new ApiError("OWNER_REQUIRED", "ไม่พบข้อมูลเจ้าของร้านสำหรับเปิดร้านใหม่", 400);
+      const application = await merchantApi.openAnotherShop(ownerId);
+      const profile = owners.find((row) => row.id === ownerId) || owners[0];
+      writeMerchantDraft(user?.id, {
+        ownerId: application.ownerId || ownerId,
+        owner: profile ? ownerDraftFromProfile(profile) : undefined,
+        documentsConfirmed: true,
+      });
       window.location.assign("/merchant/register");
     } catch (error) {
       setBusy(false);
@@ -56,13 +64,29 @@ export default function MerchantShopMenu() {
     }
   };
 
+  const renderShopAvatar = (shop?: { shopId: number; logoUrl?: string | null }) => {
+    const src = shop?.logoUrl ? mediaUrl(shop.logoUrl) : "";
+    const key = shop ? `${shop.shopId}:${src}` : "";
+    if (src && !failedLogos[key]) {
+      return (
+        <img
+          className="shop-switch-logo"
+          src={src}
+          alt=""
+          onError={() => setFailedLogos((prev) => ({ ...prev, [key]: true }))}
+        />
+      );
+    }
+    return <Store size={16} strokeWidth={2.25} />;
+  };
+
   const { signingOut, signOut } = useMerchantSignOut();
 
   return (
     <>
     <div className="merchant-shop-menu" ref={root}>
       <button className="shop-switch" type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        <span className="shop-switch-icon" aria-hidden="true"><Store size={16} strokeWidth={2.25} /></span>
+        <span className="shop-switch-icon" aria-hidden="true">{renderShopAvatar(current)}</span>
         <span className="shop-switch-copy">
           <strong>{ready ? current?.shopName || "ร้านค้า" : "..."}</strong>
           <em className={current ? STATUS_TONE[current.status] : undefined}>
@@ -85,11 +109,14 @@ export default function MerchantShopMenu() {
                 setOpen(false);
               }}
             >
-              <b>{shop.shopName}</b>
+              <span className="shop-menu-option-main">
+                <span className="shop-switch-icon" aria-hidden="true">{renderShopAvatar(shop)}</span>
+                <b>{shop.shopName}</b>
+              </span>
               <small>{STATUS_LABEL[shop.status]}</small>
             </button>
           ))}
-          <button type="button" className="add" disabled={busy || !current?.ownerId} onClick={() => void addShop()}>
+          <button type="button" className="add" disabled={busy} onClick={() => void addShop()}>
             <Plus />
             {busy ? "กำลังเตรียมร้านใหม่..." : "เพิ่มร้านค้า"}
           </button>

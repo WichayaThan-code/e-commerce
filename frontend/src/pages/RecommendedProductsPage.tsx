@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
@@ -51,7 +51,8 @@ const priceBounds: [number | undefined, number | undefined][] = [
 type SortKey = "featured" | "price" | "best";
 const sortParam: Record<SortKey, RecommendationSort> = { featured: "featured", price: "price_asc", best: "best" };
 /** 30 per page → 6 rows × 5 columns on desktop grid. */
-const PAGE_SIZE = 30;
+/** Desktop grid is 5 columns → 4 rows = 20 items per page. */
+const PAGE_SIZE = 20;
 
 /** Compact page list: 0-based indexes + "gap" ellipsis markers. */
 function pageWindow(current: number, total: number): Array<number | "gap"> {
@@ -82,8 +83,6 @@ const texts = {
   en: { all: "All", login: "Please sign in first", blocked: "This account cannot use the cart", pick: "Please choose product options", out: "Out of stock", low: "Not enough stock", added: "Added to cart", failed: "Could not add to cart", error: "Could not load recommendations", retry: "Retry", empty: "No products match these filters", noBrand: "No brands yet", end: "You've seen everything", priceMin: "฿ Min", priceMax: "฿ Max", priceApply: "Apply", priceApplied: "Price filter applied", priceInvalid: "Please enter a valid number" },
   zh: { all: "全部", login: "请先登录", blocked: "此账户无法使用购物车", pick: "请选择商品规格", out: "已售罄", low: "库存不足", added: "已加入购物车", failed: "加入购物车失败", error: "推荐商品加载失败", retry: "重试", empty: "没有符合筛选条件的商品", noBrand: "暂无品牌", end: "已显示全部商品", priceMin: "฿ 最低", priceMax: "฿ 最高", priceApply: "确定", priceApplied: "已应用价格筛选", priceInvalid: "请输入有效数字" },
 };
-
-type RecommendBanner = { title: string; text: string; btn: string; toast: string };
 
 export default function RecommendedProductsPage() {
   const { tp, localeTag } = usePublicTranslation();
@@ -116,14 +115,16 @@ export default function RecommendedProductsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [reload, setReload] = useState(0);
+  const [catCanPrev, setCatCanPrev] = useState(false);
+  const [catCanNext, setCatCanNext] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const categoryScrollerRef = useRef<HTMLDivElement>(null);
   const itemsLenRef = useRef(0);
   itemsLenRef.current = items.length;
 
   const priceRanges = tp("catalog.priceRanges", { returnObjects: true }) as unknown as string[];
   const priceLabels = useMemo(() => [t.all, ...priceRanges], [t.all, priceRanges]);
   const ratingRanges = tp("catalog.ratingRanges", { returnObjects: true }) as unknown as string[];
-  const banners = tp("recommend.banners", { returnObjects: true }) as unknown as RecommendBanner[];
   const fallbackCategories = tp("home.categories", { returnObjects: true }) as unknown as string[];
 
   const notify = (message: string) => {
@@ -163,9 +164,44 @@ export default function RecommendedProductsPage() {
   }, [categoryList, selectedCategoryId, setSearchParams]);
 
   const categoryTiles = useMemo(
-    () => buildRecommendCategoryTiles(categoryList, fallbackCategories, localeTag, t.all),
+    () => buildRecommendCategoryTiles(categoryList, fallbackCategories, localeTag, t.all, { unlimited: true }),
     [categoryList, fallbackCategories, localeTag, t.all],
   );
+
+  const updateCategoryArrows = useCallback(() => {
+    const node = categoryScrollerRef.current;
+    if (!node) {
+      setCatCanPrev(false);
+      setCatCanNext(false);
+      return;
+    }
+    const max = Math.max(0, node.scrollWidth - node.clientWidth);
+    setCatCanPrev(node.scrollLeft > 2);
+    setCatCanNext(node.scrollLeft < max - 2);
+  }, []);
+
+  const scrollCategories = (direction: -1 | 1) => {
+    const node = categoryScrollerRef.current;
+    if (!node) return;
+    const step = Math.max(210, Math.floor(node.clientWidth * 0.7));
+    node.scrollBy({ left: direction * step, behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    const node = categoryScrollerRef.current;
+    if (!node) return;
+    updateCategoryArrows();
+    const onScroll = () => updateCategoryArrows();
+    node.addEventListener("scroll", onScroll, { passive: true });
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => updateCategoryArrows()) : null;
+    ro?.observe(node);
+    window.addEventListener("resize", updateCategoryArrows);
+    return () => {
+      node.removeEventListener("scroll", onScroll);
+      ro?.disconnect();
+      window.removeEventListener("resize", updateCategoryArrows);
+    };
+  }, [categoryTiles, updateCategoryArrows]);
 
   const setCategoryInUrl = (id: number | undefined) => {
     setSearchParams((prev) => {
@@ -305,8 +341,6 @@ export default function RecommendedProductsPage() {
     || appliedPrice.max != null
     || ratingIndex != null
     || selectedCategoryId != null;
-  const bannerEmojis = ["🎁", "🚚", "🌍"];
-
   const goPage = (next: number) => {
     if (next === page || next < 0 || next >= pageCount || refreshing || fetching) return;
     setPage(next);
@@ -330,46 +364,66 @@ export default function RecommendedProductsPage() {
         </div>
       </section>
 
-      <section className="recommend-categories recommend-width" aria-label={tp("home.shopByCategory")}>
-        {categoryTiles.map((tile) => {
-          const isAll = tile.key === "all";
-          const isActive = isAll
-            ? selectedCategoryId == null
-            : tile.categoryId != null && tile.categoryId === selectedCategoryId;
-          return (
-            <button
-              className={`category${isActive ? " is-active" : ""}`}
-              key={tile.key}
-              type="button"
-              aria-pressed={isActive}
-              onClick={() => {
-                if (isAll) {
-                  selectCategory(undefined, tile.label, true);
-                  return;
-                }
-                if (tile.categoryId == null) {
-                  // Fallback tile without id — keep "all", no filter.
-                  selectCategory(undefined, tile.label, true);
-                  return;
-                }
-                selectCategory(tile.categoryId, tile.label, true);
-              }}
-            >
-              {isAll ? (
-                <span className="category-more-icon" aria-hidden="true">
-                  <LayoutGrid />
-                </span>
-              ) : (
-                <span aria-hidden="true">{tile.emoji}</span>
-              )}
-              <b>
-                {tile.label.split("\n").map((line, j) => (
-                  <span key={j}>{line}</span>
-                ))}
-              </b>
-            </button>
-          );
-        })}
+      <section className="recommend-categories-rail recommend-width" aria-label={tp("home.shopByCategory")}>
+        <button
+          type="button"
+          className={`recommend-categories-arrow is-prev${catCanPrev ? "" : " is-disabled"}`}
+          onClick={() => scrollCategories(-1)}
+          aria-label={tp("shops.pagePrev")}
+          disabled={!catCanPrev}
+        >
+          <ChevronLeft aria-hidden="true" />
+        </button>
+        <div className="recommend-categories" ref={categoryScrollerRef}>
+          {categoryTiles.map((tile) => {
+            const isAll = tile.key === "all";
+            const isActive = isAll
+              ? selectedCategoryId == null
+              : tile.categoryId != null && tile.categoryId === selectedCategoryId;
+            return (
+              <button
+                className={`category${isActive ? " is-active" : ""}`}
+                key={tile.key}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => {
+                  if (isAll) {
+                    selectCategory(undefined, tile.label, true);
+                    return;
+                  }
+                  if (tile.categoryId == null) {
+                    // Fallback tile without id — keep "all", no filter.
+                    selectCategory(undefined, tile.label, true);
+                    return;
+                  }
+                  selectCategory(tile.categoryId, tile.label, true);
+                }}
+              >
+                {isAll ? (
+                  <span className="category-more-icon" aria-hidden="true">
+                    <LayoutGrid />
+                  </span>
+                ) : (
+                  <span aria-hidden="true">{tile.emoji}</span>
+                )}
+                <b>
+                  {tile.label.split("\n").map((line, j) => (
+                    <span key={j}>{line}</span>
+                  ))}
+                </b>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          className={`recommend-categories-arrow is-next${catCanNext ? "" : " is-disabled"}`}
+          onClick={() => scrollCategories(1)}
+          aria-label={tp("shops.pageNext")}
+          disabled={!catCanNext}
+        >
+          <ChevronRight aria-hidden="true" />
+        </button>
       </section>
 
       <section className="recommend-catalog recommend-width">
@@ -585,27 +639,6 @@ export default function RecommendedProductsPage() {
               </button>
             </nav>
           )}
-          <div className="recommend-banners">
-            {banners.map((banner, index) => (
-              <article key={banner.btn}>
-                <div>
-                  <h2>
-                    {banner.title.split("\n").map((line, i) => (
-                      <span key={i}>
-                        {line}
-                        {i === 0 && banner.title.includes("\n") && <br />}
-                      </span>
-                    ))}
-                  </h2>
-                  <p>{banner.text}</p>
-                  <button type="button" onClick={() => notify(banner.toast)}>
-                    {banner.btn}
-                  </button>
-                </div>
-                <span>{bannerEmojis[index]}</span>
-              </article>
-            ))}
-          </div>
         </div>
       </section>
       {notice && (

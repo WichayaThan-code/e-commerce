@@ -1805,7 +1805,7 @@
     },
     "payment": {
       "accountsTitle": "收款账户",
-      "accountsLead": "顾客通过凭证付款时转入的账户",
+      "accountsLead": "初始沿用开店申请时的银行账户，之后可修改或添加 PromptPay",
       "methodsTitle": "支付方式",
       "methodsLead": "启用或停用本店支付选项",
       "bankTransfer": "银行转账",

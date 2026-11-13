@@ -62,7 +62,11 @@ public class PublicEndpointRegistry implements RequestMatcher {
                     if (methods.isEmpty()) {
                         result.add(builder.matcher(pattern));
                     } else {
-                        for (var method : methods) result.add(builder.matcher(HttpMethod.valueOf(method.name()), pattern));
+                        for (var method : methods) {
+                            var httpMethod = HttpMethod.valueOf(method.name());
+                            result.add(builder.matcher(httpMethod, pattern));
+                            if (httpMethod == HttpMethod.GET) result.add(builder.matcher(HttpMethod.HEAD, pattern));
+                        }
                     }
                 }
             });

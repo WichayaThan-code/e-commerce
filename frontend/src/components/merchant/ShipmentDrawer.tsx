@@ -613,7 +613,7 @@ export default function ShipmentDrawer({ shopId, orderId, carriers, onClose, onC
                     type="button"
                     className="sh-action-btn tone-primary is-next"
                     disabled={busy || !canDispatch}
-                    title={!canDispatch ? deniedTitle(canDispatch) : !shipReady ? t("shippingPage.drawer.shipHint") : undefined}
+                    title={deniedTitle(canDispatch)}
                     onClick={() => {
                       if (!shipReady) {
                         setWorkTab("update");

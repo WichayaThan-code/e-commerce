@@ -4,11 +4,14 @@ import {
   NEW_BLOCK_TYPES, defaultBlockContent, resolveBlockContent, resolveLocalized,
   type BlockContent, type LocalizedString,
 } from './blockContent'
+import { clampCrop, type ImageCrop } from '../components/shop/imageCrop'
 import {
   SHOP_THEME_FONT_ROWS,
   SHOP_THEME_FONTS,
   type ShopThemeFontKey,
 } from './shopThemeFontCatalog'
+
+export type { ImageCrop }
 
 export { SHOP_THEME_FONTS, type ShopThemeFontKey }
 
@@ -67,7 +70,14 @@ export function isSectionKey(type: string): type is ShopSectionKey {
 export const SHOP_TRUST_ICONS = ['AUTHENTIC', 'FAST_SHIP', 'RETURNS', 'SECURE_PAY', 'CUSTOM'] as const
 export type ShopTrustIcon = (typeof SHOP_TRUST_ICONS)[number]
 
-export type ThemeBanner = { imageUrl: string; title?: string; link?: string; mediaId?: string }
+export type ThemeBanner = {
+  imageUrl: string
+  title?: string
+  link?: string
+  mediaId?: string
+  crop?: ImageCrop
+  mobileCrop?: ImageCrop
+}
 /** sub: optional plain-text sub-line (80) overriding the default i18n one (tsf templates). */
 export type ThemeTrustItem = { icon: ShopTrustIcon; label: string; enabled: boolean; sub?: string }
 /** tsf announcement bar (plain text, max 2 x 120); empty = falls back to the first trust labels. */
@@ -247,6 +257,8 @@ export type ThemeHeroBackground = {
   /** Derived by the API from mediaId / posterMediaId (never sent back as editable fields). */
   url?: string
   posterUrl?: string
+  crop?: ImageCrop
+  mobileCrop?: ImageCrop
 }
 export type ThemeHeroSticker = {
   mediaId: string
@@ -264,6 +276,10 @@ export type ThemeHeroCta = { label: string; link: string }
 export type ThemeHeroSlide = { slideMediaId: string; imageUrl: string }
 export const MAX_HERO_SLIDES = 5
 
+/** Secondary hero button destination (merchant-selectable; not hard-wired to categories). */
+export const HERO_SECONDARY_ACTIONS = ['NONE', 'PRODUCTS', 'CATEGORIES', 'CONTACT', 'CUSTOM'] as const
+export type HeroSecondaryAction = (typeof HERO_SECONDARY_ACTIONS)[number]
+
 export type ThemeHero = {
   layout: HeroLayout
   slides?: ThemeHeroSlide[]
@@ -271,10 +287,22 @@ export type ThemeHero = {
   subtitle: string
   ctaLabel: string
   ctaLink: string
-  /** GENERAL only: plain-text eyebrow + secondary CTA (backend drops them for other templates). */
-  eyebrow?: string
+  /**
+   * When false, hide the hero CTA pair (primary + secondary) on the storefront.
+   * Absent / true = show (backward compatible).
+   */
+  showCtas?: boolean
+  /**
+   * What the secondary button does. Absent → infer from label/link (legacy CUSTOM) else NONE.
+   * NONE hides only the secondary button (primary can still show).
+   */
+  ctaSecondaryAction?: HeroSecondaryAction
+  /** Optional label override for secondary (presets use public i18n when blank). */
   ctaSecondaryLabel?: string
+  /** Used when {@link ctaSecondaryAction} is CUSTOM (site path or https). */
   ctaSecondaryLink?: string
+  /** GENERAL only: plain-text eyebrow (backend drops it for other templates). */
+  eyebrow?: string
   /** GENERAL MEDIA_FULL decorative text stickers: max 3 x 24 chars plain text. */
   badges?: string[]
   background?: ThemeHeroBackground
@@ -352,6 +380,8 @@ export type ThemeIntro = {
   introMediaId?: string
   imageUrl?: string
   reverse?: boolean
+  crop?: ImageCrop
+  mobileCrop?: ImageCrop
 }
 
 function plainTextList(raw: unknown, max: number): string[] {
@@ -366,6 +396,10 @@ function resolveIntro(raw: unknown): ThemeIntro | undefined {
     if (typeof row[key] === 'string') out[key] = row[key] as string
   }
   if (typeof row.reverse === 'boolean') out.reverse = row.reverse
+  const crop = clampCrop(row.crop)
+  const mobileCrop = clampCrop(row.mobileCrop)
+  if (crop) out.crop = crop
+  if (mobileCrop) out.mobileCrop = mobileCrop
   return out
 }
 
@@ -856,6 +890,22 @@ function resolveHeroLayout(raw: unknown, fallback: HeroLayout, custom = false): 
   return allowed.has(value) ? (value as HeroLayout) : (!custom && fallback === 'MEDIA_FULL' ? 'FULL' : fallback)
 }
 
+/** Normalize / infer secondary CTA action. Legacy configs with only label/link → CUSTOM; otherwise NONE. */
+export function resolveHeroSecondaryAction(
+  raw: unknown,
+  label?: string | null,
+  link?: string | null,
+): HeroSecondaryAction {
+  if (typeof raw === 'string') {
+    const value = raw.trim().toUpperCase()
+    if ((HERO_SECONDARY_ACTIONS as readonly string[]).includes(value)) return value as HeroSecondaryAction
+  }
+  const hasLabel = typeof label === 'string' && label.trim().length > 0
+  const hasLink = typeof link === 'string' && link.trim().length > 0
+  if (hasLabel || hasLink) return 'CUSTOM'
+  return 'NONE'
+}
+
 function resolveSectionVariant(key: ShopSectionKey, raw: unknown, fallback: SectionVariant, custom = false): SectionVariant {
   if (raw == null || raw === '') return fallback
   const value = String(raw).trim().toUpperCase()
@@ -879,11 +929,15 @@ function resolveBanners(raw: unknown, fallback: ThemeBanner[], custom = false): 
       const imageUrl = typeof item.imageUrl === 'string' ? item.imageUrl.trim() : ''
       const mediaId = custom && typeof item.mediaId === 'string' ? item.mediaId.trim() : ''
       if (!imageUrl && !mediaId) return null
+      const crop = clampCrop(item.crop)
+      const mobileCrop = clampCrop(item.mobileCrop)
       return {
         imageUrl,
         ...(mediaId ? { mediaId } : {}),
         title: typeof item.title === 'string' ? item.title : '',
         link: typeof item.link === 'string' ? item.link : '',
+        ...(crop ? { crop } : {}),
+        ...(mobileCrop ? { mobileCrop } : {}),
       } satisfies ThemeBanner
     })
     .filter(Boolean) as ThemeBanner[]
@@ -1082,12 +1136,16 @@ function resolveHeroExtras(raw: Record<string, unknown>): Partial<ThemeHero> {
     const posterMediaId = type === 'VIDEO' ? trimmedText(bg.posterMediaId) : undefined
     const url = mediaId ? trimmedText(bg.url) : undefined
     const posterUrl = posterMediaId ? trimmedText(bg.posterUrl) : undefined
+    const crop = clampCrop(bg.crop)
+    const mobileCrop = clampCrop(bg.mobileCrop)
     out.background = {
       type: type as HeroBackgroundType,
       ...(mediaId ? { mediaId } : {}),
       ...(posterMediaId ? { posterMediaId } : {}),
       ...(url ? { url } : {}),
       ...(posterUrl ? { posterUrl } : {}),
+      ...(crop ? { crop } : {}),
+      ...(mobileCrop ? { mobileCrop } : {}),
     }
   }
   const overlay = clampInt(raw.overlay, ...HERO_RANGES.overlay)
@@ -1505,11 +1563,23 @@ export function normalizeTheme(raw?: Partial<ShopTheme> | null, options: Normali
     subtitle: typeof heroIncoming.subtitle === 'string' ? heroIncoming.subtitle : base.hero.subtitle,
     ctaLabel: typeof heroIncoming.ctaLabel === 'string' ? heroIncoming.ctaLabel : base.hero.ctaLabel,
     ctaLink: typeof heroIncoming.ctaLink === 'string' ? heroIncoming.ctaLink : base.hero.ctaLink,
+    showCtas: typeof heroIncoming.showCtas === 'boolean'
+      ? heroIncoming.showCtas
+      : (typeof base.hero.showCtas === 'boolean' ? base.hero.showCtas : true),
+    ctaSecondaryAction: resolveHeroSecondaryAction(
+      'ctaSecondaryAction' in heroIncoming ? heroIncoming.ctaSecondaryAction : base.hero.ctaSecondaryAction,
+      typeof heroIncoming.ctaSecondaryLabel === 'string' ? heroIncoming.ctaSecondaryLabel : base.hero.ctaSecondaryLabel,
+      typeof heroIncoming.ctaSecondaryLink === 'string' ? heroIncoming.ctaSecondaryLink : base.hero.ctaSecondaryLink,
+    ),
+    ctaSecondaryLabel: typeof heroIncoming.ctaSecondaryLabel === 'string'
+      ? heroIncoming.ctaSecondaryLabel
+      : (typeof base.hero.ctaSecondaryLabel === 'string' ? base.hero.ctaSecondaryLabel : ''),
+    ctaSecondaryLink: typeof heroIncoming.ctaSecondaryLink === 'string'
+      ? heroIncoming.ctaSecondaryLink
+      : (typeof base.hero.ctaSecondaryLink === 'string' ? base.hero.ctaSecondaryLink : ''),
     slides: resolveHeroSlides('slides' in heroIncoming ? heroIncoming.slides : base.hero.slides),
     ...(templateKey === 'GENERAL' ? {
       eyebrow: typeof heroIncoming.eyebrow === 'string' ? heroIncoming.eyebrow : (base.hero.eyebrow ?? ''),
-      ctaSecondaryLabel: typeof heroIncoming.ctaSecondaryLabel === 'string' ? heroIncoming.ctaSecondaryLabel : (base.hero.ctaSecondaryLabel ?? ''),
-      ctaSecondaryLink: typeof heroIncoming.ctaSecondaryLink === 'string' ? heroIncoming.ctaSecondaryLink : (base.hero.ctaSecondaryLink ?? ''),
       badges: plainTextList((heroIncoming as { badges?: unknown }).badges ?? base.hero.badges, 3),
     } : {}),
     // AG5: hero media extras are CUSTOM-only (other templates never carry or read them).

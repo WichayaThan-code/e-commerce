@@ -2,10 +2,16 @@ package com.thaishopfun.order;
 
 import com.thaishopfun.auth.RequestUser;
 import com.thaishopfun.auth.authz.RequireShopPermission;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -15,14 +21,19 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/merchant/shops/{shopId}")
 public class MerchantShipmentController {
+    private static final MediaType XLSX = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
     private final OrderQueryService queries;
     private final ShipmentService shipments;
     private final CarrierService carriers;
+    private final ShipmentExportService exports;
 
-    public MerchantShipmentController(OrderQueryService queries, ShipmentService shipments, CarrierService carriers) {
+    public MerchantShipmentController(OrderQueryService queries, ShipmentService shipments, CarrierService carriers,
+                                      ShipmentExportService exports) {
         this.queries = queries;
         this.shipments = shipments;
         this.carriers = carriers;
+        this.exports = exports;
     }
 
     @RequireShopPermission("SHIPMENT_READ")
@@ -36,6 +47,29 @@ public class MerchantShipmentController {
                                                                      @RequestParam(required = false) Integer page,
                                                                      @RequestParam(required = false) Integer size) {
         return shipments.list(actor(jwt, shopId), null, new ShipmentService.Filters(status, carrierCode, trackingNumber, from, to, page, size));
+    }
+
+    /** Same filters as list; single data sheet (no Meta); all matching rows up to the export cap. */
+    @RequireShopPermission("SHIPMENT_READ")
+    @GetMapping(value = "/shipments/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    public ResponseEntity<byte[]> export(@AuthenticationPrincipal Jwt jwt, @PathVariable Long shopId,
+                                         @RequestParam(required = false) String status,
+                                         @RequestParam(required = false) String carrierCode,
+                                         @RequestParam(required = false) String trackingNumber,
+                                         @RequestParam(required = false) String from,
+                                         @RequestParam(required = false) String to,
+                                         @RequestParam(required = false) String lang,
+                                         Locale locale) {
+        var filters = new ShipmentService.Filters(status, carrierCode, trackingNumber, from, to, 0, OrderQueryService.MAX_PAGE_SIZE);
+        Locale loc = lang != null && !lang.isBlank() ? Locale.forLanguageTag(lang.trim()) : locale;
+        byte[] body = exports.export(actor(jwt, shopId), shopId, filters, loc);
+        String filename = ShipmentExportService.suggestedFilename(shopId);
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                .filename(filename, StandardCharsets.UTF_8).build().toString())
+            .header(HttpHeaders.CACHE_CONTROL, "no-store")
+            .contentType(XLSX)
+            .body(body);
     }
 
     @RequireShopPermission("SHIPMENT_READ")

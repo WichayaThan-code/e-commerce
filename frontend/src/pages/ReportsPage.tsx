@@ -336,7 +336,7 @@ export default function ReportsPage() {
               />
             ) : <small>{rangeLong} · {t("reports.range.thaiTime")}</small>}
           </div>
-          <button type="button" disabled={!canExport || exporting || !periodKey} title={canExport ? t("reports.export.xlsxNote") : deniedTitle(canExport)} className="primary" onClick={() => void download()}>
+          <button type="button" disabled={!canExport || exporting || !periodKey} title={deniedTitle(canExport)} className="primary" onClick={() => void download()}>
             <Download />{exporting ? t("reports.export.busy") : t("reports.export.button")}
           </button>
         </div>

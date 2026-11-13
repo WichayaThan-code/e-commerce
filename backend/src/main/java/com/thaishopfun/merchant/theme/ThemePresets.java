@@ -12,7 +12,9 @@ public final class ThemePresets {
     /** GENERAL extra palette roles (themes spec): saved/validated for GENERAL only, stripped for FASHION/FOOD_BEVERAGE. */
     public static final String GENERAL_HERO_EYEBROW = "ส่งตรงจากชุมชนทั่วไทย";
     /** GENERAL-only plain-text hero copy keys (other non-CUSTOM templates drop them on save). */
-    public static final List<String> GENERAL_HERO_KEYS = List.of("eyebrow", "ctaSecondaryLabel", "ctaSecondaryLink", "badges");
+    public static final List<String> GENERAL_HERO_KEYS = List.of("eyebrow", "badges");
+    /** Secondary hero button destinations (all templates). */
+    public static final List<String> HERO_SECONDARY_ACTIONS = List.of("NONE", "PRODUCTS", "CATEGORIES", "CONTACT", "CUSTOM");
     public static final List<String> GENERAL_EXTRA_COLOR_KEYS = List.of("borderStrong", "sale", "focus");
     /** Templates rendered by the themes-spec storefront tree; they keep (and validate) the extra palette roles. */
     public static final Set<ShopThemeTemplate> EXTRA_COLOR_TEMPLATES = Set.of(ShopThemeTemplate.GENERAL, ShopThemeTemplate.FASHION, ShopThemeTemplate.FOOD_BEVERAGE);
@@ -62,7 +64,9 @@ public final class ThemePresets {
         hero.put("title", "ของดีทั่วไทย ส่งตรงถึงบ้านคุณ");
         hero.put("subtitle", "สินค้าคุณภาพจากผู้ผลิตท้องถิ่น แพ็กอย่างดี ส่งไวภายใน 24 ชั่วโมง");
         hero.put("ctaLabel", "ช้อปเลย");
-        hero.put("ctaSecondaryLabel", "ดูหมวดหมู่");
+        // Secondary is merchant-selectable (not hard-wired to categories). CONTACT is a useful default next to "ช้อปเลย".
+        hero.put("ctaSecondaryAction", "CONTACT");
+        hero.put("ctaSecondaryLabel", "ติดต่อร้าน");
         hero.put("ctaSecondaryLink", "");
         return config;
     }

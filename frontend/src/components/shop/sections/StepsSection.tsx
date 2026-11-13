@@ -3,8 +3,10 @@ import { BadgeCheck, PackageCheck, RefreshCw, ShieldCheck, Sparkles } from "luci
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { mediaUrl } from "../../../services/api";
 import { isLocalizedEmpty, resolveStepsContent, type StepIcon } from "../../../theme/blockContent";
+import { cropStyle, type ImageCrop } from "../imageCrop";
 import { BlockCtaButton, BlockHeading, panelClasses, useLocalized } from "./blockParts";
 import type { ShopNewBlockProps } from "./types";
+import "../../../styles/image-focal-editor.css";
 
 const ICONS = {
   AUTHENTIC: BadgeCheck,
@@ -25,9 +27,25 @@ export default function StepsSection({ block }: ShopNewBlockProps) {
   );
   if (!steps.length && isLocalizedEmpty(content.title) && isLocalizedEmpty(content.subtitle)) return null;
 
-  const renderMarker = (icon: StepIcon, index: number, imageUrl?: string) => {
+  const renderMarker = (
+    icon: StepIcon,
+    index: number,
+    imageUrl?: string,
+    crop?: ImageCrop,
+    mobileCrop?: ImageCrop,
+  ) => {
     if (icon === "CUSTOM" && imageUrl) {
-      return <img className="shop-steps-image" src={mediaUrl(imageUrl)} alt="" loading="lazy" />;
+      return (
+        <span className="shop-image-crop shop-steps-image-wrap" style={cropStyle(crop, mobileCrop)}>
+          <img
+            className="shop-steps-image"
+            src={mediaUrl(imageUrl)}
+            alt=""
+            loading="lazy"
+            style={cropStyle(crop, mobileCrop)}
+          />
+        </span>
+      );
     }
     if (icon === "NUMBER") return <span className="shop-steps-number num" aria-hidden="true">{index + 1}</span>;
     const Icon = ICONS[icon];
@@ -41,7 +59,9 @@ export default function StepsSection({ block }: ShopNewBlockProps) {
         <ol className="shop-steps-list">
           {steps.map((step, index) => (
             <li key={index} className="shop-steps-item">
-              <span className="shop-steps-marker">{renderMarker(step.icon, index, step.mediaUrl)}</span>
+              <span className="shop-steps-marker">
+                {renderMarker(step.icon, index, step.mediaUrl, step.crop, step.mobileCrop)}
+              </span>
               <div className="shop-steps-copy">
                 <span className="shop-steps-order">{tp("shop.blocks.steps.stepOrder", { n: index + 1 })}</span>
                 {!isLocalizedEmpty(step.title) ? <h3>{l(step.title)}</h3> : null}

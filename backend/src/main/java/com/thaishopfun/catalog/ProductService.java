@@ -51,6 +51,8 @@ public class ProductService {
     static final int MAX_PAGE_SIZE = 100;
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_SKUS = 100;
+    /** Cap on spreadsheet rows (one product can expand to many SKU rows). */
+    static final int EXPORT_MAX_ROWS = 10_000;
     private final ShopRepository shops;
     private final ProductRepository products;
     private final ProductSkuRepository skus;
@@ -133,25 +135,78 @@ public class ProductService {
         return ProductSpreadsheet.template();
     }
 
+    /**
+     * Export filtered products using the same query rules as {@link #list}.
+     * Returns every matching product (all pages), expanded to SKU rows.
+     */
     @Transactional(readOnly = true)
-    public byte[] exportWorkbook(UUID userId, Long shopId) {
+    public byte[] exportWorkbook(UUID userId, Long shopId, String q, String status, Long categoryId, String brand,
+                                 String stock, String sort, Locale locale) {
         var shop = requireSellableShop(userId, shopId);
-        var items = products.findByShop_ShopIdAndDeletedAtIsNullOrderByCreatedDateTimeDesc(shop.getId());
-        var rows = new ArrayList<ProductSpreadsheet.SheetRow>();
+        var statusFilter = parseStatus(status);
+        var stockFilter = parseStock(stock);
+        var sortKey = parseSort(sort);
+        var brandFilter = blank(brand);
+        var items = new ArrayList<Product>();
+        int page = 0;
+        long total;
+        do {
+            var result = search(shop.getId(), q, statusFilter, categoryId, brandFilter, stockFilter, sortKey, page, MAX_PAGE_SIZE, false, List.of());
+            total = result.total();
+            items.addAll(result.items());
+            if (result.items().isEmpty()) break;
+            page++;
+        } while (items.size() < total && page < 10_000);
+        if (items.isEmpty()) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "EXPORT_EMPTY",
+                "ไม่มีสินค้าตามตัวกรองนี้ กรุณาปรับตัวกรองแล้วลองใหม่");
+        }
+        if (items.size() > EXPORT_MAX_ROWS) {
+            throw new AuthException(HttpStatus.BAD_REQUEST, "EXPORT_TOO_LARGE",
+                "ส่งออกได้สูงสุด " + EXPORT_MAX_ROWS + " แถว — ลดตัวกรองแล้วลองใหม่");
+        }
+        Locale loc = locale == null ? Locale.forLanguageTag("th") : locale;
+        // One row per product — same shape as the merchant products table (not SKU-expanded import sheet).
+        var rows = new ArrayList<ProductSpreadsheet.ListExportRow>(items.size());
         for (var product : items) {
             var skuRows = skus.findByProduct_IdAndDeletedAtIsNullOrderBySkuCodeAsc(product.getId());
-            var stock = skuRows.isEmpty() ? List.<InventoryLevel>of() : levels.findBySku_IdIn(skuRows.stream().map(ProductSku::getId).toList());
-            if (skuRows.isEmpty()) {
-                rows.add(sheetRow(product, null, null));
-                continue;
-            }
-            for (var sku : skuRows) {
-                var level = stock.stream().filter(item -> item.getSku().getId().equals(sku.getId())).findFirst().orElse(null);
-                rows.add(sheetRow(product, sku, level));
-            }
+            var levelsFor = skuRows.isEmpty() ? List.<InventoryLevel>of() : levels.findBySku_IdIn(skuRows.stream().map(ProductSku::getId).toList());
+            var totals = rollup(skuRows, levelsFor);
+            rows.add(listExportRow(product, skuRows, totals, loc));
         }
-        // Empty catalog: headers + Excel Table only (never sample template rows).
-        return ProductSpreadsheet.writeExport(rows, shop.getName());
+        return ProductSpreadsheet.writeExport(rows, loc);
+    }
+
+    private ProductSpreadsheet.ListExportRow listExportRow(Product product, List<ProductSku> skuRows, SkuRollup totals, Locale locale) {
+        var category = product.getCategory() == null ? "" : product.getCategory().getNameTh();
+        String skuLabel;
+        if (product.getProductType() == ProductType.VARIABLE) {
+            // Match ProductManagementPage variantLine: count + total stock.
+            String tag = locale.toLanguageTag().toLowerCase(Locale.ROOT);
+            if (tag.startsWith("zh")) skuLabel = totals.count() + " 个选项 · 总库存 " + totals.stock();
+            else if (tag.startsWith("en")) skuLabel = totals.count() + " options · total stock " + totals.stock();
+            else skuLabel = totals.count() + " ตัวเลือก · สต็อกรวม " + totals.stock();
+        } else if (skuRows.size() > 1) {
+            skuLabel = skuRows.stream().map(ProductSku::getSkuCode).filter(code -> code != null && !code.isBlank())
+                .collect(java.util.stream.Collectors.joining(", "));
+        } else if (!skuRows.isEmpty()) {
+            skuLabel = skuRows.get(0).getSkuCode() == null ? "" : skuRows.get(0).getSkuCode();
+        } else {
+            skuLabel = "";
+        }
+        BigDecimal priceMin = totals.minPrice() != null ? totals.minPrice() : product.getBasePrice();
+        BigDecimal priceMax = totals.maxPrice() != null ? totals.maxPrice() : priceMin;
+        return new ProductSpreadsheet.ListExportRow(
+            product.getNameTh(),
+            product.getNameEn() != null && !product.getNameEn().isBlank() ? product.getNameEn() : product.getSlug(),
+            skuLabel,
+            category,
+            priceMin,
+            priceMax,
+            totals.stock(),
+            product.getStatus() == null ? "" : product.getStatus().name(),
+            product.getModifiedDateTime()
+        );
     }
 
     @Transactional(readOnly = true)
@@ -1172,43 +1227,6 @@ public class ProductService {
         var status = takenOnly ? HttpStatus.CONFLICT : HttpStatus.BAD_REQUEST;
         var first = issues.get(0);
         return new AuthException(status, first.code(), first.message(), issues);
-    }
-
-    private ProductSpreadsheet.SheetRow sheetRow(Product product, ProductSku sku, InventoryLevel level) {
-        var category = product.getCategory() == null ? null : product.getCategory().getNameTh();
-        var values = sku == null ? Map.<String, String>of() : JsonMaps.read(sku.getOptionValues());
-        var schema = readSchema(product.getOptionSchema());
-        var names = new String[3];
-        var selected = new String[3];
-        for (var index = 0; index < Math.min(3, schema.size()); index++) {
-            names[index] = schema.get(index).name();
-            selected[index] = values.get(names[index]);
-        }
-        var variable = product.getProductType() == ProductType.VARIABLE;
-        return new ProductSpreadsheet.SheetRow(
-            0,
-            product.getNameTh(),
-            product.getNameEn(),
-            product.getNameZh(),
-            product.getDescriptionTh(),
-            product.getDescriptionEn(),
-            product.getDescriptionZh(),
-            category,
-            product.getBrand(),
-            sku == null ? null : sku.getSkuCode(),
-            sku == null ? null : sku.getBarcode(),
-            sku == null ? null : sku.getOptionLabel(),
-            sku == null ? product.getBasePrice() : sku.getPrice(),
-            sku == null ? product.getCompareAtPrice() : sku.getCompareAtPrice(),
-            sku == null ? product.getWeightGrams() : sku.getWeightGrams(),
-            level == null ? 0 : level.getOnHand(),
-            null,
-            List.of(),
-            null,
-            variable ? product.getId().toString() : null,
-            product.getProductType().name(),
-            names[0], selected[0], names[1], selected[1], names[2], selected[2]
-        );
     }
 
     private void fillBasePrice(Product product) {

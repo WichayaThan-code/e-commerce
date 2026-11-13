@@ -115,13 +115,38 @@ public final class MerchantExcelWorkbook implements AutoCloseable {
      * When rows is empty, still creates a one-row header table and a note under it.
      */
     public void addTableSheet(String sheetName, String tableName, List<Column> columns, List<List<Object>> rows) {
+        addTableSheet(sheetName, tableName, columns, rows, null);
+    }
+
+    /**
+     * Same as {@link #addTableSheet(String, String, List, List)} with optional Excel cell comments
+     * on header cells (keyed by exact header string). Does not change header text.
+     */
+    public void addTableSheet(String sheetName, String tableName, List<Column> columns, List<List<Object>> rows,
+                              Map<String, String> headerNotes) {
         if (columns == null || columns.isEmpty()) throw new IllegalArgumentException("columns required");
         XSSFSheet sheet = book.createSheet(safeSheetName(sheetName));
         Row header = sheet.createRow(0);
+        var drawing = headerNotes == null || headerNotes.isEmpty() ? null : sheet.createDrawingPatriarch();
+        var helper = drawing == null ? null : book.getCreationHelper();
         for (int c = 0; c < columns.size(); c++) {
             Cell cell = header.createCell(c);
-            cell.setCellValue(columns.get(c).header());
+            String headerName = columns.get(c).header();
+            cell.setCellValue(headerName);
             cell.setCellStyle(headerStyle);
+            if (drawing != null && helper != null && headerNotes != null) {
+                String note = headerNotes.get(headerName);
+                if (note != null && !note.isBlank()) {
+                    var anchor = helper.createClientAnchor();
+                    anchor.setCol1(c);
+                    anchor.setCol2(Math.min(c + 2, columns.size()));
+                    anchor.setRow1(0);
+                    anchor.setRow2(3);
+                    var comment = drawing.createCellComment(anchor);
+                    comment.setString(helper.createRichTextString(note));
+                    cell.setCellComment(comment);
+                }
+            }
         }
 
         List<List<Object>> data = rows == null ? List.of() : rows;

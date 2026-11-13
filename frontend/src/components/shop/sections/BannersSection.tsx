@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { mediaUrl } from "../../../services/api";
 import { useRevealOnScroll } from "../../../hooks/useRevealOnScroll";
+import { cropStyle } from "../imageCrop";
 import type { ShopSectionProps } from "./types";
+import "../../../styles/image-focal-editor.css";
 
 function bannerHref(link?: string) {
   const value = (link || "").trim();
@@ -28,17 +30,30 @@ export default function BannersSection({ config }: ShopSectionProps) {
 
   const side = banners.slice(1, 3);
 
-  const renderLink = (index: number, className: string) => {
+  const renderBannerImage = (index: number) => {
+    const banner = banners[index];
+    if (!banner) return null;
+    const style = cropStyle(banner.crop, banner.mobileCrop) as CSSProperties;
+    return (
+      <span className="shop-image-crop" style={style}>
+        <img src={mediaUrl(banner.imageUrl)} alt={banner.title || ""} style={style} />
+      </span>
+    );
+  };
+
+  const wrapBanner = (index: number, className: string, child: ReactNode) => {
     const banner = banners[index];
     if (!banner) return null;
     const target = bannerHref(banner.link);
-    const img = <img src={mediaUrl(banner.imageUrl)} alt={banner.title || ""} />;
-    if (!target) return <div className={className}>{img}</div>;
+    if (!target) return <div className={className}>{child}</div>;
     if (target.external) {
-      return <a className={className} href={target.to} target="_blank" rel="noopener noreferrer">{img}</a>;
+      return <a className={className} href={target.to} target="_blank" rel="noopener noreferrer">{child}</a>;
     }
-    return <Link className={className} to={target.to}>{img}</Link>;
+    return <Link className={className} to={target.to}>{child}</Link>;
   };
+
+  const renderLink = (index: number, className: string) =>
+    wrapBanner(index, className, renderBannerImage(index));
 
   return (
     <section
@@ -60,13 +75,13 @@ export default function BannersSection({ config }: ShopSectionProps) {
       <div className="shop-banners-mobile">
         <div className="shop-banner-carousel" style={{ transform: `translateX(-${active * 100}%)` }}>
           {banners.map((banner, index) => {
+            const child = renderBannerImage(index);
             const target = bannerHref(banner.link);
-            const img = <img src={mediaUrl(banner.imageUrl)} alt={banner.title || ""} />;
             const slide = target?.external
-              ? <a href={target.to} target="_blank" rel="noopener noreferrer">{img}</a>
+              ? <a href={target.to} target="_blank" rel="noopener noreferrer">{child}</a>
               : target
-                ? <Link to={target.to}>{img}</Link>
-                : img;
+                ? <Link to={target.to}>{child}</Link>
+                : child;
             return <div className="shop-banner-slide" key={`${banner.imageUrl}-${index}`}>{slide}</div>;
           })}
         </div>

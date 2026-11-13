@@ -23,6 +23,8 @@ public class MerchantApplicationController {
 
     @RequirePermission("SHOP_APPLICATION_READ")
     @GetMapping public MerchantDtos.ApplicationResponse get(@AuthenticationPrincipal Jwt jwt){return service.get(userId(jwt));}
+    @RequirePermission("SHOP_APPLICATION_READ")
+    @GetMapping("/shop-name/check") public MerchantDtos.ShopNameCheckResponse checkShopName(@AuthenticationPrincipal Jwt jwt,@RequestParam(name="name",required=false) String name){return service.checkShopName(userId(jwt),name);}
     @RequirePermission("SHOP_APPLICATION_UPDATE")
     @PutMapping("/shop") public MerchantDtos.ApplicationResponse shop(@AuthenticationPrincipal Jwt jwt,@Valid @RequestBody MerchantDtos.ShopRequest request){return service.saveShop(userId(jwt),request);}
     @RequirePermission("SHOP_APPLICATION_UPDATE")

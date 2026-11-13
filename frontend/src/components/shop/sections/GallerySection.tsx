@@ -3,9 +3,11 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { usePublicTranslation } from "../../../hooks/usePublicTranslation";
 import { mediaUrl } from "../../../services/api";
 import { isLocalizedEmpty, resolveGalleryContent } from "../../../theme/blockContent";
+import { cropStyle } from "../imageCrop";
 import GalleryLightbox, { type LightboxItem } from "./GalleryLightbox";
 import { BlockHeading, panelClasses, useLocalized } from "./blockParts";
 import type { ShopNewBlockProps } from "./types";
+import "../../../styles/image-focal-editor.css";
 
 /** AG4 GALLERY: GRID / MASONRY / CAROUSEL of library images; every image opens a keyboard-accessible lightbox. */
 export default function GallerySection({ block }: ShopNewBlockProps) {
@@ -52,7 +54,14 @@ export default function GallerySection({ block }: ShopNewBlockProps) {
                   aria-haspopup="dialog"
                   onClick={() => setOpen(index)}
                 >
-                  <img src={mediaUrl(item.url)} alt={l(item.caption)} loading="lazy" />
+                  <span className="shop-image-crop" style={cropStyle(item.crop, item.mobileCrop)}>
+                    <img
+                      src={mediaUrl(item.url)}
+                      alt={l(item.caption)}
+                      loading="lazy"
+                      style={cropStyle(item.crop, item.mobileCrop)}
+                    />
+                  </span>
                 </button>
                 {!isLocalizedEmpty(item.caption) ? <span className="shop-gallery-caption">{l(item.caption)}</span> : null}
               </li>

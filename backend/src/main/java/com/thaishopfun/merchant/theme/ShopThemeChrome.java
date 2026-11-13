@@ -34,7 +34,9 @@ final class ShopThemeChrome {
     private static final Set<String> HERO_EXTRA_KEYS = Set.of(
         "background", "overlay", "heightVh", "textAlign", "headlineSize", "stickers", "ctaSecondary"
     );
-    private static final Set<String> HERO_BACKGROUND_KEYS = Set.of("type", "mediaId", "posterMediaId");
+    private static final Set<String> HERO_BACKGROUND_KEYS = Set.of(
+        "type", "mediaId", "posterMediaId", ShopThemeImageCrop.CROP_KEY, ShopThemeImageCrop.MOBILE_CROP_KEY
+    );
     private static final Set<String> STICKER_KEYS = Set.of("mediaId", "x", "y", "size", "rotate", "hideOnMobile");
     private static final Set<String> CTA_KEYS = Set.of("label", "link");
     private static final Set<String> HEADER_KEYS = Set.of(
@@ -148,6 +150,31 @@ final class ShopThemeChrome {
     }
 
     private static void sanitizeHero(Map<String, Object> hero) {
+        if (hero.containsKey("showCtas")) {
+            var raw = hero.get("showCtas");
+            if (raw instanceof Boolean) {
+                // keep
+            } else if (raw == null) {
+                hero.remove("showCtas");
+            } else {
+                var text = String.valueOf(raw).trim();
+                if ("true".equalsIgnoreCase(text)) hero.put("showCtas", Boolean.TRUE);
+                else if ("false".equalsIgnoreCase(text)) hero.put("showCtas", Boolean.FALSE);
+                else hero.remove("showCtas");
+            }
+        }
+        if (hero.containsKey("ctaSecondaryAction")) {
+            var raw = hero.get("ctaSecondaryAction");
+            if (raw == null) {
+                hero.remove("ctaSecondaryAction");
+            } else if (raw instanceof String text) {
+                var value = text.trim().toUpperCase();
+                if (ThemePresets.HERO_SECONDARY_ACTIONS.contains(value)) hero.put("ctaSecondaryAction", value);
+                else hero.remove("ctaSecondaryAction");
+            } else {
+                hero.remove("ctaSecondaryAction");
+            }
+        }
         if (hero.containsKey("background")) {
             var raw = hero.get("background");
             var bg = asMap(raw);
@@ -164,6 +191,15 @@ final class ShopThemeChrome {
                     out.remove("posterMediaId");
                 } else if (!"VIDEO".equals(type)) {
                     out.remove("posterMediaId");
+                }
+                var hasMedia = out.get("mediaId") != null
+                    || ("VIDEO".equals(type) && out.get("posterMediaId") != null);
+                if (!hasMedia) {
+                    out.remove(ShopThemeImageCrop.CROP_KEY);
+                    out.remove(ShopThemeImageCrop.MOBILE_CROP_KEY);
+                } else {
+                    ShopThemeImageCrop.putCrop(out, bg, ShopThemeImageCrop.CROP_KEY);
+                    ShopThemeImageCrop.putCrop(out, bg, ShopThemeImageCrop.MOBILE_CROP_KEY);
                 }
                 hero.put("background", out);
             }
@@ -385,6 +421,11 @@ final class ShopThemeChrome {
                 } else if (!"GRADIENT".equals(type)) {
                     requireMediaShape(problems, base + ".background.mediaId", bg.get("mediaId"));
                     if ("VIDEO".equals(type)) optionalMediaShape(problems, base + ".background.posterMediaId", bg.get("posterMediaId"));
+                    ShopThemeImageCrop.validateHolderCrops(problems, base + ".background", bg);
+                } else {
+                    if (bg.containsKey(ShopThemeImageCrop.CROP_KEY) || bg.containsKey(ShopThemeImageCrop.MOBILE_CROP_KEY)) {
+                        problems.add(ValidationMessages.violation(base + ".background.crop", ShopThemeImageCrop.INVALID));
+                    }
                 }
             }
         }

@@ -589,7 +589,7 @@ export default function AdminHelpCenterPage() {
         </div>
         <div className="hc-heading-actions">
           <a className="ap-ghost hc-preview" href="/help" target="_blank" rel="noopener noreferrer"><ExternalLink />{t('helpCenter.preview')}</a>
-          {canManage && <button type="button" className="add-category" onClick={openCreate} disabled={tab === 'faqs' && topics.length === 0} title={tab === 'faqs' && topics.length === 0 ? t('helpCenter.form.noTopics') : undefined}><Plus />{t(`helpCenter.add.${tab}`)}</button>}
+          {canManage && <button type="button" className="add-category" onClick={openCreate} disabled={tab === 'faqs' && topics.length === 0}><Plus />{t(`helpCenter.add.${tab}`)}</button>}
         </div>
       </section>
 

@@ -18,6 +18,8 @@ spring:
     baseline-on-migrate: true
     baseline-version: 1
     validate-on-migrate: true
+    # Allow pending migrations between already-applied higher versions (parallel branch merges).
+    out-of-order: true
   servlet:
     multipart:
       max-file-size: 20MB

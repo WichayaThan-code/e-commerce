@@ -1,13 +1,50 @@
-.theme-media-picker { display: grid; gap: 12px; }
-.theme-media-current { display: grid; gap: 8px; }
-.theme-media-preview { max-width: 100%; max-height: 160px; border-radius: 8px; border: 1px solid #d7deea; object-fit: contain; background: #f6f8fb; }
-.theme-media-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.theme-media-picker { display: grid; gap: 12px; min-width: 0; }
+.theme-media-current { display: grid; gap: 8px; min-width: 0; }
+.theme-media-preview {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 140px;
+  border-radius: 8px;
+  border: 1px solid #d7deea;
+  object-fit: contain;
+  background: #f6f8fb;
+}
+.theme-media-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
 .theme-media-progress { height: 6px; border-radius: 999px; background: #e6ebf3; overflow: hidden; }
 .theme-media-progress > span { display: block; height: 100%; background: #087bf5; transition: width 0.15s ease; }
 .theme-media-error { margin: 0; color: #c0342b; font-size: 13px; }
-.theme-media-library { display: grid; gap: 8px; }
+.theme-media-filename {
+  margin: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #132b50;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.theme-media-filename.is-empty { color: #8593a5; font-weight: 400; }
+.theme-media-filename.is-selected { display: block; width: 100%; }
+.theme-media-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.theme-media-library { display: grid; gap: 8px; min-width: 0; }
 .theme-media-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
-.theme-media-item { display: grid; gap: 4px; padding: 6px; border: 1px solid #d7deea; border-radius: 10px; background: #fff; }
+.theme-media-item { display: grid; gap: 4px; padding: 6px; border: 1px solid #d7deea; border-radius: 10px; background: #fff; min-width: 0; }
 .theme-media-item.is-selected { border-color: #087bf5; box-shadow: 0 0 0 2px rgba(8, 123, 245, 0.18); }
 .theme-media-thumb { position: relative; display: grid; place-items: center; aspect-ratio: 4 / 3; padding: 0; border: 0; border-radius: 8px; background: #f6f8fb; overflow: hidden; cursor: pointer; }
 .theme-media-thumb img { width: 100%; height: 100%; object-fit: cover; }
@@ -16,27 +53,71 @@
 .theme-media-thumb .theme-media-check { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; padding: 2px; border-radius: 50%; background: #087bf5; color: #fff; }
 .theme-media-name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .theme-media-meta { font-size: 11px; color: #6b7a94; }
+.theme-media-crop-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
 
-/* Field polish (CUSTOM editor only): label above, one clean upload row, muted hint below. */
-.store-theme-card .theme-media-field { display: block; min-width: 0; }
+/* Field polish (CUSTOM editor / Sections): keep rows stacked so long names never collide. */
+.store-theme-card .theme-media-field { display: block; min-width: 0; overflow: visible; }
 .store-theme-card .theme-media-field > .form-label { display: block; margin: 0 0 8px; }
-.store-theme-card .theme-media-field .theme-media-picker { gap: 10px; font-weight: 400; }
-.store-theme-card .theme-media-field .theme-media-current { gap: 6px; }
+.store-theme-card .theme-media-field .theme-media-picker { gap: 10px; font-weight: 400; min-width: 0; }
+.store-theme-card .theme-media-field .theme-media-current { gap: 8px; min-width: 0; }
+.store-theme-card .theme-media-field .theme-media-preview { max-height: 120px; }
 .store-theme-card .theme-media-field .theme-media-actions {
-  flex-wrap: nowrap; gap: 10px; min-height: 40px; box-sizing: border-box;
-  padding: 4px 6px 4px 4px; border: 1px solid #dce2eb; border-radius: 8px; background: #fff;
+  flex-wrap: nowrap;
+  gap: 10px;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 4px 6px 4px 4px;
+  border: 1px solid #dce2eb;
+  border-radius: 8px;
+  background: #fff;
 }
 .store-theme-card .theme-media-field .theme-media-actions > .theme-banner-add,
-.store-theme-card .theme-media-field .theme-media-actions > .theme-banner-remove { flex: none; min-height: 30px; padding: 0 10px; white-space: nowrap; }
-.store-theme-card .theme-media-filename {
-  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  color: #132b50; font-size: 13px; font-weight: 500;
+.store-theme-card .theme-media-field .theme-media-actions > .theme-banner-remove {
+  flex: none;
+  min-height: 30px;
+  padding: 0 10px;
+  white-space: nowrap;
 }
-.store-theme-card .theme-media-filename.is-empty { color: #8593a5; font-weight: 400; }
-.store-theme-card .theme-media-field .theme-media-hint { margin: 0; font-size: 12px; }
+.store-theme-card .theme-media-field .theme-media-actions > .theme-media-filename {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.store-theme-card .theme-media-field .theme-media-filename.is-selected {
+  margin: 0;
+  padding: 0 2px;
+  color: #5d7396;
+  font-size: 12px;
+  font-weight: 500;
+}
+.store-theme-card .theme-media-field .theme-media-hint {
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #5d7396;
+  overflow: visible;
+  white-space: normal;
+}
 .store-theme-card .theme-media-field .theme-media-library { gap: 6px; padding-top: 8px; border-top: 1px dashed #e6eef6; }
 .store-theme-card .theme-media-library-title { color: #5d7396; font-size: 12px; font-weight: 600; }
 .store-theme-card .theme-media-field .theme-media-library > .theme-hint { margin: 0; }
 .store-theme-card .theme-media-field .theme-media-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
-.store-theme-card .theme-media-field .theme-media-item .theme-banner-remove { min-height: 28px; padding: 0 8px; font-size: 12px; width: 100%; justify-content: center; }
+.store-theme-card .theme-media-field .theme-media-item .theme-banner-remove {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+  width: 100%;
+  justify-content: center;
+}
 .store-theme-card .theme-media-field .theme-media-error { font-size: 12px; }
+.store-theme-card .theme-media-field .theme-media-crop-row { margin: 0; }
+.store-theme-card .theme-media-field .theme-media-crop-row .image-focal-trigger {
+  min-height: 32px;
+  font-size: 12px;
+}

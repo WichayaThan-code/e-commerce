@@ -247,7 +247,6 @@ export default function SettingsNotificationsPanel({ shopId, notify, onDirtyChan
             <button
               type="button"
               disabled={saving || !saved}
-              title={t("notificationPrefs.restoreHint")}
               onClick={() => setConfirmRestore(true)}
             >
               <RotateCcw aria-hidden />{t("notificationPrefs.restore")}

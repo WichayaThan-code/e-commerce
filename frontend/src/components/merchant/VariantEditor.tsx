@@ -29,6 +29,7 @@ type Props = {
   groups: OptionGroupDraft[];
   skus: SkuDraft[];
   price: string;
+  compareAtPrice: string;
   images: ProductImage[];
   localImages: LocalImage[];
   serverErrors: Record<string, string>;
@@ -46,13 +47,13 @@ function moveItem<T>(items: T[], from: number, to: number) {
 }
 
 export default function VariantEditor({
-  shopId, productId, codeStem, groups, skus, price, images, localImages, serverErrors, submitAttempted, onChange, onIssues,
+  shopId, productId, codeStem, groups, skus, price, compareAtPrice, images, localImages, serverErrors, submitAttempted, onChange, onIssues,
 }: Props) {
   const { t } = useTranslation("merchant");
   const [prefix, setPrefix] = useState("");
   const [pick, setPick] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
-  const [bulk, setBulk] = useState({ price: "", compareAtPrice: "", costPrice: "", initialStock: "", weightGrams: "", image: "" });
+  const [bulk, setBulk] = useState({ costPrice: "", initialStock: "", weightGrams: "", image: "" });
   const [taken, setTaken] = useState<string[]>([]);
   const [drag, setDrag] = useState<{ kind: "group" | "value"; group: number; index: number } | null>(null);
   const [draftNames, setDraftNames] = useState<Record<string, string>>({});
@@ -150,7 +151,7 @@ export default function VariantEditor({
 
   const updateGroups = (nextGroups: OptionGroupDraft[]) => {
     const known = new Set(skus.map((sku) => sku.clientKey));
-    const reconciled = reconcileVariants(groups, nextGroups, skus, price, codeStem);
+    const reconciled = reconcileVariants(groups, nextGroups, skus, price, codeStem, compareAtPrice);
     if (reconciled.error === "TOO_MANY") {
       setMatrixError("TOO_MANY");
       return;
@@ -172,11 +173,9 @@ export default function VariantEditor({
 
   const applyBulk = () => {
     const marks: string[] = [];
-    onChange(groups, skus.map((sku, index) => {
+    onChange(groups, skus.map((sku) => {
       if (sku.removed || !selected.includes(sku.clientKey)) return sku;
       const next = { ...sku };
-      if (bulk.price.trim()) { next.price = bulk.price; marks.push(`${sku.clientKey}.price`); }
-      if (bulk.compareAtPrice.trim()) { next.compareAtPrice = bulk.compareAtPrice; marks.push(`${sku.clientKey}.compareAtPrice`); }
       if (bulk.costPrice.trim()) { next.costPrice = bulk.costPrice; marks.push(`${sku.clientKey}.costPrice`); }
       if (bulk.initialStock.trim()) { next.initialStock = bulk.initialStock; marks.push(`${sku.clientKey}.initialStock`); }
       if (bulk.weightGrams.trim()) { next.weightGrams = bulk.weightGrams; marks.push(`${sku.clientKey}.weightGrams`); }
@@ -204,7 +203,7 @@ export default function VariantEditor({
       .filter((group) => group.name && group.values.length);
     const applyLocal = () => {
       const known = new Set(skus.map((sku) => sku.clientKey));
-      const reconciled = reconcileVariants(groups, groups, skus, price, codeStem);
+      const reconciled = reconcileVariants(groups, groups, skus, price, codeStem, compareAtPrice);
       if (reconciled.error === "TOO_MANY") {
         setMatrixError("TOO_MANY");
         return;
@@ -240,6 +239,7 @@ export default function VariantEditor({
           optionLabel: row.optionLabel,
           optionValues: row.optionValues || {},
           price,
+          compareAtPrice,
           skuCode: dedupeSkuCode(row.skuCode || "", taken),
         }));
       });
@@ -451,14 +451,6 @@ export default function VariantEditor({
           onChange={(label) => setPick(pickOptions.find((option) => option.label === label)?.value ?? "")}
         />
         <label>
-          <span className="pm-lang-label">{t("catalog.variants.price")}</span>
-          <input className="num" inputMode="decimal" value={bulk.price} placeholder={t("catalog.variants.price")} onChange={(event) => setBulk({ ...bulk, price: event.target.value })} />
-        </label>
-        <label>
-          <span className="pm-lang-label">{t("catalog.variants.compare")}</span>
-          <input className="num" inputMode="decimal" value={bulk.compareAtPrice} placeholder={t("catalog.variants.compare")} onChange={(event) => setBulk({ ...bulk, compareAtPrice: event.target.value })} />
-        </label>
-        <label>
           <span className="pm-lang-label">{t("catalog.variants.cost")}</span>
           <input className="num" inputMode="decimal" value={bulk.costPrice} placeholder={t("catalog.variants.cost")} onChange={(event) => setBulk({ ...bulk, costPrice: event.target.value })} />
         </label>
@@ -583,7 +575,20 @@ export default function VariantEditor({
                     <FieldError text={message(stockError)} />
                   </td>
                   <td className="col-qty">
-                    <input className="num" title={sku.safetyStock || undefined} inputMode="numeric" aria-label={named(t("catalog.variants.safety"))} aria-invalid={Boolean(safetyError)} value={sku.safetyStock} disabled={sku.removed} onBlur={() => touch(sku.clientKey, "safetyStock")} onChange={(event) => { touch(sku.clientKey, "safetyStock"); patchSku(index, { safetyStock: event.target.value }); }} />
+                    <input
+                      className="num"
+                      title={sku.safetyStock || undefined}
+                      inputMode="numeric"
+                      aria-label={named(t("catalog.variants.safety"))}
+                      aria-invalid={Boolean(safetyError)}
+                      value={sku.safetyStock}
+                      disabled={sku.removed}
+                      onBlur={() => {
+                        touch(sku.clientKey, "safetyStock");
+                        if (!sku.safetyStock.trim()) patchSku(index, { safetyStock: "0" });
+                      }}
+                      onChange={(event) => { touch(sku.clientKey, "safetyStock"); patchSku(index, { safetyStock: event.target.value }); }}
+                    />
                     <FieldError text={message(safetyError)} />
                   </td>
                   <td className="col-active">

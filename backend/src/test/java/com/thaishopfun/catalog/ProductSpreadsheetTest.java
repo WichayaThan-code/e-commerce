@@ -1,5 +1,7 @@
 package com.thaishopfun.catalog;
 
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFClientAnchor;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -10,10 +12,14 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProductSpreadsheetTest {
     private static final byte[] PNG = Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
@@ -100,5 +106,42 @@ class ProductSpreadsheetTest {
         assertNull(parsed.get(1).productKey());
         assertEquals("SIMPLE", parsed.get(1).productType());
         assertEquals("TEA-1", parsed.get(1).skuCode());
+    }
+
+    @Test
+    void writeExportHasSingleSheetTableAndTypedCells() throws Exception {
+        var rows = List.of(
+            new ProductSpreadsheet.ListExportRow(
+                "ชาไทย", "Thai Tea", "00123", "เครื่องดื่ม",
+                new BigDecimal("45.50"), new BigDecimal("45.50"), 5, "PUBLISHED",
+                java.time.Instant.parse("2026-11-11T06:22:00Z"))
+        );
+        byte[] bytes = ProductSpreadsheet.writeExport(rows, Locale.forLanguageTag("th"));
+        try (var book = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
+            assertEquals(1, book.getNumberOfSheets());
+            assertEquals("สินค้า", book.getSheetName(0));
+            var sheet = book.getSheetAt(0);
+            assertEquals(1, sheet.getTables().size());
+            assertNotNull(sheet.getPaneInformation());
+            assertTrue(sheet.getPaneInformation().isFreezePane());
+            assertEquals("ชื่อสินค้า (ไทย)", sheet.getRow(0).getCell(0).getStringCellValue());
+            assertEquals("SKU", sheet.getRow(0).getCell(2).getStringCellValue());
+            assertEquals("ชาไทย", sheet.getRow(1).getCell(0).getStringCellValue());
+            assertEquals("00123", sheet.getRow(1).getCell(2).getStringCellValue());
+            assertEquals(CellType.STRING, sheet.getRow(1).getCell(2).getCellType());
+            assertEquals(CellType.NUMERIC, sheet.getRow(1).getCell(4).getCellType());
+            assertEquals(45.50, sheet.getRow(1).getCell(4).getNumericCellValue(), 0.001);
+            assertFalse(DateUtil.isCellDateFormatted(sheet.getRow(1).getCell(4)));
+            assertEquals(CellType.NUMERIC, sheet.getRow(1).getCell(6).getCellType());
+            assertEquals(5, (int) sheet.getRow(1).getCell(6).getNumericCellValue());
+            assertEquals("PUBLISHED", sheet.getRow(1).getCell(7).getStringCellValue());
+        }
+    }
+
+    @Test
+    void sheetNameFollowsLocale() {
+        assertEquals("สินค้า", ProductSpreadsheet.sheetName(Locale.forLanguageTag("th")));
+        assertEquals("Products", ProductSpreadsheet.sheetName(Locale.ENGLISH));
+        assertEquals("商品", ProductSpreadsheet.sheetName(Locale.SIMPLIFIED_CHINESE));
     }
 }

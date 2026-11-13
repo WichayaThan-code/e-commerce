@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { SkeletonTable, SkeletonBusy, LoadError } from "../components/feedback/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { Link, useSearchParams } from "react-router-dom";
-import { Archive, Download, Ellipsis, ExternalLink, Eye, Link2, LoaderCircle, Pencil, Plus, QrCode, RotateCcw, Search, Upload } from "lucide-react";
+import { Archive, Download, Ellipsis, ExternalLink, Eye, Link2, LoaderCircle, Pencil, Plus, QrCode, RotateCcw, Search, Upload, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useImportActivity } from "../contexts/ImportActivityContext";
 import ConfirmDialog from "../components/form/ConfirmDialog";
 import MerchantShell from "../components/merchant/MerchantShell";
 import MerchantPagination from "../components/merchant/MerchantPagination";
+import MerchantCheck from "../components/merchant/MerchantCheck";
 import AuthImage from "../components/merchant/AuthImage";
 import SearchableSelect from "../components/SearchableSelect";
 import ProductQrModal from "../components/shop/ProductQrModal";
@@ -20,6 +22,7 @@ import { hasMerchantAccess, hasPlatformAccess } from "../services/permissions";
 import { ApiError, catalogApi, merchantPlanUsageApi, productApi, type MerchantPlanUsage, type Product, type ProductBrand, type ProductCategory, type ProductSort, type ProductStatus, type StockFilter } from "../services/api";
 import { canOpenStorefront, copyText, productPageUrl, productShareLink } from "../utils/productLinks";
 import type { Locale } from "../i18n";
+import "../styles/order-management.css";
 
 const tabs = [
   ["", "all"],
@@ -59,7 +62,6 @@ export default function ProductManagementPage() {
   const locale = (i18n.language || "th") as Locale;
   const { user, loading: authLoading } = useAuth();
   const { canInShop, deniedTitle } = usePermissions();
-  const canImport = canInShop("PRODUCT_IMPORT");
   const canCreate = canInShop("PRODUCT_CREATE");
   const canUpdate = canInShop("PRODUCT_UPDATE");
   const canArchive = canInShop("PRODUCT_ARCHIVE");
@@ -89,12 +91,15 @@ export default function ProductManagementPage() {
   const [busy, setBusy] = useState(false);
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
   const [reload, setReload] = useState(0);
-  const [transfer, setTransfer] = useState<"export" | "import" | "template" | null>(null);
+  const [transfer, setTransfer] = useState<"export" | "import" | null>(null);
   const { busy: importBusy, finishedTick, startImport, job: importJob } = useImportActivity();
   const importRef = useRef<HTMLInputElement>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [qrProduct, setQrProduct] = useState<Product | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const menuAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const menuPanelRef = useRef<HTMLDivElement | null>(null);
   const [planUsage, setPlanUsage] = useState<MerchantPlanUsage | null>(null);
 
   useEffect(() => { setQuery(q); }, [q]);
@@ -174,25 +179,56 @@ export default function ProductManagementPage() {
       return next;
     });
   };
-  const downloadTemplate = async () => {
-    if (shopId == null || transfer) return;
-    setTransfer("template");
-    try {
-      await productApi.downloadTemplate(shopId);
-    } catch (caught) {
-      toast(catalogMessage(t, caught), "fail");
-    } finally {
-      setTransfer(null);
-    }
+  const applySearch = () => {
+    patch({ q: query.trim() || null });
   };
+  const resetFilters = () => {
+    setQuery("");
+    setParams((current) => {
+      const next = new URLSearchParams();
+      const keepStatus = current.get("status");
+      const keepSize = current.get("size");
+      if (keepStatus) next.set("status", keepStatus);
+      if (keepSize) next.set("size", keepSize);
+      return next;
+    }, { replace: true });
+  };
+  const canExport = shopId != null && total > 0 && !loading;
+  const exportTitle = shopId == null
+    ? deniedTitle(false)
+    : total <= 0
+      ? t("catalog.exportEmptyTitle")
+      : undefined;
   const exportProducts = async () => {
-    if (shopId == null || transfer) return;
+    if (shopId == null || transfer || !canExport) return;
     setTransfer("export");
     try {
-      await productApi.exportExcel(shopId);
+      await productApi.exportExcel(shopId, {
+        q: q || undefined,
+        status: status || undefined,
+        categoryId: categoryId ? Number(categoryId) : undefined,
+        brand: brand || undefined,
+        stock: stock || undefined,
+        sort,
+        lang: locale.startsWith("zh") ? "zh" : locale.startsWith("en") ? "en" : "th",
+      });
       toast(t("catalog.exportDone"));
     } catch (caught) {
-      toast(catalogMessage(t, caught), "fail");
+      if (caught instanceof ApiError && caught.code === "EXPORT_EMPTY") {
+        toast(t("catalog.exportEmpty"), "warning");
+      } else if (caught instanceof ApiError && caught.code === "EXPORT_TOO_LARGE") {
+        toast(t("catalog.exportTooLarge", { max: "10000" }), "fail");
+      } else if (
+        !(caught instanceof ApiError)
+        || caught.code === "NETWORK_ERROR"
+        || caught.status === 0
+      ) {
+        toast(t("catalog.exportNetwork"), "fail");
+      } else if (caught.status === 403 || caught.code === "FORBIDDEN" || caught.code === "PERMISSION_DENIED") {
+        toast(deniedTitle(false) || t("catalog.exportFailed"), "fail");
+      } else {
+        toast(t("catalog.exportFailed"), "fail");
+      }
     } finally {
       setTransfer(null);
     }
@@ -210,14 +246,63 @@ export default function ProductManagementPage() {
     setNotice(text);
     window.setTimeout(() => setNotice(""), 2200);
   };
+  const placeMenu = (anchor: HTMLElement) => {
+    const rect = anchor.getBoundingClientRect();
+    const width = Math.min(220, window.innerWidth - 16);
+    const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
+    const height = menuPanelRef.current?.offsetHeight ?? 260;
+    const below = rect.bottom + 4;
+    const top = below + height > window.innerHeight - 8
+      ? Math.max(8, rect.top - height - 4)
+      : below;
+    setMenuPos({ top, left });
+  };
+
+  const closeMenu = () => {
+    setMenuFor(null);
+    setMenuPos(null);
+    menuAnchorRef.current = null;
+  };
+
+  const openRowMenu = (productId: string, anchor: HTMLButtonElement) => {
+    if (menuFor === productId) {
+      closeMenu();
+      return;
+    }
+    menuAnchorRef.current = anchor;
+    placeMenu(anchor);
+    setMenuFor(productId);
+  };
+
+  useLayoutEffect(() => {
+    if (!menuFor || !menuAnchorRef.current) return;
+    const anchor = menuAnchorRef.current;
+    const place = () => placeMenu(anchor);
+    place();
+    const raf = window.requestAnimationFrame(place);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [menuFor]);
+
   useEffect(() => {
     if (!menuFor) return;
-    const close = () => setMenuFor(null);
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") close(); };
-    window.addEventListener("pointerdown", close);
+    const onPointer = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (menuAnchorRef.current?.contains(target) || menuPanelRef.current?.contains(target)) return;
+      closeMenu();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    window.addEventListener("pointerdown", onPointer);
     window.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("pointerdown", onPointer);
       window.removeEventListener("keydown", onKey);
     };
   }, [menuFor]);
@@ -234,113 +319,31 @@ export default function ProductManagementPage() {
   const publishQuotaTitle = publishQuotaBlocked ? t("catalog.publishQuota.blocked") : undefined;
 
   const rowActions = (product: Product) => {
-    const storefrontOk = canOpenStorefront(product.status, shopSlug, product.slug);
-    const storefrontTip = storefrontOk ? undefined : t("catalog.actions.notPublished");
     const open = menuFor === product.id;
-    const closeMenu = () => setMenuFor(null);
     return (
       <div className="pm-row-actions">
         {canUpdate
           ? <Link aria-label={t("catalog.actions.edit")} title={t("catalog.actions.edit")} to={`/merchant/products/${product.id}/edit`}><Pencil /></Link>
           : <button type="button" aria-label={t("catalog.actions.edit")} disabled title={deniedTitle(false)}><Pencil /></button>}
-        <div className="pm-share-wrap" onPointerDown={(event) => event.stopPropagation()}>
+        <div className="pm-share-wrap">
           <button
             type="button"
             aria-label={t("catalog.actions.more")}
             title={t("catalog.actions.more")}
             aria-haspopup="menu"
             aria-expanded={open}
-            onClick={() => setMenuFor((current) => (current === product.id ? null : product.id))}
+            onClick={(event) => openRowMenu(product.id, event.currentTarget)}
           >
             <Ellipsis />
           </button>
-          {open ? (
-            <div className="pm-row-menu" role="menu">
-              <Link role="menuitem" to={`/merchant/products/${product.id}`} onClick={closeMenu}>
-                <Eye />{t("catalog.actions.view")}
-              </Link>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={!storefrontOk}
-                title={storefrontTip}
-                onClick={() => {
-                  if (!storefrontOk) return;
-                  closeMenu();
-                  window.open(productPageUrl(shopSlug, product.slug), "_blank", "noopener,noreferrer");
-                }}
-              >
-                <ExternalLink />{t("catalog.actions.viewStorefront")}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={!storefrontOk}
-                title={storefrontTip}
-                onClick={() => {
-                  if (!storefrontOk) return;
-                  closeMenu();
-                  void copyText(productShareLink(shopSlug, product.slug)).then((ok) => {
-                    toast(ok ? t("catalog.toast.linkCopied") : catalogMessage(t, null), ok ? "ok" : "fail");
-                  });
-                }}
-              >
-                <Link2 />{t("catalog.actions.copyLink")}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={!storefrontOk}
-                title={storefrontTip}
-                onClick={() => {
-                  if (!storefrontOk) return;
-                  closeMenu();
-                  setQrProduct(product);
-                }}
-              >
-                <QrCode />{t("catalog.actions.qrCode")}
-              </button>
-              {product.status === "ARCHIVED" ? (
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={busy || !canArchive}
-                  title={deniedTitle(canArchive) ?? t("catalog.actions.unarchive")}
-                  onClick={() => { closeMenu(); void runMany([product.id], "unarchive"); }}
-                >
-                  <RotateCcw />{t("catalog.actions.unarchive")}
-                </button>
-              ) : (
-                <>
-                  {product.status !== "PUBLISHED" ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={busy || !canUpdate || publishQuotaBlocked}
-                      title={publishQuotaTitle ?? deniedTitle(canUpdate)}
-                      onClick={() => { closeMenu(); void runMany([product.id], "publish"); }}
-                    >
-                      <Upload />{t("catalog.actions.publish")}
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="danger"
-                    disabled={busy || !canArchive}
-                    title={deniedTitle(canArchive)}
-                    onClick={() => { closeMenu(); setConfirmIds([product.id]); }}
-                  >
-                    <Archive />{t("catalog.actions.archive")}
-                  </button>
-                </>
-              )}
-            </div>
-          ) : null}
         </div>
       </div>
     );
   };
+
+  const menuProduct = menuFor ? items.find((item) => item.id === menuFor) : null;
+  const menuStorefrontOk = menuProduct ? canOpenStorefront(menuProduct.status, shopSlug, menuProduct.slug) : false;
+  const menuStorefrontTip = menuStorefrontOk ? undefined : t("catalog.actions.notPublished");
   const runMany = async (ids: string[], action: "publish" | "archive" | "unarchive") => {
     if (shopId == null) return;
     if (action === "publish") {
@@ -375,6 +378,16 @@ export default function ProductManagementPage() {
 
   const pages = Math.max(1, Math.ceil(total / size));
   const filtered = Boolean(q || categoryId || brand || stock || status);
+  const hasChipFilters = Boolean(q || categoryId || brand || stock);
+  const pageSelectedCount = items.filter((item) => selected.includes(item.id)).length;
+  const allPageSelected = items.length > 0 && pageSelectedCount === items.length;
+  const somePageSelected = pageSelectedCount > 0 && !allPageSelected;
+  const toggleAllPage = () => {
+    setSelected(allPageSelected ? [] : items.map((item) => item.id));
+  };
+  const toggleOne = (id: string) => {
+    setSelected((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  };
   const lang = locale.startsWith("en") ? "en" : locale.startsWith("zh") ? "zh" : "th";
   const categoryName = (id?: number | null) => {
     const match = categories.find((category) => category.id === id);
@@ -396,6 +409,8 @@ export default function ProductManagementPage() {
     ["stock", t("catalog.sortStock")],
   ] as const;
   const selectedCategory = categories.find((category) => String(category.id) === categoryId);
+  const stockChipLabel = stockChoices.find(([value]) => value === stock)?.[1] || "";
+  const clearChipLabel = (label: string) => t("catalog.filters.clearChip", { label });
   const { showSkeleton, markHasData, isRefetching } = useDelayedLoading(loading, 150, shopId ?? "none");
 
   useEffect(() => {
@@ -435,18 +450,9 @@ export default function ProductManagementPage() {
           <p>{t("catalog.lead")}</p>
         </div>
         <div className="pm-actions">
-          <button type="button" className="primary" disabled={shopId == null || transfer != null || importBusy} onClick={() => void exportProducts()}>
-            {transfer === "export" ? <LoaderCircle className="pm-spin" /> : <Download />}
-            {t("catalog.export")}
-          </button>
-          <button type="button" className="primary" title={deniedTitle(canImport)} disabled={shopId == null || transfer != null || importBusy || !canImport} onClick={() => void downloadTemplate()}>
-            {transfer === "template" ? <LoaderCircle className="pm-spin" /> : <Download />}
-            {t("catalog.downloadTemplate")}
-          </button>
           <button
             type="button"
             className="primary"
-            title={t("catalog.importUnavailable")}
             disabled={shopId == null}
             onClick={() => toast(t("catalog.importUnavailable"), "warning")}
           >
@@ -491,48 +497,135 @@ export default function ProductManagementPage() {
         ))}
       </div>
       <section className="pm-table-card">
-        <form className="pm-filters pm-filters-brand" onSubmit={(event) => event.preventDefault()}>
-          <label className="pm-search">
-            <Search />
-            <input aria-label={t("catalog.searchPh")} placeholder={t("catalog.searchPh")} value={query} onChange={(event) => setQuery(event.target.value)} />
-          </label>
-          <SearchableSelect
-            label={t("catalog.category")}
-            placeholder={t("catalog.categoryAll")}
-            options={[t("catalog.categoryAll"), ...categories.map((category) => labelForCategory(category, lang))]}
-            value={selectedCategory ? labelForCategory(selectedCategory, lang) : t("catalog.categoryAll")}
-            onChange={(picked) => {
-              const match = categories.find((category) => labelForCategory(category, lang) === picked);
-              patch({ categoryId: match ? String(match.id) : null });
-            }}
-          />
-          <SearchableSelect
-            label={t("catalog.brand")}
-            placeholder={t("catalog.brandAll")}
-            options={[t("catalog.brandAll"), ...brands.map((item) => item.name)]}
-            value={brand || t("catalog.brandAll")}
-            onChange={(picked) => patch({ brand: brands.some((item) => item.name === picked) ? picked : null })}
-          />
-          <SearchableSelect
-            label={t("catalog.stock")}
-            options={stockChoices.map(([, label]) => label)}
-            value={stockChoices.find(([value]) => value === stock)?.[1] || t("catalog.stockAll")}
-            onChange={(picked) => patch({ stock: stockChoices.find(([, label]) => label === picked)?.[0] || null })}
-          />
-          <SearchableSelect
-            label={t("catalog.sort")}
-            options={sortChoices.map(([, label]) => label)}
-            value={sortChoices.find(([value]) => value === sort)?.[1] || t("catalog.sortNewest")}
-            onChange={(picked) => patch({ sort: sortChoices.find(([, label]) => label === picked)?.[0] || "newest" })}
-          />
-        </form>
-        {selected.length > 0 && (
-          <div className="pm-bulk">
-            <span>{t("catalog.selected", { count: selected.length })}</span>
-            <button type="button" disabled={busy || !canUpdate || publishQuotaBlocked} title={publishQuotaTitle ?? deniedTitle(canUpdate)} onClick={() => void runMany(selected, "publish")}><Upload />{t("catalog.bulkPublish")}</button>
-            <button type="button" disabled={busy || !canArchive} title={deniedTitle(canArchive)} onClick={() => setConfirmIds(selected)}><Archive />{t("catalog.bulkArchive")}</button>
+        <form
+          className="om-filters"
+          onSubmit={(event) => {
+            event.preventDefault();
+            applySearch();
+          }}
+        >
+          <div className="om-filters-main pm-filters-main">
+            <div className="om-filter-search">
+              <span className="form-label">{t("catalog.searchLabel")}</span>
+              <label className="om-search">
+                <Search aria-hidden="true" />
+                <input
+                  aria-label={t("catalog.searchLabel")}
+                  placeholder={t("catalog.searchPh")}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </label>
+            </div>
+            <SearchableSelect
+              label={t("catalog.category")}
+              placeholder={t("catalog.categoryAll")}
+              options={[t("catalog.categoryAll"), ...categories.map((category) => labelForCategory(category, lang))]}
+              value={selectedCategory ? labelForCategory(selectedCategory, lang) : t("catalog.categoryAll")}
+              onChange={(picked) => {
+                const match = categories.find((category) => labelForCategory(category, lang) === picked);
+                patch({ categoryId: match ? String(match.id) : null });
+              }}
+            />
+            <SearchableSelect
+              label={t("catalog.brand")}
+              placeholder={t("catalog.brandAll")}
+              options={[t("catalog.brandAll"), ...brands.map((item) => item.name)]}
+              value={brand || t("catalog.brandAll")}
+              onChange={(picked) => patch({ brand: brands.some((item) => item.name === picked) ? picked : null })}
+            />
+            <SearchableSelect
+              label={t("catalog.stock")}
+              options={stockChoices.map(([, label]) => label)}
+              value={stockChoices.find(([value]) => value === stock)?.[1] || t("catalog.stockAll")}
+              onChange={(picked) => patch({ stock: stockChoices.find(([, label]) => label === picked)?.[0] || null })}
+            />
+            <SearchableSelect
+              label={t("catalog.sort")}
+              options={sortChoices.map(([, label]) => label)}
+              value={sortChoices.find(([value]) => value === sort)?.[1] || t("catalog.sortNewest")}
+              onChange={(picked) => patch({ sort: sortChoices.find(([, label]) => label === picked)?.[0] || "newest" })}
+            />
+            <div className="om-filters-actions">
+              <button type="button" onClick={resetFilters}>
+                {t("catalog.filters.reset")}
+              </button>
+              <button type="submit" className="primary">
+                {t("catalog.filters.search")}
+              </button>
+            </div>
           </div>
-        )}
+        </form>
+        <div className="pm-table-tools">
+          <div className="pm-table-tools-chips" role="list" aria-label={t("catalog.filters.active")}>
+            {q ? (
+              <div className="om-filter-chip" role="listitem">
+                <span>{t("catalog.searchLabel")}: {q}</span>
+                <button
+                  type="button"
+                  aria-label={clearChipLabel(t("catalog.searchLabel"))}
+                  onClick={() => {
+                    setQuery("");
+                    patch({ q: null });
+                  }}
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
+            {selectedCategory ? (
+              <div className="om-filter-chip" role="listitem">
+                <span>{t("catalog.category")}: {labelForCategory(selectedCategory, lang)}</span>
+                <button
+                  type="button"
+                  aria-label={clearChipLabel(t("catalog.category"))}
+                  onClick={() => patch({ categoryId: null })}
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
+            {brand ? (
+              <div className="om-filter-chip" role="listitem">
+                <span>{t("catalog.brand")}: {brand}</span>
+                <button
+                  type="button"
+                  aria-label={clearChipLabel(t("catalog.brand"))}
+                  onClick={() => patch({ brand: null })}
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
+            {stock ? (
+              <div className="om-filter-chip" role="listitem">
+                <span>{t("catalog.stock")}: {stockChipLabel}</span>
+                <button
+                  type="button"
+                  aria-label={clearChipLabel(t("catalog.stock"))}
+                  onClick={() => patch({ stock: null })}
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
+            {hasChipFilters ? (
+              <button type="button" className="om-clear-all" onClick={resetFilters}>
+                {t("catalog.filters.clearAll")}
+              </button>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="pm-export-btn"
+            disabled={!canExport || transfer != null || importBusy}
+            title={exportTitle || t("catalog.exportHint")}
+            onClick={() => void exportProducts()}
+          >
+            <Download aria-hidden="true" />
+            <span>{transfer === "export" ? t("catalog.exporting") : t("catalog.export")}</span>
+          </button>
+        </div>
         {showSkeleton && loading && items.length === 0 ? (
           <div aria-busy="true" aria-label={t("catalog.loading")}><SkeletonTable rows={6} cols={9} /></div>
         ) : error ? (
@@ -557,7 +650,14 @@ export default function ProductManagementPage() {
               <table>
                 <thead>
                   <tr>
-                    <th className="pm-col-check"><input aria-label={t("catalog.columns.product")} type="checkbox" checked={selected.length === items.length} onChange={() => setSelected(selected.length === items.length ? [] : items.map((item) => item.id))} /></th>
+                    <th className="pm-col-check">
+                      <MerchantCheck
+                        checked={allPageSelected}
+                        indeterminate={somePageSelected}
+                        label={t("catalog.selectAll")}
+                        onChange={toggleAllPage}
+                      />
+                    </th>
                     <th className="pm-col-fk pm-col-product">{t("catalog.columns.product")}</th>
                     <th className="pm-col-fk pm-col-sku">{t("catalog.columns.sku")}</th>
                     <th className="pm-col-fk pm-col-category">{t("catalog.columns.category")}</th>
@@ -573,12 +673,19 @@ export default function ProductManagementPage() {
                     const badge = stockBadge(product);
                     const image = product.images.find((item) => item.primary) || product.images[0];
                     const available = stockTotal(product);
+                    const isSelected = selected.includes(product.id);
                     const variantText = product.productType === "VARIABLE"
                       ? t("catalog.variantLine", { count: product.variantCount ?? product.skus.filter((sku) => sku.active).length, stock: available })
                       : product.skus.length > 1 ? product.skus.map((sku) => sku.skuCode).join(", ") : product.skus[0]?.skuCode || "—";
                     return (
-                      <tr key={product.id}>
-                        <td className="pm-col-check"><input aria-label={product.nameTh} type="checkbox" checked={selected.includes(product.id)} onChange={() => setSelected((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id])} /></td>
+                      <tr key={product.id} className={isSelected ? "is-selected" : undefined}>
+                        <td className="pm-col-check">
+                          <MerchantCheck
+                            checked={isSelected}
+                            label={product.nameTh}
+                            onChange={() => toggleOne(product.id)}
+                          />
+                        </td>
                         <td className="pm-col-fk pm-col-product">
                           <div className="pm-product">
                             <span className="pm-thumb"><AuthImage path={image?.url} alt="" /></span>
@@ -604,16 +711,38 @@ export default function ProductManagementPage() {
               </table>
             </div>
             <div className="pm-cards">
+              {items.length > 0 ? (
+                <div className="pm-cards-select-all">
+                  <MerchantCheck
+                    checked={allPageSelected}
+                    indeterminate={somePageSelected}
+                    label={t("catalog.selectAll")}
+                    onChange={toggleAllPage}
+                  />
+                  <button type="button" className="pm-cards-select-label" onClick={toggleAllPage}>
+                    {allPageSelected ? t("catalog.clearSelection") : t("catalog.selectAll")}
+                    {pageSelectedCount > 0 ? <i className="num">{pageSelectedCount}</i> : null}
+                  </button>
+                </div>
+              ) : null}
               {items.map((product) => {
                 const badge = stockBadge(product);
                 const image = product.images.find((item) => item.primary) || product.images[0];
                 const available = stockTotal(product);
+                const isSelected = selected.includes(product.id);
                 const variantText = product.productType === "VARIABLE"
                   ? t("catalog.variantLine", { count: product.variantCount ?? product.skus.filter((sku) => sku.active).length, stock: available })
                   : product.skus.map((sku) => sku.skuCode).join(", ") || "—";
                 return (
-                  <article key={product.id}>
-                    <AuthImage path={image?.url} alt="" />
+                  <article key={product.id} className={isSelected ? "is-selected" : undefined}>
+                    <div className="pm-card-media">
+                      <MerchantCheck
+                        checked={isSelected}
+                        label={product.nameTh}
+                        onChange={() => toggleOne(product.id)}
+                      />
+                      <AuthImage path={image?.url} alt="" />
+                    </div>
                     <div>
                       <b>{product.nameTh}</b>
                       <small className="num">{variantText}</small>
@@ -638,6 +767,39 @@ export default function ProductManagementPage() {
           onSizeChange={(next) => patch({ size: String(next), page: "1" })}
         />
       </section>
+      {selected.length > 0 ? (
+        <div className="pm-bulk-bar" role="region" aria-label={t("catalog.bulkBarLabel")}>
+          <div className="pm-bulk-count">
+            <span className="pm-bulk-badge num" aria-hidden="true">{selected.length}</span>
+            <b>{t("catalog.selected", { count: selected.length })}</b>
+          </div>
+          <div className="pm-bulk-actions">
+            <button
+              type="button"
+              className="primary"
+              disabled={busy || !canUpdate || publishQuotaBlocked}
+              title={publishQuotaTitle ?? deniedTitle(canUpdate)}
+              onClick={() => void runMany(selected, "publish")}
+            >
+              <Upload aria-hidden="true" />
+              <span>{t("catalog.bulkPublish")}</span>
+            </button>
+            <button
+              type="button"
+              disabled={busy || !canArchive}
+              title={deniedTitle(canArchive)}
+              onClick={() => setConfirmIds(selected)}
+            >
+              <Archive aria-hidden="true" />
+              <span>{t("catalog.bulkArchive")}</span>
+            </button>
+            <button type="button" className="ghost" disabled={busy} onClick={() => setSelected([])}>
+              <X aria-hidden="true" />
+              <span>{t("catalog.clearSelection")}</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
       {importOpen && importJob && (
         <ConfirmDialog
           title={t("catalog.importResult.title")}
@@ -692,6 +854,97 @@ export default function ProductManagementPage() {
           onClose={() => setQrProduct(null)}
         />
       ) : null}
+      {menuProduct && menuPos
+        ? createPortal(
+            <div
+              ref={menuPanelRef}
+              className="pm-row-menu is-portaled"
+              role="menu"
+              style={{ top: menuPos.top, left: menuPos.left }}
+            >
+              <Link role="menuitem" to={`/merchant/products/${menuProduct.id}`} onClick={closeMenu}>
+                <Eye />{t("catalog.actions.view")}
+              </Link>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={!menuStorefrontOk}
+                title={menuStorefrontTip}
+                onClick={() => {
+                  if (!menuStorefrontOk) return;
+                  closeMenu();
+                  window.open(productPageUrl(shopSlug, menuProduct.slug), "_blank", "noopener,noreferrer");
+                }}
+              >
+                <ExternalLink />{t("catalog.actions.viewStorefront")}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={!menuStorefrontOk}
+                title={menuStorefrontTip}
+                onClick={() => {
+                  if (!menuStorefrontOk) return;
+                  closeMenu();
+                  void copyText(productShareLink(shopSlug, menuProduct.slug)).then((ok) => {
+                    toast(ok ? t("catalog.toast.linkCopied") : catalogMessage(t, null), ok ? "ok" : "fail");
+                  });
+                }}
+              >
+                <Link2 />{t("catalog.actions.copyLink")}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={!menuStorefrontOk}
+                title={menuStorefrontTip}
+                onClick={() => {
+                  if (!menuStorefrontOk) return;
+                  closeMenu();
+                  setQrProduct(menuProduct);
+                }}
+              >
+                <QrCode />{t("catalog.actions.qrCode")}
+              </button>
+              {menuProduct.status === "ARCHIVED" ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={busy || !canArchive}
+                  title={deniedTitle(canArchive) ?? t("catalog.actions.unarchive")}
+                  onClick={() => { closeMenu(); void runMany([menuProduct.id], "unarchive"); }}
+                >
+                  <RotateCcw />{t("catalog.actions.unarchive")}
+                </button>
+              ) : (
+                <>
+                  {menuProduct.status !== "PUBLISHED" ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={busy || !canUpdate || publishQuotaBlocked}
+                      title={publishQuotaTitle ?? deniedTitle(canUpdate)}
+                      onClick={() => { closeMenu(); void runMany([menuProduct.id], "publish"); }}
+                    >
+                      <Upload />{t("catalog.actions.publish")}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="danger"
+                    disabled={busy || !canArchive}
+                    title={deniedTitle(canArchive)}
+                    onClick={() => { closeMenu(); setConfirmIds([menuProduct.id]); }}
+                  >
+                    <Archive />{t("catalog.actions.archive")}
+                  </button>
+                </>
+              )}
+            </div>,
+            document.body,
+          )
+        : null}
     </MerchantShell>
   );
 }

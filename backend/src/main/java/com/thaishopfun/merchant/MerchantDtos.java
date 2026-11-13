@@ -58,8 +58,10 @@ public final class MerchantDtos {
         OwnerType ownerType,String title,String firstName,String lastName,String citizenIdMasked,LocalDate birthDate,String nationality,String phone,String email,
         String houseNo,String villageNo,String building,String alley,String road,String province,String district,String subdistrict,String postalCode,
         String bankName,String bankAccountMasked,String bankAccountName,List<DocumentResponse> documents,Instant submittedAt,
-        String shopPath, UUID ownerId
+        String shopPath, UUID ownerId, boolean existingOwner
     ){}
+    /** Shop-name availability for the register step (same rule as saveShop/submit). */
+    public record ShopNameCheckResponse(boolean available){}
     public record MerchantOwnerResponse(
         UUID id, OwnerType ownerType, String title, String firstName, String lastName,
         String citizenIdMasked, String phone, String email, String sensitiveReview

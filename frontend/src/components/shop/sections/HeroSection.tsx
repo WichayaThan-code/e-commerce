@@ -13,7 +13,8 @@ import { TsfHero } from "../general/GeneralStorefront";
 import "../../../styles/general-hero.css";
 import type { ShopSectionProps } from "./types";
 import { resolveStorefrontTheme } from "../ShopThemeShell";
-import { shopCategoriesPath, shopProductsPath } from "../../../services/shopRoutes";
+import { shopCategoriesPath, shopContactPath, shopProductsPath } from "../../../services/shopRoutes";
+import { resolveHeroSecondaryAction } from "../../../theme/shopTheme";
 
 function ctaTarget(link: string): { href: string; external: boolean } | null {
   const value = link.trim();
@@ -81,7 +82,27 @@ function GeneralHero({ shop, config }: ShopSectionProps) {
   const title = hero.title.trim() || shop.name;
   const subtitle = hero.subtitle.trim() || shop.description || "";
   const primaryLabel = hero.ctaLabel.trim() || tp("shop.general.ctaShop");
-  const secondaryLabel = (hero.ctaSecondaryLabel ?? "").trim() || tp("shop.general.ctaCategories");
+  const secondaryAction = resolveHeroSecondaryAction(hero.ctaSecondaryAction, hero.ctaSecondaryLabel, hero.ctaSecondaryLink);
+  const secondaryOverride = (hero.ctaSecondaryLabel ?? "").trim();
+  const secondary =
+    secondaryAction === "NONE" ? null
+      : secondaryAction === "CUSTOM" ? (() => {
+        const target = ctaTarget(hero.ctaSecondaryLink ?? "");
+        if (!target) return null;
+        return { label: secondaryOverride || tp("shop.general.ctaProducts"), target, fallback: shopProductsPath(shop.slug) };
+      })()
+        : {
+          label: secondaryOverride || (
+            secondaryAction === "PRODUCTS" ? tp("shop.general.ctaProducts")
+              : secondaryAction === "CATEGORIES" ? tp("shop.general.ctaCategories")
+                : tp("shop.general.ctaContact")
+          ),
+          target: null as { href: string; external: boolean } | null,
+          fallback:
+            secondaryAction === "PRODUCTS" ? shopProductsPath(shop.slug)
+              : secondaryAction === "CATEGORIES" ? shopCategoriesPath(shop.slug)
+                : shopContactPath(shop.slug),
+        };
   const slides = heroSlideUrls(hero.slides);
   const cover = slides[0] ?? (shop.coverUrl ? mediaUrl(shop.coverUrl) : null);
   const hasMedia = slides.length > 0 || Boolean(cover);
@@ -100,10 +121,14 @@ function GeneralHero({ shop, config }: ShopSectionProps) {
         {eyebrow ? <p className="shop-general-hero-eyebrow">{eyebrow}</p> : null}
         <h1>{title}</h1>
         {subtitle ? <p className="shop-general-hero-sub">{subtitle}</p> : null}
-        <div className="shop-general-ctas">
-          <CtaLink target={ctaTarget(hero.ctaLink)} fallback={shopProductsPath(shop.slug)} className="shop-general-cta is-primary" label={primaryLabel} />
-          <CtaLink target={ctaTarget(hero.ctaSecondaryLink ?? "")} fallback={shopCategoriesPath(shop.slug)} className="shop-general-cta is-secondary" label={secondaryLabel} />
-        </div>
+        {hero.showCtas !== false ? (
+          <div className="shop-general-ctas">
+            <CtaLink target={ctaTarget(hero.ctaLink)} fallback={shopProductsPath(shop.slug)} className="shop-general-cta is-primary" label={primaryLabel} />
+            {secondary ? (
+              <CtaLink target={secondary.target} fallback={secondary.fallback} className="shop-general-cta is-secondary" label={secondary.label} />
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -115,7 +140,7 @@ function MallHero({ shop, config, catalog, preview }: ShopSectionProps) {
   const { hero } = config;
   const title = hero.title.trim() || shop.name;
   const subtitle = hero.subtitle.trim() || shop.description || "";
-  const cta = hero.ctaLabel.trim() ? ctaTarget(hero.ctaLink) : null;
+  const cta = hero.showCtas !== false && hero.ctaLabel.trim() ? ctaTarget(hero.ctaLink) : null;
   const slides = heroSlideUrls(hero.slides);
   const cover = slides[0] ?? (shop.coverUrl ? mediaUrl(shop.coverUrl) : recommendReference);
   const productCount = shop.productCount ?? (catalog.total > 0 ? catalog.total : null);

@@ -315,7 +315,7 @@ export default function AdminUsersPage() {
           <button type="submit" className="ap-primary user-find">ค้นหา</button>
         </div>
       </form>
-      <section className="users-table-card"><header><h2>รายการผู้ใช้งาน ({formatNumber(totalItems)} รายการ)</h2><div><button onClick={exportCsv} disabled={exporting || listLoading || totalItems === 0} title={totalItems > 10000 ? 'นำออกได้สูงสุด 10,000 รายการ' : 'นำออกรายการตามตัวกรองปัจจุบันเป็นไฟล์ CSV'}><Download/>{exporting ? 'กำลังนำออก...' : 'นำออก (Export)'}</button><button disabled title={NOT_ENABLED}><Settings/>จัดการคอลัมน์</button></div></header>
+      <section className="users-table-card"><header><h2>รายการผู้ใช้งาน ({formatNumber(totalItems)} รายการ)</h2><div><button onClick={exportCsv} disabled={exporting || listLoading || totalItems === 0}><Download/>{exporting ? 'กำลังนำออก...' : 'นำออก (Export)'}</button><button disabled title={NOT_ENABLED}><Settings/>จัดการคอลัมน์</button></div></header>
         <div className="users-table-scroll"><div className="users-table">
           <div className="users-tr users-th"><input type="checkbox" aria-label="เลือกทั้งหมด" checked={items.length > 0 && selectedRows.length === items.length} onChange={() => setSelectedRows(selectedRows.length === items.length ? [] : items.map(item => item.id))}/><b>#</b><b>ชื่อ-นามสกุล</b><b>บทบาท</b><b>ร้านค้า</b><b>เบอร์โทร</b><b>วันที่สมัคร</b><b>สถานะ</b><b>การดำเนินการ</b><span/></div>
           {showSkeleton && listLoading && !result?.items.length ? <SkeletonTable rows={8} cols={8} /> : null}

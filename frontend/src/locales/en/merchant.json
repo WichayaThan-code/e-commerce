@@ -354,6 +354,7 @@
     "errShopExists": "This shop name is already taken. Please choose another name",
     "errCitizenTaken": "This national ID has already been used to apply for a shop",
     "needsFix": "Needs fix",
+    "ownerReused": "Using details from your existing shop",
     "summaryShop": "Shop name",
     "summaryCategory": "Category",
     "summaryAddress": "Shop address",
@@ -470,7 +471,10 @@
       "IMAGE_NOT_ON_PRODUCT": "This image does not belong to the product",
       "OPTION_VALUE_UNUSED": "This option value has no active SKU",
       "TRANSLATION_NOT_FOUND": "No translation job was found for this field",
-      "TRANSLATION_NOT_RETRYABLE": "Only waiting or failed translations can be queued again"
+      "TRANSLATION_NOT_RETRYABLE": "Only waiting or failed translations can be queued again",
+      "EXPORT_EMPTY": "No products match these filters. Adjust the filters and try again.",
+      "EXPORT_TOO_LARGE": "Export is limited to 10000 rows — narrow the filters and try again",
+      "NETWORK_ERROR": "Export failed. Check your internet connection and try again."
     },
     "variants": {
       "title": "Variants",
@@ -569,6 +573,7 @@
     "form": {
       "general": "General",
       "price": "Price",
+      "priceDefaultHint": "Enter once above — it applies to every variant automatically. Override any row below if needed.",
       "type": "Type",
       "variable": "Variable product",
       "simple": "Simple product",
@@ -581,13 +586,21 @@
       "options": "Options",
       "editTitle": "Edit product",
       "newTitle": "Add product",
-      "langsHint": "Thai is enough to create and publish. English and Chinese are translated for you.",
+      "langsHint": "Thai is enough to create and publish. English and Chinese appear as a live preview below.",
       "langOptional": "Optional",
-      "translationSection": "Translations (filled in automatically)",
+      "translationSection": "Translations (automatic)",
       "translationSectionHint": "Open to review or edit. These fields are optional.",
+      "translationLiveHint": "Type Thai to see translations instantly. Turn on edit mode if a translation is wrong.",
+      "translationPreview": "Preview",
+      "translationPreviewFailed": "Could not load translation preview. Please try again.",
+      "translationNeedThai": "Enter Thai first to preview the translation",
+      "translationEmpty": "No translation yet",
+      "editTranslation": "Edit this translation",
+      "editTranslationOn": "Edit",
+      "editTranslationOff": "Auto",
       "translationAuto": "Translated",
       "translationManual": "Edited",
-      "translationPending": "Translating",
+      "translationPending": "Translating…",
       "translationFailed": "Translation failed",
       "translationRetry": "Translate again",
       "useAutoTranslation": "Use auto-translation",
@@ -662,7 +675,17 @@
       "link": "Go to plan usage"
     },
     "productQuotaBlocked": "Publish quota is full — you cannot publish more until you free a slot or upgrade.",
-    "export": "Export",
+    "export": "Export Excel",
+    "exporting": "Exporting…",
+    "exportHint": "Export every row matching the current filters as an Excel file",
+    "searchLabel": "Search products",
+    "filters": {
+      "reset": "Reset",
+      "search": "Search",
+      "active": "Active filters",
+      "clearAll": "Clear all",
+      "clearChip": "Clear {{label}} filter"
+    },
     "downloadTemplate": "Download template",
     "variantLine": "{{count}} options · total stock {{stock}}",
     "importResult": {
@@ -686,6 +709,11 @@
     "importPollError": "Could not check the import status",
     "importRow": "Row {{row}}: {{message}}",
     "exportDone": "Exported products to Excel",
+    "exportEmpty": "No products match these filters. Adjust the filters and try again.",
+    "exportEmptyTitle": "No products match the current filters",
+    "exportTooLarge": "Export is limited to {{max}} rows — narrow the filters and try again",
+    "exportNetwork": "Export failed. Check your internet connection and try again.",
+    "exportFailed": "Export failed. Please try again.",
     "importDone": "Imported {{created}} products and {{skuCreated}} SKUs",
     "importPartial": "Imported {{created}} products and {{skuCreated}} SKUs, failed {{failed}}",
     "bell": {
@@ -705,10 +733,13 @@
     "categoryAll": "All categories",
     "stock": "Stock",
     "sort": "Sort by",
+    "selectAll": "Select all on this page",
+    "clearSelection": "Clear selection",
+    "bulkBarLabel": "Actions for selected products",
     "selected_one": "{{count}} item selected",
     "selected_other": "{{count}} items selected",
-    "bulkPublish": "Publish selected",
-    "bulkArchive": "Archive selected",
+    "bulkPublish": "Publish",
+    "bulkArchive": "Archive",
     "empty": {
       "filterTitle": "No products match your filters",
       "noneTitle": "No products yet",
@@ -766,6 +797,8 @@
     "shopName": "Enter a shop name up to 100 characters",
     "shopNameRequired": "Please enter a shop name",
     "shopNameMax": "Shop name can be at most {{max}} characters",
+    "shopNameTaken": "This shop name is already taken. Please choose a different shop name",
+    "shopNameCheckFailed": "Could not check the shop name. Please check your connection and press Next again",
     "shopNameEn": "The English shop name must be 100 characters or fewer",
     "shopNameEnMax": "English shop name can be at most {{max}} characters",
     "description": "The description must be 500 characters or fewer",
@@ -1049,6 +1082,25 @@
         "THEME_MEDIA_KIND_INVALID": "Invalid file type.",
         "THEME_MEDIA_NOT_FOUND": "This file was not found in the media library."
       }
+    },
+    "crop": {
+      "open": "Adjust image position",
+      "openAdjusted": "Edit image position",
+      "title": "Adjust image position and zoom",
+      "hint": "Drag the image inside the crop frame to reposition it, then use the slider to zoom. The original file is not cropped — to rotate an image, upload a new one.",
+      "stageLabel": "Image position tool",
+      "dragHint": "Drag to move",
+      "modeLabel": "Device",
+      "desktop": "Desktop",
+      "mobile": "Mobile",
+      "separateMobile": "Use a separate position for mobile",
+      "separateOn": "Separate",
+      "separateOff": "Shared",
+      "zoom": "Zoom level",
+      "zoomValue": "Zoom {{value}}×",
+      "reset": "Reset to center",
+      "cancel": "Cancel",
+      "save": "Save"
     },
     "colors": {
       "title": "Shop colors",
@@ -1402,6 +1454,32 @@
       "ctaSecondaryLabel": "Secondary button text",
       "ctaSecondaryPlaceholder": "Browse categories",
       "ctaSecondaryLink": "Secondary button link",
+      "showCtas": "Show Hero buttons",
+      "showCtasOn": "Show",
+      "showCtasOff": "Hide",
+      "showCtasHint": "When off, the primary and category buttons are hidden on the shop header. Saved labels and links are kept.",
+      "ctasSection": "Hero buttons",
+      "textToolsHint": "Always available: eyebrow · title · subtitle (independent of the button toggle).",
+      "ctasToolsOn": "On — you can edit the primary button (label/link) and the secondary button (destination + label).",
+      "ctasToolsOff": "Hidden — buttons are not shown on the storefront. Turn the switch on to edit labels and links.",
+      "ctaSecondaryAction": "When secondary button is clicked",
+      "ctaSecondaryActionHint": "Choose a shop page to open, hide this button, or set a custom link.",
+      "ctaSecondaryActions": {
+        "NONE": "Hide secondary button",
+        "PRODUCTS": "All products",
+        "CATEGORIES": "Categories",
+        "CONTACT": "Contact shop",
+        "CUSTOM": "Custom link"
+      },
+      "ctaSecondaryPlaceholders": {
+        "NONE": "",
+        "PRODUCTS": "Browse products",
+        "CATEGORIES": "Browse categories",
+        "CONTACT": "Contact us",
+        "CUSTOM": "e.g. See promotions"
+      },
+      "badgesSection": "Text stickers",
+      "badgesToolsHint": "Separate from Hero buttons · used on MEDIA_FULL layout only · max 24 characters each.",
       "generalHint": "All text is plain text (no HTML). Links must be a site path (e.g. /shops) or https://. Leave a link blank and the main button opens all products, the secondary button opens the shop's categories.",
       "badges": "Text sticker",
       "badgesHint": "Shown on the full-screen media layout only, max 24 characters"
@@ -1447,6 +1525,9 @@
       "bannerRemove": "Remove",
       "trustTitle": "Trust bar items",
       "trustEnabled": "Show trust bar",
+      "trustToolsOn": "On — you can toggle items, and edit icon, label, and subtitle.",
+      "trustToolsOff": "Hidden — the trust bar is not shown on the storefront. Turn the switch on to edit items.",
+      "bannersHidden": "Hidden — enable the Banners section in the Sections tab to edit the list.",
       "trustLabel": "Label",
       "trustIcon": "Icon",
       "trustIcons": {
@@ -1510,7 +1591,14 @@
     "errors": {
       "hex": "Enter a 6-digit color such as #087bf5",
       "validation": "Please check the highlighted fields",
-      "save": "Could not save the theme. Please try again."
+      "save": "Could not save the theme. Please try again.",
+      "THEME_IMAGE_CROP_INVALID": "Image position or zoom is invalid (x/y must be 0–100 and zoom 1–3). Please adjust it in the position tool.",
+      "THEME_IMAGE_CROP_INVALID_banner": "Banner {{n}} zoom or position is invalid. Please set zoom between 1–3×.",
+      "THEME_IMAGE_CROP_INVALID_hero": "Hero background position or zoom is invalid. Please adjust it in the position tool.",
+      "THEME_IMAGE_CROP_INVALID_intro": "Intro image position or zoom is invalid. Please adjust it in the position tool.",
+      "THEME_IMAGE_CROP_INVALID_feature": "FEATURE block image position or zoom is invalid. Please adjust it in the position tool.",
+      "THEME_IMAGE_CROP_INVALID_gallery": "Gallery image position or zoom is invalid. Please adjust it in the position tool.",
+      "THEME_IMAGE_CROP_INVALID_steps": "Step icon position or zoom is invalid. Please adjust it in the position tool."
     },
     "catalogLayout": {
       "title": "“All products” layout",
@@ -1542,6 +1630,7 @@
     "intro": {
       "title": "Shop story",
       "hint": "Shown when the Intro section is on. Leave the body empty to use the shop description. Plain text only (no HTML).",
+      "hidden": "Hidden — enable the Intro section in the list above to edit.",
       "eyebrow": "Eyebrow",
       "heading": "Title",
       "body": "Body",
@@ -1555,7 +1644,8 @@
     },
     "announcement": {
       "label": "Announcement bar",
-      "hint": "Empty = first two trust labels"
+      "hint": "Empty = first two trust labels",
+      "toolsHint": "Separate from the trust bar · you can always edit announcement text here."
     },
     "tc": {
       "templateHead": "Pick a template for your shop type",
@@ -2257,7 +2347,7 @@
   "orderManagement": {
     "title": "Orders",
     "subtitle": "Track and manage all orders of your shop",
-    "export": "Export (Excel)",
+    "export": "Export Excel",
     "printLabels": "Print labels",
     "printOrder": "Print {{number}}",
     "printBusy": "Preparing print document…",
@@ -2354,6 +2444,7 @@
       },
       "moreFilters": "More filters",
       "moreFiltersCount": "More filters ({{count}})",
+      "active": "Active filters",
       "clearAll": "Clear all",
       "clearChip": "Clear {{label}} filter",
       "chipDate": "{{from}} – {{to}}",
@@ -2396,8 +2487,9 @@
       "nameInvalid": "Tag name must be 1–40 characters"
     },
     "bulk": {
-      "barLabel": "Bulk actions",
-      "selected": "Selected",
+      "barLabel": "Actions for selected orders",
+      "selected_one": "{{count}} order selected",
+      "selected_other": "{{count}} orders selected",
       "accept": "Accept",
       "process": "Prepare",
       "ship": "Ship",
@@ -2421,7 +2513,7 @@
       "selectFailed": "Select failed only"
     },
     "columns": {
-      "selectAll": "Select all orders",
+      "selectAll": "Select all on this page",
       "order": "Order",
       "customer": "Customer",
       "items": "Items",
@@ -2756,6 +2848,15 @@
   "shippingPage": {
     "title": "Shipping",
     "subtitle": "Manage parcels, connect carriers and track status in one place",
+    "export": "Export Excel",
+    "exporting": "Exporting…",
+    "exportHint": "Export every row matching the current filters as an Excel file",
+    "exportDone": "Exported shipments to Excel",
+    "exportEmpty": "No shipments match these filters. Adjust the filters and try again.",
+    "exportEmptyTitle": "No shipments match the current filters",
+    "exportTooLarge": "Export is limited to {{max}} rows — narrow the filters and try again",
+    "exportNetwork": "Export failed. Check your internet connection and try again.",
+    "exportFailed": "Export failed. Please try again.",
     "printLabels": "Print labels",
     "printOne": "Print label",
     "connectMore": "Connect more carriers",
@@ -2799,7 +2900,10 @@
       "carrier": "Carrier",
       "status": "Status",
       "period": "Dispatch date",
-      "all": "All"
+      "all": "All",
+      "active": "Active filters",
+      "clearAll": "Clear all",
+      "clearChip": "Clear {{label}} filter"
     },
     "columns": {
       "selectAll": "Select all",
@@ -2899,8 +3003,9 @@
     "title": "Customers",
     "subtitle": "Care for your customers, build relationships, and grow sales",
     "add": "Add customer",
-    "export": "Export (Excel)",
+    "export": "Export Excel",
     "exporting": "Exporting...",
+    "exportHint": "Export every row matching the current filters as an Excel file",
     "exportMasked": "Export is allowed, but name/phone/email will be masked without PII permission",
     "exportTooLarge": "Too many rows to export — narrow the filters and try again",
     "comingSoon": "Coming soon",
@@ -2941,6 +3046,9 @@
       "clear": "Clear",
       "apply": "Apply",
       "search": "Search",
+      "active": "Active filters",
+      "clearAll": "Clear all",
+      "clearChip": "Clear {{label}} filter",
       "presets": {
         "d7": "7 days",
         "d30": "30 days",

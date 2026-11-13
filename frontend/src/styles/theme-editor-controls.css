@@ -2,7 +2,8 @@
    /merchant/products/new pattern (product-management.css .product-form-card). Editor only;
    storefront CSS is untouched. */
 .store-theme-card .form-field,
-.store-theme-card .theme-block .form-field { font-size: 13px; font-weight: 700; color: #132b50; margin-bottom: 17px; }
+.store-theme-card .theme-block .form-field { font-size: 13px; font-weight: 700; color: #132b50; margin-bottom: 0; }
+.store-theme-card .theme-grid > .form-field { margin-bottom: 0; }
 .store-theme-card .form-label { margin: 0 0 6px; }
 .store-theme-card .form-control { height: 51px; border: 1px solid #dce2eb; border-radius: 10px; background: #fff; }
 .store-theme-card .form-control input,

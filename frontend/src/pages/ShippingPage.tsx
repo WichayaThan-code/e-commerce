@@ -5,12 +5,14 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
+  Download,
   Headphones,
   MapPin,
   Package,
   Plus,
   Search,
   Truck,
+  X,
   XCircle,
 } from "lucide-react";
 import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
@@ -25,7 +27,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
 import { usePermissions } from "../hooks/usePermissions";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
-import { merchantShipmentApi, type ShipmentSummary, type ShopCarriersResponse } from "../services/api";
+import { ApiError, merchantShipmentApi, type ShipmentSummary, type ShopCarriersResponse } from "../services/api";
 import DateRangePicker from "../components/form/DateRangePicker";
 import SearchableSelect from "../components/SearchableSelect";
 import "../styles/merchant-dashboard.css";
@@ -75,13 +77,45 @@ export default function ShippingPage(){
   const [carrierFailed,setCarrierFailed]=useState(false);
   const [toggling,setToggling]=useState<string|null>(null);
   const [openOrderId,setOpenOrderId]=useState<string|null>(null);
+  const [exporting,setExporting]=useState(false);
   const toastTimer=useRef<number|undefined>(undefined);
   const trackingRef=useRef("");
   const carriersRef=useRef<HTMLElement|null>(null);
   const unsupported=t("orderManagement.notSupported");
+  const canExport=canInShop("SHIPMENT_READ");
 
   const notify=useCallback((text:string,next:"ok"|"fail"="ok")=>{setTone(next);setNotice(text);window.clearTimeout(toastTimer.current);toastTimer.current=window.setTimeout(()=>setNotice(""),2400)},[]);
   useEffect(()=>()=>window.clearTimeout(toastTimer.current),[]);
+
+  const exportShipments=async()=>{
+    if(shopId==null||exporting||!canExport)return;
+    const total=data?.totalItems??0;
+    if(total<=0){
+      notify(t("shippingPage.exportEmpty"),"fail");
+      return;
+    }
+    setExporting(true);
+    try{
+      const lang=localeTag.startsWith("zh")?"zh":localeTag.startsWith("en")?"en":"th";
+      await merchantShipmentApi.exportXlsx(shopId,{
+        status:status||undefined,
+        carrierCode:carrier||undefined,
+        trackingNumber:tracking||undefined,
+        from:dateFrom||undefined,
+        to:dateTo||undefined,
+        lang,
+      });
+      notify(t("shippingPage.exportDone"));
+    }catch(caught){
+      if(caught instanceof ApiError&&caught.code==="EXPORT_EMPTY")notify(t("shippingPage.exportEmpty"),"fail");
+      else if(caught instanceof ApiError&&caught.code==="EXPORT_TOO_LARGE")notify(t("shippingPage.exportTooLarge",{max:"10000"}),"fail");
+      else if(!(caught instanceof ApiError)||caught.code==="NETWORK_ERROR"||caught.status===0)notify(t("shippingPage.exportNetwork"),"fail");
+      else if(caught.status===403||caught.code==="FORBIDDEN"||caught.code==="PERMISSION_DENIED")notify(deniedTitle(false)||t("shippingPage.exportFailed"),"fail");
+      else notify(t("shippingPage.exportFailed"),"fail");
+    }finally{
+      setExporting(false);
+    }
+  };
 
   useEffect(()=>{
     const handle=window.setTimeout(()=>{
@@ -178,7 +212,11 @@ export default function ShippingPage(){
   const carrierValue=carrier?carrierName(carrier):allLabel;
   const statusValue=status?t(`shippingPage.status.${status}`,{defaultValue:status}):allLabel;
   const filtersOn=!!(status||carrier||tracking||dateFrom||dateTo);
+  const hasChipFilters=!!(carrier||tracking||dateFrom||dateTo);
   const reset=()=>{setStatus("");setCarrier("");setQuery("");trackingRef.current="";setTracking("");setDateFrom("");setDateTo("");setPage(0)};
+  const clearChipFilters=()=>{setCarrier("");setQuery("");trackingRef.current="";setTracking("");setDateFrom("");setDateTo("");setPage(0)};
+  const dateChipValue=dateFrom&&dateTo?`${dateFrom} – ${dateTo}`:dateFrom||dateTo||"";
+  const clearChipLabel=(label:string)=>t("shippingPage.filters.clearChip",{label});
   const empty=!fetching&&!error&&items.length===0;
   const kpiValue=(i:number)=>kpis[i]==null?"—":kpis[i]!.toLocaleString(localeTag);
 
@@ -240,22 +278,23 @@ export default function ShippingPage(){
       </section>
 
       <div className="shipping-layout">
+      <div className="shipping-main">
+      <div className="pm-tabs" role="tablist" aria-label={t("shippingPage.title")}>
+        {TABS.map(([key, value], i) => (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={status === value}
+            className={status === value ? "active" : ""}
+            onClick={() => { setStatus(value); setPage(0); }}
+            key={key}
+          >
+            {t(`shippingPage.tabs.${key}`)}
+            {kpis[i] != null ? <i>{kpis[i]}</i> : null}
+          </button>
+        ))}
+      </div>
       <article className="shipping-table-card">
-        <nav className="shipping-tabs" role="tablist" aria-label={t("shippingPage.title")}>
-          {TABS.map(([key, value], i) => (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={status === value}
-              className={status === value ? "active" : ""}
-              onClick={() => { setStatus(value); setPage(0); }}
-              key={key}
-            >
-              <span>{t(`shippingPage.tabs.${key}`)}</span>
-              {kpis[i] != null ? <em>{kpis[i]}</em> : null}
-            </button>
-          ))}
-        </nav>
         <form
           className="om-filters"
           onSubmit={(event)=>{
@@ -325,6 +364,65 @@ export default function ShippingPage(){
             </div>
           </div>
         </form>
+        <div className="pm-table-tools">
+          <div className="pm-table-tools-chips" role="list" aria-label={t("shippingPage.filters.active")}>
+            {tracking ? (
+              <div className="om-filter-chip" role="listitem">
+                <span>{t("shippingPage.filters.searchLabel")}: {tracking}</span>
+                <button
+                  type="button"
+                  aria-label={clearChipLabel(t("shippingPage.filters.searchLabel"))}
+                  onClick={()=>{setQuery("");trackingRef.current="";setTracking("");setPage(0)}}
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
+            {dateFrom || dateTo ? (
+              <div className="om-filter-chip" role="listitem">
+                <span>{t("shippingPage.filters.period")}: {dateChipValue}</span>
+                <button
+                  type="button"
+                  aria-label={clearChipLabel(t("shippingPage.filters.period"))}
+                  onClick={()=>{setDateFrom("");setDateTo("");setPage(0)}}
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
+            {carrier ? (
+              <div className="om-filter-chip" role="listitem">
+                <span>{t("shippingPage.filters.carrier")}: {carrierName(carrier)}</span>
+                <button
+                  type="button"
+                  aria-label={clearChipLabel(t("shippingPage.filters.carrier"))}
+                  onClick={()=>{setCarrier("");setPage(0)}}
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
+            {hasChipFilters ? (
+              <button type="button" className="om-clear-all" onClick={clearChipFilters}>
+                {t("shippingPage.filters.clearAll")}
+              </button>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="pm-export-btn"
+            disabled={!canExport || exporting || shopId == null || (data?.totalItems ?? 0) <= 0 || fetching}
+            title={
+              !canExport ? (deniedTitle(false) || t("shippingPage.exportHint"))
+                : (data?.totalItems ?? 0) <= 0 ? t("shippingPage.exportEmptyTitle")
+                  : t("shippingPage.exportHint")
+            }
+            onClick={() => void exportShipments()}
+          >
+            <Download aria-hidden="true" />
+            <span>{exporting ? t("shippingPage.exporting") : t("shippingPage.export")}</span>
+          </button>
+        </div>
         <div className="shipping-table-wrap" aria-busy={fetching}>
           {error ? (
             <LoadError message={error} onRetry={() => setReload((n) => n + 1)} retryLabel={t("shopSettings.retry")} />
@@ -392,6 +490,7 @@ export default function ShippingPage(){
           onSizeChange={(next)=>{setSize(next);setPage(0)}}
         />
       </article>
+      </div>
 
       <aside className="shipping-side">
         <section ref={carriersRef} id="shipping-carriers" className="shipping-carriers-card">

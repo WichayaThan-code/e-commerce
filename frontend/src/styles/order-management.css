@@ -22,6 +22,13 @@
 .om-kpis .ready > span svg {
   color: #08ad71;
 }
+.om-content > .pm-tabs {
+  margin: 0 0 12px;
+}
+.om-card .pm-table-tools {
+  border-bottom: 1px solid #e0ebf5;
+}
+/* Legacy underline tabs (admin / drawers) */
 .om-tabs {
   height: 52px;
   display: flex;
@@ -314,11 +321,20 @@
 .om-table-wrap tbody tr:hover {
   background: #f8fbff;
 }
-.om-table-wrap tbody tr.selected {
+.om-table-wrap tbody tr.selected,
+.om-table-wrap tbody tr.is-selected {
   background: #f0f7ff;
 }
-.om-table-wrap tbody tr.selected:hover {
+.om-table-wrap tbody tr.selected:hover,
+.om-table-wrap tbody tr.is-selected:hover {
   background: #eaf3ff;
+}
+.om-table-wrap .om-col-check {
+  width: 52px;
+  text-align: center;
+  vertical-align: middle;
+  padding-left: 8px;
+  padding-right: 4px;
 }
 .om-table-wrap table {
   width: 100%;
@@ -373,10 +389,16 @@
 .om-table-wrap td:nth-child(8) > span {
   display: block;
 }
-.om-table-wrap input[type="checkbox"] {
-  width: 14px;
-  height: 14px;
-  accent-color: #087bf5;
+.pm-check.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pm-check.is-disabled input {
+  cursor: not-allowed;
+}
+.pm-check.is-disabled:hover > span {
+  border-color: #b7cce3;
+  box-shadow: none;
 }
 .om-customer {
   width: 27px;
@@ -1439,9 +1461,9 @@
 .om-tag-edit{margin-top:6px;border:0;background:transparent;color:var(--shop-primary,#1268d7);font:600 12px var(--font-sans),"IBM Plex Sans Thai",sans-serif;cursor:pointer}
 .om-drawer-tags{margin-top:8px}
 .om-local-only{display:block;color:var(--shop-muted,#6a809c);font-size:11px;font-weight:500}
-.om-bulk-bar{position:sticky;bottom:12px;z-index:20;margin:12px 18px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--shop-card-bg,#fff);border:1px solid var(--shop-border,#d7e5f3);border-radius:12px;box-shadow:0 8px 24px color-mix(in srgb,var(--shop-text,#08245d) 12%,transparent)}
-.om-bulk-bar button{min-height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--shop-border,#d7e5f3);background:var(--shop-primary,#1268d7);color:#fff;font:700 12px var(--font-sans),"IBM Plex Sans Thai",sans-serif;cursor:pointer}
-.om-bulk-bar button.secondary,.om-bulk-bar button:disabled{background:#fff;color:var(--shop-text,#08245d)}
+/* Bulk bar shares product sticky bar look (.pm-bulk-bar); keep om alias for older hooks */
+.om-bulk-bar.pm-bulk-bar{margin:12px 18px;bottom:12px}
+.om-bulk-progress{font:700 13px var(--font-sans),sans-serif;opacity:.92;margin-right:4px}
 .om-bulk-field{display:grid;gap:4px;margin-top:8px;font-size:13px}
 .om-bulk-tracking{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px;max-height:220px;overflow:auto}
 .om-bulk-tracking li{display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center}

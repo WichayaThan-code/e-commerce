@@ -5,11 +5,6 @@ name: Deploy frontend to Vercel
 # Vercel จะ build เองตาม Project Settings (root: frontend, framework: vite, env vars VITE_*)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "frontend/**"
-      - ".github/workflows/vercel-deploy.yml"
   workflow_dispatch:
 
 concurrency:

@@ -7,9 +7,11 @@ import { usePrefersReducedMotion } from "../../../hooks/usePrefersReducedMotion"
 import { safeBlockLink } from "../../../theme/blockContent";
 import { HERO_RANGES, clampInt, type ThemeHero } from "../../../theme/shopTheme";
 import { themeMediaSrc } from "../chromeShop";
+import { cropStyle } from "../imageCrop";
 import { sectionSettingClasses } from "./sectionClasses";
 import HeroSlider, { heroSlideUrls } from "./HeroSlider";
 import type { ShopSectionProps } from "./types";
+import "../../../styles/image-focal-editor.css";
 
 /** Provided by the theme editor so stickers can be dragged on the preview (not provided on the live storefront). */
 export type StickerDragApi = { onMove: (index: number, x: number, y: number) => void };
@@ -97,7 +99,7 @@ export default function HeroMediaFull({ shop, config, catalog, preview }: ShopSe
         {slides.length ? (
           <div className="shop-hero-media-bg"><HeroSlider urls={slides} /></div>
         ) : (
-        <div className="shop-hero-media-bg" aria-hidden="true">
+        <div className="shop-hero-media-bg shop-image-crop" aria-hidden="true" style={cropStyle(background?.crop, background?.mobileCrop)}>
           {showVideo && mainSrc ? (
             <video
               className="shop-hero-media-video"
@@ -110,9 +112,15 @@ export default function HeroMediaFull({ shop, config, catalog, preview }: ShopSe
               preload="metadata"
               disablePictureInPicture
               tabIndex={-1}
+              style={cropStyle(background?.crop, background?.mobileCrop)}
             />
           ) : stillSrc ? (
-            <img className="shop-hero-media-img" src={stillSrc} alt="" />
+            <img
+              className="shop-hero-media-img"
+              src={stillSrc}
+              alt=""
+              style={cropStyle(background?.crop, background?.mobileCrop)}
+            />
           ) : null}
         </div>
         )}
@@ -141,8 +149,12 @@ export default function HeroMediaFull({ shop, config, catalog, preview }: ShopSe
           <h1>{title}</h1>
           {subtitle ? <p className="shop-hero-media-sub">{subtitle}</p> : null}
           <div className="shop-hero-media-actions">
-            {ctaLink(hero.ctaLabel, hero.ctaLink, "shop-mall-btn is-primary")}
-            {hero.ctaSecondary ? ctaLink(hero.ctaSecondary.label, hero.ctaSecondary.link, "shop-mall-btn is-outline") : null}
+            {hero.showCtas !== false ? (
+              <>
+                {ctaLink(hero.ctaLabel, hero.ctaLink, "shop-mall-btn is-primary")}
+                {hero.ctaSecondary ? ctaLink(hero.ctaSecondary.label, hero.ctaSecondary.link, "shop-mall-btn is-outline") : null}
+              </>
+            ) : null}
             <button type="button" className="shop-mall-btn is-ghost" onClick={() => catalog.onNotify(tp("shop.view.soon"))}>
               <UserPlus />{tp("shop.follow")}
             </button>

@@ -2,11 +2,17 @@ package com.thaishopfun.cart;
 
 import com.thaishopfun.auth.RequestUser;
 import com.thaishopfun.auth.authz.RequireShopPermission;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -30,6 +36,28 @@ public class MerchantCouponController {
                                                                @RequestParam(required = false) Integer page,
                                                                @RequestParam(required = false) Integer size) {
         return coupons.list(shopId, q, state, status, type, page, size);
+    }
+
+    /** Same filters as list; single data sheet (no Meta); all matching rows up to the export cap. */
+    @RequireShopPermission("PROMOTION_READ")
+    @GetMapping(value = "/export", produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    public ResponseEntity<byte[]> export(@PathVariable Long shopId,
+                                         @RequestParam(required = false) String q,
+                                         @RequestParam(required = false) String status,
+                                         @RequestParam(required = false) String type,
+                                         @RequestParam(required = false) String lang,
+                                         Locale locale) {
+        Locale loc = lang != null && !lang.isBlank()
+            ? Locale.forLanguageTag(lang.trim())
+            : (locale == null ? Locale.forLanguageTag("th") : locale);
+        byte[] body = coupons.exportWorkbook(shopId, q, status, type, loc);
+        String filename = CouponService.suggestedFilename(shopId);
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                .filename(filename, StandardCharsets.UTF_8).build().toString())
+            .header(HttpHeaders.CACHE_CONTROL, "no-store")
+            .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+            .body(body);
     }
 
     @RequireShopPermission("PROMOTION_READ")

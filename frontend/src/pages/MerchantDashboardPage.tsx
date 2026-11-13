@@ -579,9 +579,9 @@ export default function MerchantDashboardPage() {
           </MerchantPanel>
           <MerchantPanel title="คำสั่งซื้อล่าสุด" action="ดูทั้งหมด" to={canOrders ? "/merchant/orders" : undefined}>
             <div className="recent-orders" aria-busy={dashLoading}>
-              {!canOrders ? <p>ไม่มีสิทธิ์ดูคำสั่งซื้อ</p>
+              {!canOrders ? <EmptyNote>ไม่มีสิทธิ์ดูคำสั่งซื้อ</EmptyNote>
                 : dashLoading ? [0, 1, 2].map(i => <div key={i} style={{ opacity: 0.45 }}><b>กำลังโหลด…</b><span /><strong /><em /><small /></div>)
-                : !data.latest?.length ? <p>ยังไม่มีคำสั่งซื้อ</p>
+                : !data.latest?.length ? <EmptyNote>ยังไม่มีคำสั่งซื้อในช่วงนี้</EmptyNote>
                 : data.latest.map((order) => { const [label, cls] = statusView(order); return (
                 <div key={order.id}>
                   <b style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={order.orderNumber}>#{order.orderNumber}</b>

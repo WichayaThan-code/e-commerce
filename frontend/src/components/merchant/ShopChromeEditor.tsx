@@ -350,9 +350,14 @@ export function HeroMediaPanel({ config, disabled, shopId, shopSlug, errorFor, p
             shopId={shopId}
             shopSlug={shopSlug}
             disabled={disabled}
+            crop={background.crop}
+            mobileCrop={background.mobileCrop}
+            cropAspect={16 / 9}
+            cropMobileAspect={9 / 16}
+            onCropChange={(crop, mobileCrop) => setBackground({ crop, mobileCrop })}
             onChange={(mediaId, item) => setBackground(mediaId
               ? { mediaId, url: item?.url ?? background.url }
-              : { mediaId: undefined, url: undefined })}
+              : { mediaId: undefined, url: undefined, crop: undefined, mobileCrop: undefined })}
           />
         </MediaField>
       ) : null}
@@ -377,9 +382,14 @@ export function HeroMediaPanel({ config, disabled, shopId, shopSlug, errorFor, p
               shopId={shopId}
               shopSlug={shopSlug}
               disabled={disabled}
+              crop={background.crop}
+              mobileCrop={background.mobileCrop}
+              cropAspect={16 / 9}
+              cropMobileAspect={9 / 16}
+              onCropChange={(crop, mobileCrop) => setBackground({ crop, mobileCrop })}
               onChange={(mediaId, item) => setBackground(mediaId
                 ? { posterMediaId: mediaId, posterUrl: item?.url ?? background.posterUrl }
-                : { posterMediaId: undefined, posterUrl: undefined })}
+                : { posterMediaId: undefined, posterUrl: undefined, crop: undefined, mobileCrop: undefined })}
             />
           </MediaField>
           <p className="theme-hint">{t("storeTheme.chrome.hero.posterHint")}</p>

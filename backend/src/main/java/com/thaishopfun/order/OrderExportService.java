@@ -4,14 +4,11 @@ import com.thaishopfun.common.FieldViolation;
 import com.thaishopfun.common.ValidationException;
 import com.thaishopfun.common.excel.MerchantExcelWorkbook;
 import com.thaishopfun.common.excel.MerchantExcelWorkbook.Column;
-import com.thaishopfun.merchant.Shop;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -28,7 +25,7 @@ public class OrderExportService {
 
     @Transactional(readOnly = true)
     public byte[] export(OrderActor actor, Long shopNo, OrderQueryService.Filters filters, Locale locale) {
-        Shop shop = queries.requireShop(shopNo);
+        queries.requireShop(shopNo);
         int lang = locale == null ? 0 : switch (locale.getLanguage().toLowerCase(Locale.ROOT)) {
             case "en" -> 1;
             case "zh" -> 2;
@@ -57,15 +54,6 @@ public class OrderExportService {
         } while (page < totalPages);
 
         try (var book = new MerchantExcelWorkbook()) {
-            LinkedHashMap<String, String> meta = new LinkedHashMap<>();
-            meta.put(h(lang, "report"), h(lang, "ordersReport"));
-            meta.put(h(lang, "shop"), shopName(shop));
-            meta.put(h(lang, "timezone"), "Asia/Bangkok");
-            meta.put(h(lang, "generatedAt"), Instant.now().toString());
-            meta.put(h(lang, "rowCount"), String.valueOf(all.size()));
-            meta.put(h(lang, "filters"), filterSummary(filters));
-            book.addMetaSheet("Meta", meta);
-
             List<Column> columns = List.of(
                 Column.text(h(lang, "orderNumber")),
                 Column.text(h(lang, "status")),
@@ -119,38 +107,8 @@ public class OrderExportService {
         return MerchantExcelWorkbook.filename("orders-" + shopId, LocalDate.now(MerchantExcelWorkbook.BANGKOK));
     }
 
-    private static String shopName(Shop shop) {
-        if (shop.getName() != null && !shop.getName().isBlank()) return shop.getName();
-        if (shop.getNameEn() != null && !shop.getNameEn().isBlank()) return shop.getNameEn();
-        return String.valueOf(shop.getId());
-    }
-
-    private static String filterSummary(OrderQueryService.Filters f) {
-        var parts = new ArrayList<String>();
-        if (f.status() != null && !f.status().isBlank()) parts.add("status=" + f.status());
-        if (f.paymentStatus() != null && !f.paymentStatus().isBlank()) parts.add("payment=" + f.paymentStatus());
-        if (f.fulfillmentStatus() != null && !f.fulfillmentStatus().isBlank()) parts.add("fulfillment=" + f.fulfillmentStatus());
-        if (f.from() != null) parts.add("from=" + f.from());
-        if (f.to() != null) parts.add("to=" + f.to());
-        if (f.q() != null && !f.q().isBlank()) parts.add("q=" + f.q());
-        if (f.acceptance() != null) parts.add("acceptance=" + f.acceptance());
-        if (f.paymentMethod() != null) parts.add("paymentMethod=" + f.paymentMethod());
-        if (f.carrierCode() != null) parts.add("carrier=" + f.carrierCode());
-        if (f.hasTracking() != null) parts.add("hasTracking=" + f.hasTracking());
-        if (f.tag() != null) parts.add("tag=" + f.tag());
-        if (f.sort() != null) parts.add("sort=" + f.sort() + ":" + (f.direction() == null ? "desc" : f.direction()));
-        return parts.isEmpty() ? "(all)" : String.join("; ", parts);
-    }
-
     private static String h(int lang, String key) {
         return switch (key) {
-            case "report" -> pick(lang, "รายงาน", "Report", "报表");
-            case "ordersReport" -> pick(lang, "รายการคำสั่งซื้อ", "Orders", "订单列表");
-            case "shop" -> pick(lang, "ร้าน", "Shop", "店铺");
-            case "timezone" -> pick(lang, "เขตเวลา", "Timezone", "时区");
-            case "generatedAt" -> pick(lang, "สร้างเมื่อ", "Generated at", "生成时间");
-            case "rowCount" -> pick(lang, "จำนวนแถว", "Row count", "行数");
-            case "filters" -> pick(lang, "ตัวกรอง", "Filters", "筛选");
             case "orders" -> pick(lang, "คำสั่งซื้อ", "Orders", "订单");
             case "orderNumber" -> pick(lang, "เลขคำสั่งซื้อ", "Order number", "订单号");
             case "status" -> pick(lang, "สถานะ", "Status", "状态");

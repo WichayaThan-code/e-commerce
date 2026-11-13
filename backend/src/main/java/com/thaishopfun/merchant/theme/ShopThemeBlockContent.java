@@ -72,6 +72,7 @@ final class ShopThemeBlockContent {
             }
             case FEATURE -> {
                 putText(out, "mediaId", source.get("mediaId"));
+                ShopThemeImageCrop.copyCropsIfMedia(out, source, out.get("mediaId") != null);
                 putLocalized(out, "title", source.get("title"));
                 putLocalized(out, "body", source.get("body"));
                 if (source.get("bullets") instanceof List<?> bullets) {
@@ -149,7 +150,10 @@ final class ShopThemeBlockContent {
         var icon = upperOr(row.get("icon"), "NUMBER");
         step.put("icon", icon);
         // A custom image only makes sense (and is only counted as "in use") for the CUSTOM icon.
-        if ("CUSTOM".equals(icon)) putText(step, "mediaId", row.get("mediaId"));
+        if ("CUSTOM".equals(icon)) {
+            putText(step, "mediaId", row.get("mediaId"));
+            ShopThemeImageCrop.copyCropsIfMedia(step, row, step.get("mediaId") != null);
+        }
         putLocalized(step, "title", row.get("title"));
         putLocalized(step, "body", row.get("body"));
         return step;
@@ -162,6 +166,7 @@ final class ShopThemeBlockContent {
         if (media == null || media.isEmpty()) return null; // an item without an image is dropped
         var out = new LinkedHashMap<String, Object>();
         out.put("mediaId", media);
+        ShopThemeImageCrop.copyCropsIfMedia(out, row, true);
         putLocalized(out, "caption", row.get("caption"));
         putText(out, "link", row.get("link"));
         return out;
@@ -291,6 +296,9 @@ final class ShopThemeBlockContent {
                 checkLocalized(problems, path + ".title", step.get("title"), STEP_TITLE_MAX);
                 checkLocalized(problems, path + ".body", step.get("body"), STEP_BODY_MAX);
                 checkMediaIdShape(problems, path + ".mediaId", step.get("mediaId"));
+                if ("CUSTOM".equals(step.get("icon"))) {
+                    ShopThemeImageCrop.validateHolderCrops(problems, path, step);
+                }
             }
         }
         checkCta(problems, prefix + ".cta", content.get("cta"));
@@ -298,6 +306,7 @@ final class ShopThemeBlockContent {
 
     private static void validateFeature(List<FieldViolation> problems, String prefix, Map<String, Object> content) {
         checkMediaIdShape(problems, prefix + ".mediaId", content.get("mediaId"));
+        ShopThemeImageCrop.validateHolderCrops(problems, prefix, content);
         checkLocalized(problems, prefix + ".title", content.get("title"), TITLE_MAX);
         checkLocalized(problems, prefix + ".body", content.get("body"), FEATURE_BODY_MAX);
         if (content.get("bullets") != null) {
@@ -338,6 +347,7 @@ final class ShopThemeBlockContent {
             if (!(item.get("mediaId") instanceof String media) || media.isBlank()) {
                 problems.add(ValidationMessages.violation(path + ".mediaId", INVALID));
             }
+            ShopThemeImageCrop.validateHolderCrops(problems, path, item);
             checkLocalized(problems, path + ".caption", item.get("caption"), CAPTION_MAX);
             checkLink(problems, path + ".link", item.get("link"));
         }

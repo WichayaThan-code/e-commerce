@@ -94,7 +94,11 @@ export async function request<T>(path:string, init:RequestInit = {}, authenticat
     }
     throw apiError
   }
-  return response.status === 204 ? undefined as T : response.json()
+  if (response.status === 204) return undefined as T
+  // Spring void controllers often return 200 with an empty body; json() would throw.
+  const text = await response.text()
+  if (!text) return undefined as T
+  return JSON.parse(text) as T
 }
 
 function remember(response:AuthResponse) { accessToken = response.accessToken; return response.user }
@@ -135,6 +139,8 @@ export type MerchantApplication = {
   houseNo?:string;villageNo?:string;building?:string;alley?:string;road?:string;province?:string;district?:string;subdistrict?:string;postalCode?:string
   bankName?:string;bankAccountMasked?:string;bankAccountName?:string;documents:MerchantDocument[];submittedAt?:string
   shopPath?:string|null; ownerId?:string|null
+  /** Server-decided: the linked owner already runs another (non-rejected) shop, so owner info and documents are reused. */
+  existingOwner?:boolean
 }
 export type MerchantOwner = {
   id:string; ownerType:'PERSON'|'COMPANY'; title:string; firstName:string; lastName:string
@@ -254,6 +260,8 @@ function withShop(path:string, shopId?:number|null) {
 export const merchantApi = {
   getDraft: () => request<MerchantApplication>('/api/merchant-applications/draft', {}, true),
   saveShop: (payload:MerchantShopPayload) => request<MerchantApplication>('/api/merchant-applications/draft/shop', {method:'PUT',body:JSON.stringify(payload)}, true),
+  /** Read-only: same uniqueness rule as saveShop/submit; the caller's own draft never counts. */
+  checkShopName: (name:string) => request<{ available:boolean }>(`/api/merchant-applications/draft/shop-name/check?name=${encodeURIComponent(name)}`, {}, true),
   saveOwner: (payload:MerchantOwnerPayload) => request<MerchantApplication>('/api/merchant-applications/draft/owner', {method:'PUT',body:JSON.stringify(payload)}, true),
   validateOwner: (payload:MerchantOwnerPayload) => request<void>('/api/merchant-applications/validate-owner', {method:'POST',body:JSON.stringify(payload)}, true),
   owners: () => request<MerchantOwner[]>('/api/merchant/owners', {}, true),
@@ -830,7 +838,7 @@ export type LedgerEntry = {
   reservedAfter?: number
 }
 
-function productQuery(query: ProductListQuery) {
+function productQuery(query: ProductListQuery & { lang?: string }) {
   const search = new URLSearchParams()
   if (query.q) search.set('q', query.q)
   if (query.status) search.set('status', query.status)
@@ -841,6 +849,7 @@ function productQuery(query: ProductListQuery) {
   if (query.page != null) search.set('page', String(query.page))
   if (query.size != null) search.set('size', String(query.size))
   if (query.priceBands) search.set('priceBands', query.priceBands)
+  if (query.lang) search.set('lang', query.lang)
   const text = search.toString()
   return text ? `?${text}` : ''
 }
@@ -960,6 +969,13 @@ export const productApi = {
     request<Product>(shopProducts(shopId, `/products/${productId}/translations/use-auto`), { method: 'POST', body: JSON.stringify(payload) }, true),
   retryTranslation: (shopId: number, productId: string, payload: { field: string; locale: 'en' | 'zh' }) =>
     request<Product>(shopProducts(shopId, `/products/${productId}/translations/retry`), { method: 'POST', body: JSON.stringify(payload) }, true),
+  /** Live Thai → en/zh preview for the product form (not persisted). */
+  previewTranslations: (shopId: number, payload: { fields: Record<string, string>; locales?: Array<'en' | 'zh'> }) =>
+    request<{ translations: Record<string, Record<string, string>> }>(
+      shopProducts(shopId, '/translations/preview'),
+      { method: 'POST', body: JSON.stringify(payload) },
+      true,
+    ),
   publish: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/publish`), { method: 'POST' }, true),
   archive: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/archive`), { method: 'POST' }, true),
   unarchive: (shopId: number, productId: string) => request<Product>(shopProducts(shopId, `/products/${productId}/unarchive`), { method: 'POST' }, true),
@@ -981,14 +997,16 @@ export const productApi = {
     return request<{ taken: string[] }>(shopProducts(shopId, `/skus/check?${search.toString()}`), {}, true)
   },
   ledger: (shopId: number, productId: string) => request<LedgerEntry[]>(shopProducts(shopId, `/products/${productId}/ledger`), {}, true),
-  exportExcel: async (shopId: number) => {
-    const blob = await authorizedBlob(shopProducts(shopId, '/products/export'))
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'products.xlsx'
-    link.click()
-    URL.revokeObjectURL(url)
+  /** Export filtered catalog rows (all pages matching list filters). Drops page/size. */
+  exportExcel: (shopId: number, query: ProductListQuery & { lang?: string } = {}) => {
+    const params: ProductListQuery & { lang?: string } = { ...query }
+    delete params.page
+    delete params.size
+    const bangkok = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' })
+    return downloadFile(
+      shopProducts(shopId, `/products/export${productQuery(params)}`),
+      `products-${shopId}-${bangkok}.xlsx`,
+    )
   },
   downloadTemplate: async (shopId: number) => {
     const blob = await authorizedBlob(shopProducts(shopId, '/products/import-template'))
@@ -1142,6 +1160,16 @@ export const promotionApi = {
   pause: (shopId: number, id: string) => couponCall(request<CouponDto>(couponPath(shopId, `/${id}/disable`), { method: 'POST' }, true)).then(fromCoupon),
   resume: (shopId: number, id: string) => couponCall(request<CouponDto>(couponPath(shopId, `/${id}/enable`), { method: 'POST' }, true)).then(fromCoupon),
   remove: (shopId: number, id: string) => couponCall(request<void>(couponPath(shopId, `/${id}`), { method: 'DELETE' }, true)),
+  /** Same filters as list; table-shaped .xlsx (no Meta). */
+  exportExcel: (shopId: number, query: PromotionQuery & { lang?: string } = {}) => {
+    const params = new URLSearchParams()
+    if (query.q?.trim()) params.set('q', query.q.trim())
+    if (query.status) params.set('status', query.status)
+    if (query.type?.length) params.set('type', query.type.join(','))
+    if (query.lang) params.set('lang', query.lang)
+    const qs = params.toString()
+    return couponCall(downloadFile(couponPath(shopId, `/export${qs ? `?${qs}` : ''}`), `promotions-${shopId}.xlsx`))
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -1767,6 +1795,13 @@ const shipmentOf = (shopId: number, orderId: string, path = '') => shopPath(shop
 export const merchantShipmentApi = {
   list: (shopId: number, params: Record<string, string | number | boolean | null | undefined> = {}) =>
     request<{ items: ShipmentSummary[]; page: number; size: number; totalItems: number; totalPages: number }>(`${shopPath(shopId, '/shipments')}${queryOf(params)}`, { cache: 'no-store' }, true),
+  /** SHIPMENT_READ — same filters as list (drops page/size); real .xlsx of all matching rows. */
+  exportXlsx: (shopId: number, params: Record<string, string | number | boolean | null | undefined> = {}) => {
+    const query = { ...params }
+    delete query.page
+    delete query.size
+    return downloadFile(`${shopPath(shopId, '/shipments/export')}${queryOf(query)}`, `shipments-${shopId}.xlsx`)
+  },
   get: (shopId: number, orderId: string) => request<ShipmentDetail>(shipmentOf(shopId, orderId), { cache: 'no-store' }, true),
   create: (shopId: number, orderId: string, body?: ShipmentCreateBody) =>
     request<ShipmentActionResponse>(shipmentOf(shopId, orderId), json('POST', body ?? {}), true),

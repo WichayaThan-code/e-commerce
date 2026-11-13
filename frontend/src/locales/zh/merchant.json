@@ -354,6 +354,7 @@
     "errShopExists": "店名已被使用，请更换店名",
     "errCitizenTaken": "此身份证号已用于店铺申请",
     "needsFix": "需修改",
+    "ownerReused": "沿用现有店铺资料",
     "summaryShop": "店名",
     "summaryCategory": "分类",
     "summaryAddress": "店铺地址",
@@ -470,7 +471,10 @@
       "IMAGE_NOT_ON_PRODUCT": "这张图片不属于此商品",
       "OPTION_VALUE_UNUSED": "此选项值没有正在销售的 SKU",
       "TRANSLATION_NOT_FOUND": "找不到此字段的翻译任务",
-      "TRANSLATION_NOT_RETRYABLE": "只有等待中或翻译失败的任务可以重新排队"
+      "TRANSLATION_NOT_RETRYABLE": "只有等待中或翻译失败的任务可以重新排队",
+      "EXPORT_EMPTY": "没有符合筛选条件的商品，请调整筛选后重试",
+      "EXPORT_TOO_LARGE": "最多可导出 10000 行 — 请缩小筛选条件后重试",
+      "NETWORK_ERROR": "导出失败，请检查网络后重试"
     },
     "variants": {
       "title": "商品规格",
@@ -567,6 +571,7 @@
     "form": {
       "general": "基本信息",
       "price": "价格",
+      "priceDefaultHint": "上方填写一次即可自动套用到所有规格，如需不同价格可在下方表格单独修改。",
       "type": "类型",
       "variable": "多规格",
       "simple": "单规格",
@@ -579,13 +584,21 @@
       "options": "规格",
       "editTitle": "编辑商品",
       "newTitle": "添加商品",
-      "langsHint": "只填泰语即可创建并发布，系统会自动翻译英文和中文。",
+      "langsHint": "只填泰语即可创建并发布，下方会实时显示英文与中文预览。",
       "langOptional": "可选",
       "translationSection": "译文（系统自动翻译）",
       "translationSectionHint": "展开后可查看或自行修改，不是必填。",
+      "translationLiveHint": "输入泰语即可即时查看译文。若不准确，打开编辑模式自行修改。",
+      "translationPreview": "预览",
+      "translationPreviewFailed": "无法加载译文预览，请重试。",
+      "translationNeedThai": "请先填写泰语以预览译文",
+      "translationEmpty": "暂无译文",
+      "editTranslation": "自行编辑译文",
+      "editTranslationOn": "编辑",
+      "editTranslationOff": "自动",
       "translationAuto": "已翻译",
       "translationManual": "已自行修改",
-      "translationPending": "正在翻译",
+      "translationPending": "正在翻译…",
       "translationFailed": "翻译失败",
       "translationRetry": "重新翻译",
       "useAutoTranslation": "使用自动翻译",
@@ -660,7 +673,17 @@
       "link": "前往套餐用量"
     },
     "productQuotaBlocked": "发布配额已满 — 请先腾出名额或升级套餐后再发布。",
-    "export": "Export",
+    "export": "导出 Excel",
+    "exporting": "正在导出…",
+    "exportHint": "导出符合当前筛选条件的全部行到 Excel 文件",
+    "searchLabel": "搜索商品",
+    "filters": {
+      "reset": "重置",
+      "search": "搜索",
+      "active": "当前筛选",
+      "clearAll": "清除全部",
+      "clearChip": "清除{{label}}筛选"
+    },
     "downloadTemplate": "下载 template",
     "variantLine": "{{count}} 个选项 · 总库存 {{stock}}",
     "importResult": {
@@ -684,6 +707,11 @@
     "importPollError": "无法查询导入状态",
     "importRow": "第 {{row}} 行：{{message}}",
     "exportDone": "已导出商品 Excel",
+    "exportEmpty": "没有符合筛选条件的商品，请调整筛选后重试",
+    "exportEmptyTitle": "当前筛选条件下没有商品",
+    "exportTooLarge": "最多可导出 {{max}} 行 — 请缩小筛选条件后重试",
+    "exportNetwork": "导出失败，请检查网络后重试",
+    "exportFailed": "导出失败，请重试",
     "importDone": "成功导入 {{created}} 个商品、{{skuCreated}} 个 SKU",
     "importPartial": "导入 {{created}} 个商品、{{skuCreated}} 个 SKU，失败 {{failed}} 条",
     "bell": {
@@ -704,8 +732,12 @@
     "stock": "库存",
     "sort": "排序",
     "selected_other": "已选 {{count}} 项",
-    "bulkPublish": "发布所选",
-    "bulkArchive": "归档所选",
+    "selectAll": "全选本页",
+    "clearSelection": "清除选择",
+    "bulkBarLabel": "已选商品操作",
+    "bulkPublish": "发布",
+    "bulkArchive": "归档",
+    "selected_other": "已选 {{count}} 项",
     "empty": {
       "filterTitle": "没有符合筛选条件的商品",
       "noneTitle": "暂无商品",
@@ -732,7 +764,6 @@
       "DRAFT": "草稿",
       "ARCHIVED": "已归档"
     },
-    "selected": "",
     "archiveBulk": ""
   },
   "apiErrors": {
@@ -764,6 +795,8 @@
     "shopName": "请填写店铺名称，不超过 100 个字符",
     "shopNameRequired": "请填写店铺名称",
     "shopNameMax": "店铺名称最多 {{max}} 个字符",
+    "shopNameTaken": "该店铺名称已被使用，请更换店铺名称",
+    "shopNameCheckFailed": "无法检查店铺名称，请检查网络后再次点击下一步",
     "shopNameEn": "英文店名不能超过 100 个字符",
     "shopNameEnMax": "英文店名最多 {{max}} 个字符",
     "description": "店铺简介不能超过 500 个字符",
@@ -1047,6 +1080,25 @@
         "THEME_MEDIA_KIND_INVALID": "文件类型无效",
         "THEME_MEDIA_NOT_FOUND": "媒体库中找不到该文件"
       }
+    },
+    "crop": {
+      "open": "调整图片位置",
+      "openAdjusted": "修改图片位置",
+      "title": "调整图片位置与缩放",
+      "hint": "在裁剪框内拖动图片以调整位置，并用滑块缩放。不会裁切原图——若要旋转，请重新上传图片。",
+      "stageLabel": "图片位置工具",
+      "dragHint": "拖动以移动",
+      "modeLabel": "设备",
+      "desktop": "桌面",
+      "mobile": "手机",
+      "separateMobile": "为手机使用单独位置",
+      "separateOn": "分开",
+      "separateOff": "共用",
+      "zoom": "缩放级别",
+      "zoomValue": "缩放 {{value}} 倍",
+      "reset": "重置到中心",
+      "cancel": "取消",
+      "save": "保存"
     },
     "colors": {
       "title": "店铺颜色",
@@ -1400,6 +1452,32 @@
       "ctaSecondaryLabel": "次按钮文字",
       "ctaSecondaryPlaceholder": "浏览分类",
       "ctaSecondaryLink": "次按钮链接",
+      "showCtas": "显示 Hero 按钮",
+      "showCtasOn": "显示",
+      "showCtasOff": "隐藏",
+      "showCtasHint": "关闭后，店铺头部不显示主按钮和分类按钮；已保存的文字与链接仍会保留。",
+      "ctasSection": "Hero 按钮",
+      "textToolsHint": "此区始终可用：眉题 · 主标题 · 副标题（与按钮开关无关）。",
+      "ctasToolsOn": "已开启 — 可编辑主按钮（文字/链接）与次按钮（目标 + 文字）。",
+      "ctasToolsOff": "已隐藏 — 店面不显示按钮。打开开关以编辑文字与链接。",
+      "ctaSecondaryAction": "点击次按钮时",
+      "ctaSecondaryActionHint": "选择要打开的店铺页面、隐藏此按钮，或填写自定义链接。",
+      "ctaSecondaryActions": {
+        "NONE": "不显示次按钮",
+        "PRODUCTS": "全部商品",
+        "CATEGORIES": "商品分类",
+        "CONTACT": "联系店铺",
+        "CUSTOM": "自定义链接"
+      },
+      "ctaSecondaryPlaceholders": {
+        "NONE": "",
+        "PRODUCTS": "浏览商品",
+        "CATEGORIES": "浏览分类",
+        "CONTACT": "联系我们",
+        "CUSTOM": "例如：查看促销"
+      },
+      "badgesSection": "文字贴纸",
+      "badgesToolsHint": "与 Hero 按钮分开 · 仅 MEDIA_FULL 布局使用 · 每项最多 24 字。",
       "generalHint": "所有文字均为纯文本（不可使用 HTML）。链接须为站内路径（如 /shops）或 https://。链接留空时，主按钮打开全部商品，次按钮打开店铺分类。",
       "badges": "文字贴纸",
       "badgesHint": "仅全屏媒体布局显示，最多 24 字"
@@ -1445,6 +1523,9 @@
       "bannerRemove": "移除",
       "trustTitle": "信任条项目",
       "trustEnabled": "显示信任条",
+      "trustToolsOn": "已开启 — 可开关单项，并编辑图标、文案与副文案。",
+      "trustToolsOff": "已隐藏 — 店面不显示信任条。打开开关以编辑项目。",
+      "bannersHidden": "已隐藏 — 请在 Sections 标签中开启横幅分区后再编辑列表。",
       "trustLabel": "文案",
       "trustIcon": "图标",
       "trustIcons": {
@@ -1508,7 +1589,14 @@
     "errors": {
       "hex": "请输入 6 位颜色值，如 #087bf5",
       "validation": "请检查高亮的字段",
-      "save": "主题保存失败，请重试。"
+      "save": "主题保存失败，请重试。",
+      "THEME_IMAGE_CROP_INVALID": "图片位置或缩放无效（x/y 须为 0–100，缩放 1–3）。请在位置工具中重新调整。",
+      "THEME_IMAGE_CROP_INVALID_banner": "横幅 {{n}} 的缩放或位置无效。请将缩放设为 1–3 倍。",
+      "THEME_IMAGE_CROP_INVALID_hero": "Hero 背景的位置或缩放无效。请在位置工具中重新调整。",
+      "THEME_IMAGE_CROP_INVALID_intro": "店铺介绍图片的位置或缩放无效。请在位置工具中重新调整。",
+      "THEME_IMAGE_CROP_INVALID_feature": "FEATURE 区块图片的位置或缩放无效。请在位置工具中重新调整。",
+      "THEME_IMAGE_CROP_INVALID_gallery": "图库图片的位置或缩放无效。请在位置工具中重新调整。",
+      "THEME_IMAGE_CROP_INVALID_steps": "步骤图标的位置或缩放无效。请在位置工具中重新调整。"
     },
     "catalogLayout": {
       "title": "“全部商品”显示方式",
@@ -1540,6 +1628,7 @@
     "intro": {
       "title": "店铺故事",
       "hint": "开启“店铺介绍”区块时显示。正文留空则使用店铺简介。仅限纯文本（不支持 HTML）。",
+      "hidden": "已隐藏 — 请在上方列表中开启“店铺介绍”后再编辑。",
       "eyebrow": "标题上方文字",
       "heading": "标题",
       "body": "正文",
@@ -1553,7 +1642,8 @@
     },
     "announcement": {
       "label": "公告栏",
-      "hint": "留空 = 前两个信任标签"
+      "hint": "留空 = 前两个信任标签",
+      "toolsHint": "与信任条分开 · 可随时在此编辑公告文案。"
     },
     "tc": {
       "templateHead": "按店铺类型选择模板",
@@ -2255,7 +2345,7 @@
   "orderManagement": {
     "title": "订单",
     "subtitle": "跟踪并管理店铺的全部订单",
-    "export": "导出 (Excel)",
+    "export": "导出 Excel",
     "printLabels": "打印面单",
     "printOrder": "打印 {{number}}",
     "printBusy": "正在准备打印文档…",
@@ -2352,6 +2442,7 @@
       },
       "moreFilters": "更多筛选",
       "moreFiltersCount": "更多筛选（{{count}}）",
+      "active": "当前筛选",
       "clearAll": "全部清除",
       "clearChip": "清除{{label}}筛选",
       "chipDate": "{{from}} – {{to}}",
@@ -2394,8 +2485,9 @@
       "nameInvalid": "标签名称须为 1–40 个字符"
     },
     "bulk": {
-      "barLabel": "批量操作",
-      "selected": "已选",
+      "barLabel": "已选订单操作",
+      "selected_one": "已选 {{count}} 项",
+      "selected_other": "已选 {{count}} 项",
       "accept": "接单",
       "process": "备货",
       "ship": "发货",
@@ -2419,7 +2511,7 @@
       "selectFailed": "仅选失败项"
     },
     "columns": {
-      "selectAll": "选择全部订单",
+      "selectAll": "全选本页",
       "order": "订单",
       "customer": "客户",
       "items": "商品",
@@ -2754,6 +2846,15 @@
   "shippingPage": {
     "title": "配送",
     "subtitle": "集中管理包裹、对接快递公司并跟踪状态",
+    "export": "导出 Excel",
+    "exporting": "正在导出…",
+    "exportHint": "导出符合当前筛选条件的全部行到 Excel 文件",
+    "exportDone": "已导出配送 Excel",
+    "exportEmpty": "没有符合筛选条件的配送记录，请调整筛选后重试",
+    "exportEmptyTitle": "当前筛选条件下没有配送记录",
+    "exportTooLarge": "最多可导出 {{max}} 行 — 请缩小筛选条件后重试",
+    "exportNetwork": "导出失败，请检查网络后重试",
+    "exportFailed": "导出失败，请重试",
     "printLabels": "打印面单",
     "printOne": "打印面单",
     "connectMore": "添加快递公司",
@@ -2797,7 +2898,10 @@
       "carrier": "快递公司",
       "status": "状态",
       "period": "发货日期",
-      "all": "全部"
+      "all": "全部",
+      "active": "当前筛选",
+      "clearAll": "清除全部",
+      "clearChip": "清除{{label}}筛选"
     },
     "columns": {
       "selectAll": "全选",
@@ -2897,8 +3001,9 @@
     "title": "客户",
     "subtitle": "经营客户关系，持续提升销售",
     "add": "添加客户",
-    "export": "导出 (Excel)",
+    "export": "导出 Excel",
     "exporting": "正在导出...",
+    "exportHint": "导出符合当前筛选条件的全部行到 Excel 文件",
     "exportMasked": "可以导出，但因无个人资料权限，姓名/电话/邮箱将被遮蔽",
     "exportTooLarge": "导出行数过多 — 请缩小筛选条件后重试",
     "comingSoon": "即将推出",
@@ -2938,6 +3043,10 @@
       "all": "全部",
       "clear": "清除",
       "apply": "确定",
+      "search": "搜索",
+      "active": "当前筛选",
+      "clearAll": "清除全部",
+      "clearChip": "清除{{label}}筛选",
       "presets": {
         "d7": "近 7 天",
         "d30": "近 30 天",

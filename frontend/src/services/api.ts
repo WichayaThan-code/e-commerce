@@ -2188,8 +2188,9 @@ export const publicOrderApi = {
 }
 /** AB3: backend share page with Open Graph tags (Facebook / LINE previews). null when the API is on localhost (crawlers cannot reach it). */
 export function productShareUrl(shopSlug: string, productSlug: string): string | null {
-  if (/\/\/(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(API_URL)) return null
-  return `${API_URL}/share/p/${encodeURIComponent(shopSlug)}/${encodeURIComponent(productSlug)}`
+  const base = API_URL || (typeof window !== 'undefined' ? window.location.origin : '')
+  if (!/^https?:\/\//.test(base) || /\/\/(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(base)) return null
+  return `${base}/share/p/${encodeURIComponent(shopSlug)}/${encodeURIComponent(productSlug)}`
 }
 
 

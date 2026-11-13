@@ -33,8 +33,10 @@ public class ProductShareController {
 
     @GetMapping(value = "/share/p/{shopSlug}/{productSlug}", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> share(@PathVariable String shopSlug, @PathVariable String productSlug) {
-        var target = frontend() + "/shop/" + UriUtils.encodePathSegment(shopSlug, StandardCharsets.UTF_8)
-            + "/product/" + UriUtils.encodePathSegment(productSlug, StandardCharsets.UTF_8);
+        var encodedShop = UriUtils.encodePathSegment(shopSlug, StandardCharsets.UTF_8);
+        var encodedProduct = UriUtils.encodePathSegment(productSlug, StandardCharsets.UTF_8);
+        var shareUrl = frontend() + "/share/p/" + encodedShop + "/" + encodedProduct;
+        var target = frontend() + "/shop/" + encodedShop + "/product/" + encodedProduct;
         String title = "ThaiShopFun";
         String description = "";
         String image = null;
@@ -49,7 +51,8 @@ public class ProductShareController {
             }
         } catch (RuntimeException notFound) {
             status = 404;
-            target = frontend() + "/shop/" + UriUtils.encodePathSegment(shopSlug, StandardCharsets.UTF_8);
+            target = frontend() + "/shop/" + encodedShop;
+            shareUrl = target;
         }
         var html = new StringBuilder(1024)
             .append("<!doctype html><html lang=\"th\"><head><meta charset=\"utf-8\">")
@@ -59,9 +62,16 @@ public class ProductShareController {
             .append("<meta property=\"og:site_name\" content=\"ThaiShopFun\">")
             .append("<meta property=\"og:title\" content=\"").append(esc(title)).append("\">")
             .append("<meta property=\"og:description\" content=\"").append(esc(description)).append("\">")
-            .append("<meta property=\"og:url\" content=\"").append(esc(target)).append("\">");
-        if (image != null) html.append("<meta property=\"og:image\" content=\"").append(esc(image)).append("\">")
-            .append("<meta name=\"twitter:card\" content=\"summary_large_image\">");
+            .append("<meta property=\"og:url\" content=\"").append(esc(shareUrl)).append("\">");
+        if (image != null) {
+            html.append("<meta property=\"og:image\" content=\"").append(esc(image)).append("\">");
+            if (image.startsWith("https://")) {
+                html.append("<meta property=\"og:image:secure_url\" content=\"").append(esc(image)).append("\">");
+            }
+            html.append("<meta property=\"og:image:alt\" content=\"").append(esc(title)).append("\">")
+                .append("<meta name=\"twitter:card\" content=\"summary_large_image\">")
+                .append("<meta name=\"twitter:image\" content=\"").append(esc(image)).append("\">");
+        }
         html.append("<meta http-equiv=\"refresh\" content=\"0;url=").append(esc(target)).append("\">")
             .append("<link rel=\"canonical\" href=\"").append(esc(target)).append("\">")
             .append("</head><body><p><a href=\"").append(esc(target)).append("\">").append(esc(title)).append("</a></p></body></html>");
@@ -77,10 +87,13 @@ public class ProductShareController {
         return value.replaceAll("/+$", "");
     }
 
-    private static String absolute(String url) {
+    private String absolute(String url) {
         if (url == null || url.isBlank()) return null;
         if (url.startsWith("http://") || url.startsWith("https://")) return url;
-        var base = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString().replaceAll("/+$", "");
+        var front = frontend();
+        var base = front.startsWith("https://")
+            ? front
+            : ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString().replaceAll("/+$", "");
         return base + (url.startsWith("/") ? url : "/" + url);
     }
 

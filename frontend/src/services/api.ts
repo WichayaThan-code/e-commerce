@@ -250,7 +250,7 @@ export function mediaUrl(path?:string|null) {
 }
 export type MerchantShopPayload = {shopName:string;shopNameEn:string;description:string;category:string;saleType:'OWNER'|'RESELLER';website:string;lineId:string;facebookUrl:string;instagramUrl:string;tiktokUrl:string;address:string;province:string;district:string;subdistrict:string;postalCode:string}
 export type MerchantOwnerPayload = {ownerType:'PERSON'|'COMPANY';title:string;firstName:string;lastName:string;citizenId:string;birthDate:string;nationality:string;phone:string;email:string;houseNo:string;villageNo:string;building:string;alley:string;road:string;province:string;district:string;subdistrict:string;postalCode:string;bankName:string;bankAccountNumber:string;bankAccountName:string}
-export type MerchantShopOption = { shopId:number; shopName:string; status:NonNullable<StoreAccess['status']>; slug:string; ownerId?:string|null }
+export type MerchantShopOption = { shopId:number; shopName:string; status:NonNullable<StoreAccess['status']>; slug:string; ownerId?:string|null; logoUrl?:string|null }
 
 function withShop(path:string, shopId?:number|null) {
   if (shopId == null) return path

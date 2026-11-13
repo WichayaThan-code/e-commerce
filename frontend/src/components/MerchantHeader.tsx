@@ -16,6 +16,7 @@ import { accountKind } from "../services/permissions";
 import { useLanguage } from "../contexts/LanguageContext";
 import LanguageSwitcher from "./LanguageSwitcher";
 import SiteBrand from "./SiteBrand";
+import { useFirstShopLogo } from "../hooks/useFirstShopLogo";
 import "../styles/merchant-signup.css";
 
 export default function MerchantHeader() {
@@ -25,6 +26,8 @@ export default function MerchantHeader() {
   const [signingOut, setSigningOut] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
   const accountButton = useRef<HTMLButtonElement>(null);
+  const isMerchant = accountKind(user) === "MERCHANT";
+  const { logoUrl: firstShopLogo, onLogoError: handleShopLogoError } = useFirstShopLogo(isMerchant, user?.id);
 
   useEffect(() => {
     if (!accountOpen) return;
@@ -105,10 +108,7 @@ export default function MerchantHeader() {
               </button>
               {accountOpen && (
                 <div className="account-menu">
-                  <div className="member-menu-heading">
-                    <b>{accountName}</b>
-                    <span>{user.email}</span>
-                  </div>
+                  <div className={`member-menu-heading${firstShopLogo ? " member-menu-heading--with-logo" : ""}`}>{firstShopLogo ? <img className="member-menu-shop-logo" src={firstShopLogo} alt="" onError={handleShopLogoError} /> : null}<div className="member-menu-identity"><b>{accountName}</b><span>{user.email}</span></div></div>
                   {accountKind(user) !== "CUSTOMER" && (
                     <Link to={dashboardPath}>
                       <Store />{" "}

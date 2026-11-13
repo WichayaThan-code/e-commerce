@@ -12,6 +12,7 @@ import {
   ChevronRight, Gift, Headphones, LogOut, X, Store, Package
 } from "lucide-react";
 import SiteBrand from "./SiteBrand";
+import { useFirstShopLogo } from "../hooks/useFirstShopLogo";
 
 interface HeaderProps {
   hideNavbar?: boolean;
@@ -35,6 +36,8 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
   const accountRef = useRef<HTMLDivElement>(null);
   const accountButton = useRef<HTMLButtonElement>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const isMerchant = accountKind(user) === "MERCHANT";
+  const { logoUrl: firstShopLogo, onLogoError: handleShopLogoError } = useFirstShopLogo(isMerchant, user?.id);
 
   useEffect(() => {
     const onShopSearch = Boolean(shopMatch?.params.slug) && location.pathname.includes("/search");
@@ -114,9 +117,7 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
               </button>
               {accountOpen && (
                 <div className="account-menu">
-                  <div className="member-menu-heading">
-                    <b>{accountName}</b><span>{user.email}</span>
-                  </div>
+                  <div className={`member-menu-heading${firstShopLogo ? " member-menu-heading--with-logo" : ""}`}>{firstShopLogo ? <img className="member-menu-shop-logo" src={firstShopLogo} alt="" onError={handleShopLogoError} /> : null}<div className="member-menu-identity"><b>{accountName}</b><span>{user.email}</span></div></div>
                   {accountKind(user) !== "CUSTOMER" && (
                     <Link to={dashboardPath}><Store /> {accountKind(user) === "ADMIN" ? t('account.admin') : t('account.store')} <ChevronRight /></Link>
                   )}

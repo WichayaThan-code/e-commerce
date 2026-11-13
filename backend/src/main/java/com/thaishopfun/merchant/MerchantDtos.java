@@ -113,7 +113,7 @@ public final class MerchantDtos {
     public record ReinstatementResponse(Long shopId, String status, String message, Instant createdAt) {}
     public record ReinstatementRequestBody(@NotBlank @Size(max = 1000) String message) {}
     public record StoreAccessResponse(boolean approved,boolean hasShop,ShopStatus status,String shopName,String slug,Long shopId){}
-    public record MerchantShopSummary(Long shopId,String shopName,ShopStatus status,String slug,UUID ownerId){}
+    public record MerchantShopSummary(Long shopId,String shopName,ShopStatus status,String slug,UUID ownerId,String logoUrl){}
     public record MerchantSettingsResponse(
         Long shopId, ShopStatus status, boolean canOperate,
         String shopName, String shopNameEn, String description, String category,

@@ -72,9 +72,10 @@ public class ProductShareController {
                 .append("<meta name=\"twitter:card\" content=\"summary_large_image\">")
                 .append("<meta name=\"twitter:image\" content=\"").append(esc(image)).append("\">");
         }
-        html.append("<meta http-equiv=\"refresh\" content=\"0;url=").append(esc(target)).append("\">")
-            .append("<link rel=\"canonical\" href=\"").append(esc(target)).append("\">")
-            .append("</head><body><p><a href=\"").append(esc(target)).append("\">").append(esc(title)).append("</a></p></body></html>");
+        html.append("<link rel=\"canonical\" href=\"").append(esc(shareUrl)).append("\">")
+            .append("</head><body><script>window.location.replace(").append(jsString(target)).append(");</script>")
+            .append("<noscript><meta http-equiv=\"refresh\" content=\"0;url=").append(esc(target)).append("\"></noscript>")
+            .append("<p><a href=\"").append(esc(target)).append("\">").append(esc(title)).append("</a></p></body></html>");
         return ResponseEntity.status(status)
             .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
             .contentType(new MediaType("text", "html", StandardCharsets.UTF_8))
@@ -110,5 +111,16 @@ public class ProductShareController {
 
     private static String esc(String value) {
         return value == null ? "" : HtmlUtils.htmlEscape(value, "UTF-8");
+    }
+
+    private static String jsString(String value) {
+        if (value == null) return "\"\"";
+        return "\"" + value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("&", "\\u0026")
+            + "\"";
     }
 }

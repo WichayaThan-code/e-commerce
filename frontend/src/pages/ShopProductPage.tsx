@@ -4,7 +4,7 @@ import { Skeleton, SkeletonText } from "../components/feedback/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { useDocumentMeta } from "../hooks/useDocumentMeta";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, QrCode, ShoppingCart, Store, Truck, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Facebook, Link2, Minus, Plus, QrCode, ShoppingCart, Store, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { loginPathForCart, useCart } from "../contexts/CartContext";
 import { cartErrorMessage, isOwnShop } from "../components/cart/cartFormat";
@@ -26,6 +26,7 @@ import {
 } from "../services/api";
 import { shopCategoryPath, shopPath, shopProductPath } from "../services/shopRoutes";
 import NotFoundPage from "./NotFoundPage";
+import ProductDescriptionHtml, { productDescriptionPlainText } from "../components/merchant/ProductDescriptionHtml";
 import ProductConfiguratorPanel from "../components/shop/ProductConfiguratorPanel";
 import ProductImagePreview, { buildProductPreviewItems } from "../components/shop/ProductImagePreview";
 import ProductQrModal from "../components/shop/ProductQrModal";
@@ -385,7 +386,10 @@ export default function ShopProductPage() {
     : "";
   const shopName = lang === "en" && shop.nameEn ? shop.nameEn : shop.name;
   useShopCrumb(name || null);
-  useDocumentMeta({ title: name ? `${name} · ${shopName}` : null, description: description || null });
+  useDocumentMeta({
+    title: name ? `${name} · ${shopName}` : null,
+    description: description ? productDescriptionPlainText(description) || null : null,
+  });
   const stats = [
     productTotal != null ? [tp("shop.view.productCount"), String(productTotal)] : null,
     shop.category ? [tp("shop.view.category"), shop.category] : null,
@@ -510,7 +514,6 @@ export default function ShopProductPage() {
                 {discount > 0 && compare != null ? <><s className="num">{money(compare, localeTag)}</s><em className="num">{tp("shop.view.discount", { percent: discount })}</em></> : null}
               </div>
               <dl>
-                <div><dt>{tp("shop.view.shipping")}</dt><dd><Truck aria-hidden="true" />{tp("shop.view.shippingNote")}</dd></div>
                 {groups.map((group) => (
                   <div key={group.key}>
                     <dt>{group.label}</dt>
@@ -589,7 +592,12 @@ export default function ShopProductPage() {
           </section>
           <section className="buyer-card buyer-detail">
             <div className="buyer-detail-desc">
-              {description ? <><h2>{tp("shop.view.details")}</h2><p>{description}</p></> : null}
+              {description ? (
+                <>
+                  <h2>{tp("shop.view.details")}</h2>
+                  <ProductDescriptionHtml value={description} className="buyer-detail-rich" />
+                </>
+              ) : null}
             </div>
             <div className="buyer-detail-specs">
               <h2>{tp("shop.view.specs")}</h2>

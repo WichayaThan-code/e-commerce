@@ -81,3 +81,62 @@ export function rememberDocumentName(userId: string | null | undefined, type: "I
   const draft = readMerchantDraft(userId);
   writeMerchantDraft(userId, { ...draft, documentNames: { ...draft.documentNames, [type]: name } });
 }
+
+/** Map a returning merchant's owner profile into the local owner draft (personal + payout). */
+export function ownerDraftFromProfile(owner: {
+  ownerType?: string | null;
+  title?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  citizenId?: string | null;
+  birthDate?: string | null;
+  nationality?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  houseNo?: string | null;
+  villageNo?: string | null;
+  building?: string | null;
+  alley?: string | null;
+  road?: string | null;
+  province?: string | null;
+  district?: string | null;
+  subdistrict?: string | null;
+  postalCode?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  bankAccountName?: string | null;
+}): OwnerDraft {
+  const digits = (value: string | null | undefined, max = 20) => (value || "").replace(/\D/g, "").slice(0, max);
+  const citizen = digits(owner.citizenId, 13);
+  const citizenFmt = citizen.length === 13
+    ? `${citizen.slice(0, 1)}-${citizen.slice(1, 5)}-${citizen.slice(5, 10)}-${citizen.slice(10, 12)}-${citizen.slice(12)}`
+    : citizen;
+  const phoneDigits = digits(owner.phone, 10);
+  const phoneFmt = phoneDigits.length === 10
+    ? `${phoneDigits.slice(0, 3)}-${phoneDigits.slice(3, 6)}-${phoneDigits.slice(6)}`
+    : phoneDigits;
+  return {
+    ownerType: owner.ownerType === "COMPANY" || owner.ownerType === "company" ? "company" : "person",
+    title: (owner.title || "").trim(),
+    firstName: (owner.firstName || "").trim(),
+    lastName: (owner.lastName || "").trim(),
+    citizenId: citizenFmt,
+    birthDate: (owner.birthDate || "").slice(0, 10),
+    nationality: (owner.nationality || "ไทย").trim() || "ไทย",
+    phone: phoneFmt,
+    email: (owner.email || "").trim(),
+    houseNo: (owner.houseNo || "").trim(),
+    villageNo: (owner.villageNo || "").trim(),
+    building: (owner.building || "").trim(),
+    alley: (owner.alley || "").trim(),
+    road: (owner.road || "").trim(),
+    province: (owner.province || "").trim(),
+    district: (owner.district || "").trim(),
+    subdistrict: (owner.subdistrict || "").trim(),
+    postalCode: (owner.postalCode || "").trim(),
+    sameAddress: false,
+    bankName: (owner.bankName || "").trim(),
+    bankAccountNumber: digits(owner.bankAccountNumber, 20),
+    bankAccountName: (owner.bankAccountName || "").trim(),
+  };
+}

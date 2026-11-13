@@ -122,6 +122,9 @@ public final class CatalogDtos {
 
     public record ImageOrderRequest(List<UUID> imageIds, UUID primaryImageId) {}
 
+    /** Uploaded inline image for product description rich text. */
+    public record DescriptionImageUpload(UUID id, String url) {}
+
     public record StockAdjustRequest(String entryType, int quantityDelta, String reason, int version, String idempotencyKey) {}
 
     /** page is 0-based; totalPages is derived from total/size so clients don't have to compute it. */
@@ -264,15 +267,27 @@ public final class CatalogDtos {
         List<OptionGroupResponse> optionGroups,
         List<OptionGroup> optionSchema,
         Long soldCount,
-        Instant createdAt
+        Instant createdAt,
+        BigDecimal rating,
+        Long reviewCount
     ) {
+        /** Arity before rating/reviewCount; those stay null. */
+        public PublicProductResponse(UUID id, String slug, String nameTh, String nameEn, String nameZh, String descriptionTh,
+                                     String descriptionEn, String descriptionZh, Long categoryId, String brand, BigDecimal basePrice,
+                                     BigDecimal compareAtPrice, String currency, List<PublicSkuResponse> skus, List<ImageResponse> images,
+                                     List<OptionGroupResponse> optionGroups, List<OptionGroup> optionSchema, Long soldCount,
+                                     Instant createdAt) {
+            this(id, slug, nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId, brand, basePrice,
+                compareAtPrice, currency, skus, images, optionGroups, optionSchema, soldCount, createdAt, null, null);
+        }
+
         /** Arity before createdAt existed; createdAt stays null. */
         public PublicProductResponse(UUID id, String slug, String nameTh, String nameEn, String nameZh, String descriptionTh,
                                      String descriptionEn, String descriptionZh, Long categoryId, String brand, BigDecimal basePrice,
                                      BigDecimal compareAtPrice, String currency, List<PublicSkuResponse> skus, List<ImageResponse> images,
                                      List<OptionGroupResponse> optionGroups, List<OptionGroup> optionSchema, Long soldCount) {
             this(id, slug, nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId, brand, basePrice,
-                compareAtPrice, currency, skus, images, optionGroups, optionSchema, soldCount, null);
+                compareAtPrice, currency, skus, images, optionGroups, optionSchema, soldCount, null, null, null);
         }
 
         /** Arity used before soldCount existed; soldCount stays null (not computed for this view). */
@@ -281,17 +296,22 @@ public final class CatalogDtos {
                                      BigDecimal compareAtPrice, String currency, List<PublicSkuResponse> skus, List<ImageResponse> images,
                                      List<OptionGroupResponse> optionGroups, List<OptionGroup> optionSchema) {
             this(id, slug, nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId, brand, basePrice,
-                compareAtPrice, currency, skus, images, optionGroups, optionSchema, null, null);
+                compareAtPrice, currency, skus, images, optionGroups, optionSchema, null, null, null, null);
         }
 
         public PublicProductResponse withCreatedAt(Instant at) {
             return new PublicProductResponse(id, slug, nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId,
-                brand, basePrice, compareAtPrice, currency, skus, images, optionGroups, optionSchema, soldCount, at);
+                brand, basePrice, compareAtPrice, currency, skus, images, optionGroups, optionSchema, soldCount, at, rating, reviewCount);
         }
 
         public PublicProductResponse withSoldCount(long sold) {
             return new PublicProductResponse(id, slug, nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId,
-                brand, basePrice, compareAtPrice, currency, skus, images, optionGroups, optionSchema, sold, createdAt);
+                brand, basePrice, compareAtPrice, currency, skus, images, optionGroups, optionSchema, sold, createdAt, rating, reviewCount);
+        }
+
+        public PublicProductResponse withReviewStats(BigDecimal avg, Long count) {
+            return new PublicProductResponse(id, slug, nameTh, nameEn, nameZh, descriptionTh, descriptionEn, descriptionZh, categoryId,
+                brand, basePrice, compareAtPrice, currency, skus, images, optionGroups, optionSchema, soldCount, createdAt, avg, count);
         }
     }
 

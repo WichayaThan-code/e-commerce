@@ -2,6 +2,7 @@ package com.thaishopfun.translation;
 
 import com.thaishopfun.catalog.CatalogDtos;
 import com.thaishopfun.catalog.Product;
+import com.thaishopfun.catalog.ProductDescriptionHtml;
 import com.thaishopfun.merchant.ProductCategory;
 import com.thaishopfun.merchant.Shop;
 import org.slf4j.Logger;
@@ -26,14 +27,17 @@ public class ContentTranslationBridge {
      * Product name/description are never machine-translated on save (no provider call, no PENDING job).
      * English/Chinese come from the merchant's own optional input; a blank field stores the Thai text as a
      * MANUAL translation so the storefront shows Thai and nothing later re-queues or overwrites it.
+     * The description is rich HTML: its source key is the plain text (same as {@link EntityThaiSourceRegistry}),
+     * while the Thai fallback keeps the HTML so formatting still renders.
      */
     public void onProductSaved(Product product, CatalogDtos.ProductWriteRequest request) {
         if (product == null || product.getId() == null) return;
         try {
             var entityId = product.getId().toString();
-            storeManualOrThai(entityId, "name", product.getNameTh(),
+            storeManualOrThai(entityId, "name", product.getNameTh(), product.getNameTh(),
                 request == null ? null : request.nameEn(), request == null ? null : request.nameZh());
-            storeManualOrThai(entityId, "description", product.getDescriptionTh(),
+            storeManualOrThai(entityId, "description",
+                ProductDescriptionHtml.plainText(product.getDescriptionTh()), product.getDescriptionTh(),
                 request == null ? null : request.descriptionEn(), request == null ? null : request.descriptionZh());
             queueOptions(product, entityId);
         } catch (Exception exception) {
@@ -41,14 +45,15 @@ public class ContentTranslationBridge {
         }
     }
 
-    private void storeManualOrThai(String entityId, String field, String thai, String english, String chinese) {
-        var source = TranslationTextSupport.blankToNull(thai);
+    private void storeManualOrThai(String entityId, String field, String sourceText, String thai, String english, String chinese) {
+        var source = TranslationTextSupport.blankToNull(sourceText);
         if (source == null) {
             translations.clearField(TranslationEntityType.PRODUCT, entityId, field);
             return;
         }
-        translations.recordHuman(TranslationEntityType.PRODUCT, entityId, field, "en", source, orThai(english, source));
-        translations.recordHuman(TranslationEntityType.PRODUCT, entityId, field, "zh", source, orThai(chinese, source));
+        var fallback = TranslationTextSupport.blankToNull(thai) == null ? source : thai;
+        translations.recordHuman(TranslationEntityType.PRODUCT, entityId, field, "en", source, orThai(english, fallback));
+        translations.recordHuman(TranslationEntityType.PRODUCT, entityId, field, "zh", source, orThai(chinese, fallback));
     }
 
     private static String orThai(String value, String thai) {

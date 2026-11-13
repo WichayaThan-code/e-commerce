@@ -80,7 +80,8 @@ function primaryAction(order: OrderSummary, tp: (key: string, o?: Record<string,
       ? tp("orders.list.actionCod")
       : tp("orders.list.actionPay");
   }
-  if (order.status === "DISPATCHED" || order.status === "DELIVERED") return tp("orders.list.actionTrack");
+  if (order.status === "DELIVERED") return tp("orders.list.actionConfirmReceived");
+  if (order.status === "DISPATCHED") return tp("orders.list.actionTrack");
   if (order.status === "COMPLETED") return tp("orders.list.actionBuyAgain");
   return tp("orders.viewDetail");
 }
@@ -114,6 +115,7 @@ export default function MyOrdersPage() {
   const [reload, setReload] = useState(0);
   const [searchDraft, setSearchDraft] = useState(params.get("q") ?? "");
   const [buyingAgainId, setBuyingAgainId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [listNotice, setListNotice] = useState("");
   const debouncedDraft = useDebouncedValue(searchDraft, SEARCH_DEBOUNCE_MS);
@@ -189,6 +191,22 @@ export default function MyOrdersPage() {
       window.setTimeout(() => setListNotice(""), 2800);
     } finally {
       setBuyingAgainId(null);
+    }
+  };
+
+  const onConfirmReceived = async (orderId: string) => {
+    if (confirmingId || cart.access !== "buyer") return;
+    if (!window.confirm(tp("orders.confirmReceivedAsk"))) return;
+    setConfirmingId(orderId);
+    setListNotice("");
+    try {
+      await buyerOrderApi.confirmReceived(orderId);
+      setReload((n) => n + 1);
+    } catch {
+      setListNotice(tp("orders.loadError"));
+      window.setTimeout(() => setListNotice(""), 2800);
+    } finally {
+      setConfirmingId(null);
     }
   };
 
@@ -563,9 +581,11 @@ export default function MyOrdersPage() {
                               ? bankTransferPayHint(order.placedAt, tp, localeTag)
                               : order.status === "DISPATCHED"
                                 ? tp("orders.list.hintShip")
-                                : order.status === "COMPLETED"
-                                  ? tp("orders.list.hintBuyAgain")
-                                  : tp("orders.list.hintDetail")}
+                                : order.status === "DELIVERED"
+                                  ? tp("orders.list.hintDelivered")
+                                  : order.status === "COMPLETED"
+                                    ? tp("orders.list.hintBuyAgain")
+                                    : tp("orders.list.hintDetail")}
                           </span>
                           <div className="orders-card-actions">
                             {order.status === "COMPLETED" ? (
@@ -584,6 +604,20 @@ export default function MyOrdersPage() {
                                   onClick={() => void onBuyAgain(order.id)}
                                 >
                                   {buyingAgainId === order.id ? tp("orders.detail.buyAgainBusy") : cta}
+                                </button>
+                              </>
+                            ) : order.status === "DELIVERED" ? (
+                              <>
+                                <Link className="orders-card-cta is-secondary" to={`/account/orders/${order.id}`}>
+                                  {tp("orders.list.actionTrack")}
+                                </Link>
+                                <button
+                                  type="button"
+                                  className="orders-card-cta"
+                                  disabled={confirmingId === order.id || cart.access !== "buyer"}
+                                  onClick={() => void onConfirmReceived(order.id)}
+                                >
+                                  {confirmingId === order.id ? tp("orders.list.confirmReceivedBusy") : cta}
                                 </button>
                               </>
                             ) : (

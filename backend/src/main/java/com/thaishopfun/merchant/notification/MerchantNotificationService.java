@@ -339,7 +339,8 @@ public class MerchantNotificationService {
                       JOIN product_skus s ON s.id = l.sku_id
                       JOIN products p ON p.id = s.product_id
                      WHERE l.shop_id = :shopId
-                       AND l.available <= COALESCE(l.low_stock_threshold, 5)
+                       AND l.available > 0
+                       AND l.available < COALESCE(l.low_stock_threshold, NULLIF(l.safety_stock, 0), 5)
                        AND l.modified_date_time >= :since
                     """);
             }

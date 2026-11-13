@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 import ToggleSwitch from "../form/ToggleSwitch";
+import ProductDescriptionEditor from "./ProductDescriptionEditor";
+import { productDescriptionPlainText } from "./ProductDescriptionHtml";
 
 type Locale = "en" | "zh";
 type FieldKey = "name" | "description";
@@ -12,6 +14,7 @@ export type TranslationDraftPatch = {
 };
 
 type Props = {
+  shopId: number;
   manual: boolean;
   onManualChange: (manual: boolean) => void;
   nameTh: string;
@@ -37,6 +40,7 @@ function draftKey(locale: Locale, field: FieldKey): keyof TranslationDraftPatch 
  * is saved with the Thai text as its English/Chinese value.
  */
 export default function ProductTranslationPanel({
+  shopId,
   manual,
   onManualChange,
   nameTh,
@@ -74,18 +78,29 @@ export default function ProductTranslationPanel({
             </h4>
             {FIELDS.map((field) => {
               const key = draftKey(locale, field);
-              const thai = (field === "name" ? nameTh : descriptionTh).trim();
+              const thai = (field === "name" ? nameTh : productDescriptionPlainText(descriptionTh)).trim();
               const placeholder = thai
                 ? t("catalog.form.manualTranslationPh", { text: thai.length > 60 ? `${thai.slice(0, 60)}…` : thai })
                 : t("catalog.form.manualTranslationBlankPh");
+              if (field === "description") {
+                // Rich text like the Thai description (HTML); blank still falls back to the Thai text on save.
+                return (
+                  <div className="pm-translation-field pm-desc-field" key={key}>
+                    <span className="pm-lang-label">{t("catalog.form.description")}</span>
+                    <ProductDescriptionEditor
+                      shopId={shopId}
+                      compact
+                      value={values[key]}
+                      placeholder={placeholder}
+                      onChange={(html) => onChange({ [key]: html })}
+                    />
+                  </div>
+                );
+              }
               return (
                 <label className="pm-translation-field" key={key}>
-                  <span className="pm-lang-label">{t(field === "name" ? "catalog.form.name" : "catalog.form.description")}</span>
-                  {field === "name" ? (
-                    <input value={values[key]} placeholder={placeholder} onChange={(event) => onChange({ [key]: event.target.value })} />
-                  ) : (
-                    <textarea value={values[key]} placeholder={placeholder} onChange={(event) => onChange({ [key]: event.target.value })} />
-                  )}
+                  <span className="pm-lang-label">{t("catalog.form.name")}</span>
+                  <input value={values[key]} placeholder={placeholder} onChange={(event) => onChange({ [key]: event.target.value })} />
                 </label>
               );
             })}

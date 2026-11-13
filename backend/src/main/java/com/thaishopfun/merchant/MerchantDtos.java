@@ -95,9 +95,17 @@ public final class MerchantDtos {
     ){}
     /** Shop-name availability for the register step (same rule as saveShop/submit). */
     public record ShopNameCheckResponse(boolean available){}
+    /**
+     * Owner profile for the authenticated user. Includes decrypted citizen/bank so a returning merchant
+     * can open another shop without retyping personal + payout details.
+     */
     public record MerchantOwnerResponse(
         UUID id, OwnerType ownerType, String title, String firstName, String lastName,
-        String citizenIdMasked, String phone, String email, String sensitiveReview
+        String citizenIdMasked, String phone, String email, String sensitiveReview,
+        String citizenId, java.time.LocalDate birthDate, String nationality,
+        String houseNo, String villageNo, String building, String alley, String road,
+        String province, String district, String subdistrict, String postalCode,
+        String bankName, String bankAccountNumber, String bankAccountName
     ){}
     public record OwnerShopRef(Long shopId, String shopName, ShopStatus status){}
     public record PublicShopResponse(

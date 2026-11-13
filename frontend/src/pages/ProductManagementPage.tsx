@@ -40,7 +40,13 @@ function stockBadge(product: Product) {
   const rows = product.skus.filter((sku) => sku.active);
   const available = rows.reduce((sum, sku) => sum + sku.available, 0);
   if (available <= 0) return "out" as const;
-  if (rows.some((sku) => sku.lowStockThreshold != null && sku.available > 0 && sku.available <= sku.lowStockThreshold)) return "low" as const;
+  if (rows.some((sku) => {
+    if (sku.available <= 0) return false;
+    const threshold = sku.lowStockThreshold != null
+      ? Number(sku.lowStockThreshold)
+      : (sku.safetyStock != null && Number(sku.safetyStock) > 0 ? Number(sku.safetyStock) : 5);
+    return sku.available < threshold;
+  })) return "low" as const;
   return "in" as const;
 }
 

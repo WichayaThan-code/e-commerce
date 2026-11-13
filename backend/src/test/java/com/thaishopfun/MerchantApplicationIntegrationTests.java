@@ -281,7 +281,9 @@ class MerchantApplicationIntegrationTests {
         String ownerId = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].id");
 
         saveShop(token, "ร้านเลือกเจ้าของสอง", "Pick Shop Two").andExpect(status().isOk());
-        saveLinkedOwner(token, "SCB", "9876543210", "x").andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("OWNER_REQUIRED"));
+        // a returning merchant's new draft is linked to their first owner profile up front (ensureOwnerPrefill)
+        mvc.perform(get("/api/merchant-applications/draft").header("Authorization", "Bearer " + token))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.ownerId").value(ownerId));
         upload(token, "PORTRAIT", "portrait-new.png");
         var beforePick = mvc.perform(get("/api/merchant-applications/draft").header("Authorization", "Bearer " + token)).andExpect(status().isOk()).andReturn();
         java.util.List<String> ownPortrait = JsonPath.read(beforePick.getResponse().getContentAsString(), "$.documents[?(@.type == 'PORTRAIT')].id");

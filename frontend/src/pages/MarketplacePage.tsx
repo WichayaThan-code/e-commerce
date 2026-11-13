@@ -29,7 +29,17 @@ import {
   Truck,
 } from "lucide-react";
 // FUTURE: ดีลพิเศษ — คืน import { Gift } เมื่อเปิดทางลัด member
-import { buildMarketplaceCategoryTiles } from "../components/marketplace/categoryTiles";
+import {
+  buildMarketplaceCategoryTiles,
+  findCategoryIdByHints,
+} from "../components/marketplace/categoryTiles";
+
+/** Home promo cards → Best Seller category filters (name hints). */
+const PROMO_BEST_SELLER_HINTS = {
+  thaiCrafts: ["สินค้าและงานฝีมือไทย", "งานฝีมือ", "thai craft"],
+  electronics: ["มือถือและอิเล็กทรอนิกส์", "อิเล็กทรอนิกส์", "electronics"],
+  beauty: ["ความงามและสุขภาพ", "ความงาม", "beauty"],
+} as const;
 
 const benefitIcons = [Truck, ShieldCheck, Store, PackageCheck, Headphones];
 const HOME_PRODUCT_COUNT = 6;
@@ -115,6 +125,15 @@ export default function MarketplacePage() {
       .then((rows) => setFavorites(new Set(rows.map((row) => row.productId))))
       .catch(() => setFavorites(new Set()));
   }, [user]);
+
+  const goBestSellerCategory = (hints: readonly string[]) => {
+    const id = findCategoryIdByHints(categories, [...hints]);
+    if (id != null) {
+      navigate(`/best-sellers?category=${id}`);
+      return;
+    }
+    navigate(`/best-sellers?categoryName=${encodeURIComponent(hints[0])}`);
+  };
 
   const categoryButtons = useMemo(
     () => buildMarketplaceCategoryTiles(categories, fallbackCategories, localeTag),
@@ -286,7 +305,7 @@ export default function MarketplacePage() {
                   </span>
                 ))}
             </p>
-            <button onClick={() => navigate("/best-sellers")}>
+            <button type="button" onClick={() => goBestSellerCategory(PROMO_BEST_SELLER_HINTS.thaiCrafts)}>
               {tp("home.promoThaiBtn")} <ArrowRight />
             </button>
           </div>
@@ -307,7 +326,7 @@ export default function MarketplacePage() {
                 ))}
             </h3>
             <p>{tp("home.promoGadgetText")}</p>
-            <button onClick={() => navigate("/best-sellers")}>
+            <button type="button" onClick={() => goBestSellerCategory(PROMO_BEST_SELLER_HINTS.electronics)}>
               {tp("home.shopNow")} <ArrowRight />
             </button>
           </div>
@@ -337,7 +356,7 @@ export default function MarketplacePage() {
                   </span>
                 ))}
             </p>
-            <button onClick={() => navigate("/recommendations")}>
+            <button type="button" onClick={() => goBestSellerCategory(PROMO_BEST_SELLER_HINTS.beauty)}>
               {tp("home.shopNow")} <ArrowRight />
             </button>
           </div>

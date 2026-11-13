@@ -7,13 +7,15 @@ import { CartProvider } from "../contexts/CartContext";
 
 export default function PublicLayout() {
   const { user } = useAuth();
-  // Shop storefront pages (/shop/:slug and below) carry their own store chrome, so the site footer is hidden there.
-  const shopPage = useMatch("/shop/:slug/*");
+  // Shop storefront pages (/shop/:slug and below) use their own chrome — hide marketplace header + footer.
+  const shopExact = useMatch("/shop/:slug");
+  const shopNested = useMatch("/shop/:slug/*");
+  const shopPage = Boolean(shopNested ?? shopExact);
 
   return (
     <CartProvider>
       <div className={`app ${user ? "member-home" : ""}`}>
-        <Header />
+        {shopPage ? null : <Header />}
         <main>
           <Outlet />
         </main>

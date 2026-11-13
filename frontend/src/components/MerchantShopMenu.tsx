@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { ApiError, mediaUrl, merchantApi, type StoreAccess } from "../services/api";
-import { writeMerchantDraft } from "../services/merchantDraft";
+import { ownerDraftFromProfile, writeMerchantDraft } from "../services/merchantDraft";
 import { useMerchantSignOut } from "./merchant/MerchantLogoutButton";
 import "../styles/product-management.css";
 
@@ -43,13 +43,19 @@ export default function MerchantShopMenu() {
   }, [open]);
 
   const addShop = async () => {
-    const ownerId = current?.ownerId;
-    if (!ownerId || busy) return;
+    if (busy) return;
     setBusy(true);
     try {
-      await merchantApi.openAnotherShop(ownerId);
+      const owners = await merchantApi.owners();
+      const ownerId = current?.ownerId || owners[0]?.id;
+      if (!ownerId) throw new ApiError("OWNER_REQUIRED", "ไม่พบข้อมูลเจ้าของร้านสำหรับเปิดร้านใหม่", 400);
+      const application = await merchantApi.openAnotherShop(ownerId);
+      const profile = owners.find((row) => row.id === ownerId) || owners[0];
       // New draft linked to this owner; the owner step prefills from it and no step is skipped.
-      writeMerchantDraft(user?.id, { ownerId });
+      writeMerchantDraft(user?.id, {
+        ownerId: application.ownerId || ownerId,
+        owner: profile ? ownerDraftFromProfile(profile) : undefined,
+      });
       window.location.assign("/merchant/register");
     } catch (error) {
       setBusy(false);
@@ -110,7 +116,7 @@ export default function MerchantShopMenu() {
               <small>{STATUS_LABEL[shop.status]}</small>
             </button>
           ))}
-          <button type="button" className="add" disabled={busy || !current?.ownerId} onClick={() => void addShop()}>
+          <button type="button" className="add" disabled={busy} onClick={() => void addShop()}>
             <Plus />
             {busy ? "กำลังเตรียมร้านใหม่..." : "เพิ่มร้านค้า"}
           </button>

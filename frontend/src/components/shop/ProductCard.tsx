@@ -9,6 +9,7 @@ import { usePublicTranslation } from "../../hooks/usePublicTranslation";
 import { mediaUrl, type PublicProduct, type PublicShop } from "../../services/api";
 import { localizedText } from "../../services/catalogText";
 import { useOptionalShopPublic } from "../../contexts/ShopPublicContext";
+import { productDescriptionPlainText } from "../merchant/ProductDescriptionHtml";
 import { TsfProductCard } from "./general/GeneralStorefront";
 import "../../styles/product-card.css";
 
@@ -72,7 +73,9 @@ function LegacyProductCard({
   const primary = sortedImages[0];
   const secondary = sortedImages[1];
   const name = localizedText(localeTag, product.nameTh, product.nameEn, product.nameZh);
-  const description = localizedText(localeTag, product.descriptionTh, product.descriptionEn, product.descriptionZh);
+  const description = productDescriptionPlainText(
+    localizedText(localeTag, product.descriptionTh, product.descriptionEn, product.descriptionZh),
+  );
   const price = amount(product.basePrice ?? product.skus[0]?.price);
   const compare = amount(product.compareAtPrice ?? product.skus[0]?.compareAtPrice);
   const discount = price != null && compare != null && compare > price ? Math.round((1 - price / compare) * 100) : null;
@@ -167,6 +170,9 @@ function LegacyProductCard({
     </>
   );
 
+  const shopName = localizedText(localeTag, shop.name, shop.nameEn, shop.nameZh) || shop.name;
+  const reviews = product.reviewCount != null && Number(product.reviewCount) > 0 ? Number(product.reviewCount) : null;
+
   if (menu) {
     return (
       <article className={classes}>
@@ -175,6 +181,7 @@ function LegacyProductCard({
           {primary ? <img className="shop-photo-primary" src={mediaUrl(primary.url)} alt="" draggable={false} /> : null}
         </div>
         <div className="recommend-product-info">
+          {shopName ? <p className="shop-card-shop">{shopName}</p> : null}
           <h2><span>{name}</span></h2>
           {description ? <p className="shop-menu-desc">{description}</p> : null}
           <div className="shop-menu-foot">
@@ -217,6 +224,7 @@ function LegacyProductCard({
         <span className="pcard-rating shop-rating-badge">
           <Star />
           <b className="num">{rating.toFixed(1)}</b>
+          {reviews != null ? <span className="pcard-reviews">({reviews.toLocaleString(localeTag)})</span> : null}
         </span>
       ) : null}
       {rating != null && sold != null ? <span className="pcard-sep" aria-hidden="true">·</span> : null}
@@ -231,6 +239,7 @@ function LegacyProductCard({
       <Link className="shop-card-hit" to={href} aria-label={name} tabIndex={0} />
       {photo}
       <div className="recommend-product-info">
+        {shopName ? <p className="shop-card-shop">{shopName}</p> : null}
         {title}
         {priceRow}
         {meta}

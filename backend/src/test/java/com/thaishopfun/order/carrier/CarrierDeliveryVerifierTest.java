@@ -89,6 +89,16 @@ class CarrierDeliveryVerifierTest {
             OrderActor.admin(UUID.randomUUID()), null));
     }
 
+    @Test
+    void allowsManualConfirmWhenCarrierHasNoPollProvider() {
+        var shipment = shipment("SPX", "TH261461497767E", ShipmentStatus.DISPATCHED);
+        when(events.existsCarrierDeliveredConfirmation(shipment.getId())).thenReturn(false);
+        when(registry.find("SPX")).thenReturn(Optional.empty());
+
+        assertDoesNotThrow(() -> verifier(true).requireDelivered(shipment,
+            OrderActor.merchant(UUID.randomUUID(), UUID.randomUUID()), null));
+    }
+
     private static ShipmentService.CarrierUpdate update(String tracking, String status) {
         return new ShipmentService.CarrierUpdate("e-" + status, tracking, status, status, status, null, Instant.now(), new LinkedHashMap<>());
     }

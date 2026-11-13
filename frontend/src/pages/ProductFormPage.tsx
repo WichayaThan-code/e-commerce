@@ -12,6 +12,7 @@ import MerchantShell from "../components/merchant/MerchantShell";
 import ProductImagesField, { type LocalImage } from "../components/merchant/ProductImagesField";
 import VariantEditor from "../components/merchant/VariantEditor";
 import ProductConfiguratorEditor from "../components/merchant/ProductConfiguratorEditor";
+import ProductDescriptionEditor from "../components/merchant/ProductDescriptionEditor";
 import ProductTranslationPanel from "../components/merchant/ProductTranslationPanel";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { labelForCategory } from "../services/categories";
@@ -23,6 +24,7 @@ import {
   type OptionGroupDraft, type ProductDraft,
 } from "./productFormModel";
 import "../styles/form-fields.css";
+import "../styles/product-management.css";
 
 const FOCUSABLE = "input:not([type=hidden]):not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled])";
 
@@ -351,16 +353,18 @@ export default function ProductFormPage() {
               />
               <FieldError text={fieldError("nameTh")} />
             </label>
-            <label>
+            <div className="pm-desc-field">
               <span className="pm-lang-label">{t("catalog.form.description")}</span>
-              <textarea
+              <ProductDescriptionEditor
+                shopId={shopId}
                 value={draft.descriptionTh}
-                onChange={(event) => setDraft({ ...draft, descriptionTh: event.target.value })}
+                onChange={(html) => setDraft({ ...draft, descriptionTh: html })}
                 placeholder={t("catalog.form.descriptionPh")}
               />
-            </label>
+            </div>
           </div>
           <ProductTranslationPanel
+            shopId={shopId}
             manual={manualTranslation}
             onManualChange={setManualTranslation}
             nameTh={draft.nameTh}

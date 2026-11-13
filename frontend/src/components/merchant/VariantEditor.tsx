@@ -395,6 +395,8 @@ export default function VariantEditor({
                 >
                   <input
                     value={draftLabels[value.key] ?? value.label}
+                    size={Math.max((draftLabels[value.key] ?? value.label).length, 1)}
+                    title={draftLabels[value.key] ?? value.label}
                     aria-invalid={Boolean(optionError(groupIndex, `values[${valueIndex}].value`))}
                     aria-label={value.label}
                     onChange={(event) => setDraftLabels((current) => ({ ...current, [value.key]: event.target.value }))}

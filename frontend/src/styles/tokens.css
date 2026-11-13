@@ -40,6 +40,71 @@ code {
   box-shadow: var(--focus-ring);
 }
 
+/*
+  Nested search fields: the outer chrome owns border + focus.
+  Kill the global :focus-visible ring on the inner <input> (double-box / black rectangle).
+*/
+:is(
+  .search,
+  .shop-chrome-search,
+  .shop-brand-search,
+  .tsf-search-pill,
+  .pm-search,
+  .om-search,
+  .orders-search,
+  .shipping-search,
+  .adm-search,
+  .ap-search,
+  .help-banner-search,
+  .help-subsearch,
+  .help-hero > form,
+  .brand-search,
+  .recommend-top > form,
+  .merchant-topbar form,
+  .cart-top > form,
+  .recommend-page .recommend-top > form
+) input:is(:focus, :focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+:is(
+  .search,
+  .shop-chrome-search,
+  .shop-brand-search,
+  .tsf-search-pill,
+  .pm-search,
+  .om-search,
+  .orders-search,
+  .shipping-search,
+  .adm-search,
+  .ap-search,
+  .help-banner-search,
+  .help-subsearch,
+  .help-hero > form,
+  .brand-search,
+  .recommend-top > form,
+  .merchant-topbar form,
+  .cart-top > form
+) input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Wrapper focus for search chrome that did not already define :focus-within */
+.search:focus-within,
+.shop-chrome-search:focus-within,
+.shop-brand-search:focus-within,
+.tsf-search-pill:focus-within,
+.brand-search:focus-within,
+.shipping-search:focus-within,
+.recommend-top > form:focus-within,
+.merchant-topbar form:focus-within,
+.cart-top > form:focus-within {
+  box-shadow: var(--focus-ring);
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

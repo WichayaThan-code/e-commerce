@@ -10,7 +10,8 @@ import type { PublicShopCategory } from "../../../services/api";
 import { isFilterOn, isFilterShown } from "./filterAvailability";
 import ProductGrid, { productGridClass } from "./ProductGrid";
 import { resolveVariant, sectionRootClass } from "./sectionClasses";
-import { parseShopSortKey, type ShopSectionProps } from "./types";
+import ShopSortSelect from "../ShopSortSelect";
+import { shopPageWindow, type ShopSectionProps } from "./types";
 
 const GRID_COLS = 8;
 const BRAND_PREVIEW = 5;
@@ -384,18 +385,7 @@ export default function CatalogSection({ shop, section, products, catalog, previ
               /^\d+$/.test(part) ? <span className="num" key={index}>{part}</span> : <span key={index}>{part}</span>
             ))}
           </p>
-          <label className="shop-sort-label">
-            <span className="visually-hidden">{tp("common.sortBy")}</span>
-            <select
-              value={catalog.sort}
-              onChange={(event) => catalog.onSort(parseShopSortKey(event.target.value))}
-              aria-label={tp("catalog.sortAria")}
-            >
-              <option value="featured">{tp("common.sortBy")}: {tp("catalog.sortFeatured")}</option>
-              <option value="price">{tp("common.sortBy")}: {tp("catalog.sortPrice")}</option>
-              <option value="price_desc">{tp("common.sortBy")}: {tp("shop.sortPriceHigh")}</option>
-            </select>
-          </label>
+          <ShopSortSelect value={catalog.sort} onChange={catalog.onSort} className="shop-sort-label" />
           {variant === "GRID" && (
             <div className="shop-view-toggle">
               <button className={catalog.grid ? "active" : ""} type="button" onClick={() => catalog.onGrid(true)} aria-label={tp("common.gridView")}>
@@ -464,15 +454,25 @@ export default function CatalogSection({ shop, section, products, catalog, previ
         {catalog.productState === "ok" && catalog.total > catalog.pageSize && (
           <nav className="shop-pagination" aria-label={tp("shop.productsPageAria")}>
             <button type="button" disabled={catalog.page <= 1} onClick={() => catalog.onPage(Math.max(1, catalog.page - 1))} aria-label={tp("shops.pagePrev")}>
-              <ChevronLeft />
+              <ChevronLeft size={18} />
             </button>
-            {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => (
-              <button type="button" className={`num ${catalog.page === number ? "current" : ""}`} key={number} onClick={() => catalog.onPage(number)}>
-                {number}
-              </button>
-            ))}
+            {shopPageWindow(catalog.page, pageCount).map((entry, index) =>
+              entry === "gap" ? (
+                <span key={`gap-${index}`} className="shop-pagination-gap" aria-hidden="true">…</span>
+              ) : (
+                <button
+                  type="button"
+                  className={`num ${catalog.page === entry ? "current" : ""}`}
+                  key={entry}
+                  aria-current={catalog.page === entry ? "page" : undefined}
+                  onClick={() => catalog.onPage(entry)}
+                >
+                  {entry}
+                </button>
+              ),
+            )}
             <button type="button" disabled={catalog.page >= pageCount} onClick={() => catalog.onPage(Math.min(pageCount, catalog.page + 1))} aria-label={tp("shops.pageNext")}>
-              <ChevronRight />
+              <ChevronRight size={18} />
             </button>
           </nav>
         )}

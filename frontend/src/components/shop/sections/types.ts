@@ -3,20 +3,37 @@ import type { LayoutBlock, SectionConfig, ThemeConfig } from "../../../theme/sho
 
 export type ProductLoadState = "loading" | "error" | "ok";
 
-/** คีย์ใน UI/URL: featured = ใหม่ล่าสุด, price = ราคาต่ำ→สูง (คงชื่อเดิม), price_desc = ราคาสูง→ต่ำ */
-export const SHOP_SORT_KEYS = ["featured", "price", "price_desc"] as const;
+/** UI/URL sort keys for shop catalog. */
+export const SHOP_SORT_KEYS = ["popular", "newest", "best", "price", "price_desc"] as const;
 export type ShopSortKey = (typeof SHOP_SORT_KEYS)[number];
 
-/** ค่าที่ไม่รู้จัก (รวมถึง "best" จากลิงก์เก่า) → "featured" ไม่ throw */
+/** Unknown / legacy values → popular. `featured` kept as alias of popular. */
 export function parseShopSortKey(value: string | null | undefined): ShopSortKey {
-  return (SHOP_SORT_KEYS as readonly string[]).includes(value ?? "") ? (value as ShopSortKey) : "featured";
+  if (value === "featured") return "popular";
+  return (SHOP_SORT_KEYS as readonly string[]).includes(value ?? "") ? (value as ShopSortKey) : "popular";
 }
 
-/** TODO(backend): เพิ่ม "best" → "best_selling" เมื่อ backend รองรับ */
 export function shopApiSort(sort: ShopSortKey): ProductSort {
   if (sort === "price") return "price_asc";
   if (sort === "price_desc") return "price_desc";
-  return "newest";
+  if (sort === "best") return "best_selling";
+  return "newest"; // popular | newest
+}
+
+/** Compact page list: 1-based page numbers + "gap" ellipsis. */
+export function shopPageWindow(current: number, total: number): Array<number | "gap"> {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const picks = new Set<number>([1, total, current]);
+  for (let i = current - 1; i <= current + 1; i++) {
+    if (i > 1 && i < total) picks.add(i);
+  }
+  const sorted = [...picks].sort((a, b) => a - b);
+  const out: Array<number | "gap"> = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i]! - sorted[i - 1]! > 1) out.push("gap");
+    out.push(sorted[i]!);
+  }
+  return out;
 }
 
 /** State + callbacks the catalog needs; owned by the page (live) or a preview wrapper. */
@@ -72,7 +89,7 @@ export function previewCatalogControls(overrides: Partial<ShopCatalogControls> =
     total: 0,
     page: 1,
     pageSize: 30,
-    sort: "featured",
+    sort: "popular",
     grid: true,
     priceBands: [],
     brandQuery: "",

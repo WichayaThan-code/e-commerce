@@ -98,6 +98,22 @@ public class InventoryLevel extends AuditedEntity {
     public int getAvailable() { return Math.max(0, onHand - reservedQty - safetyStock); }
     public Integer getLowStockThreshold() { return lowStockThreshold; }
 
+    /**
+     * Threshold for “ใกล้หมด” / LOW_STOCK: explicit low_stock_threshold, else Safety Stock when set, else 5.
+     * Merchants configure Safety Stock in the product form; low_stock_threshold is often null.
+     */
+    public int effectiveLowStockThreshold() {
+        if (lowStockThreshold != null) return lowStockThreshold;
+        if (safetyStock > 0) return safetyStock;
+        return 5;
+    }
+
+    /** Sellable units remain, strictly below {@link #effectiveLowStockThreshold()} (Safety Stock). */
+    public boolean isLowStock() {
+        int available = getAvailable();
+        return available > 0 && available < effectiveLowStockThreshold();
+    }
+
     private void refreshAvailable() {
         this.available = Math.max(0, onHand - reservedQty - safetyStock);
     }

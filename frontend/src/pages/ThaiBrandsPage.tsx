@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  ChevronLeft,
+  ChevronRight,
   Gift,
   Grid2X2,
   Heart,
@@ -48,7 +50,24 @@ const PRODUCT_TABS = [
   "ราคาพิเศษ",
 ] as const;
 
-const PAGE_SIZE = 48;
+/** Desktop grid is 5 columns → 4 rows = 20 items per page (same as recommendations). */
+const PAGE_SIZE = 20;
+
+/** Compact page list: 0-based indexes + "gap" ellipsis markers. */
+function pageWindow(current: number, total: number): Array<number | "gap"> {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i);
+  const picks = new Set<number>([0, total - 1, current]);
+  for (let i = current - 1; i <= current + 1; i++) {
+    if (i > 0 && i < total - 1) picks.add(i);
+  }
+  const sorted = [...picks].sort((a, b) => a - b);
+  const out: Array<number | "gap"> = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i]! - sorted[i - 1]! > 1) out.push("gap");
+    out.push(sorted[i]!);
+  }
+  return out;
+}
 
 function isOtopCategory(c: ProductCategory) {
   const en = (c.nameEn ?? "").toLowerCase();
@@ -56,7 +75,14 @@ function isOtopCategory(c: ProductCategory) {
 }
 function isCraftsCategory(c: ProductCategory) {
   const en = (c.nameEn ?? "").toLowerCase();
-  return en.includes("thai crafts") || c.nameTh.includes("งานฝีมือไทย");
+  const th = c.nameTh ?? "";
+  // API nameEn may be "Thai Products and Handicrafts" (not "Thai crafts").
+  return (
+    en.includes("thai crafts") ||
+    en.includes("handicraft") ||
+    th.includes("งานฝีมือ") ||
+    th.includes("ฝีมือคนไทย")
+  );
 }
 
 const num = (value: number | string | null | undefined) =>
@@ -76,8 +102,20 @@ const discountOf = (p: BestSellerProduct) => {
   const compare = compareOf(p);
   return compare && compare > price ? Math.round(((compare - price) / compare) * 100) : 0;
 };
-const badgeFor = (p: BestSellerProduct, scopeKey: (typeof THAI_SCOPES)[number]["key"], otopIds: Set<number>) => {
-  if (scopeKey === "otop" || (p.categoryId != null && otopIds.has(p.categoryId)) || (p.brand ?? "").toUpperCase().includes("OTOP")) {
+const badgeFor = (
+  p: BestSellerProduct,
+  scopeKey: (typeof THAI_SCOPES)[number]["key"],
+  otopIds: Set<number>,
+  craftsIds: Set<number>,
+) => {
+  // Prefer hub category over brand text — seed brands like "BShop OTOP" live in crafts too.
+  if (p.categoryId != null && otopIds.has(p.categoryId)) {
+    return { label: "OTOP", tone: "green" as const };
+  }
+  if (p.categoryId != null && craftsIds.has(p.categoryId)) {
+    return { label: "แบรนด์ไทย", tone: "red" as const };
+  }
+  if (scopeKey === "otop" || (p.brand ?? "").toUpperCase().includes("OTOP")) {
     return { label: "OTOP", tone: "green" as const };
   }
   if (discountOf(p) >= 20) return { label: "ราคาพิเศษ", tone: "orange" as const };
@@ -98,8 +136,20 @@ async function loadThaiProducts(opts: {
   mode: "recommend" | "best_selling";
   sort: RecommendationSort;
   period?: "7d" | "30d" | "all";
-}): Promise<BestSellerProduct[]> {
-  if (opts.categoryIds.length === 0) return [];
+  page: number;
+  size: number;
+}): Promise<{ items: BestSellerProduct[]; total: number }> {
+  if (opts.categoryIds.length === 0) return { items: [], total: 0 };
+
+  // Split page size across scopes so "ทั้งหมด" stays ~PAGE_SIZE and covers both categories.
+  const perCat = Math.max(1, Math.ceil(opts.size / opts.categoryIds.length));
+
+  const sortRows = (rows: BestSellerProduct[]) =>
+    rows.sort((a, b) => {
+      if (opts.sort === "price_asc") return priceOf(a) - priceOf(b);
+      if (opts.sort === "newest") return a.rank - b.rank;
+      return b.soldCount - a.soldCount || a.nameTh.localeCompare(b.nameTh);
+    });
 
   if (opts.mode === "best_selling") {
     const pages = await Promise.all(
@@ -108,13 +158,14 @@ async function loadThaiProducts(opts: {
           categoryId,
           sort: "best_selling",
           period: opts.period ?? "all",
-          page: 0,
-          size: PAGE_SIZE,
+          page: opts.page,
+          size: perCat,
         }),
       ),
     );
-    const sold = mergeProducts(pages.flatMap((page) => page.items));
-    if (sold.length > 0) return sold.sort((a, b) => b.soldCount - a.soldCount || a.nameTh.localeCompare(b.nameTh));
+    const sold = sortRows(mergeProducts(pages.flatMap((page) => page.items)));
+    const total = pages.reduce((sum, page) => sum + page.total, 0);
+    if (sold.length > 0) return { items: sold.slice(0, opts.size), total };
   }
 
   const pages = await Promise.all(
@@ -122,16 +173,15 @@ async function loadThaiProducts(opts: {
       recommendationApi.list({
         categoryId,
         sort: opts.sort,
-        page: 0,
-        size: PAGE_SIZE,
+        page: opts.page,
+        size: perCat,
       }),
     ),
   );
-  return mergeProducts(pages.flatMap((page) => page.items)).sort((a, b) => {
-    if (opts.sort === "price_asc") return priceOf(a) - priceOf(b);
-    if (opts.sort === "newest") return a.rank - b.rank;
-    return b.soldCount - a.soldCount || a.nameTh.localeCompare(b.nameTh);
-  });
+  return {
+    items: sortRows(mergeProducts(pages.flatMap((page) => page.items))).slice(0, opts.size),
+    total: pages.reduce((sum, page) => sum + page.total, 0),
+  };
 }
 
 export default function ThaiBrandsPage() {
@@ -147,13 +197,17 @@ export default function ThaiBrandsPage() {
   const [grid, setGrid] = useState(true);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [items, setItems] = useState<BestSellerProduct[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
   const [fetching, setFetching] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [categoryList, setCategoryList] = useState<ProductCategory[]>([]);
   const [categoriesReady, setCategoriesReady] = useState(false);
   const loadRequest = useRef(0);
-  const productCache = useRef(new Map<string, BestSellerProduct[]>());
-  const hasShownItems = useRef(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const itemsLenRef = useRef(0);
+  itemsLenRef.current = items.length;
 
   const notify = (message: string) => {
     setNotice(message);
@@ -227,6 +281,8 @@ export default function ThaiBrandsPage() {
   );
 
   // Tab "ราคาพิเศษ" filters client-side; keep the same server query as "ทั้งหมด".
+  // "ทั้งหมด" + ยอดนิยม uses recommendations (full catalog in both scopes), not best-sellers —
+  // best-sellers only returns products with orders, which dropped the whole OTOP side when unsold.
   const serverTab = activeTab === 4 ? 0 : activeTab;
   const recommendSort: RecommendationSort =
     serverTab === 1
@@ -236,55 +292,60 @@ export default function ThaiBrandsPage() {
         : sort === "ราคาต่ำสุด"
           ? "price_asc"
           : "best";
-  const useBestSelling = serverTab === 2 || (serverTab === 0 && sort === "ยอดนิยม");
+  const useBestSelling = serverTab === 2;
   const apiPeriod = serverTab === 3 ? "7d" : "all";
 
   const queryKey = `${selectedCategoryKey}|${useBestSelling ? "best" : "rec"}|${recommendSort}|${apiPeriod}`;
 
   useEffect(() => {
-    if (!categoriesReady) return;
-    const cached = productCache.current.get(queryKey);
-    setLoadError(false);
-    if (cached) {
-      // Instant cache hit — no network, no opacity flash when toggling tabs/scopes.
-      setItems(cached);
-      hasShownItems.current = cached.length > 0;
-      setFetching(false);
-      return;
-    }
+    setPage(0);
+  }, [queryKey, appliedQuery, activeTab]);
 
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  useEffect(() => {
+    if (total > 0 && page > pageCount - 1) setPage(Math.max(0, pageCount - 1));
+  }, [total, page, pageCount]);
+
+  useEffect(() => {
+    if (!categoriesReady) return;
     let alive = true;
     const requestId = ++loadRequest.current;
-    if (!hasShownItems.current) setFetching(true);
-    // Keep showing the previous list while a cold query loads.
+    const keepVisible = itemsLenRef.current > 0;
+    if (keepVisible) setRefreshing(true);
+    else setFetching(true);
+    setLoadError(false);
     loadThaiProducts({
       categoryIds: selectedCategoryIds,
       mode: useBestSelling ? "best_selling" : "recommend",
       sort: recommendSort,
       period: apiPeriod,
+      page,
+      size: PAGE_SIZE,
     })
-      .then((rows) => {
+      .then((result) => {
         if (!alive || requestId !== loadRequest.current) return;
-        productCache.current.set(queryKey, rows);
-        setItems(rows);
-        hasShownItems.current = rows.length > 0 || hasShownItems.current;
+        setItems(result.items);
+        setTotal(result.total);
         setLoadError(false);
       })
       .catch(() => {
         if (!alive || requestId !== loadRequest.current) return;
-        if (!hasShownItems.current) {
+        setLoadError(true);
+        if (!keepVisible) {
           setItems([]);
-          setLoadError(true);
+          setTotal(0);
         }
       })
       .finally(() => {
         if (!alive || requestId !== loadRequest.current) return;
         setFetching(false);
+        setRefreshing(false);
       });
     return () => {
       alive = false;
     };
-  }, [categoriesReady, queryKey, selectedCategoryIds, useBestSelling, recommendSort, apiPeriod]);
+  }, [categoriesReady, queryKey, selectedCategoryIds, useBestSelling, recommendSort, apiPeriod, page]);
 
   const popularBrandsLive = useMemo(() => {
     const counts = new Map<string, number>();
@@ -357,6 +418,13 @@ export default function ThaiBrandsPage() {
   };
 
   const submitSearch = () => setAppliedQuery(query.trim());
+
+  const safePage = Math.min(page, pageCount - 1);
+  const goPage = (next: number) => {
+    if (next === page || next < 0 || next >= pageCount || refreshing || fetching) return;
+    setPage(next);
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <main className="thai-brand-page best-seller-page recommend-page">
@@ -447,7 +515,7 @@ export default function ThaiBrandsPage() {
             </div>
           </div>
 
-          <div className="thai-product-head">
+          <div className="thai-product-head" ref={resultsRef}>
             <h2>สินค้าแบรนด์ไทย</h2>
             <div>
               <span>เรียงตาม</span>
@@ -507,7 +575,7 @@ export default function ThaiBrandsPage() {
 
           <div
             className={`thai-product-grid${grid ? "" : " list-view"}`}
-            aria-busy={fetching}
+            aria-busy={fetching || refreshing}
           >
             {products.map((p) => {
                 const price = priceOf(p);
@@ -515,7 +583,7 @@ export default function ThaiBrandsPage() {
                 const discount = discountOf(p);
                 const image = primaryImage(p);
                 const href = `/shop/${p.shopSlug}/product/${p.slug}`;
-                const badge = badgeFor(p, scope.key, otopIds);
+                const badge = badgeFor(p, scope.key, otopIds, craftsIds);
                 return (
                   <article className="thai-product" key={p.id}>
                     <div className="thai-photo">
@@ -578,6 +646,45 @@ export default function ThaiBrandsPage() {
                 );
               })}
           </div>
+
+          {total > PAGE_SIZE && (
+            <nav className="recommend-pagination" aria-label={tp("shops.pageAria")}>
+              <button
+                type="button"
+                disabled={safePage <= 0 || refreshing}
+                onClick={() => goPage(safePage - 1)}
+                aria-label={tp("shops.pagePrev")}
+              >
+                <ChevronLeft />
+              </button>
+              {pageWindow(safePage, pageCount).map((entry, index) =>
+                entry === "gap" ? (
+                  <span className="recommend-pagination-gap" key={`gap-${index}`} aria-hidden="true">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className={safePage === entry ? "current" : ""}
+                    key={entry}
+                    disabled={refreshing}
+                    aria-current={safePage === entry ? "page" : undefined}
+                    onClick={() => goPage(entry)}
+                  >
+                    {entry + 1}
+                  </button>
+                ),
+              )}
+              <button
+                type="button"
+                disabled={safePage >= pageCount - 1 || refreshing}
+                onClick={() => goPage(safePage + 1)}
+                aria-label={tp("shops.pageNext")}
+              >
+                <ChevronRight />
+              </button>
+            </nav>
+          )}
 
           <div className="thai-banners">
             <button

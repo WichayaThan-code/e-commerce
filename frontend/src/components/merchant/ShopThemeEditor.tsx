@@ -375,9 +375,9 @@ export default function ShopThemeEditor({
   useEffect(() => {
     if (!shop.slug) return;
     let active = true;
-    // Preview parity: same public request as the store home (useShopCatalog default: featured sort, 30 per page)
+    // Preview parity: same public request as the store home (useShopCatalog default: popular sort, 30 per page)
     // so FEATURED / BESTSELLERS (sold counts) match /shop/:slug.
-    shopApi.products(shop.slug, { size: PREVIEW_CATALOG_SIZE, page: 0, sort: shopApiSort("featured") })
+    shopApi.products(shop.slug, { size: PREVIEW_CATALOG_SIZE, page: 0, sort: shopApiSort("popular") })
       .then((result) => {
         if (active) setPreviewProducts(result.items);
       })

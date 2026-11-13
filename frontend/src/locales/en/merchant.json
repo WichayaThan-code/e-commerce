@@ -616,6 +616,27 @@
       "namePh": "Name shown to customers",
       "description": "Description",
       "descriptionPh": "Describe the product",
+      "descriptionToolbar": "Description formatting toolbar",
+      "descriptionBold": "Bold",
+      "descriptionItalic": "Italic",
+      "descriptionAlignLeft": "Align left",
+      "descriptionAlignCenter": "Align center",
+      "descriptionBullet": "Bullet list",
+      "descriptionOrdered": "Numbered list",
+      "descriptionInsertImage": "Insert image",
+      "descriptionImageType": "Only JPG, PNG, or WEBP are supported",
+      "descriptionImageFailed": "Could not upload the image",
+      "descriptionSize": {
+        "sm": "Small",
+        "md": "Normal",
+        "lg": "Large"
+      },
+      "descriptionImageSize": {
+        "s": "33%",
+        "m": "50%",
+        "l": "75%",
+        "full": "Full"
+      },
       "category": "Category",
       "categoryPh": "Select category",
       "brandPh": "Brand name (optional)",
@@ -1796,7 +1817,7 @@
     },
     "payment": {
       "accountsTitle": "Receiving accounts",
-      "accountsLead": "Accounts customers transfer to when paying by slip",
+      "accountsLead": "Starts from your registration bank details — edit or add PromptPay anytime",
       "methodsTitle": "Payment methods",
       "methodsLead": "Enable or disable payment options for this shop",
       "bankTransfer": "Bank transfer",
@@ -2641,8 +2662,10 @@
       "SHIP": "Enter the carrier and tracking number to ship order {{number}}",
       "DELIVER": "Confirm that this order’s parcel was delivered to the buyer",
       "DELIVER_ORDER": "Order number",
-      "DELIVER_VERIFY_TITLE": "Carrier status is checked first",
-      "DELIVER_VERIFY_HINT": "If tracking does not show delivered yet, this confirmation will not be saved",
+      "DELIVER_TRACKING": "Tracking number",
+      "DELIVER_TRACK_WEB": "Track on web",
+      "DELIVER_VERIFY_TITLE": "Check the carrier first",
+      "DELIVER_VERIFY_HINT": "Open the carrier tracking page and confirm delivery before you save (auto-checked when the carrier is connected)",
       "CANCEL": "Cancel order {{number}}. Paid orders are refunded in full."
     },
     "errors": {

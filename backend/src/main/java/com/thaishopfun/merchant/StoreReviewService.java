@@ -7,6 +7,7 @@ import com.thaishopfun.auth.authz.AuthorizationService;
 import com.thaishopfun.merchant.delivery.ShopLifecycleAction;
 import com.thaishopfun.merchant.delivery.ShopLifecycleEmailPublisher;
 import com.thaishopfun.merchant.notification.MerchantLifecycleNotificationWriter;
+import com.thaishopfun.payment.PaymentAccountService;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class StoreReviewService {
     private final PlatformAuditService platformAudit;
     private final MerchantLifecycleNotificationWriter merchantNotifications;
     private final ShopLifecycleEmailPublisher shopMails;
+    private final PaymentAccountService paymentAccounts;
 
     public StoreReviewService(
         ShopRepository shops,
@@ -39,7 +41,8 @@ public class StoreReviewService {
         ShopSuspensionService suspensions,
         PlatformAuditService platformAudit,
         MerchantLifecycleNotificationWriter merchantNotifications,
-        ShopLifecycleEmailPublisher shopMails
+        ShopLifecycleEmailPublisher shopMails,
+        PaymentAccountService paymentAccounts
     ) {
         this.shops = shops;
         this.documents = documents;
@@ -50,6 +53,7 @@ public class StoreReviewService {
         this.platformAudit = platformAudit;
         this.merchantNotifications = merchantNotifications;
         this.shopMails = shopMails;
+        this.paymentAccounts = paymentAccounts;
     }
 
     @Transactional(readOnly = true)
@@ -118,6 +122,7 @@ public class StoreReviewService {
         suspensions.requireMerchantActive(shop);
         var before = shop.getStatus();
         shop.approve(); // the owner's STORE_OWNER membership (shop_members) already exists; it is the source of truth
+        paymentAccounts.ensureBankFromRegistration(shop.getUuid(), shop.getApplication(), shop.getOwner(), actorId);
         suspensions.recordReview(actorId, "SHOP_APPROVED", shop, before);
         merchantNotifications.publishShopApproved(shop);
         shopMails.statusChanged(shop, ShopLifecycleAction.APPROVED);
@@ -143,6 +148,7 @@ public class StoreReviewService {
         return applyMany(shopIds, ShopStatus.PENDING_REVIEW, shop -> {
             if (suspensions.merchantSuspended(shop)) return false;
             shop.approve();
+            paymentAccounts.ensureBankFromRegistration(shop.getUuid(), shop.getApplication(), shop.getOwner(), actorId);
             suspensions.recordReview(actorId, "SHOP_APPROVED", shop, ShopStatus.PENDING_REVIEW);
             merchantNotifications.publishShopApproved(shop);
             shopMails.statusChanged(shop, ShopLifecycleAction.APPROVED);

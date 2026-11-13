@@ -92,7 +92,8 @@ public class MerchantApplicationService {
     /**
      * Links an owner the user already has (picked on the owner step) and prefills it: owner/personal details are
      * copied from the owner profile, owner-level documents (ID card, portrait) are copied from the owner's earlier
-     * application when this draft has none yet. Payout details and shop/company documents are not prefilled.
+     * application when this draft has none yet. Payout (bank) details come from the owner profile (same as
+     * ensureOwnerPrefill); shop/company documents are not prefilled.
      * The owner step and the document step are still shown and validated like a first application.
      */
     @Transactional
@@ -101,7 +102,6 @@ public class MerchantApplicationService {
         editable(application);
         var owner = ownerAccounts.requireOwned(userId, ownerId);
         application.attachOwner(owner);
-        application.clearPayout();
         applications.save(application);
         copyOwnerDocuments(application, owner, false);
         return response(application);
@@ -178,7 +178,6 @@ public class MerchantApplicationService {
         editable(draft);
         draft.clearShopDetails();
         draft.attachOwner(owner);
-        draft.clearPayout();
         applications.save(draft);
         copyOwnerDocuments(draft, owner, true);
         return response(draft);

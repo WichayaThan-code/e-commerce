@@ -209,12 +209,12 @@ class MerchantApplicationIntegrationTests {
         var listed = mvc.perform(get("/api/merchant/owners").header("Authorization", "Bearer " + token)).andExpect(status().isOk()).andReturn();
         String ownerId = JsonPath.read(listed.getResponse().getContentAsString(), "$[0].id");
 
-        // Open a second shop: owner details + owner documents (ID card, portrait) prefilled; payout + shop documents are not.
+        // Open a second shop: owner details + owner documents (ID card, portrait) prefilled; payout comes from the owner profile; shop documents are not.
         var opened = mvc.perform(post("/api/merchant/shops?ownerId=" + ownerId).header("Authorization", "Bearer " + token))
           .andExpect(status().isOk()).andExpect(jsonPath("$.ownerId").value(ownerId))
           .andExpect(jsonPath("$.existingOwner").value(true))
           .andExpect(jsonPath("$.firstName").value("สมหญิง")).andExpect(jsonPath("$.citizenIdMasked").value("*********4444"))
-          .andExpect(jsonPath("$.bankName").doesNotExist()).andExpect(jsonPath("$.bankAccountMasked").doesNotExist())
+          .andExpect(jsonPath("$.bankName").isNotEmpty()).andExpect(jsonPath("$.bankAccountMasked").isNotEmpty())
           .andExpect(jsonPath("$.documents.length()").value(2))
           .andExpect(jsonPath("$.documents[?(@.type == 'IDENTITY')]").isNotEmpty())
           .andExpect(jsonPath("$.documents[?(@.type == 'PORTRAIT')]").isNotEmpty())
@@ -290,7 +290,7 @@ class MerchantApplicationIntegrationTests {
         String ownPortraitId = ownPortrait.get(0);
         mvc.perform(post("/api/merchant-applications/draft/owner/" + ownerId).header("Authorization", "Bearer " + token))
           .andExpect(status().isOk()).andExpect(jsonPath("$.ownerId").value(ownerId))
-          .andExpect(jsonPath("$.bankName").doesNotExist())
+          .andExpect(jsonPath("$.bankName").isNotEmpty())
           .andExpect(jsonPath("$.documents.length()").value(2))
           .andExpect(jsonPath("$.documents[?(@.type == 'IDENTITY')]").isNotEmpty())
           .andExpect(jsonPath("$.documents[?(@.type == 'ADDRESS')]").isEmpty());

@@ -226,9 +226,9 @@ export default function OwnerInfoPage() {
 
   /**
    * Prefill from the server draft linked to an existing owner: owner/personal details and the owner documents the
-   * server copied into this draft (ID card, portrait). Payout details are left blank — they belong to the new shop.
+   * server copied into this draft (ID card, portrait). Payout details come from the owner profile, like the server-side owner prefill.
    */
-  const applyPrefill = (app: MerchantApplication, ownerId: string) => {
+  const applyPrefill = (app: MerchantApplication, ownerId: string, profile?: MerchantOwner) => {
     if (!user) return
     setOwnerType(app.ownerType === 'COMPANY' ? 'company' : 'person')
     if (app.title) setTitle(app.title)
@@ -246,9 +246,10 @@ export default function OwnerInfoPage() {
     setAlley(app.alley || '')
     setRoad(app.road || '')
     setThaiAddress({ province: app.province || '', district: app.district || '', subdistrict: app.subdistrict || '', postalCode: app.postalCode || '' })
-    setBankName('')
-    setBankAccountNumber('')
-    setBankAccountName('')
+    // The application only carries a masked account number; the full one comes from the owner profile.
+    setBankName(profile?.bankName || app.bankName || '')
+    setBankAccountNumber(digitsOnly(profile?.bankAccountNumber || '', 20))
+    setBankAccountName(profile?.bankAccountName || app.bankAccountName || '')
     const identity = app.documents.find((doc) => doc.type === 'IDENTITY')
     const portrait = app.documents.find((doc) => doc.type === 'PORTRAIT')
     if (identity) rememberDocumentName(user.id, 'IDENTITY', identity.originalFilename)
@@ -275,13 +276,13 @@ export default function OwnerInfoPage() {
     const local = readMerchantDraft(user.id)
     if (local.ownerPrefilledFor === linkedOwnerId && local.owner) return
     let active = true
-    merchantApi.getDraft().then((app) => {
+    Promise.all([merchantApi.getDraft(), merchantApi.owners().catch(() => [] as MerchantOwner[])]).then(([app, rows]) => {
       if (!active) return
       if (app.ownerId !== linkedOwnerId) {
         unlinkOwner()
         return
       }
-      applyPrefill(app, linkedOwnerId)
+      applyPrefill(app, linkedOwnerId, rows.find((row) => row.id === linkedOwnerId))
     }).catch(() => undefined)
     return () => { active = false }
   }, [user])
@@ -450,7 +451,7 @@ export default function OwnerInfoPage() {
     setMessage('')
     try {
       // Prefill only: the form (and the document step) stay required, like a first application.
-      applyPrefill(await merchantApi.attachOwner(ownerId), ownerId)
+      applyPrefill(await merchantApi.attachOwner(ownerId), ownerId, owners.find((row) => row.id === ownerId))
     } catch (error) {
       showApiFailure(error, setMessage)
     } finally {

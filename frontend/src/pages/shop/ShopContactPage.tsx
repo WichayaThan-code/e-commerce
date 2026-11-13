@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   BadgeCheck, Check, Clock, Copy, ExternalLink, Facebook, Globe, Headset, Instagram,
@@ -14,7 +14,21 @@ import { mediaUrl, type PublicShop } from "../../services/api";
 import { shopPoliciesPath, shopProductsPath } from "../../services/shopRoutes";
 import { heroSlideUrls } from "../../components/shop/sections/HeroSlider";
 import { resolveStorefrontTheme } from "../../components/shop/ShopThemeShell";
+import { contrastRatio, meetsContrastAA } from "../../theme/shopTheme";
 import "../../styles/shop-contact.css";
+
+const ShopMapPinEditor = lazy(() => import("../../components/maps/ShopMapPinEditor"));
+
+const CONTACT_WHITE = "#ffffff";
+const CONTACT_TEXT_FALLBACK = "#132b50";
+const CONTACT_MUTED_FALLBACK = "#5d7396";
+
+function validMapPair(lat?: number | null, lon?: number | null): [number, number] | null {
+  if (lat == null || lon == null) return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return [lat, lon];
+}
 
 type ChannelKey = "phone" | "email" | "line" | "facebook" | "instagram" | "tiktok" | "website";
 type ActionKey = "call" | "email" | "line" | "profile" | "visit";
@@ -141,14 +155,41 @@ export default function ShopContactPage() {
     .join(" ");
   const area = [shop.district, shop.province].map((part) => part?.trim()).filter(Boolean).join(" ");
   // Item 1: first hero slide first; coverUrl only for shops that have no slides yet.
-  const firstSlide = useMemo(() => heroSlideUrls(resolveStorefrontTheme(shop).config.hero?.slides)[0], [shop]);
+  const theme = useMemo(() => resolveStorefrontTheme(shop), [shop]);
+  const firstSlide = useMemo(() => heroSlideUrls(theme.config.hero?.slides)[0], [theme]);
   const cover = firstSlide ?? (shop.coverUrl ? mediaUrl(shop.coverUrl) : "");
   const approved = shop.status === "APPROVED";
-  const hasAside = Boolean(hours || address);
+  const hasHours = Boolean(hours);
   const primary =
     channels.find((c) => c.key === "line" && c.href) ??
     channels.find((c) => c.key === "phone" && c.href) ??
     channels.find((c) => c.href);
+
+  const mapPair = validMapPair(shop.latitude, shop.longitude);
+  const canShowMap = Boolean(mapPair || address);
+  // Remount only when location identity changes — not on theme switches (those thrash Nominatim
+  // and used to leave mapUnavailable stuck after repeated template flips).
+  const mapRemountKey = `${slug}|${address}|${mapPair?.[0] ?? ""}|${mapPair?.[1] ?? ""}`;
+
+  const mapSearchQuery = mapPair ? `${mapPair[0]},${mapPair[1]}` : address;
+  const mapHref = mapSearchQuery
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapSearchQuery)}`
+    : undefined;
+
+  const contactSurface = useMemo(() => {
+    const text = theme.config.colors.text;
+    const primaryColor = theme.config.colors.primary;
+    const mutedRaw = theme.config.colors.muted;
+    const textOk = text ? meetsContrastAA(text, CONTACT_WHITE, 4.5) : false;
+    const mutedOk = mutedRaw ? meetsContrastAA(mutedRaw, CONTACT_WHITE, 4.5) : false;
+    // Prefer solid primary CTAs only when white (or near-white) label stays readable.
+    const primaryOk = primaryColor ? contrastRatio(primaryColor, CONTACT_WHITE) >= 3.5 : true;
+    return {
+      text: textOk && text ? text : CONTACT_TEXT_FALLBACK,
+      muted: mutedOk && mutedRaw ? mutedRaw : CONTACT_MUTED_FALLBACK,
+      primarySolid: primaryOk,
+    };
+  }, [theme]);
 
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const copyTimer = useRef<number | undefined>(undefined);
@@ -167,6 +208,7 @@ export default function ShopContactPage() {
 
   const statusBadge = today ? (
     <span className={`shop-status-badge ${today.openNow ? "is-success" : "is-danger"}`}>
+      <i aria-hidden="true" />
       {today.openNow ? tp("shop.openNow") : tp("shop.closedNow")}
     </span>
   ) : null;
@@ -221,7 +263,13 @@ export default function ShopContactPage() {
         </div>
       </section>
 
-      <div className={`shop-contact recommend-width${hasAside ? " has-aside" : ""}`}>
+      <div
+        className={`shop-contact recommend-width${hasHours ? " has-hours" : ""}${address ? " has-location" : ""}${contactSurface.primarySolid ? "" : " is-primary-soft"}`}
+        style={{
+          ["--contact-fg" as string]: contactSurface.text,
+          ["--contact-muted" as string]: contactSurface.muted,
+        }}
+      >
         <section className="shop-contact-panel shop-contact-main" aria-labelledby="shop-contact-channels">
           <header className="shop-section-head">
             <h2 id="shop-contact-channels">{tp("shop.contact.channelsTitle")}</h2>
@@ -279,60 +327,83 @@ export default function ShopContactPage() {
           )}
         </section>
 
-        {hasAside && (
-          <aside className="shop-contact-aside">
-            {hours ? (
-              <section className="shop-contact-panel" aria-labelledby="shop-contact-hours">
-                <header className="shop-section-head">
-                  <h2 id="shop-contact-hours"><Clock aria-hidden="true" />{tp("shop.hoursTitle")}</h2>
-                  {statusBadge}
-                </header>
-                <ul className="shop-contact-hours">
-                  {DAY_KEYS.map((day, index) => {
-                    const item = hours[index];
-                    const isToday = today?.dayIndex === index;
-                    const cls = [isToday ? "is-today" : "", item.open ? "" : "is-closed"].filter(Boolean).join(" ");
-                    return (
-                      <li key={day} className={cls || undefined} aria-current={isToday ? "date" : undefined}>
-                        <span>{tp(`shop.hours.${day}`)}</span>
-                        {item.open
-                          ? <span className="num">{item.start} – {item.end}</span>
-                          : <span>{tp("shop.hoursClosed")}</span>}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ) : null}
-            {address ? (
-              <section className="shop-contact-panel" aria-labelledby="shop-contact-address">
-                <header className="shop-section-head">
-                  <h2 id="shop-contact-address"><MapPin aria-hidden="true" />{tp("shop.contact.addressTitle")}</h2>
-                </header>
+        {hours ? (
+          <aside className="shop-contact-hours-col">
+            <section className="shop-contact-panel" aria-labelledby="shop-contact-hours">
+              <header className="shop-section-head">
+                <h2 id="shop-contact-hours"><Clock aria-hidden="true" />{tp("shop.hoursTitle")}</h2>
+                {statusBadge}
+              </header>
+              <ul className="shop-contact-hours">
+                {DAY_KEYS.map((day, index) => {
+                  const item = hours[index];
+                  const isToday = today?.dayIndex === index;
+                  const cls = [isToday ? "is-today" : "", item.open ? "" : "is-closed"].filter(Boolean).join(" ");
+                  return (
+                    <li key={day} className={cls || undefined} aria-current={isToday ? "date" : undefined}>
+                      <span>{tp(`shop.hours.${day}`)}</span>
+                      {item.open
+                        ? <span className="num">{item.start} – {item.end}</span>
+                        : <span>{tp("shop.hoursClosed")}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          </aside>
+        ) : null}
+
+        {address ? (
+          <section className="shop-contact-panel shop-contact-location" aria-labelledby="shop-contact-address">
+            <header className="shop-section-head">
+              <h2 id="shop-contact-address"><MapPin aria-hidden="true" />{tp("shop.contact.addressTitle")}</h2>
+            </header>
+            <div className="shop-contact-location-meta">
+              <div className="shop-contact-address-line">
+                <MapPin aria-hidden="true" />
                 <address className="shop-contact-address">{address}</address>
-                <div className="shop-contact-actions">
+              </div>
+              <div className="shop-contact-actions">
+                {mapHref ? (
                   <a
-                    className="shop-contact-action"
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+                    className="shop-contact-action is-outline"
+                    href={mapHref}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
                     {tp("shop.contact.openMap")}<ExternalLink aria-hidden="true" />
                   </a>
-                  <button
-                    type="button"
-                    className={`shop-contact-copy${copiedKey === "address" ? " is-copied" : ""}`}
-                    aria-label={tp("shop.contact.copyAria", { label: tp("shop.contact.addressTitle") })}
-                    title={tp("shop.contact.copy")}
-                    onClick={() => copyText("address", address)}
-                  >
-                    {copiedKey === "address" ? <Check /> : <Copy />}
-                  </button>
-                </div>
-              </section>
+                ) : null}
+                <button
+                  type="button"
+                  className={`shop-contact-copy${copiedKey === "address" ? " is-copied" : ""}`}
+                  aria-label={tp("shop.contact.copyAria", { label: tp("shop.contact.addressTitle") })}
+                  title={tp("shop.contact.copy")}
+                  onClick={() => copyText("address", address)}
+                >
+                  {copiedKey === "address" ? <Check /> : <Copy />}
+                </button>
+              </div>
+            </div>
+            {canShowMap ? (
+              <Suspense fallback={<div className="shop-contact-map-skeleton" aria-hidden="true" />}>
+                <ShopMapPinEditor
+                  key={mapRemountKey}
+                  className="shop-contact-map is-flush"
+                  address={address}
+                  latitude={shop.latitude}
+                  longitude={shop.longitude}
+                  editable={false}
+                  zoom={16}
+                  fallbackToDefault={false}
+                  cacheKey={`${slug}:${address}`}
+                  mapAriaLabel={tp("shop.contact.mapAria", { name: shop.name })}
+                  markerTitle={shop.name}
+                />
+              </Suspense>
             ) : null}
-          </aside>
-        )}
+          </section>
+        ) : null}
       </div>
     </>
   );

@@ -24,7 +24,7 @@ public final class ThemePresets {
     /** GENERAL follows the ThaiShopFun Themes spec: IBM Plex Sans Thai, spec palette, Hero→Trust→Categories→Featured→Banners→Best sellers→Intro→Catalog. */
     public static Map<String, Object> generalConfig() {
         var config = config(
-            "#0a5fd6", "#08245d", "#ffffff", "#132b50",
+            "#0a5fd6", "#08245d", "#f3f6fa", "#132b50",
             "#f28c28",
             ShopThemeFont.IBM_PLEX_SANS_THAI,
             "FULL", "", "", "", "",
@@ -34,6 +34,7 @@ public final class ThemePresets {
             List.of(
                 section("HERO", true, "FULL"),
                 section("TRUST", true, null),
+                section("COUPONS", true, null),
                 section("CATEGORIES", true, null),
                 section("FEATURED", true, "GRID"),
                 section("BANNERS", true, null),
@@ -46,9 +47,14 @@ public final class ThemePresets {
         );
         @SuppressWarnings("unchecked")
         var colors = (Map<String, Object>) config.get("colors");
+        colors.put("navBackground", "#ffffff");
+        colors.put("cardBackground", "#ffffff");
         colors.put("borderStrong", "#7d8ba0");
         colors.put("sale", "#c4271b");
         colors.put("focus", "#0a5fd6");
+        @SuppressWarnings("unchecked")
+        var styleMap = (Map<String, Object>) config.get("style");
+        styleMap.put("productSectionBackground", "SURFACE");
         // Themes spec hero copy (Thai-first). Links stay blank -> storefront falls back to this shop's products / categories.
         @SuppressWarnings("unchecked")
         var hero = (Map<String, Object>) config.get("hero");
@@ -76,6 +82,7 @@ public final class ThemePresets {
                 section("BANNERS", true, null),
                 section("CATEGORIES", true, null),
                 section("TRUST", true, null),
+                section("COUPONS", true, null),
                 section("FEATURED", true, "GRID"),
                 section("BESTSELLERS", true, "GRID"),
                 section("NEW_ARRIVALS", true, "GRID"),
@@ -89,7 +96,7 @@ public final class ThemePresets {
     public static Map<String, Object> fashionConfig() {
         // Themes spec "fashion" (tokens.json): monochrome editorial, lime accent, Prompt headings, square shapes + PILL buttons.
         var config = config(
-            "#111111", "#f1efea", "#ffffff", "#111111",
+            "#111111", "#f1efea", "#f5f5f3", "#111111",
             "#e3ff3d",
             ShopThemeFont.PROMPT,
             "FULL", "", "", "", "",
@@ -100,6 +107,7 @@ public final class ThemePresets {
                 section("HERO", true, "FULL"),
                 section("NEW_ARRIVALS", true, "LARGE"),
                 section("BANNERS", true, null),
+                section("COUPONS", true, null),
                 section("CATEGORIES", true, null),
                 section("BESTSELLERS", true, "LARGE"),
                 section("INTRO", true, null),
@@ -111,16 +119,21 @@ public final class ThemePresets {
         );
         @SuppressWarnings("unchecked")
         var colors = (Map<String, Object>) config.get("colors");
+        colors.put("navBackground", "#ffffff");
+        colors.put("cardBackground", "#ffffff");
         colors.put("borderStrong", "#767676");
         colors.put("sale", "#c8102e");
         colors.put("focus", "#111111");
+        @SuppressWarnings("unchecked")
+        var fashionStyle = (Map<String, Object>) config.get("style");
+        fashionStyle.put("productSectionBackground", "SURFACE");
         return config;
     }
 
     public static Map<String, Object> foodBeverageConfig() {
         // Themes spec "food" (tokens.json): warm terracotta + herb green on cream, Mitr headings, round shapes, STRIP hero.
         var config = config(
-            "#a63a17", "#2e4a2b", "#fff8ef", "#2b1a10",
+            "#a63a17", "#2e4a2b", "#f6eadb", "#2b1a10",
             "#f2b544",
             ShopThemeFont.MITR,
             "STRIP", "", "", "", "",
@@ -130,6 +143,7 @@ public final class ThemePresets {
             List.of(
                 section("HERO", true, "STRIP"),
                 section("CATEGORIES", true, null),
+                section("COUPONS", true, null),
                 section("FEATURED", true, "MENU"),
                 section("BESTSELLERS", true, "MENU"),
                 section("BANNERS", true, null),
@@ -142,9 +156,14 @@ public final class ThemePresets {
         );
         @SuppressWarnings("unchecked")
         var colors = (Map<String, Object>) config.get("colors");
+        colors.put("navBackground", "#fff8ef");
+        colors.put("cardBackground", "#ffffff");
         colors.put("borderStrong", "#8f735f");
         colors.put("sale", "#a63a17");
         colors.put("focus", "#2e4a2b");
+        @SuppressWarnings("unchecked")
+        var foodStyle = (Map<String, Object>) config.get("style");
+        foodStyle.put("productSectionBackground", "SURFACE");
         return config;
     }
 
@@ -173,7 +192,7 @@ public final class ThemePresets {
             config.put("style", deepCopy(presetStyle));
             return;
         }
-        for (var key : List.of("radius", "cardStyle", "density", "buttonShape", "shadow", "headingTextShadow")) {
+        for (var key : List.of("radius", "cardStyle", "density", "buttonShape", "shadow", "headingTextShadow", "productSectionBackground")) {
             if (!presetStyle.containsKey(key)) continue;
             if (!style.containsKey(key) || style.get(key) == null || String.valueOf(style.get(key)).isBlank()) {
                 style.put(key, presetStyle.get(key));

@@ -54,7 +54,8 @@ abstract class CatalogExtrasTestSupport {
           {"key":"BESTSELLERS","enabled":true,"variant":"GRID"},
           {"key":"NEW_ARRIVALS","enabled":true,"variant":"GRID"},
           {"key":"CATALOG","enabled":true,"variant":"GRID"},
-          {"key":"HOURS","enabled":false,"variant":null}
+          {"key":"HOURS","enabled":false,"variant":null},
+          {"key":"COUPONS","enabled":true,"variant":null}
         ]
         """;
 

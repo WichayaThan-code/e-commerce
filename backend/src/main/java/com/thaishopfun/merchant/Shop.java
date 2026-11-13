@@ -50,6 +50,10 @@ public class Shop {
     @Column(nullable = false, length = 100) private String slug;
     /** Optional plan from {@code plans.code}; null = no plan assigned. */
     @Column(name = "plan_code", length = 50) private String planCode;
+    /** MONTHLY|YEARLY for the active paid plan; null on FREE / unset. */
+    @Column(name = "plan_billing_cycle", length = 10) private String planBillingCycle;
+    /** When the current paid plan ends; null = no expiry. */
+    @Column(name = "plan_expires_at") private Instant planExpiresAt;
     @Convert(converter = ShopStatusConverter.class) @Column(nullable = false, length = 30) private ShopStatus status;
     @Column(name = "published_at") private Instant publishedAt;
     @Column(name = "suspended_at") private Instant suspendedAt;
@@ -209,6 +213,13 @@ public class Shop {
     public String getPlanCode() { return planCode; }
     public void assignPlanCode(String code) {
         this.planCode = code == null || code.isBlank() ? null : code.trim().toUpperCase(java.util.Locale.ROOT);
+        this.updatedAt = Instant.now();
+    }
+    public String getPlanBillingCycle() { return planBillingCycle; }
+    public Instant getPlanExpiresAt() { return planExpiresAt; }
+    public void assignPlanBilling(String cycle, Instant expiresAt) {
+        this.planBillingCycle = cycle == null || cycle.isBlank() ? null : cycle.trim().toUpperCase(java.util.Locale.ROOT);
+        this.planExpiresAt = expiresAt;
         this.updatedAt = Instant.now();
     }
     public String getWebsite() { return website; }

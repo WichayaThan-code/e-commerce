@@ -141,7 +141,11 @@ public final class ValidationMessages {
         Map.entry("CONFIGURATOR_SELECTION_COUNT", "จำนวนตัวเลือกไม่อยู่ในช่วงที่กำหนด"),
         Map.entry("CONFIGURATOR_TEXT_INVALID", "ข้อความไม่ถูกต้อง (ยาวเกินกำหนด ใช้ตัวอักษรที่ไม่อนุญาต หรือมี HTML)"),
         Map.entry("CONFIGURATOR_VERSION_STALE", "ตัวออกแบบสินค้าถูกแก้ไขแล้ว กรุณาโหลดหน้าใหม่"),
-        Map.entry("CONFIGURATOR_TOTAL_NEGATIVE", "ราคารวมหลังปรับต้องไม่ติดลบ")
+        Map.entry("CONFIGURATOR_TOTAL_NEGATIVE", "ราคารวมหลังปรับต้องไม่ติดลบ"),
+        Map.entry("PRODUCT_QUOTA_EXCEEDED", "แพ็กเกจนี้เผยแพร่สินค้าครบโควตาแล้ว — เลิกเผยแพร่สินค้าอื่นก่อน หรืออัปเกรดแพ็กเกจ"),
+        Map.entry("ORDER_QUOTA_EXCEEDED", "ร้านนี้รับคำสั่งซื้อครบตามจำนวนในเดือนนี้แล้ว"),
+        Map.entry("STORAGE_QUOTA_EXCEEDED", "พื้นที่ไฟล์ของร้านเต็มแล้ว — ลบไฟล์ที่ไม่ใช้ หรืออัปเกรดแพ็กเกจ"),
+        Map.entry("MEMBER_QUOTA_EXCEEDED", "จำนวนสมาชิกและคำเชิญถึงโควตาแพ็กเกจแล้ว — ลบสมาชิกหรือยกเลิกคำเชิญ หรืออัปเกรดแพ็กเกจ")
     );
 
     private ValidationMessages() {}

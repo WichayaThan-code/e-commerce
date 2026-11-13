@@ -3,6 +3,7 @@ package com.thaishopfun.merchant;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.authz.AuthorizationService;
 import com.thaishopfun.catalog.ProductStatus;
+import com.thaishopfun.merchant.plan.PlanQuotaService;
 import com.thaishopfun.merchant.theme.ShopThemeService;
 import com.thaishopfun.translation.ContentTranslationBridge;
 import com.thaishopfun.translation.ContentTranslationIndex;
@@ -29,6 +30,7 @@ public class ShopCatalogService {
     private final AuthorizationService authorization;
     private final ShopThemeService themes;
     private final EntityManager entities;
+    private final PlanQuotaService planQuota;
 
     public ShopCatalogService(
         ShopRepository shops,
@@ -38,7 +40,8 @@ public class ShopCatalogService {
         ContentTranslationBridge translationBridge,
         AuthorizationService authorization,
         ShopThemeService themes,
-        EntityManager entities
+        EntityManager entities,
+        PlanQuotaService planQuota
     ) {
         this.shops = shops;
         this.members = members;
@@ -48,6 +51,7 @@ public class ShopCatalogService {
         this.authorization = authorization;
         this.themes = themes;
         this.entities = entities;
+        this.planQuota = planQuota;
     }
 
     @Transactional
@@ -58,6 +62,8 @@ public class ShopCatalogService {
         var shop = shops.saveAndFlush(new Shop(application, "tmp-" + UUID.randomUUID().toString().substring(0, 12), owner));
         // V1 invariant (deferred trigger): a non-closed shop needs exactly one ACTIVE STORE_OWNER member.
         members.save(ShopMember.storeOwner(shop.getUuid(), shop.getUser().getId()));
+        planQuota.assignFreeIfMissing(shop);
+        shops.save(shop);
         shop.assignSlug(uniqueSlug(ShopSlugs.base(application.getShopNameEn(), application.getShopName(), shop.getId())));
         translationBridge.onShopSaved(shop, application.getShopNameEn());
     }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import ConfigurationSummary from "../components/cart/ConfigurationSummary";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   CheckCircle2, ChevronRight, Copy, ImagePlus, MapPin,
   Package, SearchX, ShoppingCart, Star, Store, Truck, Wallet, X,
@@ -102,7 +102,9 @@ export default function MyOrderDetailPage() {
   const cart = useCart();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { tp, localeTag } = usePublicTranslation();
+  const reviewPromptHandled = useRef(false);
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [payment, setPayment] = useState<OrderPaymentInfo | null>(null);
   const [timeline, setTimeline] = useState<OrderTimelineEntry[]>([]);
@@ -129,6 +131,7 @@ export default function MyOrderDetailPage() {
   const [slipProvider, setSlipProvider] = useState("BANK_TRANSFER");
   const [slipQrHint, setSlipQrHint] = useState<"reading" | "filled" | "miss" | "">("");
   const [reviewedItemIds, setReviewedItemIds] = useState<Set<string>>(new Set());
+  const [reviewStatusReady, setReviewStatusReady] = useState(false);
   const [reviewItem, setReviewItem] = useState<OrderItem | null>(null);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
@@ -200,16 +203,21 @@ export default function MyOrderDetailPage() {
   useEffect(() => {
     if (!order?.id || !canReview) {
       setReviewedItemIds(new Set());
+      setReviewStatusReady(false);
       return;
     }
     let alive = true;
+    setReviewStatusReady(false);
     reviewApi.status(order.id)
       .then((status) => {
         if (!alive) return;
         setReviewedItemIds(new Set(status.reviewedOrderItemIds ?? []));
+        setReviewStatusReady(true);
       })
       .catch(() => {
-        if (alive) setReviewedItemIds(new Set());
+        if (!alive) return;
+        setReviewedItemIds(new Set());
+        setReviewStatusReady(true);
       });
     return () => { alive = false; };
   }, [order?.id, canReview, reload]);
@@ -236,6 +244,23 @@ export default function MyOrderDetailPage() {
     setReviewImageBusy(false);
     setActionError("");
   };
+
+  useEffect(() => {
+    if (
+      reviewPromptHandled.current
+      || searchParams.get("review") !== "1"
+      || !order
+      || !canReview
+      || !reviewStatusReady
+    ) return;
+    const target = (order.items ?? []).find((item) => !reviewedItemIds.has(item.id));
+    reviewPromptHandled.current = true;
+    const next = new URLSearchParams(searchParams);
+    next.delete("review");
+    setSearchParams(next, { replace: true });
+    document.getElementById("orders-review-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (target) openReview(target);
+  }, [searchParams, order, canReview, reviewStatusReady, reviewedItemIds, setSearchParams]);
 
   const addReviewImages = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -814,7 +839,7 @@ export default function MyOrderDetailPage() {
             {showShipment ? <OrderShipmentCard order={order} /> : null}
 
             {/* 4. Products + money summary */}
-            <section className="orders-detail-card">
+            <section className="orders-detail-card" id="orders-review-section">
               <div className="orders-detail-card-head">
                 <Package size={18} aria-hidden="true" />
                 <div>
@@ -954,7 +979,7 @@ export default function MyOrderDetailPage() {
       {reviewItem ? (
         <ConfirmDialog
           title={tp("orders.review.title")}
-          message={tp("orders.review.message")}
+          message={tp("")}
           confirmLabel={reviewBusy ? tp("orders.review.submitting") : tp("orders.review.submit")}
           cancelLabel={tp("orders.review.cancel")}
           confirmDisabled={reviewBusy || reviewImageBusy || reviewRating < 1}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ArrowLeft, Check, ChevronDown, ImagePlus, GalleryHorizontal, LayoutGrid, List, ChevronUp, CircleAlert, GripVertical, Monitor, Palette, Plus, RotateCcw, Shirt, Smartphone, Store, Tablet, Trash2, UtensilsCrossed,
+  ArrowLeft, ChevronDown, ImagePlus, GalleryHorizontal, LayoutGrid, List, ChevronUp, CircleAlert, GripVertical, Monitor, Palette, Plus, RotateCcw, Shirt, Smartphone, Store, Tablet, Trash2, UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
 import ConfirmDialog from "../form/ConfirmDialog";
@@ -27,14 +27,16 @@ import {
   type ApiFieldError, type MerchantSettings, type PublicProduct, type PublicShop,
 } from "../../services/api";
 import {
-  ensureThemeFontLink, normalizeTheme, PREVIEW_WIDTHS, presetForTemplate, registerThemePresets, sectionsFromBlocks,
+  contrastOnColor, ensureThemeFontLink,
+  normalizeTheme, PREVIEW_WIDTHS, presetForTemplate, registerThemePresets, resolvedProductCardGap,
+  resolvedProductCardRadius, sectionsFromBlocks,
   sectionSupportsVariant, type LayoutBlock,
-  SHOP_BUTTON_SHAPES, SHOP_CARD_STYLES, SHOP_CTA_STYLES, SHOP_DENSITIES, SHOP_IMAGE_RATIOS,
+  SHOP_BUTTON_SHAPES, SHOP_CARD_GAPS, SHOP_CARD_RADII, SHOP_CARD_STYLES, SHOP_CTA_STYLES, SHOP_DENSITIES, SHOP_IMAGE_RATIOS,
   SHOP_SHADOWS, SHOP_THEME_FONTS, SHOP_THEME_PICKER_TEMPLATES,
   shopThemeFontStack, themeContrastIssues, variantsForSection,
   SHOP_TITLE_ALIGNS, SHOP_TRUST_ICONS, MAX_HERO_SLIDES,
-  type SectionVariant, type ShopButtonShape, type ShopCardStyle, type ShopCtaStyle, type ShopDensity, type ShopImageRatio,
-  type ShopSectionKey, type ShopShadow, type ShopTheme,
+  type SectionVariant, type ShopButtonShape, type ShopCardGap, type ShopCardRadius, type ShopCardStyle, type ShopCtaStyle,
+  type ShopDensity, type ShopImageRatio, type ShopSectionKey, type ShopShadow, type ShopTheme,
   type ShopThemeFontKey, type ShopThemeTemplateKey, type ShopTitleAlign, type ShopTrustIcon, type ThemeBanner, type ThemeColors,
   type ThemeConfig, type ThemeGradient, type ThemeProductCard,
   type ThemeTrustItem, type ThemeHeroSlide, type ThemeIntro, usesTsfTree,
@@ -78,7 +80,7 @@ type ShopThemeEditorProps = {
   /** Existing logo upload control (reused from the shop info tab). */
   logoControl: ReactNode;
   onDirtyChange: (dirty: boolean) => void;
-  notify: (message: string) => void;
+  notify: (message: string, tone?: "ok" | "fail" | "warning") => void;
   /** Customizer top bar "← back" (the page guards unsaved changes). */
   onBack?: () => void;
 };
@@ -94,6 +96,7 @@ const TEMPLATE_ICONS: Record<ShopThemeTemplateKey, LucideIcon> = {
 };
 const COLOR_KEYS = ["primary", "secondary", "background", "text"] as const satisfies ReadonlyArray<keyof ThemeColors>;
 const EXTRA_COLOR_KEYS = ["accent", "surface", "muted", "ctaBackground", "ctaText", "border"] as const satisfies ReadonlyArray<keyof ThemeColors>;
+const NAV_COLOR_KEYS = ["navBackground", "navText"] as const satisfies ReadonlyArray<keyof ThemeColors>;
 const GRADIENT_KEYS = ["hero", "page", "section"] as const;
 type GradientKey = (typeof GRADIENT_KEYS)[number];
 const DEVICES: { key: DeviceKey; icon: LucideIcon }[] = [
@@ -148,18 +151,67 @@ function sameConfig(a: ThemeConfig, b: ThemeConfig) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+type PanelTab = "template" | "brand" | "hero" | "sections";
+
+function normalizeThemeField(field: string) {
+  return field.replace(/^config\./, "");
+}
+
+function panelForThemeField(field: string): PanelTab {
+  const path = normalizeThemeField(field);
+  if (path === "templateKey" || path.startsWith("template")) return "template";
+  if (
+    path.startsWith("hero")
+    || path.startsWith("banners")
+    || path.startsWith("trust")
+    || path.startsWith("announcement")
+    || path.startsWith("intro")
+    || path.startsWith("brand.textAlign")
+  ) return "hero";
+  if (path.startsWith("sections") || path.startsWith("layout") || path.startsWith("collections")) return "sections";
+  return "brand";
+}
+
+function focusThemeFieldError(root: HTMLElement | null, field?: string | null) {
+  if (!root) return;
+  const path = field ? normalizeThemeField(field) : "";
+  let target: HTMLElement | null = null;
+  if (path) {
+    const tagged = root.querySelector<HTMLElement>(`[data-theme-field="${CSS.escape(path)}"]`);
+    if (tagged) {
+      target = tagged.matches("input, textarea, select, button")
+        ? tagged
+        : tagged.querySelector<HTMLElement>("input:not([type='color']), textarea, select, button, input") ?? tagged;
+    }
+  }
+  if (!target) {
+    target = root.querySelector<HTMLElement>(
+      ".form-control.is-invalid input:not([type='color']), .form-control.is-invalid textarea, .form-control.is-invalid select, .tc-color.is-invalid .tc-color-hex, [aria-invalid='true']",
+    );
+  }
+  if (!target) {
+    root.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    return;
+  }
+  target.scrollIntoView({ block: "center", behavior: "smooth" });
+  window.setTimeout(() => {
+    try { target?.focus({ preventScroll: true }); } catch { /* ignore */ }
+  }, 60);
+}
+
 /** Artifact ThemeCustomizer segmented control (.tsf-seg): one pressed button per option. */
-function ThemeSegmented({ label, value, options, disabled, error, hideLabel, onChange }: {
+function ThemeSegmented({ label, value, options, disabled, error, hideLabel, field, onChange }: {
   label: string;
   value: string;
   options: { value: string; label: string }[];
   disabled?: boolean;
   error?: string;
   hideLabel?: boolean;
+  field?: string;
   onChange: (value: string) => void;
 }) {
   return (
-    <div className={`form-field tc-seg-field${hideLabel ? " tc-seg-nolabel" : ""}`}>
+    <div className={`form-field tc-seg-field${hideLabel ? " tc-seg-nolabel" : ""}${error ? " is-invalid" : ""}`} data-theme-field={field || undefined}>
       <span className="form-label">{label}</span>
       <div className="tc-seg" role="group" aria-label={label} aria-invalid={Boolean(error)}>
         {options.map((opt) => (
@@ -172,15 +224,17 @@ function ThemeSegmented({ label, value, options, disabled, error, hideLabel, onC
 }
 
 /** Artifact colour row (.tsf-color): swatch, label, mono hex on the right. */
-function ColorRow({ label, value, disabled, error, hexError, onChange }: {
-  label: string; value: string; disabled?: boolean; error?: string; hexError: string; onChange: (value: string) => void;
+function ColorRow({ label, value, disabled, error, hexError, field, onChange }: {
+  label: string; value: string; disabled?: boolean; error?: string; hexError: string; field?: string; onChange: (value: string) => void;
 }) {
-  const valid = HEX.test(value);
+  const hex = typeof value === "string" ? value : "";
+  const valid = HEX.test(hex);
+  const invalid = !valid || Boolean(error);
   return (
-    <div className={`tc-color${valid ? "" : " is-invalid"}`}>
-      <input type="color" className="tc-color-swatch" aria-label={label} value={valid && value.length === 7 ? value : "#000000"} disabled={disabled} onChange={(event) => onChange(event.target.value)} />
+    <div className={`tc-color${invalid ? " is-invalid" : ""}`} data-theme-field={field || undefined}>
+      <input type="color" className="tc-color-swatch" aria-label={label} value={valid && hex.length === 7 ? hex : "#000000"} disabled={disabled} onChange={(event) => onChange(event.target.value)} />
       <span className="tc-color-name">{label}</span>
-      <input className="tc-color-hex" aria-label={`${label} HEX`} value={value} maxLength={7} spellCheck={false} disabled={disabled} onChange={(event) => onChange(event.target.value.trim())} />
+      <input className="tc-color-hex" aria-label={`${label} HEX`} value={hex} maxLength={7} spellCheck={false} disabled={disabled} aria-invalid={invalid} onChange={(event) => onChange(event.target.value.trim())} />
       {error || !valid ? <FieldError text={error || hexError} /> : null}
     </div>
   );
@@ -214,10 +268,27 @@ export default function ShopThemeEditor({
   const [confirm, setConfirm] = useState<PendingConfirm>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [device, setDevice] = useState<DeviceKey>("desktop");
-  const [panelTab, setPanelTab] = useState<"template" | "brand" | "hero" | "sections">("template");
+  const [panelTab, setPanelTab] = useState<PanelTab>("template");
   const [previewProducts, setPreviewProducts] = useState<PublicProduct[]>([]);
   const [stageWidth, setStageWidth] = useState(0);
   const stageRef = useRef<HTMLDivElement>(null);
+  const panelBodyRef = useRef<HTMLDivElement>(null);
+  const focusFieldRef = useRef<string | null>(null);
+
+  const revealFieldError = useCallback((field: string) => {
+    focusFieldRef.current = field;
+    setPanelTab(panelForThemeField(field));
+  }, []);
+
+  useEffect(() => {
+    const field = focusFieldRef.current;
+    if (!field || !fieldErrors.length) return;
+    const timer = window.setTimeout(() => {
+      focusFieldRef.current = null;
+      focusThemeFieldError(panelBodyRef.current, field);
+    }, 40);
+    return () => window.clearTimeout(timer);
+  }, [panelTab, fieldErrors]);
 
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(baseline), [draft, baseline]);
 
@@ -354,7 +425,7 @@ export default function ShopThemeEditor({
     if (confirm.kind === "template") applyPreset(confirm.key);
     else {
       applyPreset(draft.templateKey);
-      notify(t("storeTheme.resetDone"));
+      notify(t("storeTheme.resetDone"), "ok");
     }
     setConfirm(null);
   };
@@ -414,7 +485,9 @@ export default function ShopThemeEditor({
       return { ...config, announcement: { items: next } };
     }, "config.announcement");
 
-  const setSection = (index: number, change: { enabled?: boolean; variant?: SectionVariant }) =>
+  const setSection = (index: number, change: {
+    enabled?: boolean; variant?: SectionVariant;
+  }) =>
     patchConfig((config) => {
       const target = config.sections[index];
       const hero = target.key === "HERO" && isHeroLayoutValue(change.variant)
@@ -475,6 +548,22 @@ export default function ShopThemeEditor({
       return { ...config, colors };
     }, `config.colors.${key}`);
 
+  /** One draft write for nav colours — avoid stacked setState that drops the sibling key. */
+  const patchNavColors = (
+    change: Partial<Record<(typeof NAV_COLOR_KEYS)[number], string | undefined>>,
+    errorField: string,
+  ) =>
+    patchConfig((current) => {
+      const colors = { ...current.colors };
+      for (const key of NAV_COLOR_KEYS) {
+        if (!(key in change)) continue;
+        const value = change[key];
+        if (value == null || value === "") delete colors[key];
+        else colors[key] = HEX.test(value) ? value.toLowerCase() : value;
+      }
+      return { ...current, colors };
+    }, errorField);
+
   const setGradient = (which: GradientKey, next: ThemeGradient) =>
     patchConfig((config) => ({
       ...config,
@@ -489,15 +578,34 @@ export default function ShopThemeEditor({
 
   const save = async () => {
     if (saving || !canUpdate) return;
-    if (COLOR_KEYS.some((key) => !HEX.test(draft.config.colors[key]))) {
-      notify(t("storeTheme.errors.hex"));
-      return;
+    const hexErrors: ApiFieldError[] = [];
+    for (const key of COLOR_KEYS) {
+      if (!HEX.test(draft.config.colors[key])) {
+        hexErrors.push({ field: `config.colors.${key}`, code: "THEME_COLOR_INVALID", message: t("storeTheme.errors.hex") });
+      }
     }
-    if (EXTRA_COLOR_KEYS.some((key) => {
+    for (const key of EXTRA_COLOR_KEYS) {
       const value = draft.config.colors[key];
-      return value != null && value !== "" && !HEX.test(value);
-    })) {
-      notify(t("storeTheme.errors.hex"));
+      if (value != null && value !== "" && !HEX.test(value)) {
+        hexErrors.push({ field: `config.colors.${key}`, code: "THEME_COLOR_INVALID", message: t("storeTheme.errors.hex") });
+      }
+    }
+    if (usesTsfTree(draft.templateKey)) {
+      for (const key of NAV_COLOR_KEYS) {
+        const value = draft.config.colors[key];
+        if (value != null && value !== "" && !HEX.test(value)) {
+          hexErrors.push({ field: `config.colors.${key}`, code: "THEME_COLOR_INVALID", message: t("storeTheme.errors.hex") });
+        }
+      }
+      const cardBg = draft.config.colors.cardBackground;
+      if (cardBg != null && cardBg !== "" && !HEX.test(cardBg)) {
+        hexErrors.push({ field: "config.colors.cardBackground", code: "THEME_COLOR_INVALID", message: t("storeTheme.errors.hex") });
+      }
+    }
+    if (hexErrors.length) {
+      setFieldErrors(hexErrors);
+      revealFieldError(hexErrors[0].field);
+      notify(t("storeTheme.errors.hex"), "warning");
       return;
     }
     setSaving(true);
@@ -518,16 +626,19 @@ export default function ShopThemeEditor({
       const saved = normalizeTheme(await merchantApi.saveTheme(payload, shopId) as Partial<ShopTheme>);
       setBaseline(saved);
       setDraft(saved);
-      notify(t("storeTheme.saved"));
+      notify(t("storeTheme.saved"), "ok");
     } catch (error) {
       if (error instanceof ApiError) {
         setFieldErrors(error.fieldErrors);
         const detail = error.fieldErrors[0]?.message;
-        notify(error.fieldErrors.length
-          ? `${t("storeTheme.errors.validation")}${detail ? ` — ${detail}` : ""}`
-          : (error.message || t("storeTheme.errors.save")));
+        if (error.fieldErrors.length) {
+          revealFieldError(error.fieldErrors[0].field);
+          notify(`${t("storeTheme.errors.validation")}${detail ? ` — ${detail}` : ""}`, "warning");
+        } else {
+          notify(error.message || t("storeTheme.errors.save"), "fail");
+        }
       } else {
-        notify(t("storeTheme.errors.save"));
+        notify(t("storeTheme.errors.save"), "fail");
       }
     } finally {
       setSaving(false);
@@ -581,6 +692,10 @@ export default function ShopThemeEditor({
   const zoom = stageWidth > 0 ? Math.min(1, stageWidth / previewWidth) : 1;
   const disabled = !canUpdate;
   const chromeProps = { config, disabled, shopId, shopSlug: shop.slug, errorFor, patch: patchConfig };
+  const navBackgroundValue = config.colors.navBackground ?? config.colors.background;
+  const navTextAuto = !config.colors.navText;
+  const navTextValue = config.colors.navText ?? contrastOnColor(navBackgroundValue);
+  const contrastIssues = themeContrastIssues(config.colors);
 
   const confirmCopy = confirm?.kind === "template"
     ? { title: t("storeTheme.confirm.template.title"), message: t("storeTheme.confirm.template.message"), label: t("storeTheme.confirm.template.confirm") }
@@ -627,7 +742,7 @@ export default function ShopThemeEditor({
           <button type="button" role="tab" aria-selected={panelTab === "hero"} className={panelTab === "hero" ? "active" : ""} onClick={() => setPanelTab("hero")}><GalleryHorizontal aria-hidden="true" /><span>{t("storeTheme.customizer.tab.hero")}</span></button>
           <button type="button" role="tab" aria-selected={panelTab === "sections"} className={panelTab === "sections" ? "active" : ""} onClick={() => setPanelTab("sections")}><List aria-hidden="true" /><span>{t("storeTheme.customizer.tab.sections")}</span></button>
         </nav>
-        <div className="tc-panel-body">
+        <div className="tc-panel-body" ref={panelBodyRef}>
         {panelTab === "template" ? (<>
         <fieldset className="theme-block">
           <legend>{t("storeTheme.tc.templateHead")}</legend>
@@ -669,6 +784,7 @@ export default function ShopThemeEditor({
               value={config.header.layout}
               disabled={disabled}
               error={errorFor("header.layout")}
+              field="header.layout"
               options={[{ value: "LOGO_LEFT", label: t("storeTheme.tc.left") }, { value: "LOGO_CENTER", label: t("storeTheme.tc.center") }]}
               onChange={(value) => patchConfig((current) => (current.header
                 ? { ...current, header: { ...current.header, layout: value as NonNullable<ThemeConfig["header"]>["layout"] } }
@@ -680,6 +796,7 @@ export default function ShopThemeEditor({
               value={config.brand?.logoPosition ?? "LEFT"}
               disabled={disabled}
               error={errorFor("brand.logoPosition")}
+              field="brand.logoPosition"
               options={[{ value: "LEFT", label: t("storeTheme.tc.left") }, { value: "CENTER", label: t("storeTheme.tc.center") }]}
               onChange={(value) => patchConfig((current) => ({ ...current, brand: { ...current.brand, logoPosition: value as "LEFT" | "CENTER" } }), "config.brand.logoPosition")}
             />
@@ -693,6 +810,7 @@ export default function ShopThemeEditor({
               key === "accent" ? (
                 <ColorRow
                   key={key}
+                  field="colors.accent"
                   label={t("storeTheme.tc.color.accent")}
                   value={config.colors.accent ?? config.colors.primary}
                   error={errorFor("colors.accent")}
@@ -703,6 +821,7 @@ export default function ShopThemeEditor({
               ) : (
                 <ColorRow
                   key={key}
+                  field={`colors.${key}`}
                   label={t(`storeTheme.tc.color.${key}`)}
                   value={config.colors[key]}
                   error={errorFor(`colors.${key}`)}
@@ -712,11 +831,88 @@ export default function ShopThemeEditor({
                 />
               )
             ))}
+            {usesTsfTree(draft.templateKey) ? (
+              <>
+                <ColorRow
+                  field="colors.navBackground"
+                  label={t("storeTheme.tc.color.navBackground")}
+                  value={navBackgroundValue}
+                  error={errorFor("colors.navBackground")}
+                  hexError={t("storeTheme.errors.hex")}
+                  disabled={disabled}
+                  onChange={(value) => {
+                    // Persist nav bg in the same write as clearing auto text — separate from page background.
+                    patchNavColors(
+                      navTextAuto
+                        ? { navBackground: value, navText: undefined }
+                        : { navBackground: value },
+                      "config.colors.navBackground",
+                    );
+                  }}
+                />
+                <ColorRow
+                  field="colors.navText"
+                  label={t("storeTheme.tc.color.navText")}
+                  value={navTextValue}
+                  error={errorFor("colors.navText")}
+                  hexError={t("storeTheme.errors.hex")}
+                  disabled={disabled || navTextAuto}
+                  onChange={(value) => patchNavColors({ navText: value }, "config.colors.navText")}
+                />
+                <ColorRow
+                  field="colors.cardBackground"
+                  label={t("storeTheme.style.cardBackground")}
+                  value={config.colors.cardBackground ?? config.colors.background}
+                  error={errorFor("colors.cardBackground")}
+                  hexError={t("storeTheme.errors.hex")}
+                  disabled={disabled}
+                  onChange={(value) => patchConfig((current) => {
+                    const colors = { ...current.colors };
+                    if (!value) delete colors.cardBackground;
+                    else colors.cardBackground = HEX.test(value) ? value.toLowerCase() : value;
+                    return { ...current, colors };
+                  }, "config.colors.cardBackground")}
+                />
+              </>
+            ) : null}
           </div>
-          {themeContrastIssues(config.colors).length > 0 ? (
+          {usesTsfTree(draft.templateKey) ? (
+            <div className="tc-nav-extras">
+              <div className="tc-nav-auto" data-theme-field="colors.navText">
+                <span>
+                  {t("storeTheme.tc.color.navTextAuto")}
+                  <small>{t("storeTheme.tc.color.navTextAutoHint")}</small>
+                </span>
+                <ToggleSwitch
+                  checked={navTextAuto}
+                  disabled={disabled}
+                  label={t("storeTheme.tc.color.navTextAuto")}
+                  onText={t("storeTheme.sections.on")}
+                  offText={t("storeTheme.sections.off")}
+                  onChange={(next) => {
+                    patchNavColors(
+                      { navText: next ? undefined : contrastOnColor(navBackgroundValue) },
+                      "config.colors.navText",
+                    );
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                className="tc-link-btn"
+                disabled={disabled || (!config.colors.navBackground && !config.colors.navText)}
+                onClick={() => patchNavColors({ navBackground: undefined, navText: undefined }, "config.colors.navBackground")}
+              >
+                {t("storeTheme.tc.color.navUseBackground")}
+              </button>
+            </div>
+          ) : null}
+          {contrastIssues.length > 0 ? (
             <p className="form-field-warn" role="status">
               <CircleAlert size={14} aria-hidden="true" />
-              {t("storeTheme.colors.contrastWarn")}
+              {contrastIssues.includes("navBar")
+                ? t("storeTheme.colors.contrastWarnNav")
+                : t("storeTheme.colors.contrastWarn")}
             </p>
           ) : null}
         </fieldset>
@@ -756,6 +952,7 @@ export default function ShopThemeEditor({
               {EXTRA_COLOR_KEYS.filter((key) => key !== "accent").map((key) => (
                 <ColorField
                   key={key}
+                  field={`colors.${key}`}
                   label={t(`storeTheme.colors.${key}`)}
                   value={config.colors[key] ?? config.colors.background}
                   error={errorFor(`colors.${key}`)}
@@ -771,7 +968,7 @@ export default function ShopThemeEditor({
         <fieldset className="theme-block">
           <legend>{t("storeTheme.style.title")}</legend>
           <div className="theme-grid">
-            <FormField label={t("storeTheme.style.radius")} error={errorFor("style.radius")}>
+            <FormField label={t("storeTheme.style.radius")} error={errorFor("style.radius")} field="style.radius">
               <input
                 type="number"
                 className="num"
@@ -800,6 +997,36 @@ export default function ShopThemeEditor({
                 ...current,
                 style: { ...current.style, cardStyle: value as ShopCardStyle },
               }), "config.style.cardStyle")}
+            />
+            <ThemeSegmented
+              label={t("storeTheme.style.cardRadius")}
+              value={resolvedProductCardRadius(draft)}
+              disabled={disabled}
+              field="style.cardRadius"
+              error={errorFor("style.cardRadius")}
+              options={SHOP_CARD_RADII.map((value) => ({
+                value,
+                label: t(`storeTheme.style.cardRadii.${value}`),
+              }))}
+              onChange={(value) => patchConfig((current) => ({
+                ...current,
+                style: { ...current.style, cardRadius: value as ShopCardRadius },
+              }), "config.style.cardRadius")}
+            />
+            <ThemeSegmented
+              label={t("storeTheme.style.cardGap")}
+              value={resolvedProductCardGap(draft)}
+              disabled={disabled}
+              field="style.cardGap"
+              error={errorFor("style.cardGap")}
+              options={SHOP_CARD_GAPS.map((value) => ({
+                value,
+                label: t(`storeTheme.style.cardGaps.${value}`),
+              }))}
+              onChange={(value) => patchConfig((current) => ({
+                ...current,
+                style: { ...current.style, cardGap: value as ShopCardGap },
+              }), "config.style.cardGap")}
             />
             <ThemeSegmented
               label={t("storeTheme.style.density")}
@@ -959,6 +1186,7 @@ export default function ShopThemeEditor({
                   value={config.hero.layout}
                   disabled={disabled}
                   error={errorFor("hero.layout")}
+                  field="hero.layout"
                   options={layouts.map((value) => ({ value, label: t(`storeTheme.variants.${value}`) }))}
                   onChange={(value) => setHeroLayout(value as HeroLayoutValue)}
                 />
@@ -968,6 +1196,7 @@ export default function ShopThemeEditor({
                     value={config.hero.textAlign ?? "LEFT"}
                     disabled={disabled}
                     error={errorFor("hero.textAlign")}
+                    field="hero.textAlign"
                     options={[{ value: "LEFT", label: t("storeTheme.tc.left") }, { value: "CENTER", label: t("storeTheme.tc.center") }]}
                     onChange={(value) => patchConfig((current) => ({ ...current, hero: { ...current.hero, textAlign: value as "LEFT" | "CENTER" } }), "config.hero.textAlign")}
                   />
@@ -977,6 +1206,7 @@ export default function ShopThemeEditor({
               value={config.brand?.textAlign ?? "LEFT"}
               disabled={disabled}
               error={errorFor("brand.textAlign")}
+              field="brand.textAlign"
               options={[{ value: "LEFT", label: t("storeTheme.tc.left") }, { value: "CENTER", label: t("storeTheme.tc.center") }]}
               onChange={(value) => patchConfig((current) => ({ ...current, brand: { ...current.brand, textAlign: value as "LEFT" | "CENTER" } }), "config.brand.textAlign")}
             />
@@ -1024,11 +1254,11 @@ export default function ShopThemeEditor({
               <fieldset className="theme-block">
                 <legend>{t("storeTheme.tc.text")}</legend>
                 {general ? (
-                  <FormField label={t("storeTheme.tc.eyebrow")} error={errorFor("hero.eyebrow")}>
+                  <FormField label={t("storeTheme.tc.eyebrow")} error={errorFor("hero.eyebrow")} field="hero.eyebrow">
                     <input value={config.hero.eyebrow ?? ""} maxLength={60} disabled={disabled} placeholder={t("storeTheme.hero.eyebrowPlaceholder")} onChange={(event) => setHero("eyebrow", event.target.value)} />
                   </FormField>
                 ) : null}
-                <FormField label={t("storeTheme.tc.title")} error={errorFor("hero.title")}>
+                <FormField label={t("storeTheme.tc.title")} error={errorFor("hero.title")} field="hero.title">
                   <input value={config.hero.title} maxLength={120} disabled={disabled} placeholder={shop.shopName} onChange={(event) => setHero("title", event.target.value)} />
                 </FormField>
                 <FormTextarea
@@ -1037,13 +1267,14 @@ export default function ShopThemeEditor({
                   maxLength={240}
                   disabled={disabled}
                   error={errorFor("hero.subtitle")}
+                  field="hero.subtitle"
                   onChange={(event) => setHero("subtitle", event.target.value)}
                 />
-                <FormField label={t("storeTheme.tc.cta")} error={errorFor("hero.ctaLabel")}>
+                <FormField label={t("storeTheme.tc.cta")} error={errorFor("hero.ctaLabel")} field="hero.ctaLabel">
                   <input value={config.hero.ctaLabel} maxLength={120} disabled={disabled} onChange={(event) => setHero("ctaLabel", event.target.value)} />
                 </FormField>
                 {general ? (
-                  <FormField label={t("storeTheme.tc.cta2")} error={errorFor("hero.ctaSecondaryLabel")}>
+                  <FormField label={t("storeTheme.tc.cta2")} error={errorFor("hero.ctaSecondaryLabel")} field="hero.ctaSecondaryLabel">
                     <input value={config.hero.ctaSecondaryLabel ?? ""} maxLength={120} disabled={disabled} placeholder={t("storeTheme.hero.ctaSecondaryPlaceholder")} onChange={(event) => setHero("ctaSecondaryLabel", event.target.value)} />
                   </FormField>
                 ) : null}
@@ -1051,16 +1282,16 @@ export default function ShopThemeEditor({
 
               <fieldset className="theme-block">
                 <legend>{t("storeTheme.tc.more")}</legend>
-                <FormField label={t("storeTheme.tc.ctaLink")} error={errorFor("hero.ctaLink")}>
+                <FormField label={t("storeTheme.tc.ctaLink")} error={errorFor("hero.ctaLink")} field="hero.ctaLink">
                   <input value={config.hero.ctaLink} disabled={disabled} placeholder="/shops  |  https://" onChange={(event) => setHero("ctaLink", event.target.value)} />
                 </FormField>
                 {general ? (
-                  <FormField label={t("storeTheme.tc.cta2Link")} error={errorFor("hero.ctaSecondaryLink")}>
+                  <FormField label={t("storeTheme.tc.cta2Link")} error={errorFor("hero.ctaSecondaryLink")} field="hero.ctaSecondaryLink">
                     <input value={config.hero.ctaSecondaryLink ?? ""} disabled={disabled} placeholder="/shops  |  https://" onChange={(event) => setHero("ctaSecondaryLink", event.target.value)} />
                   </FormField>
                 ) : null}
                 {general ? [0, 1, 2].map((slot) => (
-                  <FormField key={slot} label={`${t("storeTheme.hero.badges")} ${slot + 1}`} error={errorFor(`hero.badges[${slot}]`) ?? (slot === 0 ? errorFor("hero.badges") : undefined)}>
+                  <FormField key={slot} label={`${t("storeTheme.hero.badges")} ${slot + 1}`} error={errorFor(`hero.badges[${slot}]`) ?? (slot === 0 ? errorFor("hero.badges") : undefined)} field={`hero.badges[${slot}]`}>
                     <input value={config.hero.badges?.[slot] ?? ""} maxLength={24} placeholder={t("storeTheme.hero.badgesHint")} disabled={disabled} onChange={(event) => setHeroBadge(slot, event.target.value)} />
                   </FormField>
                 )) : null}
@@ -1173,7 +1404,7 @@ export default function ShopThemeEditor({
                     <option key={icon} value={icon}>{t(`storeTheme.sections.trustIcons.${icon}`)}</option>
                   ))}
                 </ThemeSelect>
-                <FormField label={t("storeTheme.sections.trustLabel")} error={errorFor(`trust.items[${index}].label`)}>
+                <FormField label={t("storeTheme.sections.trustLabel")} error={errorFor(`trust.items[${index}].label`)} field={`trust.items[${index}].label`}>
                   <input
                     value={item.label}
                     maxLength={60}
@@ -1182,7 +1413,7 @@ export default function ShopThemeEditor({
                   />
                 </FormField>
                 {usesTsfTree(draft.templateKey) ? (
-                  <FormField label={t("storeTheme.sections.trustSub")} error={errorFor(`trust.items[${index}].sub`)}>
+                  <FormField label={t("storeTheme.sections.trustSub")} error={errorFor(`trust.items[${index}].sub`)} field={`trust.items[${index}].sub`}>
                     <input
                       value={item.sub ?? ""}
                       maxLength={80}
@@ -1257,7 +1488,11 @@ export default function ShopThemeEditor({
                         aria-invalid={Boolean(rowError)}
                         onChange={(event) => setSection(index, { variant: event.target.value as SectionVariant })}
                       >
-                        {variants.map((variant) => <option key={variant} value={variant ?? ""}>{variant}</option>)}
+                        {variants.map((variant) => (
+                          <option key={variant} value={variant ?? ""}>
+                            {variant ? t(`storeTheme.variants.${variant}`) : variant}
+                          </option>
+                        ))}
                       </ThemeSelect>
                     ) : <small className="theme-section-state">{section.enabled ? t("storeTheme.tc.shown") : t("storeTheme.tc.hidden")}</small>}
                   </span>
@@ -1280,49 +1515,6 @@ export default function ShopThemeEditor({
           </ul>
           <p className="theme-hint tc-note">{t("storeTheme.tc.sectionsNote")}</p>
         </fieldset>
-        {draft.templateKey === "GENERAL" ? (() => {
-          const catalogIndex = config.sections.findIndex((row) => row.key === "CATALOG");
-          const current = catalogIndex >= 0 ? (config.sections[catalogIndex].variant ?? "GRID") : "GRID";
-          const options: { key: "GRID" | "LARGE" | "MENU"; Icon: LucideIcon }[] = [
-            { key: "GRID", Icon: LayoutGrid }, { key: "LARGE", Icon: GalleryHorizontal }, { key: "MENU", Icon: List },
-          ];
-          return (
-            <fieldset className="theme-block">
-              <legend>{t("storeTheme.catalogLayout.title")}</legend>
-              <p className="theme-hint">{t("storeTheme.catalogLayout.hint")}</p>
-              <div className="tc-layout-opts" role="radiogroup" aria-label={t("storeTheme.catalogLayout.title")}
-                onKeyDown={(event) => {
-                  const step = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : event.key === "ArrowUp" || event.key === "ArrowLeft" ? -1 : 0;
-                  if (!step || disabled || catalogIndex < 0) return;
-                  event.preventDefault();
-                  const idx = options.findIndex((o) => o.key === current);
-                  const next = options[(idx + step + options.length) % options.length].key;
-                  setSection(catalogIndex, { variant: next });
-                  const group = event.currentTarget;
-                  requestAnimationFrame(() => group.querySelector<HTMLButtonElement>(`[data-key="${next}"]`)?.focus());
-                }}>
-                {options.map(({ key, Icon }) => {
-                  const active = current === key;
-                  return (
-                    <button type="button" key={key} data-key={key} role="radio" aria-checked={active} tabIndex={active ? 0 : -1}
-                      className={`tc-layout-opt${active ? " is-active" : ""}`}
-                      disabled={disabled || catalogIndex < 0} onClick={() => setSection(catalogIndex, { variant: key })}>
-                      <span className={`tc-layout-prev tc-layout-prev-${key.toLowerCase()}`} aria-hidden="true">
-                        {key === "GRID" ? <><i /><i /><i /><i /><i /><i /></> : key === "LARGE" ? <><i /><i /></> : <><i /><i /><i /></>}
-                      </span>
-                      <span className="tc-layout-text">
-                        <b><Icon aria-hidden="true" />{t(`storeTheme.catalogLayout.${key}.name`)}</b>
-                        <small>{t(`storeTheme.catalogLayout.${key}.desc`)}</small>
-                      </span>
-                      <span className="tc-layout-radio" aria-hidden="true">{active ? <Check /> : null}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {catalogIndex >= 0 ? <FieldError text={errorFor(`sections[${catalogIndex}].variant`)} /> : null}
-            </fieldset>
-          );
-        })() : null}
         </>
         )}
         {usesTsfTree(draft.templateKey) ? (

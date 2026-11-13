@@ -3,6 +3,7 @@ package com.thaishopfun.order;
 import com.thaishopfun.auth.AuthException;
 import com.thaishopfun.auth.RequestUser;
 import com.thaishopfun.auth.authz.RequirePermission;
+import com.thaishopfun.merchant.plan.PlanQuotaService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,9 +19,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/checkout")
 public class CheckoutController {
     private final OrderCheckoutService checkout;
+    private final PlanQuotaService planQuota;
 
-    public CheckoutController(OrderCheckoutService checkout) {
+    public CheckoutController(OrderCheckoutService checkout, PlanQuotaService planQuota) {
         this.checkout = checkout;
+        this.planQuota = planQuota;
     }
 
     @RequirePermission("CHECKOUT_CREATE")
@@ -30,6 +33,7 @@ public class CheckoutController {
                                                                @RequestBody(required = false) OrderDtos.CheckoutRequest request) {
         var buyer = RequestUser.id(jwt);
         OrderCheckoutService.requireKey(key);
+        planQuota.assertCheckoutForBuyer(buyer);
         try {
             var result = checkout.checkout(buyer, key, request);
             return ResponseEntity.status(result.replayed() ? HttpStatus.OK : HttpStatus.CREATED).body(result);

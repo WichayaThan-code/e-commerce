@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/member-home.css";
 import "../styles/shop-page.css";
@@ -19,7 +19,6 @@ import { shopProductPath } from "../services/shopRoutes";
 import {
   ArrowRight,
   CircleEllipsis,
-  Gift,
   Headphones,
   Heart,
   Package,
@@ -29,10 +28,11 @@ import {
   Store,
   Truck,
 } from "lucide-react";
+// FUTURE: ดีลพิเศษ — คืน import { Gift } เมื่อเปิดทางลัด member
+import { buildMarketplaceCategoryTiles } from "../components/marketplace/categoryTiles";
 
 const benefitIcons = [Truck, ShieldCheck, Store, PackageCheck, Headphones];
 const HOME_PRODUCT_COUNT = 6;
-const CATEGORY_SLOT_COUNT = 10; // design grid is 11 cells; last slot = "more"
 
 type HomeBenefit = { title: string; text: string };
 type HomeProductMeta = { price: number; old: number; rating: string; sold: number; emoji: string; bg: string };
@@ -72,24 +72,6 @@ function localizedName(p: BestSellerProduct, localeTag: string) {
   return p.nameTh;
 }
 
-function localizedCategory(c: ProductCategory, localeTag: string) {
-  if (localeTag.startsWith("en") && c.nameEn) return c.nameEn;
-  if (localeTag.startsWith("zh") && c.nameZh) return c.nameZh;
-  return c.nameTh;
-}
-
-/** Soft wrap long category labels into two lines for the existing `<span>` split. */
-function categoryLabelLines(name: string) {
-  const trimmed = name.trim();
-  if (trimmed.includes("\n")) return trimmed;
-  const parts = trimmed.split(/\s+/);
-  if (parts.length >= 2 && trimmed.length > 10) {
-    const mid = Math.ceil(parts.length / 2);
-    return `${parts.slice(0, mid).join(" ")}\n${parts.slice(mid).join(" ")}`;
-  }
-  return trimmed;
-}
-
 export default function MarketplacePage() {
   const [notice, setNotice] = useState("");
   const { user } = useAuth();
@@ -97,7 +79,6 @@ export default function MarketplacePage() {
   const navigate = useNavigate();
 
   const benefits = tp("home.benefits", { returnObjects: true }) as unknown as HomeBenefit[];
-  const categoryEmojis = tp("home.categoryEmojis", { returnObjects: true }) as unknown as string[];
   const fallbackCategories = tp("home.categories", { returnObjects: true }) as unknown as string[];
   const openStoreBullets = tp("home.openStoreBullets", { returnObjects: true }) as unknown as string[];
   const productMeta = tp("home.productMeta", { returnObjects: true }) as unknown as HomeProductMeta[];
@@ -135,36 +116,10 @@ export default function MarketplacePage() {
       .catch(() => setFavorites(new Set()));
   }, [user]);
 
-  const categoryButtons = useMemo(() => {
-    const moreLabel = fallbackCategories[fallbackCategories.length - 1] ?? "อื่นๆ";
-    const rows = (categories && categories.length > 0 ? categories : []).slice(0, CATEGORY_SLOT_COUNT);
-    if (rows.length === 0) {
-      // API empty → keep design slots from i18n labels (still non-interactive beyond toast/nav)
-      return fallbackCategories.map((label, index) => ({
-        key: `fallback-${index}`,
-        label,
-        emoji: categoryEmojis[index],
-        isMore: index === fallbackCategories.length - 1,
-        categoryId: undefined as number | undefined,
-      }));
-    }
-    return [
-      ...rows.map((row, index) => ({
-        key: String(row.id),
-        label: categoryLabelLines(localizedCategory(row, localeTag)),
-        emoji: categoryEmojis[index] ?? "🛍️",
-        isMore: false,
-        categoryId: row.id as number | undefined,
-      })),
-      {
-        key: "more",
-        label: moreLabel,
-        emoji: categoryEmojis[CATEGORY_SLOT_COUNT] ?? "🎁",
-        isMore: true,
-        categoryId: undefined as number | undefined,
-      },
-    ];
-  }, [categories, categoryEmojis, fallbackCategories, localeTag]);
+  const categoryButtons = useMemo(
+    () => buildMarketplaceCategoryTiles(categories, fallbackCategories, localeTag),
+    [categories, fallbackCategories, localeTag],
+  );
 
   const notify = (message: string) => {
     setNotice(message);
@@ -223,6 +178,7 @@ export default function MarketplacePage() {
             <p>{tp("home.memberLead")}</p>
           </div>
           <div className="member-shortcuts">
+            {/* FUTURE: ดีลพิเศษ — เปิดทางลัดเมื่อพร้อมใช้งาน
             <a href="/deals">
               <span>
                 <Gift />
@@ -230,6 +186,7 @@ export default function MarketplacePage() {
               <b>{tp("home.memberDeals")}</b>
               <small>{tp("home.memberDealsHint")}</small>
             </a>
+            */}
             <a href="/cart">
               <span>
                 <ShoppingBag />
@@ -285,11 +242,17 @@ export default function MarketplacePage() {
         <div className="category-grid">
           {categoryButtons.map((item) => (
             <button
-              className={`category ${item.isMore ? "category-more" : ""}`}
+              className="category"
               key={item.key}
               onClick={() => openCategory(item)}
             >
-              <span>{item.isMore ? <CircleEllipsis /> : item.emoji}</span>
+              {item.isMore ? (
+                <span className="category-more-icon" aria-hidden="true">
+                  <CircleEllipsis />
+                </span>
+              ) : (
+                <span aria-hidden="true">{item.emoji}</span>
+              )}
               <b>
                 {item.label.split("\n").map((line, j) => (
                   <span key={j}>{line}</span>

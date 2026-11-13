@@ -43,11 +43,14 @@ public class AdminShopUsageService {
     @Transactional(readOnly = true)
     public PlanCatalog plans() {
         var rows = jdbc.query("""
-            SELECT code, name, limit_products, limit_orders_per_month, limit_staff, limit_storage_bytes
-              FROM plans WHERE active = TRUE ORDER BY code
+            SELECT code, name, limit_products, limit_orders_per_month, limit_staff, limit_storage_bytes,
+                   price_monthly, price_yearly, description, sort_order
+              FROM plans WHERE active = TRUE ORDER BY sort_order, code
             """, (rs, i) -> new Plan(rs.getString("code"), rs.getString("name"),
             new PlanLimits(longOrNull(rs, "limit_products"), longOrNull(rs, "limit_orders_per_month"),
-                longOrNull(rs, "limit_staff"), longOrNull(rs, "limit_storage_bytes"))));
+                longOrNull(rs, "limit_staff"), longOrNull(rs, "limit_storage_bytes")),
+            rs.getBigDecimal("price_monthly"), rs.getBigDecimal("price_yearly"), rs.getString("description"),
+            rs.getInt("sort_order")));
         return new PlanCatalog("DB", rows, "แพ็กเกจจากตาราง plans; shops.plan_code = null หมายถึงยังไม่ได้กำหนดแพ็กเกจ");
     }
 
@@ -186,7 +189,8 @@ public class AdminShopUsageService {
               LEFT JOIN users u ON u.id = s.owner_user_id
               LEFT JOIN plans pl ON pl.code = s.plan_code
               LEFT JOIN (
-                   SELECT shop_id, COUNT(*) AS cnt FROM products WHERE deleted_at IS NULL GROUP BY shop_id
+                   SELECT shop_id, COUNT(*) AS cnt FROM products
+                    WHERE deleted_at IS NULL AND status = 'PUBLISHED' GROUP BY shop_id
               ) pr ON pr.shop_id = s.id
               LEFT JOIN (
                    SELECT shop_id, COUNT(*) AS cnt FROM shop_members

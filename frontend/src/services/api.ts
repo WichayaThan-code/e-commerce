@@ -143,9 +143,22 @@ export type MerchantOwner = {
 export type TranslationMeta = { origin: 'MACHINE' | 'HUMAN' | 'MANUAL'; status: 'PENDING' | 'DONE' | 'FAILED' }
 
 export type ThemeColors = { primary:string; secondary:string; background:string; text:string; accent?:string }
-export type ThemeStyle = { radius:number; cardStyle:'FLAT'|'BORDERED'|'SHADOW'; density:'COMPACT'|'COMFORTABLE'; buttonShape:'ROUNDED'|'PILL'|'SQUARE' }
+export type ThemeStyle = {
+  radius:number
+  cardStyle:'FLAT'|'BORDERED'|'SHADOW'
+  cardRadius?:'NONE'|'ROUNDED'
+  cardGap?:'TIGHT'|'SPACED'
+  density:'COMPACT'|'COMFORTABLE'
+  buttonShape:'ROUNDED'|'PILL'|'SQUARE'
+}
 export type ThemeHero = { layout:'FULL'|'STRIP'|'MEDIA_FULL'|'SPLIT'|'POSTER'; title:string; subtitle:string; ctaLabel:string; ctaLink:string }
-export type SectionConfig = { key:'HERO'|'BANNERS'|'CATEGORIES'|'TRUST'|'INTRO'|'FEATURED'|'BESTSELLERS'|'NEW_ARRIVALS'|'CATALOG'|'HOURS'; enabled:boolean; variant:'FULL'|'STRIP'|'MEDIA_FULL'|'SPLIT'|'POSTER'|'GRID'|'LARGE'|'MENU'|null }
+export type SectionConfig = {
+  key:'HERO'|'BANNERS'|'CATEGORIES'|'TRUST'|'INTRO'|'FEATURED'|'BESTSELLERS'|'NEW_ARRIVALS'|'CATALOG'|'HOURS'|'COUPONS'
+  enabled:boolean
+  variant:'FULL'|'STRIP'|'MEDIA_FULL'|'SPLIT'|'POSTER'|'GRID'|'LARGE'|'MENU'|null
+  cardRadius?:'NONE'|'ROUNDED'
+  cardGap?:'TIGHT'|'SPACED'
+}
 export type ThemeBanner = { imageUrl:string; title?:string; link?:string; mediaId?:string }
 export type ThemeMediaKind = 'IMAGE'|'VIDEO'|'FONT'
 export type ThemeMediaItem = {
@@ -1849,7 +1862,15 @@ export type AdminShopDetail = {
   createdAt?: string | null; updatedAt?: string | null; publishedAt?: string | null
 }
 export type ShopActionResponse = { changed: boolean; shop: AdminShopDetail }
-export type AdminPlan = { code: string; name: string; limits?: AdminPlanLimits | null }
+export type AdminPlan = {
+  code: string
+  name: string
+  limits?: AdminPlanLimits | null
+  priceMonthly?: number | string | null
+  priceYearly?: number | string | null
+  description?: string | null
+  sortOrder?: number | null
+}
 export type AdminPlanCatalog = { source: string; plans: AdminPlan[]; note?: string | null }
 export type AdminAuditActor = { id?: string | null; type?: string | null; name?: string | null; email?: string | null; role?: string | null }
 export type AdminAuditTarget = { type?: string | null; id?: string | null; shopId?: number | null; shopName?: string | null; name?: string | null }
@@ -1909,6 +1930,8 @@ export const adminPlatformApi = {
     request<ShopActionResponse>(adminPath(`/shops/${shopId}/suspend`), json('POST', body), true),
   reactivateShop: (shopId: number, body: ReasonRequest) =>
     request<ShopActionResponse>(adminPath(`/shops/${shopId}/reactivate`), json('POST', body), true),
+  assignShopPlan: (shopId: number, planCode: string | null) =>
+    request<ShopActionResponse>(adminPath(`/shops/${shopId}/plan`), json('PUT', { planCode }), true),
   plans: () => request<AdminPlanCatalog>(adminPath('/plans'), { cache: 'no-store' }, true),
   planUsage: (params: Record<string, string | number | boolean | null | undefined> = {}) =>
     request<PlatformPage<AdminShopUsage>>(`${adminPath('/plans/usage')}${queryOf(params)}`, { cache: 'no-store' }, true),
@@ -2495,6 +2518,17 @@ export type MerchantPlanMetric = {
   usedRatio: number | null
   breakdown: Record<string, number>
 }
+export type MerchantCatalogPlan = {
+  code: string
+  name: string
+  description: string
+  priceMonthly: number | string | null
+  priceYearly: number | string | null
+  limits: AdminPlanLimits | null
+  sortOrder: number
+  recommended: boolean
+}
+
 export type MerchantPlanUsage = {
   shopId: number
   shopName: string
@@ -2506,14 +2540,114 @@ export type MerchantPlanUsage = {
     resolution: 'ACTIVE' | 'RETIRED' | 'UNKNOWN' | 'NONE'
     note: string | null
   }
+  planBillingCycle: 'MONTHLY' | 'YEARLY' | null
+  planExpiresAt: string | null
   asOf: string
   timezone: string
   displayPolicy: { warnAtRatio: number; note: string }
   metrics: MerchantPlanMetric[]
   enforcement: { metricCode: string; level: string; detail: string }[]
+  catalog: MerchantCatalogPlan[]
+}
+
+export type PlanBillingCycle = 'MONTHLY' | 'YEARLY'
+export type PlanPurchaseStatus =
+  | 'PENDING_PAYMENT'
+  | 'PENDING_REVIEW'
+  | 'ACTIVE'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'EXPIRED'
+
+export type PlanTransferAccount = {
+  displayName: string | null
+  bankName: string | null
+  accountName: string | null
+  accountNumber: string | null
+  promptpay: string | null
+}
+
+export type PlanPurchaseCatalogPlan = {
+  code: string
+  name: string
+  description: string | null
+  sortOrder: number
+  recommended: boolean
+  limits: AdminPlanLimits | null
+  priceMonthly: number | string
+  priceYearly: number | string
+  yearlySavingsBaht: number | string
+  yearlySavingsPercent: number | string
+  yearlyAvgPerMonth: number | string
+}
+
+export type PlanPurchaseOrder = {
+  id: string
+  shopId: number
+  shopName: string
+  planCode: string
+  planName: string
+  billingCycle: PlanBillingCycle
+  amount: number | string
+  currency: string
+  status: PlanPurchaseStatus
+  startsAt: string | null
+  endsAt: string | null
+  estimatedStartsAt: string | null
+  estimatedEndsAt: string | null
+  paymentProofFileId: string | null
+  rejectReason: string | null
+  createdAt: string
+  updatedAt: string
+  reviewedAt: string | null
+  transferAccount: PlanTransferAccount | null
 }
 
 export const merchantPlanUsageApi = {
   get: (shopId: number) =>
     request<MerchantPlanUsage>(shopPath(shopId, '/plan-usage'), { cache: 'no-store' }, true),
+}
+
+export const merchantPlanPurchaseApi = {
+  catalog: (shopId: number) =>
+    request<{ plans: PlanPurchaseCatalogPlan[]; transferAccount: PlanTransferAccount; currency: string; asOf: string }>(
+      shopPath(shopId, '/plan-purchases/catalog'),
+      { cache: 'no-store' },
+      true,
+    ),
+  history: (shopId: number) =>
+    request<{ items: PlanPurchaseOrder[]; openOrder: PlanPurchaseOrder | null }>(
+      shopPath(shopId, '/plan-purchases'),
+      { cache: 'no-store' },
+      true,
+    ),
+  create: (shopId: number, body: { planCode: string; billingCycle: PlanBillingCycle }) =>
+    request<PlanPurchaseOrder>(shopPath(shopId, '/plan-purchases'), { method: 'POST', body: JSON.stringify(body) }, true),
+  cancel: (shopId: number, subscriptionId: string) =>
+    request<PlanPurchaseOrder>(shopPath(shopId, `/plan-purchases/${subscriptionId}/cancel`), { method: 'POST' }, true),
+  attachProof: async (shopId: number, subscriptionId: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<PlanPurchaseOrder>(
+      shopPath(shopId, `/plan-purchases/${subscriptionId}/proof`),
+      { method: 'POST', body: form },
+      true,
+    )
+  },
+}
+
+export const adminPlanPurchaseApi = {
+  list: (status?: string | null) => {
+    const q = status ? `?status=${encodeURIComponent(status)}` : ''
+    return request<PlanPurchaseOrder[]>(`/api/admin/plan-purchases${q}`, { cache: 'no-store' }, true)
+  },
+  approve: (subscriptionId: string) =>
+    request<PlanPurchaseOrder>(`/api/admin/plan-purchases/${subscriptionId}/approve`, { method: 'POST' }, true),
+  reject: (subscriptionId: string, reason: string) =>
+    request<PlanPurchaseOrder>(`/api/admin/plan-purchases/${subscriptionId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }, true),
+  proofUrl: (subscriptionId: string, mediaFileId: string) =>
+    `/api/admin/plan-purchases/${subscriptionId}/proof/${mediaFileId}`,
 }

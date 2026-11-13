@@ -6,6 +6,7 @@ import com.thaishopfun.auth.UserAccountRepository;
 import com.thaishopfun.auth.authz.PermissionMatrix;
 import com.thaishopfun.customer.ContactNormalizer;
 import com.thaishopfun.merchant.Shop;
+import com.thaishopfun.merchant.plan.PlanQuotaService;
 import com.thaishopfun.merchant.ShopStatus;
 import com.thaishopfun.merchant.notification.MerchantLifecycleNotificationWriter;
 import com.thaishopfun.common.notification.NotificationProperties;
@@ -49,6 +50,7 @@ public class ShopTeamService {
     private final PlatformAuditService platformAudit;
     private final ShopTeamProperties properties;
     private final NotificationProperties notificationProperties;
+    private final PlanQuotaService planQuota;
     private final SecureRandom random = new SecureRandom();
 
     public ShopTeamService(
@@ -58,7 +60,8 @@ public class ShopTeamService {
         MerchantLifecycleNotificationWriter notifications,
         PlatformAuditService platformAudit,
         ShopTeamProperties properties,
-        NotificationProperties notificationProperties
+        NotificationProperties notificationProperties,
+        PlanQuotaService planQuota
     ) {
         this.jdbc = jdbc;
         this.matrix = matrix;
@@ -67,6 +70,7 @@ public class ShopTeamService {
         this.platformAudit = platformAudit;
         this.properties = properties;
         this.notificationProperties = notificationProperties;
+        this.planQuota = planQuota;
     }
 
     @Transactional(readOnly = true)
@@ -707,25 +711,12 @@ public class ShopTeamService {
 
     private ShopTeamDtos.StaffQuota staffQuota(Shop shop) {
         long used = countStaffSlots(shop.getUuid());
-        String planCode = shop.getPlanCode();
-        if (planCode == null || planCode.isBlank()) {
-            return new ShopTeamDtos.StaffQuota(
-                null, used, false,
-                "ร้านยังไม่มี plan_code — ไม่บังคับโควตาสมาชิกจากตาราง plans (ไม่ตีความว่า unlimited)"
-            );
-        }
-        Long limit = jdbc.query(
-            "SELECT limit_staff FROM plans WHERE code = ? AND active = TRUE",
-            (rs, i) -> {
-                Object v = rs.getObject("limit_staff");
-                return v == null ? null : rs.getLong("limit_staff");
-            },
-            planCode
-        ).stream().findFirst().orElse(null);
+        var plan = planQuota.resolveEffectivePlan(shop.getPlanCode());
+        Long limit = plan.limitStaff();
         if (limit == null) {
             return new ShopTeamDtos.StaffQuota(
                 null, used, false,
-                "แพ็กเกจ " + planCode + " ไม่กำหนด limit_staff หรือไม่พบแพ็กเกจ — ไม่บังคับโควตา"
+                "แพ็กเกจ " + plan.code() + " ไม่จำกัดจำนวนสมาชิก"
             );
         }
         return new ShopTeamDtos.StaffQuota(limit, used, true, null);
@@ -735,7 +726,11 @@ public class ShopTeamService {
         var quota = staffQuota(shop);
         if (!quota.quotaEnforced() || quota.staffLimit() == null) return;
         if (quota.staffUsed() >= quota.staffLimit()) {
-            throw conflict("MEMBER_QUOTA_EXCEEDED", "จำนวนสมาชิกและคำเชิญถึงโควตาแพ็กเกจแล้ว (" + quota.staffUsed() + "/" + quota.staffLimit() + ")");
+            throw conflict(
+                "MEMBER_QUOTA_EXCEEDED",
+                "จำนวนสมาชิกและคำเชิญถึงโควตาแพ็กเกจแล้ว (ใช้ไป " + quota.staffUsed() + " จาก " + quota.staffLimit()
+                    + " คน) — ลบสมาชิกหรือยกเลิกคำเชิญ หรืออัปเกรดแพ็กเกจ"
+            );
         }
     }
 

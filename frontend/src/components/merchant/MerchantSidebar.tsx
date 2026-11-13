@@ -139,7 +139,24 @@ export default function MerchantSidebar({ active, onNavigate, badges }: Props) {
         <Crown />
         <h3>{t("catalog.menu.upgradeTitle")}</h3>
         <p>{t("catalog.menu.upgradeBody")}</p>
-        <button type="button" title={t("catalog.menu.upgradeAction")} aria-label={t("catalog.menu.upgradeAction")} onClick={() => setNotice("กำลังเปิดรายละเอียดแพ็กเกจ")}><Crown className="rail-only" aria-hidden="true" />{t("catalog.menu.upgradeAction")}</button>
+        {(() => {
+          const planHref = "/merchant/settings?tab=plan";
+          const onPlanTab = pathname === "/merchant/settings"
+            && new URLSearchParams(search).get("tab") === "plan";
+          const label = t("catalog.menu.upgradeAction");
+          if (onPlanTab) {
+            return (
+              <button type="button" title={label} aria-label={label} aria-current="page" onClick={() => setOpen(false)}>
+                <Crown className="rail-only" aria-hidden="true" />{label}
+              </button>
+            );
+          }
+          return (
+            <Link to={planHref} title={label} aria-label={label} onClick={guard(planHref)}>
+              <Crown className="rail-only" aria-hidden="true" />{label}
+            </Link>
+          );
+        })()}
       </section>
       <div className="merchant-support">
         <Link to="/help" title={t("catalog.menu.help")} aria-label={t("catalog.menu.help")} onClick={guard("/help")}><CircleHelp />{t("catalog.menu.help")}</Link>

@@ -51,7 +51,8 @@ import MyStorePage from "../pages/MyStorePage";
 import SettingsPage from "../pages/SettingsPage";
 import ReinstatementPage from "../pages/ReinstatementPage";
 
-import DealsPage from "../pages/DealsPage";
+// FUTURE: ดีลพิเศษ — เปิด route เมื่อพร้อมใช้งาน
+// import DealsPage from "../pages/DealsPage";
 import MyFavoritesPage from "../pages/MyFavoritesPage";
 import RecommendedProductsPage from "../pages/RecommendedProductsPage";
 import BestSellerPage from "../pages/BestSellerPage";
@@ -106,7 +107,8 @@ export const routes: RouteObject[] = [
     element: <PublicLayout />,
     children: [
       { path: "/", element: <MarketplacePage /> },
-      { path: "/deals", element: <DealsPage /> },
+      // FUTURE: ดีลพิเศษ — เปิด route เมื่อพร้อมใช้งาน
+      // { path: "/deals", element: <DealsPage /> },
       { path: "/favorites", element: <MyFavoritesPage /> },
       { path: "/recommendations", element: <RecommendedProductsPage /> },
       { path: "/best-sellers", element: <BestSellerPage /> },

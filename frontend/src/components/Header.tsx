@@ -151,7 +151,8 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
             <button className="drawer-close" onClick={() => setMenuOpen(false)}><X /></button>
             <SiteBrand homeAria={homeAria} />
             <Link to="/#categories" onClick={() => setMenuOpen(false)}>{t('nav.categories')} <ChevronRight size={17} /></Link>
-            <Link to="/deals" onClick={() => setMenuOpen(false)}>{t('nav.deals')} <ChevronRight size={17} /></Link>
+            {/* FUTURE: ดีลพิเศษ — เปิดเมนูเมื่อพร้อมใช้งาน */}
+            {/* <Link to="/deals" onClick={() => setMenuOpen(false)}>{t('nav.deals')} <ChevronRight size={17} /></Link> */}
             <Link to="/recommendations" onClick={() => setMenuOpen(false)}>{t('nav.recommended')} <ChevronRight size={17} /></Link>
             <Link to="/shops" onClick={() => setMenuOpen(false)}>{t('nav.shops')} <ChevronRight size={17} /></Link>
             <Link to="/best-sellers" onClick={() => setMenuOpen(false)}>{t('nav.best')} <ChevronRight size={17} /></Link>

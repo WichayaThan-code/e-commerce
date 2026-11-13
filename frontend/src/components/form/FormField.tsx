@@ -7,6 +7,8 @@ type FormFieldProps = {
   icon?: LucideIcon
   error?: string
   errorId?: string
+  /** Theme/editor path used to focus this field after validation errors. */
+  field?: string
   /** Right-side meta (e.g. character count) on the same row as FieldError. */
   aside?: ReactNode
   className?: string
@@ -14,7 +16,7 @@ type FormFieldProps = {
   children: ReactNode
 }
 
-export default function FormField({ label, icon: Icon, error, errorId, aside, className, multiline, children }: FormFieldProps) {
+export default function FormField({ label, icon: Icon, error, errorId, field, aside, className, multiline, children }: FormFieldProps) {
   const classes = ['form-field', className].filter(Boolean).join(' ')
   const controlClasses = [
     'form-control',
@@ -25,7 +27,7 @@ export default function FormField({ label, icon: Icon, error, errorId, aside, cl
     .join(' ')
   const showMeta = Boolean(error || aside)
   return (
-    <label className={classes}>
+    <label className={classes} data-theme-field={field || undefined}>
       <span className="form-label">{label}</span>
       <span className={controlClasses}>
         {Icon ? <Icon aria-hidden="true" /> : null}

@@ -41,13 +41,16 @@ public class ShopThemeService {
     private static final List<String> BRAND_ALIGNS = List.of("LEFT", "CENTER");
     private static final Set<String> COLOR_KEYS = Set.of(
         "primary", "secondary", "background", "text", "accent",
-        "surface", "muted", "ctaBackground", "ctaText", "border"
+        "surface", "muted", "ctaBackground", "ctaText", "border",
+        "navBackground", "navText", "cardBackground"
     );
     private static final Set<String> OPTIONAL_COLORS = Set.of(
-        "accent", "surface", "muted", "ctaBackground", "ctaText", "border"
+        "accent", "surface", "muted", "ctaBackground", "ctaText", "border",
+        "navBackground", "navText", "cardBackground"
     );
     private static final Set<String> STYLE_KEYS = Set.of(
-        "radius", "cardStyle", "density", "buttonShape", "shadow", "headingTextShadow"
+        "radius", "cardStyle", "density", "buttonShape", "shadow", "headingTextShadow",
+        "productSectionBackground"
     );
     private static final Set<String> GRADIENT_SLOT_KEYS = Set.of("hero", "page", "section");
     private static final Set<String> GRADIENT_KEYS = Set.of("angle", "stops");
@@ -69,6 +72,8 @@ public class ShopThemeService {
     private static final List<String> SECTION_ALIGNS = List.of("LEFT", "CENTER");
     private static final List<String> PADDING_Y = List.of("COMPACT", "NORMAL", "LARGE");
     private static final List<Integer> SECTION_COLUMNS = List.of(2, 3, 4, 5);
+    private static final List<String> CARD_RADII = List.of("NONE", "ROUNDED");
+    private static final List<String> CARD_GAPS = List.of("TIGHT", "SPACED");
 
     private final ShopThemeRepository themes;
     private final ShopRepository shops;
@@ -551,13 +556,26 @@ public class ShopThemeService {
                 }
             }
             if (custom) {
+                // TSF-only colours — drop quietly on CUSTOM before optional hex checks.
+                colors.remove("navBackground");
+                colors.remove("navText");
+                colors.remove("cardBackground");
                 for (var key : OPTIONAL_COLORS) {
                     if (!colors.containsKey(key) || colors.get(key) == null || string(colors.get(key)).isBlank()) continue;
                     requireHex(problems, "config.colors." + key, colors.get(key));
                 }
-            } else if (colors.get("accent") != null && !String.valueOf(colors.get("accent")).isBlank()) {
-                // Accent is editable for every template now, so it must be a hex everywhere.
-                requireHex(problems, "config.colors.accent", colors.get("accent"));
+            } else {
+                if (colors.get("accent") != null && !String.valueOf(colors.get("accent")).isBlank()) {
+                    // Accent is editable for every template now, so it must be a hex everywhere.
+                    requireHex(problems, "config.colors.accent", colors.get("accent"));
+                }
+                for (var key : List.of("navBackground", "navText", "cardBackground")) {
+                    if (!colors.containsKey(key) || colors.get(key) == null || string(colors.get(key)).isBlank()) {
+                        colors.remove(key);
+                        continue;
+                    }
+                    requireHex(problems, "config.colors." + key, colors.get(key));
+                }
             }
         }
 
@@ -590,6 +608,18 @@ public class ShopThemeService {
             if (cardStyle == null || !List.of("FLAT", "BORDERED", "SHADOW").contains(cardStyle.trim().toUpperCase())) {
                 problems.add(ValidationMessages.violation("config.style.cardStyle", "THEME_STYLE_CARD_INVALID"));
             }
+            if (style.containsKey("cardRadius") && style.get("cardRadius") != null && !string(style.get("cardRadius")).isBlank()) {
+                var cardRadius = string(style.get("cardRadius"));
+                if (cardRadius == null || !CARD_RADII.contains(cardRadius.trim().toUpperCase())) {
+                    problems.add(ValidationMessages.violation("config.style.cardRadius", "THEME_TOKEN_INVALID"));
+                }
+            }
+            if (style.containsKey("cardGap") && style.get("cardGap") != null && !string(style.get("cardGap")).isBlank()) {
+                var cardGap = string(style.get("cardGap"));
+                if (cardGap == null || !CARD_GAPS.contains(cardGap.trim().toUpperCase())) {
+                    problems.add(ValidationMessages.violation("config.style.cardGap", "THEME_TOKEN_INVALID"));
+                }
+            }
             var density = string(style.get("density"));
             if (density == null || !List.of("COMPACT", "COMFORTABLE").contains(density.trim().toUpperCase())) {
                 problems.add(ValidationMessages.violation("config.style.density", "THEME_STYLE_DENSITY_INVALID"));
@@ -607,6 +637,18 @@ public class ShopThemeService {
             if (custom && style.containsKey("headingTextShadow") && style.get("headingTextShadow") != null
                 && !(style.get("headingTextShadow") instanceof Boolean)) {
                 problems.add(ValidationMessages.violation("config.style.headingTextShadow", "THEME_TOKEN_INVALID"));
+            }
+            if (custom) {
+                style.remove("productSectionBackground");
+            } else if (style.containsKey("productSectionBackground")) {
+                var band = string(style.get("productSectionBackground"));
+                if (band == null || band.isBlank()) {
+                    style.remove("productSectionBackground");
+                } else if (!List.of("NONE", "SURFACE").contains(band.trim().toUpperCase())) {
+                    problems.add(ValidationMessages.violation("config.style.productSectionBackground", "THEME_TOKEN_INVALID"));
+                } else {
+                    style.put("productSectionBackground", band.trim().toUpperCase());
+                }
             }
         }
 
@@ -660,6 +702,7 @@ public class ShopThemeService {
                 } else if (variantRaw != null && !variantRaw.isBlank()) {
                     problems.add(ValidationMessages.violation(prefix + ".variant", "THEME_SECTION_VARIANT_INVALID"));
                 }
+                validateProductCardLook(problems, prefix, key, map);
             }
             for (var required : ShopSectionKey.ALL) {
                 if (!seen.contains(required)) {
@@ -888,8 +931,43 @@ public class ShopThemeService {
                     problems.add(ValidationMessages.violation(sp + ".columns", "THEME_TOKEN_INVALID"));
                 }
             }
+            if (settings.containsKey("cardRadius") && settings.get("cardRadius") != null && !string(settings.get("cardRadius")).isBlank()) {
+                var value = string(settings.get("cardRadius"));
+                if (type == null || !ShopThemeBlocks.PRODUCT_TYPES.contains(type)
+                    || value == null || !CARD_RADII.contains(value.trim().toUpperCase())) {
+                    problems.add(ValidationMessages.violation(sp + ".cardRadius", "THEME_TOKEN_INVALID"));
+                }
+            }
+            if (settings.containsKey("cardGap") && settings.get("cardGap") != null && !string(settings.get("cardGap")).isBlank()) {
+                var value = string(settings.get("cardGap"));
+                if (type == null || !ShopThemeBlocks.PRODUCT_TYPES.contains(type)
+                    || value == null || !CARD_GAPS.contains(value.trim().toUpperCase())) {
+                    problems.add(ValidationMessages.violation(sp + ".cardGap", "THEME_TOKEN_INVALID"));
+                }
+            }
             if (settings.containsKey("gradient")) {
                 validateGradientRow(problems, sp + ".gradient", settings.get("gradient"));
+            }
+        }
+    }
+
+    private void validateProductCardLook(
+        List<FieldViolation> problems,
+        String prefix,
+        ShopSectionKey key,
+        Map<String, Object> map
+    ) {
+        var product = PRODUCT_SECTIONS.contains(key.name());
+        for (var entry : List.of(
+            Map.entry("cardRadius", CARD_RADII),
+            Map.entry("cardGap", CARD_GAPS)
+        )) {
+            var field = entry.getKey();
+            var allowed = entry.getValue();
+            var raw = string(map.get(field));
+            if (raw == null || raw.isBlank()) continue;
+            if (!product || !allowed.contains(raw.trim().toUpperCase())) {
+                problems.add(ValidationMessages.violation(prefix + "." + field, "THEME_TOKEN_INVALID"));
             }
         }
     }

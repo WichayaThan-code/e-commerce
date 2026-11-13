@@ -421,6 +421,8 @@
       "shipping": "配送",
       "store": "我的店铺",
       "theme": "店铺主题",
+      "themeStorefront": "店铺首页主题",
+      "themeProduct": "商品页主题",
       "settings": "设置"
     },
     "images": {
@@ -643,6 +645,21 @@
     "missingBody": "该商品可能已被删除。",
     "title": "商品管理",
     "add": "添加商品",
+    "publishQuota": {
+      "counter": "已发布 {{used}}/{{limit}}",
+      "counterUnlimited": "已发布 {{used}}（不限）",
+      "draftNote": "草稿 {{draft}} 个（不计入配额）",
+      "fullAlert": "发布配额已满或超额 — 请先取消发布其他商品，或升级套餐。",
+      "warnAlert": "发布配额即将用尽 — 请升级套餐以提高上限。",
+      "link": "前往套餐用量",
+      "blocked": "发布配额已满 — 请先腾出名额或升级套餐后再发布。",
+      "bulkOver": "选择发布 {{selected}} 个商品，但仅剩 {{remaining}} 个名额 — 请减少选择或先取消发布其他商品。"
+    },
+    "productQuotaAlert": {
+      "body": "发布配额即将用尽 — 请升级套餐以提高上限。",
+      "link": "前往套餐用量"
+    },
+    "productQuotaBlocked": "发布配额已满 — 请先腾出名额或升级套餐后再发布。",
     "export": "Export",
     "downloadTemplate": "下载 template",
     "variantLine": "{{count}} 个选项 · 总库存 {{stock}}",
@@ -655,6 +672,7 @@
       "message": "说明"
     },
     "import": "Import",
+    "importUnavailable": "Import 功能暂未开放",
     "importHint": "只填泰语即可。EN/ZH 会自动翻译。若填写 nameEn、nameZh、descriptionEn 或 descriptionZh，将保留该译文。可在该行放入 JPG、PNG 或 WEBP，或在 image 列填写图片链接",
     "importDialogTitle": "正在导入商品",
     "importDialogDone": "导入完成",
@@ -805,6 +823,99 @@
     "checking": "正在检查..."
   },
   "storeTheme": {
+    "productPage": {
+      "modeLabel": "选择要自定义的页面",
+      "modeStorefront": "店铺首页",
+      "modeProduct": "商品页",
+      "title": "商品页主题",
+      "lead": "调整顾客看到的商品详情页布局。颜色、字体和按钮样式沿用店铺首页主题。",
+      "tabs": "商品页设置",
+      "tab": {
+        "gallery": "图集",
+        "info": "信息",
+        "sections": "版块",
+        "buy": "购买"
+      },
+      "brand": {
+        "title": "颜色和字体来自店铺首页主题",
+        "body": "商品页使用与店铺首页相同的颜色、字体和样式。如需更改，请编辑店铺首页主题。",
+        "template": "模板",
+        "primary": "主色",
+        "font": "字体",
+        "link": "前往店铺首页主题编辑"
+      },
+      "gallery": {
+        "head": "商品图集",
+        "layout": "缩略图布局",
+        "layouts": {
+          "THUMBS_BOTTOM": "缩略图在下方",
+          "THUMBS_LEFT": "缩略图在左侧",
+          "STACKED": "图片纵向排列"
+        },
+        "imageRatio": "主图比例",
+        "zoom": "点击放大",
+        "zoomHint": "顾客点击图片即可全屏查看"
+      },
+      "info": {
+        "head": "商品信息",
+        "pricePosition": "价格位置",
+        "pricePositions": {
+          "BELOW_TITLE": "标题下方",
+          "BESIDE_BUY": "购买按钮旁"
+        },
+        "discountStyle": "折扣样式",
+        "discountStyles": {
+          "PERCENT": "百分比",
+          "AMOUNT": "金额",
+          "HIDDEN": "不显示"
+        },
+        "optionStyle": "规格样式",
+        "optionStyles": {
+          "BUTTON": "按钮",
+          "CHIP": "标签",
+          "DROPDOWN": "下拉菜单"
+        },
+        "showStock": "显示库存",
+        "showStockHint": "库存紧张或售罄时显示提示"
+      },
+      "sections": {
+        "head": "商品下方版块（{{n}}/{{total}}）",
+        "note": "拖动或使用箭头调整顺序，并隐藏不需要的版块。",
+        "SHOP_INFO": "店铺信息",
+        "DETAILS": "商品详情",
+        "SHIPPING": "配送",
+        "SHARE": "分享",
+        "RELATED": "相关商品"
+      },
+      "buy": {
+        "head": "购买按钮",
+        "stickyMobile": "手机端悬浮购买栏",
+        "stickyMobileHint": "手机上滚动时，价格和购买按钮固定在底部",
+        "showAddToCart": "显示加入购物车按钮",
+        "showAddToCartHint": "主按钮为“立即购买”时可用",
+        "ctaLabel": "主按钮文字",
+        "ctaLabels": {
+          "buyNow": "立即购买",
+          "addToCart": "加入购物车"
+        }
+      },
+      "preview": {
+        "product": "示例商品",
+        "pickProduct": "选择用于预览的商品",
+        "emptyTitle": "暂无可预览的商品",
+        "emptyBody": "请先添加并发布商品，再回来查看应用此主题的商品页。",
+        "emptyAction": "前往商品",
+        "hint": "商品页预览宽度 {{width}} px — 预览中的购买按钮和链接不可用"
+      },
+      "confirm": {
+        "reset": {
+          "title": "重置商品页？",
+          "message": "商品页设置将恢复为该模板的默认值，店铺首页主题不会改变（点击保存前不会生效）。",
+          "confirm": "重置商品页"
+        }
+      },
+      "resetDone": "商品页已重置为默认值（尚未保存）"
+    },
     "customizer": {
       "back": "我的店铺",
       "publish": "保存并发布",
@@ -950,12 +1061,29 @@
       "ctaBackground": "CTA 背景",
       "ctaText": "CTA 文字",
       "border": "边框",
-      "contrastWarn": "部分颜色组合未达到 WCAG AA 对比度（4.5:1）。背景文字、按钮或条幅标题可能难以阅读。"
+      "contrastWarn": "部分颜色组合未达到 WCAG AA 对比度（4.5:1）。背景文字、按钮或条幅标题可能难以阅读。",
+      "contrastWarnNav": "导航栏文字与导航栏背景对比度低于 4.5:1 — 请调整「导航栏颜色」或「导航栏文字颜色」"
     },
     "style": {
       "title": "外观与疏密度",
       "radius": "圆角",
       "cardStyle": "卡片样式",
+      "cardRadius": "圆角",
+      "cardRadii": {
+        "NONE": "无圆角",
+        "ROUNDED": "有圆角"
+      },
+      "cardGap": "卡片间距",
+      "cardGaps": {
+        "TIGHT": "紧凑",
+        "SPACED": "有间距"
+      },
+      "cardBackground": "卡片背景色",
+      "productSectionBackground": "商品区块背景",
+      "productSectionBg": {
+        "NONE": "透明（跟页面）",
+        "SURFACE": "浅色带（更分明）"
+      },
       "density": "间距",
       "buttonShape": "按钮形状",
       "card": {
@@ -1299,6 +1427,7 @@
       "NEW_ARRIVALS": "新品上架",
       "CATALOG": "全部商品",
       "HOURS": "营业时间",
+      "COUPONS": "店铺优惠券",
       "STEPS": "步骤",
       "FEATURE": "特色",
       "GALLERY": "图库",
@@ -1326,6 +1455,16 @@
         "CUSTOM": "自定义"
       },
       "variant": "样式",
+      "cardRadius": "圆角",
+      "cardRadii": {
+        "NONE": "无圆角",
+        "ROUNDED": "有圆角"
+      },
+      "cardGap": "间距",
+      "cardGaps": {
+        "TIGHT": "紧凑",
+        "SPACED": "有间距"
+      },
       "on": "显示",
       "off": "隐藏",
       "moveUp": "上移",
@@ -1450,7 +1589,12 @@
         "secondary": "辅色（公告栏、页脚）",
         "accent": "强调色（NEW 标签、贴纸）",
         "background": "背景",
-        "text": "文字"
+        "text": "文字",
+        "navBackground": "导航栏颜色",
+        "navText": "导航栏文字颜色",
+        "navTextAuto": "自动选择导航栏文字颜色",
+        "navTextAutoHint": "按导航栏背景自动选用黑/白以保证可读",
+        "navUseBackground": "与页面背景相同"
       },
       "fonts": "字体",
       "fontHeading": "标题字体",
@@ -2871,6 +3015,9 @@
       "SHOP_SUSPENDED": "您的店铺已被停用",
       "SHOP_RESTORED": "您的店铺已可重新使用",
       "SHOP_PLAN_CHANGED": "店铺套餐已更改为 {{planCode}}",
+      "SHOP_PLAN_PURCHASE_REJECTED": "套餐订单已被拒绝",
+      "SHOP_PLAN_EXPIRING_SOON": "店铺套餐即将到期",
+      "SHOP_PLAN_EXPIRED": "店铺套餐已到期，已恢复为 Free",
       "SHOP_MEMBER_ROLE_CHANGED": "已将员工角色设为 {{role}}",
       "SHOP_MEMBER_REMOVED": "已有员工被移出店铺"
     }
@@ -3410,7 +3557,7 @@
       "OVER": "{{name}} 超出 {{over}}（已用 {{used}}，上限 {{limit}}）"
     },
     "metrics": {
-      "PRODUCTS": { "name": "商品", "short": "未删除的父商品" },
+      "PRODUCTS": { "name": "已发布商品", "short": "仅计 PUBLISHED — 草稿/归档不计入" },
       "ORDERS_ROLLING_30D": { "name": "近 30 天订单", "short": "滚动窗口 — 不是“本月”" },
       "STAFF": { "name": "店铺成员", "short": "含店主的 ACTIVE 成员" },
       "STORAGE": { "name": "存储空间", "short": "media_files + 申请文件" }
@@ -3436,6 +3583,73 @@
       "period": "统计时段",
       "breakdown": "明细",
       "completeness": "完整度"
+    },
+    "currentBilling": "当前计费周期：{{cycle}}",
+    "expiresAt": "到期 {{time}}",
+    "billing": {
+      "aria": "选择计费周期",
+      "monthly": "月付",
+      "yearly": "年付",
+      "savePercent": "省 {{pct}}%"
+    },
+    "catalog": {
+      "compareTitle": "套餐对比",
+      "compareSubtitle": "先选择上方计费周期，再点击升级查看摘要并联系管理员",
+      "monthly": "月付",
+      "yearly": "年付",
+      "savings": "年付可省 {{amount}}",
+      "recommended": "推荐",
+      "currentPlan": "当前套餐",
+      "freeIncluded": "包含在入门套餐",
+      "upgrade": "升级",
+      "changePlan": "更换套餐",
+      "limits": {
+        "products": "已上架商品",
+        "orders": "订单/30天",
+        "staff": "成员数",
+        "storage": "存储空间"
+      }
+    },
+    "purchase": {
+      "yearlyAvg": "约 {{amount}}/月",
+      "yearlySave": "每年节省 {{amount}}"
+    },
+    "upgrade": {
+      "title": "升级到套餐 {{plan}}",
+      "titleChange": "更换为套餐 {{plan}}",
+      "message": "已选计费周期：{{cycle}} — {{price}}",
+      "messageShort": "{{cycle}} · {{price}}",
+      "billingLabel": "计费周期",
+      "priceLabel": "价格",
+      "priceMonthly": "{{amount}}/月",
+      "priceYearly": "{{amount}}/年 · 约 {{avg}}/月 · 节省 {{save}}",
+      "compareAria": "套餐配额对比",
+      "compareMetric": "项目",
+      "compareCurrent": "当前",
+      "compareNext": "新",
+      "usageFinite": "当前用量 {{used}}/{{limit}}",
+      "usageUnlimited": "当前用量 {{used}}（不限）",
+      "usageInline": "已用 {{value}}",
+      "downgradeWarn": "{{items}} 已超过新套餐配额 — 现有数据不会删除，但需降到限额内才能继续新增",
+      "paymentClosed": "目前尚未开通在线付款，请联系管理员升级套餐（{{email}}）",
+      "noAdminEmail": "尚未设置管理员联系邮箱，请通过其他支持渠道联系",
+      "copyEmail": "复制",
+      "emailCopied": "已复制邮箱",
+      "emailCopyFailed": "复制失败 — 请从上方文字手动复制",
+      "cancel": "取消",
+      "contactAdmin": "知道了，联系管理员",
+      "mailtoOpened": "已打开给管理员的邮件",
+      "mailSubject": "申请升级套餐 {{plan}}（{{cycle}}）- 店铺 {{shop}}",
+      "mailBody": "店铺名称：{{shopName}}\n店铺编号/slug：{{shopSlug}}\n当前套餐：{{currentPlan}}\n目标套餐：{{targetPlan}}\n计费周期：{{cycle}}\n价格：{{price}}\n联系邮箱：{{contactEmail}}",
+      "mailContactMissing": "（未提供）"
+    },
+    "dialog": {
+      "title": "确认所选套餐",
+      "message": "您选择了 {{plan}}（{{monthly}}/月 或 {{yearly}}/年）",
+      "cancel": "关闭",
+      "confirm": "知道了",
+      "contactAdmin": "系统内尚未开通付款 — 请联系平台管理员更换套餐。",
+      "contactEmail": "联系邮箱：{{email}}"
     },
     "breakdown": {
       "published": "已上架",

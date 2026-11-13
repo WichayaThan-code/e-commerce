@@ -249,18 +249,18 @@
   max-height:calc(100vh - var(--shop-tabs-h,44px) - 24px);overflow:auto;
 }
 
-/* Product cards in panels: thin border only (no double float) */
+/* Product cards: white edge so cards stay visible on light page backgrounds */
 .shop-mall-card,
 .shop-themed .shop-featured .recommend-product,
 .shop-themed .shop-rail .recommend-product,
 .shop-themed .recommend-results .recommend-product.is-catalog{
   position:relative;
-  border:1px solid var(--shop-card-border,var(--shop-border));
+  border:1px solid #fff;
   border-radius:var(--shop-radius,12px);
   background:var(--shop-card-bg,var(--shop-bg));
   box-shadow:var(--shop-card-shadow,none);
   overflow:hidden;
-  transition:transform .15s ease,border-color .15s ease;
+  transition:transform .2s ease,box-shadow .2s ease;
   display:flex;
   flex-direction:column;
   height:100%;
@@ -345,9 +345,11 @@
 @media(hover:hover) and (pointer:fine){
   .shop-mall-card:hover,
   .shop-themed .shop-featured .recommend-product:hover,
+  .shop-themed .shop-rail .recommend-product:hover,
   .shop-themed .recommend-results .recommend-product.is-catalog:hover{
     transform:translateY(-2px);
-    border-color:var(--shop-accent,var(--shop-primary));
+    border-color:#fff;
+    box-shadow:0 8px 24px rgba(15,23,42,.12);
   }
   .shop-mall-card:hover .recommend-photo.has-alt .shop-photo-primary{opacity:0}
   .shop-mall-card:hover .recommend-photo.has-alt .shop-photo-alt{opacity:1}
@@ -355,8 +357,15 @@
 }
 @media(prefers-reduced-motion:reduce){
   .shop-mall-card,
+  .shop-themed .shop-featured .recommend-product,
+  .shop-themed .shop-rail .recommend-product,
+  .shop-themed .recommend-results .recommend-product.is-catalog,
   .shop-mall-card .shop-photo-primary,
   .shop-mall-card .shop-photo-alt{transition:none}
+  .shop-mall-card:hover,
+  .shop-themed .shop-featured .recommend-product:hover,
+  .shop-themed .shop-rail .recommend-product:hover,
+  .shop-themed .recommend-results .recommend-product.is-catalog:hover{transform:none}
   .shop-mall-card:hover .recommend-photo.is-single .shop-photo-primary{transform:none}
 }
 
@@ -403,7 +412,7 @@
 [data-template="FASHION"] .shop-product-title,
 [data-template="FASHION"] .shop-mall-card .recommend-product-info h2{font-weight:400}
 @media(hover:hover) and (pointer:fine){
-  [data-template="FASHION"] .shop-mall-card:hover{border-color:var(--shop-accent,var(--shop-primary))}
+  [data-template="FASHION"] .shop-mall-card:hover{border-color:#fff}
 }
 
 [data-template="FOOD_BEVERAGE"] .shop-mall-hero{box-shadow:var(--shop-card-shadow)}

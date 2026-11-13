@@ -1,16 +1,18 @@
-/* Shop category icons — per-template character. Scoped to .shop-category-grid / .shop-category-skel; --shop-* only.
+/* Shop category icons — GENERAL layout for all TSF themes; colors from --shop-*.
    Base rules live in shop-mall.css (do not edit). Name line-height/min-height/padding stay untouched (Thai clipping fix). */
 
 /* Size tokens (desktop / mobile) — shared by real tiles and skeleton */
 .shop-category-grid{--cat-icon:64px;--cat-svg:28px}
-[data-template="FOOD_BEVERAGE"] .shop-category-grid{--cat-icon:68px;--cat-svg:30px}
 
 .skeleton.shop-category-skel{
-  width:var(--cat-icon,64px);height:var(--cat-icon,64px);flex:none;border-radius:50%;
+  width:var(--cat-icon,64px);height:var(--cat-icon,64px);flex:none;
+  border-radius:min(calc(var(--shop-radius,12px) + 8px),50%);
 }
 
-/* ---------- GENERAL: Mall-clean, soft primary-tinted squircle ---------- */
-[data-template="GENERAL"] .shop-category-grid .shop-category-tile .shop-category-icon{
+/* Mall-clean soft primary-tinted squircle — same shape for GENERAL / FASHION / FOOD_BEVERAGE */
+[data-template="GENERAL"] .shop-category-grid .shop-category-tile .shop-category-icon,
+[data-template="FASHION"] .shop-category-grid .shop-category-tile .shop-category-icon,
+[data-template="FOOD_BEVERAGE"] .shop-category-grid .shop-category-tile .shop-category-icon{
   width:var(--cat-icon);height:var(--cat-icon);
   border-radius:min(calc(var(--shop-radius,12px) + 8px),50%);
   background:var(--shop-primary-soft);
@@ -18,74 +20,41 @@
   color:var(--shop-primary);box-shadow:none;
   transition:background-color .2s ease,color .2s ease,box-shadow .2s ease;
 }
-[data-template="GENERAL"] .shop-category-grid .shop-category-tile .shop-category-icon svg{width:var(--cat-svg);height:var(--cat-svg);stroke-width:1.75}
-[data-template="GENERAL"] .shop-category-grid .shop-category-tile.is-active .shop-category-icon{
+[data-template="GENERAL"] .shop-category-grid .shop-category-tile .shop-category-icon svg,
+[data-template="FASHION"] .shop-category-grid .shop-category-tile .shop-category-icon svg,
+[data-template="FOOD_BEVERAGE"] .shop-category-grid .shop-category-tile .shop-category-icon svg{
+  width:var(--cat-svg);height:var(--cat-svg);stroke-width:1.75
+}
+[data-template="GENERAL"] .shop-category-grid .shop-category-tile.is-active .shop-category-icon,
+[data-template="FASHION"] .shop-category-grid .shop-category-tile.is-active .shop-category-icon,
+[data-template="FOOD_BEVERAGE"] .shop-category-grid .shop-category-tile.is-active .shop-category-icon{
   background:var(--shop-primary);color:var(--shop-on-primary);border-color:var(--shop-primary);
   box-shadow:0 0 0 2px color-mix(in srgb,var(--shop-primary) 22%,transparent);
 }
-[data-template="GENERAL"] .shop-category-grid .shop-category-tile.is-active .shop-category-name{color:var(--shop-primary);font-weight:700}
-[data-template="GENERAL"] .skeleton.shop-category-skel{border-radius:min(calc(var(--shop-radius,12px) + 8px),50%)}
+[data-template="GENERAL"] .shop-category-grid .shop-category-tile.is-active .shop-category-name,
+[data-template="FASHION"] .shop-category-grid .shop-category-tile.is-active .shop-category-name,
+[data-template="FOOD_BEVERAGE"] .shop-category-grid .shop-category-tile.is-active .shop-category-name{
+  color:var(--shop-primary);font-weight:700
+}
+[data-template="GENERAL"] .skeleton.shop-category-skel,
+[data-template="FASHION"] .skeleton.shop-category-skel,
+[data-template="FOOD_BEVERAGE"] .skeleton.shop-category-skel{
+  border-radius:min(calc(var(--shop-radius,12px) + 8px),50%)
+}
 
-/* ---------- FASHION: luxury minimal — hairline square, no fill, thin stroke, gold accent ---------- */
-[data-template="FASHION"] .shop-category-grid .shop-category-tile .shop-category-icon{
-  width:var(--cat-icon);height:var(--cat-icon);
-  border-radius:var(--shop-radius,2px);
-  background:transparent;
-  border:1px solid color-mix(in srgb,var(--shop-text) 22%,transparent);
-  outline:1px solid transparent;outline-offset:-6px;
-  color:var(--shop-text);box-shadow:none;
-  transition:border-color .2s ease,outline-color .2s ease,color .2s ease;
-}
-[data-template="FASHION"] .shop-category-grid .shop-category-tile .shop-category-icon svg{width:calc(var(--cat-svg) - 2px);height:calc(var(--cat-svg) - 2px);stroke-width:1.25}
-[data-template="FASHION"] .shop-category-grid .shop-category-name{
-  font-size:10.5px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;
-}
-[data-template="FASHION"] .shop-category-grid .shop-category-tile.is-active .shop-category-icon{
-  border-color:var(--shop-accent,var(--shop-primary));
-  outline-color:color-mix(in srgb,var(--shop-accent,var(--shop-primary)) 55%,transparent);
-  color:var(--shop-accent,var(--shop-primary));box-shadow:none;
-}
-[data-template="FASHION"] .shop-category-grid .shop-category-tile.is-active .shop-category-name{font-weight:700}
-[data-template="FASHION"] .skeleton.shop-category-skel{border-radius:var(--shop-radius,2px)}
-
-/* ---------- FOOD_BEVERAGE: warm, round, soft shadow, chunkier stroke ---------- */
-[data-template="FOOD_BEVERAGE"] .shop-category-grid .shop-category-tile .shop-category-icon{
-  width:var(--cat-icon);height:var(--cat-icon);border-radius:50%;
-  background:radial-gradient(circle at 32% 28%,var(--shop-card-bg,var(--shop-bg)) 0%,var(--shop-primary-soft) 72%);
-  border:1px solid color-mix(in srgb,var(--shop-primary) 16%,transparent);
-  color:var(--shop-primary);
-  box-shadow:0 4px 10px color-mix(in srgb,var(--shop-primary) 16%,transparent);
-  transition:background .2s ease,color .2s ease,box-shadow .2s ease,transform .2s ease;
-}
-[data-template="FOOD_BEVERAGE"] .shop-category-grid .shop-category-tile .shop-category-icon svg{width:var(--cat-svg);height:var(--cat-svg);stroke-width:2.25}
-[data-template="FOOD_BEVERAGE"] .shop-category-grid .shop-category-name{font-weight:600;color:var(--shop-secondary)}
-[data-template="FOOD_BEVERAGE"] .shop-category-grid .shop-category-tile.is-active .shop-category-icon{
-  background:var(--shop-primary);color:var(--shop-on-primary);border-color:var(--shop-primary);
-  box-shadow:0 0 0 2px color-mix(in srgb,var(--shop-primary) 25%,transparent);
-}
-[data-template="FOOD_BEVERAGE"] .shop-category-grid .shop-category-tile.is-active .shop-category-name{color:var(--shop-primary)}
-
-/* Hover (pointer devices only). Scroller has 4px top padding → ring ≤2px, scale ≤1.05, no translate. */
+/* Hover (pointer devices only). Scroller has 4px top padding → ring ≤2px. */
 @media(hover:hover) and (pointer:fine){
-  [data-template="GENERAL"] .shop-category-grid .shop-category-tile:hover .shop-category-icon{
+  [data-template="GENERAL"] .shop-category-grid .shop-category-tile:hover .shop-category-icon,
+  [data-template="FASHION"] .shop-category-grid .shop-category-tile:hover .shop-category-icon,
+  [data-template="FOOD_BEVERAGE"] .shop-category-grid .shop-category-tile:hover .shop-category-icon{
     background:color-mix(in srgb,var(--shop-primary) 20%,var(--shop-card-bg,var(--shop-bg)));
     border-color:color-mix(in srgb,var(--shop-primary) 40%,transparent);color:var(--shop-primary);
     box-shadow:0 0 0 2px color-mix(in srgb,var(--shop-primary) 14%,transparent);
   }
-  [data-template="GENERAL"] .shop-category-grid .shop-category-tile.is-active:hover .shop-category-icon{
-    background:var(--shop-primary);color:var(--shop-on-primary);border-color:var(--shop-primary);
-  }
-  [data-template="FASHION"] .shop-category-grid .shop-category-tile:hover .shop-category-icon{
-    border-color:var(--shop-accent,var(--shop-primary));
-    outline-color:color-mix(in srgb,var(--shop-accent,var(--shop-primary)) 55%,transparent);
-    color:var(--shop-accent,var(--shop-primary));box-shadow:none;
-  }
-  [data-template="FOOD_BEVERAGE"] .shop-category-grid .shop-category-tile:hover .shop-category-icon{
-    border-color:var(--shop-primary);color:var(--shop-primary);transform:scale(1.05);
-    box-shadow:0 6px 14px color-mix(in srgb,var(--shop-primary) 24%,transparent);
-  }
+  [data-template="GENERAL"] .shop-category-grid .shop-category-tile.is-active:hover .shop-category-icon,
+  [data-template="FASHION"] .shop-category-grid .shop-category-tile.is-active:hover .shop-category-icon,
   [data-template="FOOD_BEVERAGE"] .shop-category-grid .shop-category-tile.is-active:hover .shop-category-icon{
-    background:var(--shop-primary);color:var(--shop-on-primary);
+    background:var(--shop-primary);color:var(--shop-on-primary);border-color:var(--shop-primary);
   }
 }
 @media(prefers-reduced-motion:reduce){
@@ -96,6 +65,4 @@
 /* Mobile container (grid-auto-columns 76px from shop-mall.css) */
 @container shop (max-width:767px){
   .shop-category-grid{--cat-icon:56px;--cat-svg:24px}
-  [data-template="FOOD_BEVERAGE"] .shop-category-grid{--cat-icon:58px;--cat-svg:26px}
-  [data-template="FASHION"] .shop-category-grid .shop-category-name{font-size:10px;letter-spacing:.06em}
 }

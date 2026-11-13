@@ -84,7 +84,10 @@ public final class AdminPlatformDtos {
     /** Limits of a plan; null = no limit recorded. */
     public record PlanLimits(Long products, Long ordersPerMonth, Long staff, Long storageBytes) {}
 
-    public record Plan(String code, String name, PlanLimits limits) {}
+    public record Plan(
+        String code, String name, PlanLimits limits,
+        BigDecimal priceMonthly, BigDecimal priceYearly, String description, int sortOrder
+    ) {}
 
     /** source = DB when plans are loaded from the {@code plans} table; note is informational. */
     public record PlanCatalog(String source, List<Plan> plans, String note) {}

@@ -1,5 +1,8 @@
 package com.thaishopfun.merchant.plan;
 
+import com.thaishopfun.admin.AdminPlatformDtos.PlanLimits;
+
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -72,15 +75,30 @@ public final class MerchantPlanUsageDtos {
 
     public record EnforcementNote(String metricCode, String level, String detail) {}
 
+    public record CatalogPlan(
+        String code,
+        String name,
+        String description,
+        BigDecimal priceMonthly,
+        BigDecimal priceYearly,
+        PlanLimits limits,
+        int sortOrder,
+        boolean recommended
+    ) {}
+
     public record PlanUsageResponse(
         long shopId,
         String shopName,
         String shopStatus,
         PlanInfo plan,
+        /** MONTHLY|YEARLY|null */
+        String planBillingCycle,
+        Instant planExpiresAt,
         Instant asOf,
         String timezone,
         DisplayPolicy displayPolicy,
         List<MetricUsage> metrics,
-        List<EnforcementNote> enforcement
+        List<EnforcementNote> enforcement,
+        List<CatalogPlan> catalog
     ) {}
 }

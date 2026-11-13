@@ -74,6 +74,27 @@ public class MerchantLifecycleNotificationWriter {
     }
 
     @Transactional
+    public void publishShopPlanPurchaseRejected(Shop shop, UUID subscriptionId, Instant at) {
+        Instant when = eventInstant(at);
+        insert(shop.getUuid(), shop.getId(), SHOP_PLAN_PURCHASE_REJECTED, ENTITY_PLAN_SUBSCRIPTION,
+            subscriptionId.toString(), shopPlanPurchaseRejectedDedupe(subscriptionId), "SHOP_READ", when);
+    }
+
+    @Transactional
+    public void publishShopPlanExpiringSoon(Shop shop, int daysLeft, Instant dayKey) {
+        Instant when = eventInstant(dayKey);
+        insert(shop.getUuid(), shop.getId(), SHOP_PLAN_EXPIRING_SOON, ENTITY_PLAN,
+            String.valueOf(daysLeft), shopPlanExpiringDedupe(shop.getId(), daysLeft, when), "SHOP_READ", when);
+    }
+
+    @Transactional
+    public void publishShopPlanExpired(Shop shop, Instant at) {
+        Instant when = eventInstant(at);
+        insert(shop.getUuid(), shop.getId(), SHOP_PLAN_EXPIRED, ENTITY_PLAN, "FREE",
+            shopPlanExpiredDedupe(shop.getId(), when), "SHOP_READ", when);
+    }
+
+    @Transactional
     public void publishShopMemberRoleChanged(UUID shopUuid, long shopNo, UUID memberId, String roleCode, Instant at) {
         Instant when = eventInstant(at);
         String role = roleCode == null ? "" : roleCode.trim();

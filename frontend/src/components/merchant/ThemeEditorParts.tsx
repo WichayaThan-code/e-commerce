@@ -15,20 +15,21 @@ import {
 export const HEX = /^#[0-9a-fA-F]{6}$/;
 
 export function ColorField({
-  label, value, error, disabled, hexError, onChange,
+  label, value, error, disabled, hexError, field, onChange,
 }: {
   label: string;
   value: string;
   error?: string;
   hexError: string;
   disabled: boolean;
+  field?: string;
   onChange: (value: string) => void;
 }) {
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
   const invalid = !HEX.test(text);
   return (
-    <FormField label={label} error={error || (invalid ? hexError : undefined)}>
+    <FormField label={label} error={error || (invalid ? hexError : undefined)} field={field}>
       <input
         type="color"
         className="theme-color-swatch"

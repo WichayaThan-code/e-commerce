@@ -10,10 +10,11 @@ import ThemeMediaPicker from "./ThemeMediaPicker";
 import { MediaField, ThemeSelect } from "./ThemeEditorParts";
 import { GradientEditor, ThemeTokenSelect } from "./ThemeEditorParts";
 import {
-  createLayoutBlock, MAX_LAYOUT_BLOCKS, PRODUCT_BLOCK_TYPES, SHOP_BLOCK_BACKGROUNDS, SHOP_PADDING_Y, SHOP_SECTION_ALIGNS,
+  createLayoutBlock, MAX_LAYOUT_BLOCKS, PRODUCT_BLOCK_TYPES,
+  SHOP_BLOCK_BACKGROUNDS, SHOP_PADDING_Y, SHOP_SECTION_ALIGNS,
   isSectionKey, SHOP_BLOCK_TYPES, SINGLETON_BLOCK_TYPES, sectionSupportsVariant, uniqueBlockId, variantsForSection,
-  type BlockSettings, type LayoutBlock, type SectionVariant, type ShopBlockBackground, type ShopPaddingY,
-  type ShopBlockType, type ShopSectionAlign, type ThemeColors, type ThemeGradient,
+  type BlockSettings, type LayoutBlock, type SectionVariant, type ShopBlockBackground,
+  type ShopPaddingY, type ShopBlockType, type ShopSectionAlign, type ThemeColors, type ThemeGradient,
 } from "../../theme/shopTheme";
 
 /** Cream → soft pink panel used by the "alternate pink/cream" preset (structured gradient, never a CSS string). */

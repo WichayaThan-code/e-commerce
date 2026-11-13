@@ -6,7 +6,6 @@ import { isNewBlockType } from "../../theme/blockContent";
 import { isSectionKey } from "../../theme/shopTheme";
 import type { ShopCatalogControls } from "./sections/types";
 import ShopThemeShell, { resolveStorefrontTheme } from "./ShopThemeShell";
-import { hasPromoBanners } from "./promoTargets";
 import { ShopCouponStripPreview } from "./ShopCouponStrip";
 import ShopBlockShell from "./ShopBlockShell";
 import { blockSection, blockSectionConfig } from "./blockLayout";
@@ -41,29 +40,19 @@ type ShopSectionsProps = {
   products: PublicProduct[];
   catalog: ShopCatalogControls;
   preview?: boolean;
-  /**
-   * Storefront-only coupon strip (ShopPage). Inserted after BANNERS when banners render, else after HERO,
-   * else first. The theme editor preview passes ShopCouponStripPreview (sample tickets, collect disabled).
-   */
-  couponStrip?: ReactNode;
 };
 
 /** Enabled theme sections only — Fragment so `.shop-mall-tabs` stays a direct child of `.skeleton-busy`. */
-export function ShopSections({ shop, products, catalog, preview = false, couponStrip }: ShopSectionsProps) {
+export function ShopSections({ shop, products, catalog, preview = false }: ShopSectionsProps) {
   const { config, templateKey } = resolveStorefrontTheme(shop);
   // AG3: CUSTOM themes with layout.blocks render the blocks; every other theme keeps the section path below.
   const blocks = templateKey === "CUSTOM" ? config.layout?.blocks ?? [] : [];
   if (blocks.length > 0) {
     const visibleBlocks = blocks.filter((block) => block.enabled && isShopSectionAvailable(block.type));
-    const anchorBlock = couponStrip
-      ? (hasPromoBanners(shop) ? visibleBlocks.find((block) => block.type === "BANNERS") : undefined)
-        ?? visibleBlocks.find((block) => block.type === "HERO")
-      : undefined;
     return (
       <>
-        {couponStrip && !anchorBlock && <Fragment key="coupon-strip">{couponStrip}</Fragment>}
         {visibleBlocks.map((block) => {
-          // AG4: STEPS / FEATURE / GALLERY / SOCIAL / RICH_TEXT are block-only; the ten legacy types keep the section path.
+          // AG4: STEPS / FEATURE / GALLERY / SOCIAL / RICH_TEXT are block-only; legacy types keep the section path.
           const ContentComponent = isNewBlockType(block.type) ? SHOP_BLOCK_COMPONENTS[block.type] : null;
           const SectionComponent = isSectionKey(block.type) ? SHOP_SECTION_COMPONENTS[block.type] : null;
           return (
@@ -82,7 +71,6 @@ export function ShopSections({ shop, products, catalog, preview = false, couponS
                   />
                 ) : null}
               </ShopBlockShell>
-              {couponStrip && anchorBlock?.id === block.id && couponStrip}
             </Fragment>
           );
         })}
@@ -90,12 +78,8 @@ export function ShopSections({ shop, products, catalog, preview = false, couponS
     );
   }
   const visible = config.sections.filter((section) => section.enabled && isShopSectionAvailable(section.key));
-  const anchorKey = couponStrip
-    ? hasPromoBanners(shop) ? "BANNERS" : visible.some((section) => section.key === "HERO") ? "HERO" : null
-    : null;
   return (
     <>
-      {couponStrip && anchorKey === null && <Fragment key="coupon-strip">{couponStrip}</Fragment>}
       {visible.map((section) => {
         const Component = SHOP_SECTION_COMPONENTS[section.key];
         return (
@@ -108,7 +92,6 @@ export function ShopSections({ shop, products, catalog, preview = false, couponS
               catalog={catalog}
               preview={preview}
             />
-            {couponStrip && anchorKey === section.key && couponStrip}
           </Fragment>
         );
       })}
@@ -149,7 +132,6 @@ export default function ShopStorefront({
         products={products}
         catalog={catalog}
         preview={preview}
-        couponStrip={preview ? <ShopCouponStripPreview /> : undefined}
       />}
     </ShopThemeShell>
   );

@@ -62,6 +62,7 @@ public class ProductImportService {
         if (rows.isEmpty()) {
             throw new AuthException(HttpStatus.BAD_REQUEST, "IMPORT_EMPTY", "ไม่พบรายการสินค้าในไฟล์");
         }
+        // Import creates DRAFT products only — no publish quota here.
         var catalog = categories.findByActiveTrueOrderBySortOrderAsc();
         var errors = new ArrayList<CatalogDtos.ProductImportError>();
         var created = 0;
@@ -84,6 +85,7 @@ public class ProductImportService {
         if (requests.size() > ProductSpreadsheet.MAX_ROWS) {
             throw new AuthException(HttpStatus.BAD_REQUEST, "IMPORT_INVALID", "นำเข้าได้ไม่เกิน " + ProductSpreadsheet.MAX_ROWS + " รายการต่อครั้ง");
         }
+        // Batch import creates DRAFT products only — no publish quota here.
         var errors = new ArrayList<CatalogDtos.ProductImportError>();
         var created = 0;
         var skuCreated = 0;

@@ -114,6 +114,13 @@ app:
     resend-cooldown-seconds: ${SHOP_TEAM_RESEND_COOLDOWN_SECONDS:60}
     invite-create-per-hour: ${SHOP_TEAM_INVITE_CREATE_PER_HOUR:20}
     invite-path: ${SHOP_TEAM_INVITE_PATH:/invite}
+  platform-billing:
+    # Bank account shown when a shop pays for Basic/Pro (manual transfer). Override in env for prod.
+    bank-name: ${PLATFORM_BILLING_BANK_NAME:กสิกรไทย}
+    account-name: ${PLATFORM_BILLING_ACCOUNT_NAME:ThaiShopFun Co., Ltd.}
+    account-number: ${PLATFORM_BILLING_ACCOUNT_NUMBER:1234567890}
+    promptpay: ${PLATFORM_BILLING_PROMPTPAY:}
+    display-name: ${PLATFORM_BILLING_DISPLAY_NAME:ThaiShopFun — ค่าแพ็กเกจร้านค้า}
   shipping:
     # Merchant/admin "ส่งถึงลูกค้าแล้ว" must match carrier delivery (poll / prior CARRIER_* events).
     # SYSTEM webhook/poll transitions skip the gate. Set false only for offline demos without carrier APIs.

@@ -143,6 +143,12 @@
   text-decoration:none;
 }
 .store-drawer-summary-meta a:hover{text-decoration:underline}
+.store-drawer-plan-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.store-plan-warn{
+  list-style:none;margin:12px 0 0;padding:10px 12px;border-radius:10px;
+  background:var(--color-warning-bg);border:1px solid #f3dfb0;color:var(--color-warning);font-size:13px;line-height:1.45
+}
+.store-plan-warn li+li{margin-top:6px}
 .store-drawer-section{
   margin:0;
   padding-top:14px;

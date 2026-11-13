@@ -582,32 +582,32 @@ export default function ThaiBrandsPage() {
           <div className="thai-banners">
             <button
               type="button"
+              className="thai-banner thai-banner--farm"
+              aria-label="จากภูมิปัญญาไทย สู่สินค้าคุณภาพ — สนับสนุนเกษตรกรและงานฝีมือไทย"
               onClick={() => {
                 setActiveScope(2);
                 setActiveTab(0);
               }}
-              aria-label="เลือกซื้อสินค้าเกษตรไทย / งานฝีมือ"
             >
-              <span className="thai-banner-sprite banner-1">
-                <img src={thaiBrandReference} alt="จากภูมิปัญญาไทย สู่สินค้าคุณภาพ" />
-              </span>
+              <img src={thaiBrandReference} alt="" />
             </button>
             <button
               type="button"
+              className="thai-banner thai-banner--craft"
+              aria-label="หัตถกรรมไทย สืบสานคุณค่า — ชมสินค้า OTOP"
               onClick={() => {
                 setActiveScope(1);
                 setActiveTab(0);
               }}
-              aria-label="ชมสินค้า OTOP"
             >
-              <span className="thai-banner-sprite banner-2">
-                <img src={thaiBrandReference} alt="หัตถกรรมไทย สืบสานคุณค่า" />
-              </span>
+              <img src={thaiBrandReference} alt="" />
             </button>
-            <a className="thai-banner-link" href="/merchant/register" aria-label="ร่วมสนับสนุนแบรนด์ไทย">
-              <span className="thai-banner-sprite banner-3">
-                <img src={thaiBrandReference} alt="ไทยซื้อไทย ช่วยคนไทย" />
-              </span>
+            <a
+              className="thai-banner thai-banner--support"
+              href="/merchant/register"
+              aria-label="ไทยซื้อไทย ช่วยคนไทย — ร่วมสนับสนุนแบรนด์ไทย"
+            >
+              <img src={thaiBrandReference} alt="" />
             </a>
           </div>
         </div>

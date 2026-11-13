@@ -14,7 +14,9 @@ public enum ShopSectionKey {
     BESTSELLERS,
     NEW_ARRIVALS,
     CATALOG,
-    HOURS;
+    HOURS,
+    /** Shop discount coupon strip on the storefront home. */
+    COUPONS;
 
     public static final Set<ShopSectionKey> ALL = EnumSet.allOf(ShopSectionKey.class);
 

@@ -12,7 +12,8 @@ function isAllowedWhileUnverified(pathname: string): boolean {
     || pathname === '/reset-password'
     || pathname === '/logout'
     || pathname === '/help'
-    || pathname === '/deals'
+    // FUTURE: ดีลพิเศษ — เปิดเมื่อพร้อมใช้งาน
+    // || pathname === '/deals'
     || pathname === '/favorites'
     || pathname === '/recommendations'
     || pathname === '/best-sellers'

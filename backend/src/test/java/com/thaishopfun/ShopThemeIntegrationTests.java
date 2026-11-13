@@ -48,7 +48,8 @@ class ShopThemeIntegrationTests {
           {"key":"BESTSELLERS","enabled":true,"variant":"GRID"},
           {"key":"NEW_ARRIVALS","enabled":true,"variant":"GRID"},
           {"key":"CATALOG","enabled":true,"variant":"GRID"},
-          {"key":"HOURS","enabled":false,"variant":null}
+          {"key":"HOURS","enabled":false,"variant":null},
+          {"key":"COUPONS","enabled":true,"variant":null}
         ]
         """;
 
@@ -391,19 +392,25 @@ class ShopThemeIntegrationTests {
                 .header("Authorization", bearer(owner.token)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.colors.primary", hasItem("#0a5fd6")))
+            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.colors.background", hasItem("#f3f6fa")))
+            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.colors.navBackground", hasItem("#ffffff")))
             .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.colors.sale", hasItem("#c4271b")))
             .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.font", hasItem("IBM_PLEX_SANS_THAI")))
             .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.hero.title", hasItem("ของดีทั่วไทย ส่งตรงถึงบ้านคุณ")))
             .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.hero.ctaSecondaryLabel", hasItem("ดูหมวดหมู่")))
-            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.sections[*].key", contains("HERO", "TRUST", "CATEGORIES", "FEATURED", "BANNERS", "BESTSELLERS", "INTRO", "CATALOG", "NEW_ARRIVALS", "HOURS")))
+            .andExpect(jsonPath("$[?(@.templateKey=='GENERAL')].config.sections[*].key", contains("HERO", "TRUST", "COUPONS", "CATEGORIES", "FEATURED", "BANNERS", "BESTSELLERS", "INTRO", "CATALOG", "NEW_ARRIVALS", "HOURS")))
             .andExpect(jsonPath("$[?(@.templateKey=='CUSTOM')].config.font", hasItem("NOTO_SANS_THAI")))
             .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.colors.secondary", hasItem("#f1efea")))
+            .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.colors.background", hasItem("#f5f5f3")))
+            .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.colors.navBackground", hasItem("#ffffff")))
             .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.colors.accent", hasItem("#e3ff3d")))
             .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.colors.sale", hasItem("#c8102e")))
             .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.font", hasItem("PROMPT")))
             .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.style.buttonShape", hasItem("PILL")))
             .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.style.radius", hasItem(0)))
-            .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.sections[*].key", contains("HERO", "NEW_ARRIVALS", "BANNERS", "CATEGORIES", "BESTSELLERS", "INTRO", "TRUST", "FEATURED", "CATALOG", "HOURS")));
+            .andExpect(jsonPath("$[?(@.templateKey=='FASHION')].config.sections[*].key", contains("HERO", "NEW_ARRIVALS", "BANNERS", "COUPONS", "CATEGORIES", "BESTSELLERS", "INTRO", "TRUST", "FEATURED", "CATALOG", "HOURS")))
+            .andExpect(jsonPath("$[?(@.templateKey=='FOOD_BEVERAGE')].config.colors.background", hasItem("#f6eadb")))
+            .andExpect(jsonPath("$[?(@.templateKey=='FOOD_BEVERAGE')].config.colors.navBackground", hasItem("#fff8ef")));
 
         var config = """
             {
@@ -570,6 +577,94 @@ class ShopThemeIntegrationTests {
             .andExpect(jsonPath("$.config.sectionSettings.NOPE").doesNotExist())
             .andExpect(jsonPath("$.config.sectionSettings.CATALOG.columns").value(4))
             .andExpect(jsonPath("$.config.sectionSettings.CATALOG.junk").doesNotExist());
+    }
+
+    @Test
+    void generalPersistsNavBarColorsAndRejectsInvalidHex() throws Exception {
+        var owner = register("theme-nav@example.com", "0815100011");
+        long shopId = openShop(owner, "ร้านแถบเมนู", "Nav Bar Shop", "1100000000111");
+        approve(shopId);
+        var slug = shops.findByShopId(shopId).orElseThrow().getSlug();
+
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("GENERAL", """
+                    {
+                      "colors": {
+                        "primary":"#087bf5","secondary":"#08245d","background":"#ffffff","text":"#132b50",
+                        "navBackground":"#111827","navText":"#f8fafc"
+                      },
+                      "font": "NOTO_SANS_THAI",
+                      "style": {"radius":12,"cardStyle":"BORDERED","density":"COMFORTABLE","buttonShape":"ROUNDED"},
+                      "hero": {"layout":"FULL","title":"","subtitle":"","ctaLabel":"","ctaLink":""},
+                      "banners": [],
+                      "trust": {"enabled":true,"items":[{"icon":"AUTHENTIC","label":"ของแท้","enabled":true}]},
+                      "sections": %s
+                    }
+                    """.formatted(SECTIONS))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.config.colors.navBackground").value("#111827"))
+            .andExpect(jsonPath("$.config.colors.navText").value("#f8fafc"));
+
+        mvc.perform(get("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.config.colors.navBackground").value("#111827"))
+            .andExpect(jsonPath("$.config.colors.navText").value("#f8fafc"));
+
+        mvc.perform(get("/api/shops/" + slug))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.theme.config.colors.navBackground").value("#111827"))
+            .andExpect(jsonPath("$.theme.config.colors.navText").value("#f8fafc"));
+
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("GENERAL", """
+                    {
+                      "colors": {
+                        "primary":"#087bf5","secondary":"#08245d","background":"#ffffff","text":"#132b50",
+                        "navBackground":"navy","navText":"#fff"
+                      },
+                      "font": "NOTO_SANS_THAI",
+                      "style": {"radius":12,"cardStyle":"BORDERED","density":"COMFORTABLE","buttonShape":"ROUNDED"},
+                      "hero": {"layout":"FULL","title":"","subtitle":"","ctaLabel":"","ctaLink":""},
+                      "banners": [],
+                      "trust": {"enabled":true,"items":[{"icon":"AUTHENTIC","label":"ของแท้","enabled":true}]},
+                      "sections": %s
+                    }
+                    """.formatted(SECTIONS))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.fieldErrors[?(@.field=='config.colors.navBackground')].code", hasItem("THEME_COLOR_INVALID")))
+            .andExpect(jsonPath("$.fieldErrors[?(@.field=='config.colors.navText')].code", hasItem("THEME_COLOR_INVALID")));
+    }
+
+    @Test
+    void customSilentlyDropsNavBarColors() throws Exception {
+        var owner = register("theme-nav-custom@example.com", "0815100012");
+        long shopId = openShop(owner, "ร้านคัสตอมแถบ", "Custom Nav Shop", "1100000000112");
+
+        mvc.perform(put("/api/merchant/settings/theme?shopId=" + shopId)
+                .header("Authorization", bearer(owner.token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(themePayload("CUSTOM", """
+                    {
+                      "colors": {
+                        "primary":"#112233","secondary":"#445566","background":"#ffffff","text":"#111111",
+                        "navBackground":"#111827","navText":"#f8fafc"
+                      },
+                      "font": "NOTO_SANS_THAI",
+                      "style": {"radius":12,"cardStyle":"BORDERED","density":"COMFORTABLE","buttonShape":"ROUNDED"},
+                      "hero": {"layout":"FULL","title":"","subtitle":"","ctaLabel":"","ctaLink":""},
+                      "banners": [],
+                      "trust": {"enabled":true,"items":[{"icon":"AUTHENTIC","label":"ของแท้","enabled":true}]},
+                      "sections": %s
+                    }
+                    """.formatted(SECTIONS))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.config.colors.navBackground").doesNotExist())
+            .andExpect(jsonPath("$.config.colors.navText").doesNotExist());
     }
 
     private static String themePayload(String templateKey, String configJson) {

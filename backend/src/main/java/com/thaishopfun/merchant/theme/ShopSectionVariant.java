@@ -26,7 +26,7 @@ public enum ShopSectionVariant {
         return switch (key) {
             case HERO -> this == FULL || this == STRIP || this == MEDIA_FULL || this == SPLIT || this == POSTER;
             case FEATURED, BESTSELLERS, NEW_ARRIVALS, CATALOG -> this == GRID || this == LARGE || this == MENU;
-            case BANNERS, CATEGORIES, TRUST, INTRO, HOURS -> false;
+            case BANNERS, CATEGORIES, TRUST, INTRO, HOURS, COUPONS -> false;
         };
     }
 }

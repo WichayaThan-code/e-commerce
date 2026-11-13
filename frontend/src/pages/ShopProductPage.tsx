@@ -27,6 +27,7 @@ import {
 import { shopCategoryPath, shopPath, shopProductPath } from "../services/shopRoutes";
 import NotFoundPage from "./NotFoundPage";
 import ProductConfiguratorPanel from "../components/shop/ProductConfiguratorPanel";
+import ProductImagePreview, { buildProductPreviewItems } from "../components/shop/ProductImagePreview";
 import ProductQrModal from "../components/shop/ProductQrModal";
 import { copyText, productPageUrl, productShareLink } from "../utils/productLinks";
 import "../styles/recommended-products.css";
@@ -81,6 +82,8 @@ function skuMatches(sku: PublicSku, groups: Group[], picked: Record<string, stri
 
 /** Shopee-style "เหลือ N ชิ้น" when stock is low. */
 const LOW_STOCK = 10;
+/** Max product thumbs visible before requiring left/right scroll. */
+const THUMB_VISIBLE = 5;
 
 export default function ShopProductPage() {
   const { slug = "", productSlug = "" } = useParams();
@@ -105,9 +108,13 @@ export default function ShopProductPage() {
   const [warn, setWarn] = useState(false);
   const [toast, setToast] = useState("");
   const [lightbox, setLightbox] = useState(false);
+  const [previewCurrent, setPreviewCurrent] = useState(0);
+  const mainImageRef = useRef<HTMLButtonElement>(null);
   const thumbsRef = useRef<HTMLDivElement>(null);
   const swipeRef = useRef<HTMLDivElement>(null);
   const [thumbOverflow, setThumbOverflow] = useState(false);
+  const [thumbCanPrev, setThumbCanPrev] = useState(false);
+  const [thumbCanNext, setThumbCanNext] = useState(false);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [reviewAvg, setReviewAvg] = useState<number | null>(null);
   const [reviewCount, setReviewCount] = useState(0);
@@ -235,10 +242,27 @@ export default function ShopProductPage() {
         ? product.skus.find((sku) => groups.every((group) => (group.key === "option" ? sku.optionLabel : sku.optionValues?.[group.key]) === picked[group.key]))
         : undefined
     : undefined;
+  const scrollThumbIntoViewIfNeeded = (index: number) => {
+    const node = thumbsRef.current;
+    if (!node) return;
+    const btn = node.children[index] as HTMLElement | undefined;
+    if (!btn) return;
+    const btnLeft = btn.offsetLeft;
+    const btnRight = btnLeft + btn.offsetWidth;
+    const viewLeft = node.scrollLeft;
+    const viewRight = viewLeft + node.clientWidth;
+    // Only nudge when out of view — never re-center (avoids hover jump after nav scroll).
+    if (btnLeft < viewLeft) node.scrollTo({ left: btnLeft, behavior: "smooth" });
+    else if (btnRight > viewRight) node.scrollTo({ left: btnRight - node.clientWidth, behavior: "smooth" });
+  };
+
   useEffect(() => {
     if (!product || !selectedSku?.imageId) return;
     const index = product.images.findIndex((image) => image.id === selectedSku.imageId);
-    if (index >= 0) setActive(index);
+    if (index >= 0) {
+      setActive(index);
+      scrollThumbIntoViewIfNeeded(index);
+    }
   }, [product, selectedSku?.imageId]);
   const stock = selectedSku ? Math.max(0, selectedSku.available) : 0;
   const soldOut = Boolean(selectedSku) && stock <= 0;
@@ -250,11 +274,22 @@ export default function ShopProductPage() {
   useEffect(() => {
     const node = thumbsRef.current;
     if (!node) return;
-    const measure = () => setThumbOverflow(node.scrollWidth > node.clientWidth + 4);
+    const measure = () => {
+      const max = Math.max(0, node.scrollWidth - node.clientWidth);
+      const overflow = max > 4;
+      setThumbOverflow(overflow);
+      setThumbCanPrev(overflow && node.scrollLeft > 2);
+      setThumbCanNext(overflow && node.scrollLeft < max - 2);
+    };
     measure();
+    const onScroll = () => measure();
+    node.addEventListener("scroll", onScroll, { passive: true });
     const observer = new ResizeObserver(measure);
     observer.observe(node);
-    return () => observer.disconnect();
+    return () => {
+      node.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+    };
   }, [product, state]);
 
   const prices = (product?.skus || []).map((sku) => amount(sku.price)).filter((value): value is number => value != null);
@@ -331,6 +366,19 @@ export default function ShopProductPage() {
   const name = product ? localizedText(localeTag, product.nameTh, product.nameEn, product.nameZh) : "";
   const description = product ? localizedText(localeTag, product.descriptionTh, product.descriptionEn, product.descriptionZh) : "";
   const image = product?.images[active] || product?.images[0];
+  const previewItems = useMemo(() => (product ? buildProductPreviewItems(product) : []), [product]);
+  const openPreviewAt = (productImageIndex: number) => {
+    const mapped = previewItems.findIndex((item) => item.productIndex === productImageIndex);
+    setPreviewCurrent(mapped >= 0 ? mapped : Math.max(0, Math.min(productImageIndex, previewItems.length - 1)));
+    setLightbox(true);
+  };
+  const onPreviewCurrentChange = (index: number) => {
+    setPreviewCurrent(index);
+    const productIndex = previewItems[index]?.productIndex;
+    if (productIndex == null) return;
+    setActive(productIndex);
+    scrollThumbIntoViewIfNeeded(productIndex);
+  };
   const category = categories.find((item) => item.id === product?.categoryId);
   const categoryLabel = category
     ? localizedText(localeTag, category.nameTh, category.nameEn, category.nameZh) || category.nameTh
@@ -344,7 +392,14 @@ export default function ShopProductPage() {
     shop.province ? [tp("common.area"), shop.province] : null,
   ].filter((item): item is [string, string] => Boolean(item));
 
-  const scrollThumbs = (direction: number) => thumbsRef.current?.scrollBy({ left: direction * 180, behavior: "smooth" });
+  const scrollThumbs = (direction: number) => {
+    const node = thumbsRef.current;
+    if (!node) return;
+    // Advance by one visible "page" (up to 5 thumbs), falling back to one thumb slot.
+    const step = Math.max(node.clientWidth, 64);
+    node.scrollBy({ left: direction * step, behavior: "smooth" });
+  };
+  const showThumbNav = Boolean(product && product.images.length > THUMB_VISIBLE) || thumbOverflow;
   const valueEnabled = (group: Group, value: string) => product?.skus.some((sku) => {
     const own = group.key === "option" ? sku.optionLabel : sku.optionValues?.[group.key];
     return own === value && sku.available > 0 && skuMatches(sku, groups, picked, group.key);
@@ -355,7 +410,7 @@ export default function ShopProductPage() {
   }
 
   return (
-    <div className="buyer-product">
+    <div className="buyer-product" data-page="product">
       {showSkeleton && pageLoading && !product && (
         <section className="recommend-width buyer-skeleton" aria-label={tp("shop.productLoading")}>
           <article className="buyer-card buyer-hero">
@@ -379,7 +434,12 @@ export default function ShopProductPage() {
             <div className="buyer-gallery">
               <div className="buyer-stage">
                 {image ? (
-                  <button type="button" className="buyer-main" onClick={() => setLightbox(true)}>
+                  <button
+                    ref={mainImageRef}
+                    type="button"
+                    className="buyer-main"
+                    onClick={() => openPreviewAt(active)}
+                  >
                     <img src={mediaUrl(image.url)} alt={name} />
                   </button>
                 ) : <div className="buyer-main buyer-empty">{tp("shop.view.noImage")}</div>}
@@ -388,31 +448,47 @@ export default function ShopProductPage() {
                   const next = Math.round(node.scrollLeft / Math.max(node.clientWidth, 1));
                   if (product.images[next]) setActive(next);
                 }}>
-                  {product.images.map((item) => <img key={item.id} src={mediaUrl(item.url)} alt="" />)}
+                  {product.images.map((item, index) => (
+                    <img
+                      key={item.id}
+                      src={mediaUrl(item.url)}
+                      alt=""
+                      onClick={() => openPreviewAt(index)}
+                    />
+                  ))}
                 </div>
                 {product.images.length > 0 ? <span className="buyer-count">{tp("shop.view.imageIndex", { index: active + 1, total: product.images.length })}</span> : null}
               </div>
               {product.images.length > 0 && (
-                <div className="buyer-thumbs">
-                  {thumbOverflow ? <button type="button" aria-label={tp("shop.view.prevImage")} onClick={() => scrollThumbs(-1)}><ChevronLeft /></button> : null}
-                  <div ref={thumbsRef}>
+                <div className={`buyer-thumbs${showThumbNav ? " has-nav" : ""}`}>
+                  {showThumbNav ? (
+                    <button type="button" className="buyer-thumbs-nav" aria-label={tp("shop.view.prevImage")} disabled={!thumbCanPrev} onClick={() => scrollThumbs(-1)}>
+                      <ChevronLeft aria-hidden="true" />
+                    </button>
+                  ) : null}
+                  <div ref={thumbsRef} className="buyer-thumbs-track">
                     {product.images.map((item, index) => (
-                      <button type="button" key={item.id} className={index === active ? "active" : ""} onMouseEnter={() => setActive(index)} onClick={() => setActive(index)}>
+                      <button
+                        type="button"
+                        key={item.id}
+                        className={index === active ? "active" : ""}
+                        onMouseEnter={() => setActive(index)}
+                        onClick={() => {
+                          setActive(index);
+                          scrollThumbIntoViewIfNeeded(index);
+                        }}
+                      >
                         <img src={mediaUrl(item.url)} alt="" />
                       </button>
                     ))}
                   </div>
-                  {thumbOverflow ? <button type="button" aria-label={tp("shop.view.nextImage")} onClick={() => scrollThumbs(1)}><ChevronRight /></button> : null}
+                  {showThumbNav ? (
+                    <button type="button" className="buyer-thumbs-nav" aria-label={tp("shop.view.nextImage")} disabled={!thumbCanNext} onClick={() => scrollThumbs(1)}>
+                      <ChevronRight aria-hidden="true" />
+                    </button>
+                  ) : null}
                 </div>
               )}
-              <div className="buyer-share">
-                <span>{tp("shop.view.share")}</span>
-                <button type="button" aria-label={tp("shop.view.copyLink")} onClick={() => void copyLink()}><Link2 /></button>
-                <button type="button" aria-label={tp("shop.view.shareFacebook")} onClick={() => share("facebook")}><Facebook /></button>
-                <button type="button" aria-label={tp("shop.view.shareLine")} onClick={() => share("line")}>{tp("shop.view.line")}</button>
-                <button type="button" aria-label={tp("shop.view.shareX")} onClick={() => share("x")}>X</button>
-                <button type="button" aria-label={tp("shop.view.qr")} onClick={() => setQrOpen(true)}><QrCode /></button>
-              </div>
             </div>
             <div className="buyer-info">
               <h1>{name}</h1>
@@ -434,7 +510,7 @@ export default function ShopProductPage() {
                 {discount > 0 && compare != null ? <><s className="num">{money(compare, localeTag)}</s><em className="num">{tp("shop.view.discount", { percent: discount })}</em></> : null}
               </div>
               <dl>
-                <div><dt>{tp("shop.view.shipping")}</dt><dd><Truck />{tp("shop.view.shippingNote")}</dd></div>
+                <div><dt>{tp("shop.view.shipping")}</dt><dd><Truck aria-hidden="true" />{tp("shop.view.shippingNote")}</dd></div>
                 {groups.map((group) => (
                   <div key={group.key}>
                     <dt>{group.label}</dt>
@@ -444,35 +520,43 @@ export default function ShopProductPage() {
                         const on = picked[group.key] === value;
                         return (
                           <button type="button" key={value} className={on ? "active" : ""} disabled={!enabled} onClick={() => { setPicked({ ...picked, [group.key]: value }); setWarn(false); setQty(1); }}>
-                            {on ? <Check /> : null}{value}
+                            {on ? <Check aria-hidden="true" /> : null}{value}
                           </button>
                         );
                       })}
                     </dd>
                   </div>
                 ))}
-                {warn ? <p className="buyer-warn">{tp("shop.view.pickOptions")}</p> : null}
+                {warn ? <p className="buyer-warn" role="alert">{tp("shop.view.pickOptions")}</p> : null}
                 <div>
                   <dt>{tp("shop.view.quantity")}</dt>
                   <dd className="buyer-qty">
                     <div>
-                      <button type="button" aria-label="-" disabled={!ready || qty <= 1} onClick={() => setQty((value) => Math.max(1, value - 1))}><Minus /></button>
+                      <button type="button" aria-label="-" disabled={!ready || qty <= 1} onClick={() => setQty((value) => Math.max(1, value - 1))}><Minus aria-hidden="true" /></button>
                       <input className="num" inputMode="numeric" value={ready ? qty : 0} onChange={(event) => {
                         const next = Number(event.target.value);
                         if (!Number.isFinite(next)) return;
                         setQty(Math.min(stock, Math.max(1, Math.trunc(next))));
                       }} />
-                      <button type="button" aria-label="+" disabled={!ready || qty >= stock} onClick={() => setQty((value) => Math.min(stock, value + 1))}><Plus /></button>
+                      <button type="button" aria-label="+" disabled={!ready || qty >= stock} onClick={() => setQty((value) => Math.min(stock, value + 1))}><Plus aria-hidden="true" /></button>
                     </div>
                     <span>{complete && stock <= 0 ? tp("shop.view.soldOut") : selectedSku ? (stock <= LOW_STOCK ? tp("shop.view.lowStock", { count: stock }) : tp("shop.view.inStock", { count: stock })) : null}</span>
                   </dd>
                 </div>
               </dl>
               <div className="buyer-actions">
-                <button type="button" className="cart" disabled={soldOut || adding || own} onClick={() => void addToCart()}><ShoppingCart />{tp("shop.view.addToCart")}</button>
+                <button type="button" className="cart" disabled={soldOut || adding || own} onClick={() => void addToCart()}><ShoppingCart aria-hidden="true" />{tp("shop.view.addToCart")}</button>
                 <button type="button" className="buy" disabled={soldOut || adding || own} onClick={() => void buyNow()}>{tp("shop.view.buyNow")}</button>
               </div>
-              {own ? <p className="buyer-warn">{tp("cart.own.label")}</p> : null}
+              <div className="buyer-share">
+                <span>{tp("shop.view.share")}</span>
+                <button type="button" aria-label={tp("shop.view.copyLink")} onClick={() => void copyLink()}><Link2 aria-hidden="true" /></button>
+                <button type="button" aria-label={tp("shop.view.shareFacebook")} onClick={() => share("facebook")}><Facebook aria-hidden="true" /></button>
+                <button type="button" aria-label={tp("shop.view.shareLine")} onClick={() => share("line")}>{tp("shop.view.line")}</button>
+                <button type="button" aria-label={tp("shop.view.shareX")} onClick={() => share("x")}>X</button>
+                <button type="button" aria-label={tp("shop.view.qr")} onClick={() => setQrOpen(true)}><QrCode aria-hidden="true" /></button>
+              </div>
+              {own ? <p className="buyer-warn" role="alert">{tp("cart.own.label")}</p> : null}
               {product ? <ProductConfiguratorPanel shop={shop} productId={product.id} money={(value) => money(value, localeTag)}
                 onAddToCart={async ({ selections, version }) => {
                   if (adding) return false;
@@ -491,11 +575,11 @@ export default function ShopProductPage() {
           </article>
           <section className="buyer-card buyer-shop">
             <div className="buyer-shop-id">
-              <span className="buyer-shop-logo">{shop.logoUrl ? <img src={mediaUrl(shop.logoUrl)} alt={tp("shop.view.logoAlt", { name: shopName })} /> : <Store />}</span>
-              <div>
+              <span className="buyer-shop-logo">{shop.logoUrl ? <img src={mediaUrl(shop.logoUrl)} alt={tp("shop.view.logoAlt", { name: shopName })} /> : <Store aria-hidden="true" />}</span>
+              <div className="buyer-shop-meta">
                 <b>{shopName}</b>
-                <Link to={shopPath(slug)}>{tp("shop.view.viewShop")}</Link>
               </div>
+              <Link className="buyer-shop-follow" to={shopPath(slug)}>{tp("shop.view.viewShop")}</Link>
             </div>
             {stats.length > 0 && (
               <dl className="buyer-shop-stats" style={{ "--shop-stats": stats.length } as CSSProperties}>
@@ -504,18 +588,22 @@ export default function ShopProductPage() {
             )}
           </section>
           <section className="buyer-card buyer-detail">
-            <h2>{tp("shop.view.specs")}</h2>
-            <dl>
-              {categoryLabel && category ? (
-                <div>
-                  <dt>{tp("shop.view.category")}</dt>
-                  <dd><Link to={shopCategoryPath(slug, category)}>{categoryLabel}</Link></dd>
-                </div>
-              ) : null}
-              {selectedSku ? <div><dt>{tp("shop.view.sku")}</dt><dd className="num">{selectedSku.skuCode}</dd></div> : null}
-              {product.brand ? <div><dt>{tp("shop.productBrand")}</dt><dd>{product.brand}</dd></div> : null}
-            </dl>
-            {description ? <><h2>{tp("shop.view.details")}</h2><p>{description}</p></> : null}
+            <div className="buyer-detail-desc">
+              {description ? <><h2>{tp("shop.view.details")}</h2><p>{description}</p></> : null}
+            </div>
+            <div className="buyer-detail-specs">
+              <h2>{tp("shop.view.specs")}</h2>
+              <dl>
+                {categoryLabel && category ? (
+                  <div>
+                    <dt>{tp("shop.view.category")}</dt>
+                    <dd><Link to={shopCategoryPath(slug, category)}>{categoryLabel}</Link></dd>
+                  </div>
+                ) : null}
+                {selectedSku ? <div><dt>{tp("shop.view.sku")}</dt><dd className="num">{selectedSku.skuCode}</dd></div> : null}
+                {product.brand ? <div><dt>{tp("shop.productBrand")}</dt><dd>{product.brand}</dd></div> : null}
+              </dl>
+            </div>
           </section>
           <section className="buyer-card buyer-reviews" aria-label={tp("shop.view.reviewsTitle")}>
             <div className="buyer-reviews-head">
@@ -644,14 +732,17 @@ export default function ShopProductPage() {
           )}
         </div>
       )}
-      {lightbox && image && (
-        <div className="buyer-lightbox" role="dialog" aria-modal="true">
-          <button type="button" className="close" aria-label={tp("shop.view.close")} onClick={() => setLightbox(false)}><X /></button>
-          {product && product.images.length > 1 ? <button type="button" aria-label={tp("shop.view.prevImage")} onClick={() => setActive((index) => (index - 1 + product.images.length) % product.images.length)}><ChevronLeft /></button> : null}
-          <img src={mediaUrl(image.url)} alt={name} />
-          {product && product.images.length > 1 ? <button type="button" aria-label={tp("shop.view.nextImage")} onClick={() => setActive((index) => (index + 1) % product.images.length)}><ChevronRight /></button> : null}
-        </div>
-      )}
+      {previewItems.length > 0 ? (
+        <ProductImagePreview
+          open={lightbox}
+          current={previewCurrent}
+          items={previewItems}
+          alt={name}
+          onOpenChange={setLightbox}
+          onCurrentChange={onPreviewCurrentChange}
+          returnFocusRef={mainImageRef}
+        />
+      ) : null}
       {reviewLightbox ? (
         <div className="buyer-lightbox" role="dialog" aria-modal="true" onClick={() => setReviewLightbox(null)}>
           <button type="button" className="close" aria-label={tp("shop.view.close")} onClick={() => setReviewLightbox(null)}><X /></button>

@@ -85,7 +85,7 @@ export default function ShopCategoryPage() {
   }
 
   if (!categoryKey && usesTsfTree(theme.templateKey)) {
-    return <main><TsfCategoryRail shop={shop} activeId={null} title={listLabel} railStyle={tsfThemeDefaults(theme.templateKey).categoryStyle} /></main>;
+    return <main><TsfCategoryRail shop={shop} activeId={null} title={listLabel} railStyle={tsfThemeDefaults(theme.templateKey).categoryStyle} templateKey={theme.templateKey} /></main>;
   }
 
   if (!categoryKey) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -15,14 +15,21 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import PlanPurchaseDialog, { yearlyPricing } from "./PlanPurchaseDialog";
+import { formatBaht } from "../cart/cartFormat";
 import { LoadError, SkeletonForm } from "../feedback/Skeleton";
 import {
   ApiError,
   merchantPlanUsageApi,
+  moneyValue,
+  type MerchantCatalogPlan,
   type MerchantPlanMetric,
   type MerchantPlanMetricStatus,
   type MerchantPlanUsage,
+  type PlanBillingCycle,
 } from "../../services/api";
+import { useAuth } from "../../contexts/AuthContext";
+import { useActiveShop } from "../../contexts/ActiveShopContext";
 import { usePermissions } from "../../hooks/usePermissions";
 import "../../styles/product-management.css";
 import "../../styles/order-management.css";
@@ -88,6 +95,16 @@ function statusTone(status: MerchantPlanMetricStatus): "ok" | "warn" | "over" | 
   }
 }
 
+function catalogLimit(
+  value: number | null | undefined,
+  unit: "count" | "bytes",
+  unlimited: string,
+  format: (n: number) => string,
+) {
+  if (value == null) return unlimited;
+  return unit === "bytes" ? format(value) : formatCount(value);
+}
+
 function bangkokStamp(iso: string, locale: string) {
   try {
     return new Intl.DateTimeFormat(locale, {
@@ -102,6 +119,8 @@ function bangkokStamp(iso: string, locale: string) {
 
 export default function SettingsPlanPanel({ shopId, notify, onNavigateHref }: Props) {
   const { t, i18n } = useTranslation("merchant");
+  const { user } = useAuth();
+  const { shops } = useActiveShop();
   const { canInShop } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -109,10 +128,14 @@ export default function SettingsPlanPanel({ shopId, notify, onNavigateHref }: Pr
   const [data, setData] = useState<MerchantPlanUsage | null>(null);
   const [stale, setStale] = useState(false);
   const [detail, setDetail] = useState<MerchantPlanMetric | null>(null);
+  const [upgradePick, setUpgradePick] = useState<MerchantCatalogPlan | null>(null);
+  const [billingCycle, setBillingCycle] = useState<PlanBillingCycle>("MONTHLY");
   const reqSeq = useRef(0);
   const hasDataRef = useRef(false);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  const shopSlug = shops.find((row) => row.shopId === shopId)?.slug ?? "";
 
   const load = useCallback(async (mode: "initial" | "refresh" = "initial") => {
     const seq = ++reqSeq.current;
@@ -151,6 +174,7 @@ export default function SettingsPlanPanel({ shopId, notify, onNavigateHref }: Pr
     hasDataRef.current = false;
     setStale(false);
     setDetail(null);
+    setUpgradePick(null);
     void load("initial");
   }, [shopId, load]);
 
@@ -188,6 +212,21 @@ export default function SettingsPlanPanel({ shopId, notify, onNavigateHref }: Pr
   };
 
   const localeTag = i18n.language?.startsWith("zh") ? "zh-CN" : i18n.language?.startsWith("en") ? "en-GB" : "th-TH";
+  const currentPlanCode = data?.plan.code?.toUpperCase() ?? null;
+  const catalogPlans = useMemo(
+    () => [...(data?.catalog ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
+    [data?.catalog],
+  );
+  const currentSortOrder = catalogPlans.find((row) => row.code.toUpperCase() === currentPlanCode)?.sortOrder ?? -1;
+  const yearlySavePct = useMemo(() => {
+    let best = 0;
+    for (const plan of catalogPlans) {
+      if (plan.code.toUpperCase() === "FREE") continue;
+      const { savingsPercent } = yearlyPricing(plan.priceMonthly, plan.priceYearly);
+      if (savingsPercent > best) best = savingsPercent;
+    }
+    return best;
+  }, [catalogPlans]);
 
   if (loading && !data) {
     return (
@@ -287,6 +326,19 @@ export default function SettingsPlanPanel({ shopId, notify, onNavigateHref }: Pr
               <p className="plan-desc">
                 {data.plan.note || (data.plan.resolution === "NONE" ? t("plan.noPlanHint") : t("plan.catalogHint"))}
               </p>
+              {data.planBillingCycle || data.planExpiresAt ? (
+                <p className="plan-desc plan-billing-meta">
+                  {data.planBillingCycle
+                    ? t("plan.currentBilling", {
+                        cycle: t(`plan.billing.${data.planBillingCycle === "YEARLY" ? "yearly" : "monthly"}`),
+                      })
+                    : null}
+                  {data.planBillingCycle && data.planExpiresAt ? " · " : null}
+                  {data.planExpiresAt
+                    ? t("plan.expiresAt", { time: bangkokStamp(data.planExpiresAt, localeTag) })
+                    : null}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -409,6 +461,104 @@ export default function SettingsPlanPanel({ shopId, notify, onNavigateHref }: Pr
             </ul>
           </div>
 
+          {catalogPlans.length > 0 ? (
+            <div className="plan-catalog-block">
+              <div className="plan-usage-heading">
+                <Sparkles aria-hidden />
+                <div>
+                  <h3>{t("plan.catalog.compareTitle")}</h3>
+                  <p>{t("plan.catalog.compareSubtitle")}</p>
+                </div>
+              </div>
+              <div className="plan-billing-seg" role="group" aria-label={t("plan.billing.aria")}>
+                <button
+                  type="button"
+                  className={billingCycle === "MONTHLY" ? "active" : undefined}
+                  onClick={() => setBillingCycle("MONTHLY")}
+                >
+                  {t("plan.billing.monthly")}
+                </button>
+                <button
+                  type="button"
+                  className={billingCycle === "YEARLY" ? "active" : undefined}
+                  onClick={() => setBillingCycle("YEARLY")}
+                >
+                  {t("plan.billing.yearly")}
+                  {yearlySavePct > 0 ? <em>{t("plan.billing.savePercent", { pct: Math.round(yearlySavePct) })}</em> : null}
+                </button>
+              </div>
+              <div className="plan-catalog-grid" role="list">
+                {catalogPlans.map((plan) => {
+                  const samePlan = currentPlanCode != null && plan.code.toUpperCase() === currentPlanCode;
+                  const isDowngrade = currentPlanCode != null && plan.sortOrder < currentSortOrder;
+                  const pricing = yearlyPricing(plan.priceMonthly, plan.priceYearly);
+                  const price = billingCycle === "YEARLY" ? pricing.yearly : pricing.monthly;
+                  const limits = plan.limits;
+                  const canAct = plan.code.toUpperCase() !== "FREE" && !samePlan && canInShop("SHOP_UPDATE");
+                  return (
+                    <article
+                      key={plan.code}
+                      role="listitem"
+                      className={`plan-catalog-card${samePlan ? " is-current" : ""}${plan.recommended ? " is-recommended" : ""}`}
+                    >
+                      <header className="plan-catalog-card-head">
+                        <div>
+                          <h4>{plan.name}</h4>
+                          <code className="plan-code">{plan.code}</code>
+                        </div>
+                        <div className="plan-catalog-badges">
+                          {plan.recommended ? <span className="plan-catalog-badge">{t("plan.catalog.recommended")}</span> : null}
+                          {samePlan ? <span className="plan-catalog-badge is-current">{t("plan.catalog.currentPlan")}</span> : null}
+                        </div>
+                      </header>
+                      <div className="plan-catalog-pricing">
+                        <p>
+                          <small>{billingCycle === "YEARLY" ? t("plan.catalog.yearly") : t("plan.catalog.monthly")}</small>
+                          <strong className="num">{formatBaht(price, localeTag)}</strong>
+                        </p>
+                        {billingCycle === "YEARLY" && moneyValue(plan.priceYearly) > 0 ? (
+                          <>
+                            <p className="plan-catalog-savings" role="status">
+                              {t("plan.purchase.yearlyAvg", { amount: formatBaht(pricing.avgPerMonth, localeTag) })}
+                            </p>
+                            {pricing.savingsBaht > 0 ? (
+                              <p className="plan-catalog-savings" role="status">
+                                {t("plan.purchase.yearlySave", { amount: formatBaht(pricing.savingsBaht, localeTag) })}
+                              </p>
+                            ) : null}
+                          </>
+                        ) : null}
+                      </div>
+                      <ul className="plan-catalog-limits">
+                        <li>{t("plan.catalog.limits.products")}: {catalogLimit(limits?.products, "count", t("plan.unlimited"), formatCount)}</li>
+                        <li>{t("plan.catalog.limits.orders")}: {catalogLimit(limits?.ordersPerMonth, "count", t("plan.unlimited"), formatCount)}</li>
+                        <li>{t("plan.catalog.limits.staff")}: {catalogLimit(limits?.staff, "count", t("plan.unlimited"), formatCount)}</li>
+                        <li>{t("plan.catalog.limits.storage")}: {catalogLimit(limits?.storageBytes, "bytes", t("plan.unlimited"), formatBytes)}</li>
+                      </ul>
+                      {plan.description ? <p className="plan-catalog-desc">{plan.description}</p> : null}
+                      <div className="plan-catalog-actions">
+                        {plan.code.toUpperCase() === "FREE" ? (
+                          <button type="button" disabled>{samePlan ? t("plan.catalog.currentPlan") : t("plan.catalog.freeIncluded")}</button>
+                        ) : samePlan ? (
+                          <button type="button" disabled>{t("plan.catalog.currentPlan")}</button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="primary"
+                            disabled={!canAct}
+                            onClick={() => setUpgradePick(plan)}
+                          >
+                            {isDowngrade ? t("plan.catalog.changePlan") : t("plan.catalog.upgrade")}
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           <details className="plan-enforce-details">
             <summary>
               <Info aria-hidden />
@@ -514,6 +664,23 @@ export default function SettingsPlanPanel({ shopId, notify, onNavigateHref }: Pr
           </aside>
         </div>,
         document.body,
+      ) : null}
+
+      {upgradePick && data ? (
+        <PlanPurchaseDialog
+          plan={upgradePick}
+          usage={data}
+          billingCycle={billingCycle}
+          shopSlug={shopSlug}
+          contactEmail={user?.email ?? ""}
+          isDowngrade={upgradePick.sortOrder < currentSortOrder}
+          onClose={() => setUpgradePick(null)}
+          onContacted={() => {
+            setUpgradePick(null);
+            notify(t("plan.upgrade.mailtoOpened"));
+          }}
+          notify={notify}
+        />
       ) : null}
     </div>
   );

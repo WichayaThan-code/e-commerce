@@ -67,11 +67,13 @@ public class ReferenceSeedTestLoader implements ApplicationRunner {
         if (existing != null && existing > 0) return;
         var now = Timestamp.from(Instant.now());
         jdbc.update("""
-            INSERT INTO plans (code, name, limit_products, limit_orders_per_month, limit_staff, limit_storage_bytes, active, created_at, updated_at)
+            INSERT INTO plans (code, name, price_monthly, price_yearly,
+                limit_products, limit_orders_per_month, limit_staff, limit_storage_bytes,
+                description, sort_order, active, created_at, updated_at)
             VALUES
-              ('FREE',  'Free',  50,   100,   2,  104857600,   TRUE, ?, ?),
-              ('BASIC', 'Basic', 500,  1000, 10,  1073741824,  TRUE, ?, ?),
-              ('PRO',   'Pro',   NULL, NULL, 50,  10737418240, TRUE, ?, ?)
+              ('FREE',  'Free',  0,    0,    5,    50,   2,    104857600,   'ร้านเริ่มต้น',     1, TRUE, ?, ?),
+              ('BASIC', 'Basic', 290,  2900, 50,   500,  5,    1073741824,  'ร้านที่เริ่มโต',    2, TRUE, ?, ?),
+              ('PRO',   'Pro',   790,  7900, NULL, NULL, NULL, 10737418240, 'ร้านที่ขายจริงจัง', 3, TRUE, ?, ?)
             """, now, now, now, now, now, now);
     }
 

@@ -1,26 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
-  Baby,
-  CircleEllipsis,
-  Dumbbell,
-  Gift,
   Grid2X2,
   Heart,
-  Leaf,
+  LayoutGrid,
   List,
   Package,
   Search,
   SearchX,
-  Shirt,
-  ShoppingBag,
   ShoppingCart,
-  Sofa,
-  Sparkles,
   Store,
-  Utensils,
-  Wine,
 } from "lucide-react";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import { useAuth } from "../contexts/AuthContext";
@@ -37,15 +27,26 @@ import {
 } from "../services/api";
 import recommendReference from "../assets/images/references/storefront/recommend-product.png";
 import EmptyState from "../components/feedback/EmptyState";
+import {
+  buildRecommendCategoryTiles,
+  parseCategoryParam,
+} from "../components/marketplace/categoryTiles";
 import "../styles/recommended-products.css";
 import "../styles/shop-page.css";
 import "../styles/product-card.css";
 
-const categoryIcons = [Sparkles, Shirt, Wine, Sofa, ShoppingBag, Utensils, Dumbbell, Baby, Gift, Gift, Leaf, CircleEllipsis];
-const ratingStars = ["★★★★", "★★★½", "★★★", "★★"] as const;
-/** Same order as catalog.priceRanges / catalog.ratingRanges in the locale files. */
-const priceBands: [number | undefined, number | undefined][] = [[undefined, 99.99], [100, 300], [301, 500], [501, 1000], [1000.01, undefined]];
-const ratingMins = [4.5, 4, 3.5, 3];
+/** Whole-star options — same order as catalog.ratingRanges. */
+const ratingStars = ["★★★★★", "★★★★", "★★★"] as const;
+const ratingMins = [5, 4, 3];
+/** Index 0 = all; remaining align with catalog.priceRanges. */
+const priceBounds: [number | undefined, number | undefined][] = [
+  [undefined, undefined],
+  [undefined, 99.99],
+  [100, 300],
+  [301, 500],
+  [501, 1000],
+  [1000.01, undefined],
+];
 type SortKey = "featured" | "price" | "best";
 const sortParam: Record<SortKey, RecommendationSort> = { featured: "featured", price: "price_asc", best: "best" };
 const PAGE_SIZE = 12;
@@ -59,9 +60,9 @@ const primaryImage = (p: BestSellerProduct) =>
 const fillImage = { left: 0, top: 0, width: "100%", height: "100%", objectFit: "cover" as const };
 
 const texts = {
-  th: { all: "ทั้งหมด", login: "กรุณาเข้าสู่ระบบก่อน", blocked: "บัญชีนี้ไม่สามารถใช้ตะกร้าสินค้าได้", pick: "กรุณาเลือกตัวเลือกสินค้า", out: "สินค้าหมด", low: "สินค้าในสต็อกไม่เพียงพอ", added: "เพิ่มสินค้าลงตะกร้าแล้ว", failed: "เพิ่มสินค้าไม่สำเร็จ", error: "โหลดสินค้าแนะนำไม่สำเร็จ", retry: "ลองใหม่", empty: "ยังไม่มีสินค้าที่ตรงกับตัวกรอง", noBrand: "ยังไม่มีแบรนด์", end: "แสดงสินค้าครบแล้ว" },
-  en: { all: "All", login: "Please sign in first", blocked: "This account cannot use the cart", pick: "Please choose product options", out: "Out of stock", low: "Not enough stock", added: "Added to cart", failed: "Could not add to cart", error: "Could not load recommendations", retry: "Retry", empty: "No products match these filters", noBrand: "No brands yet", end: "You've seen everything" },
-  zh: { all: "全部", login: "请先登录", blocked: "此账户无法使用购物车", pick: "请选择商品规格", out: "已售罄", low: "库存不足", added: "已加入购物车", failed: "加入购物车失败", error: "推荐商品加载失败", retry: "重试", empty: "没有符合筛选条件的商品", noBrand: "暂无品牌", end: "已显示全部商品" },
+  th: { all: "ทั้งหมด", login: "กรุณาเข้าสู่ระบบก่อน", blocked: "บัญชีนี้ไม่สามารถใช้ตะกร้าสินค้าได้", pick: "กรุณาเลือกตัวเลือกสินค้า", out: "สินค้าหมด", low: "สินค้าในสต็อกไม่เพียงพอ", added: "เพิ่มสินค้าลงตะกร้าแล้ว", failed: "เพิ่มสินค้าไม่สำเร็จ", error: "โหลดสินค้าแนะนำไม่สำเร็จ", retry: "ลองใหม่", empty: "ยังไม่มีสินค้าที่ตรงกับตัวกรอง", noBrand: "ยังไม่มีแบรนด์", end: "แสดงสินค้าครบแล้ว", priceMin: "฿ ขั้นต่ำ", priceMax: "฿ สูงสุด", priceApply: "ตกลง", priceApplied: "ใช้ตัวกรองราคาแล้ว", priceInvalid: "กรุณากรอกราคาเป็นตัวเลข" },
+  en: { all: "All", login: "Please sign in first", blocked: "This account cannot use the cart", pick: "Please choose product options", out: "Out of stock", low: "Not enough stock", added: "Added to cart", failed: "Could not add to cart", error: "Could not load recommendations", retry: "Retry", empty: "No products match these filters", noBrand: "No brands yet", end: "You've seen everything", priceMin: "฿ Min", priceMax: "฿ Max", priceApply: "Apply", priceApplied: "Price filter applied", priceInvalid: "Please enter a valid number" },
+  zh: { all: "全部", login: "请先登录", blocked: "此账户无法使用购物车", pick: "请选择商品规格", out: "已售罄", low: "库存不足", added: "已加入购物车", failed: "加入购物车失败", error: "推荐商品加载失败", retry: "重试", empty: "没有符合筛选条件的商品", noBrand: "暂无品牌", end: "已显示全部商品", priceMin: "฿ 最低", priceMax: "฿ 最高", priceApply: "确定", priceApplied: "已应用价格筛选", priceInvalid: "请输入有效数字" },
 };
 
 type RecommendBanner = { title: string; text: string; btn: string; toast: string };
@@ -71,17 +72,23 @@ export default function RecommendedProductsPage() {
   const lang = localeTag.startsWith("zh") ? "zh" : localeTag.startsWith("en") ? "en" : "th";
   const t = texts[lang];
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const cartApi = useOptionalCart();
-  const [activeCategory, setActiveCategory] = useState(0);
-  const [categoryList, setCategoryList] = useState<ProductCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(() =>
+    parseCategoryParam(searchParams.get("category")),
+  );
+  const [categoryList, setCategoryList] = useState<ProductCategory[] | null>(null);
   const [notice, setNotice] = useState("");
   const [sort, setSort] = useState<SortKey>("featured");
   const [grid, setGrid] = useState(true);
   const [brandQuery, setBrandQuery] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const [priceChecked, setPriceChecked] = useState<number[]>([]);
-  const [ratingChecked, setRatingChecked] = useState<number[]>([]);
+  const [priceBand, setPriceBand] = useState(0);
+  const [appliedPrice, setAppliedPrice] = useState<{ min?: number; max?: number }>({});
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [ratingIndex, setRatingIndex] = useState<number | null>(null);
   const [brandChecked, setBrandChecked] = useState<string[]>([]);
   const [knownBrands, setKnownBrands] = useState<string[]>([]);
   const [items, setItems] = useState<BestSellerProduct[]>([]);
@@ -92,8 +99,10 @@ export default function RecommendedProductsPage() {
   const [reload, setReload] = useState(0);
 
   const priceRanges = tp("catalog.priceRanges", { returnObjects: true }) as unknown as string[];
+  const priceLabels = useMemo(() => [t.all, ...priceRanges], [t.all, priceRanges]);
   const ratingRanges = tp("catalog.ratingRanges", { returnObjects: true }) as unknown as string[];
   const banners = tp("recommend.banners", { returnObjects: true }) as unknown as RecommendBanner[];
+  const fallbackCategories = tp("home.categories", { returnObjects: true }) as unknown as string[];
 
   const notify = (message: string) => {
     setNotice(message);
@@ -101,7 +110,9 @@ export default function RecommendedProductsPage() {
   };
 
   useEffect(() => {
-    catalogApi.categories().then(setCategoryList).catch(() => setCategoryList([]));
+    catalogApi.categories()
+      .then(setCategoryList)
+      .catch(() => setCategoryList([]));
   }, []);
 
   useEffect(() => {
@@ -111,23 +122,67 @@ export default function RecommendedProductsPage() {
       .catch(() => setFavorites(new Set()));
   }, [user]);
 
-  const categoryName = (c: ProductCategory) => (lang === "en" ? c.nameEn : lang === "zh" ? c.nameZh : c.nameTh) || c.nameTh;
-  const chips = useMemo(
-    () => [{ id: undefined as number | undefined, label: t.all }, ...categoryList.slice(0, categoryIcons.length - 1).map((c) => ({ id: c.id as number | undefined, label: categoryName(c) }))],
-    [categoryList, lang],
-  );
-  const selectedCategory = chips[activeCategory]?.id;
+  // Keep local selection in sync with the URL (back/forward + direct edits).
+  useEffect(() => {
+    setSelectedCategoryId(parseCategoryParam(searchParams.get("category")));
+  }, [searchParams]);
 
+  // After categories load: invalid id → silently fall back to "all".
+  useEffect(() => {
+    if (!categoryList || categoryList.length === 0) return;
+    if (selectedCategoryId == null) return;
+    if (categoryList.some((c) => c.id === selectedCategoryId)) return;
+    setSelectedCategoryId(undefined);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("category");
+      return next;
+    }, { replace: true });
+  }, [categoryList, selectedCategoryId, setSearchParams]);
+
+  const categoryTiles = useMemo(
+    () => buildRecommendCategoryTiles(categoryList, fallbackCategories, localeTag, t.all),
+    [categoryList, fallbackCategories, localeTag, t.all],
+  );
+
+  const setCategoryInUrl = (id: number | undefined) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (id == null) next.delete("category");
+      else next.set("category", String(id));
+      return next;
+    }, { replace: true });
+    setSelectedCategoryId(id);
+  };
+
+  const selectCategory = (id: number | undefined, label: string, toast: boolean) => {
+    setCategoryInUrl(id);
+    if (toast) notify(tp("catalog.pickCategory", { name: label.replace(/\n/g, " ") }));
+  };
+
+  const [bandMin, bandMax] = priceBounds[priceBand] ?? [undefined, undefined];
   const priceQuery = useMemo(() => {
-    if (!priceChecked.length) return {};
-    const bands = priceChecked.map((i) => priceBands[i]);
-    const min = bands.some(([lo]) => lo === undefined) ? undefined : Math.min(...bands.map(([lo]) => lo as number));
-    const max = bands.some(([, hi]) => hi === undefined) ? undefined : Math.max(...bands.map(([, hi]) => hi as number));
-    return { minPrice: min, maxPrice: max };
-  }, [priceChecked]);
-  const minRating = ratingChecked.length ? Math.min(...ratingChecked.map((i) => ratingMins[i])) : undefined;
+    const min = appliedPrice.min ?? bandMin;
+    const max = appliedPrice.max ?? bandMax;
+    return {
+      ...(min !== undefined ? { minPrice: min } : {}),
+      ...(max !== undefined ? { maxPrice: max } : {}),
+    };
+  }, [appliedPrice, bandMin, bandMax]);
+  const minRating = ratingIndex != null ? ratingMins[ratingIndex] : undefined;
   const brands = brandChecked.join(",");
-  const filterKey = JSON.stringify([selectedCategory, priceQuery, minRating, brands, sort, reload]);
+  const filterKey = JSON.stringify([selectedCategoryId, priceQuery, minRating, brands, sort, reload]);
+
+  const applyPrice = () => {
+    const min = minPrice.trim() === "" ? undefined : Number(minPrice);
+    const max = maxPrice.trim() === "" ? undefined : Number(maxPrice);
+    if ((min !== undefined && Number.isNaN(min)) || (max !== undefined && Number.isNaN(max))) {
+      notify(t.priceInvalid);
+      return;
+    }
+    setAppliedPrice({ min, max });
+    notify(t.priceApplied);
+  };
 
   useEffect(() => { setPage(0); }, [filterKey]);
 
@@ -136,7 +191,7 @@ export default function RecommendedProductsPage() {
     setFetching(true);
     setLoadError(false);
     recommendationApi
-      .list({ categoryId: selectedCategory, ...priceQuery, minRating, brands: brands || undefined, sort: sortParam[sort], page, size: PAGE_SIZE })
+      .list({ categoryId: selectedCategoryId, ...priceQuery, minRating, brands: brands || undefined, sort: sortParam[sort], page, size: PAGE_SIZE })
       .then((result) => {
         if (!alive) return;
         setItems((prev) => (page === 0 ? result.items : [...prev, ...result.items.filter((p) => !prev.some((x) => x.id === p.id))]));
@@ -206,7 +261,12 @@ export default function RecommendedProductsPage() {
   const shownBrands = [...new Set([...knownBrands, ...brandChecked])].filter((x) => x.toLowerCase().includes(brandQuery.trim().toLowerCase()));
   const hasMore = items.length < total;
   const hasActiveFilters =
-    brandChecked.length > 0 || priceChecked.length > 0 || ratingChecked.length > 0 || activeCategory > 0;
+    brandChecked.length > 0
+    || priceBand !== 0
+    || appliedPrice.min != null
+    || appliedPrice.max != null
+    || ratingIndex != null
+    || selectedCategoryId != null;
   const bannerEmojis = ["🎁", "🚚", "🌍"];
 
   return (
@@ -226,21 +286,43 @@ export default function RecommendedProductsPage() {
         </div>
       </section>
 
-      <section className="recommend-categories recommend-width">
-        {chips.map((chip, index) => {
-          const Icon = categoryIcons[index % categoryIcons.length];
+      <section className="recommend-categories recommend-width" aria-label={tp("home.shopByCategory")}>
+        {categoryTiles.map((tile) => {
+          const isAll = tile.key === "all";
+          const isActive = isAll
+            ? selectedCategoryId == null
+            : tile.categoryId != null && tile.categoryId === selectedCategoryId;
           return (
             <button
-              className={activeCategory === index ? "active" : ""}
-              key={`${chip.id ?? "all"}-${index}`}
+              className={`category${isActive ? " is-active" : ""}`}
+              key={tile.key}
               type="button"
+              aria-pressed={isActive}
               onClick={() => {
-                setActiveCategory(index);
-                notify(tp("catalog.pickCategory", { name: chip.label }));
+                if (isAll) {
+                  selectCategory(undefined, tile.label, true);
+                  return;
+                }
+                if (tile.categoryId == null) {
+                  // Fallback tile without id — keep "all", no filter.
+                  selectCategory(undefined, tile.label, true);
+                  return;
+                }
+                selectCategory(tile.categoryId, tile.label, true);
               }}
             >
-              <Icon />
-              <span>{chip.label}</span>
+              {isAll ? (
+                <span className="category-more-icon" aria-hidden="true">
+                  <LayoutGrid />
+                </span>
+              ) : (
+                <span aria-hidden="true">{tile.emoji}</span>
+              )}
+              <b>
+                {tile.label.split("\n").map((line, j) => (
+                  <span key={j}>{line}</span>
+                ))}
+              </b>
             </button>
           );
         })}
@@ -251,18 +333,59 @@ export default function RecommendedProductsPage() {
           <h2>{tp("catalog.filters")}</h2>
           <hr />
           <h3>{tp("catalog.price")}</h3>
-          {priceRanges.map((x, index) => (
-            <label key={x}>
-              <input type="checkbox" checked={priceChecked.includes(index)} onChange={() => toggle(setPriceChecked, index)} />
-              {x}
+          {priceLabels.map((label, index) => (
+            <label key={label}>
+              <input
+                type="radio"
+                name="recommend-price"
+                checked={priceBand === index}
+                onChange={() => {
+                  setPriceBand(index);
+                  setAppliedPrice({});
+                  setMinPrice("");
+                  setMaxPrice("");
+                }}
+              />
+              {label}
             </label>
           ))}
+          <div className="recommend-price-range">
+            <input
+              aria-label={t.priceMin}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={minPrice}
+              onChange={(e) => setMinPrice(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+" || e.key === ".") e.preventDefault();
+              }}
+              placeholder={t.priceMin}
+            />
+            <span>-</span>
+            <input
+              aria-label={t.priceMax}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+" || e.key === ".") e.preventDefault();
+              }}
+              placeholder={t.priceMax}
+            />
+            <button type="button" onClick={applyPrice}>{t.priceApply}</button>
+          </div>
           <hr />
           <h3>{tp("catalog.rating")}</h3>
           {ratingRanges.map((text, index) => (
             <label className="rating-filter" key={text}>
-              <input type="checkbox" checked={ratingChecked.includes(index)} onChange={() => toggle(setRatingChecked, index)} />
-              <b>{ratingStars[index]}</b>
+              <input
+                type="radio"
+                name="recommend-rating"
+                checked={ratingIndex === index}
+                onChange={() => setRatingIndex(index)}
+              />
+              <b aria-hidden="true">{ratingStars[index]}</b>
               {text}
             </label>
           ))}

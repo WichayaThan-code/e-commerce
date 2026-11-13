@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -33,8 +33,9 @@ import SearchableSelect from "../components/SearchableSelect";
 import ShopThemeEditor, { type ShopThemeShopInfo } from "../components/merchant/ShopThemeEditor";
 import ShopHoursEditor from "../components/merchant/ShopHoursEditor";
 import ShopCollectionsManager from "../components/merchant/ShopCollectionsManager";
-import ShopMapPinEditor from "../components/maps/ShopMapPinEditor";
 import MerchantSaveButton from "../components/merchant/MerchantSaveButton";
+
+const ShopMapPinEditor = lazy(() => import("../components/maps/ShopMapPinEditor"));
 import { ApiError, catalogApi, mediaUrl, merchantApi, type MerchantSettings, type MerchantSettingsPayload, type ShopHour } from "../services/api";
 import { MERCHANT_CATEGORY_VALUES } from "../i18n/merchantOnboardingCopy";
 import { isShopImage, SHOP_IMAGE_ACCEPT } from "../services/shopImage";
@@ -138,6 +139,7 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
   const [hoursDirty,setHoursDirty]=useState(false);
   const [pendingLeave,setPendingLeave]=useState<PendingLeave>(null);
   const [notice,setNotice]=useState("");
+  const [noticeTone,setNoticeTone]=useState<"ok"|"fail"|"warning">("ok");
   const [formLoading,setFormLoading]=useState(true);
   const [saving,setSaving]=useState(false);
   const [logoBusy,setLogoBusy]=useState(false);
@@ -146,7 +148,12 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
   const [categoryNames,setCategoryNames]=useState<string[]>([...MERCHANT_CATEGORY_VALUES]);
   const baseline=useRef<StoreForm>(emptyForm());
   const logoInput=useRef<HTMLInputElement>(null);
-  const notify=(text:string)=>{setNotice(text);window.setTimeout(()=>setNotice(""),1900)};
+  const notify=(text:string,tone:"ok"|"fail"|"warning"="ok")=>{
+    setNoticeTone(tone);
+    setNotice(text);
+    window.setTimeout(()=>setNotice(""),1900);
+  };
+  const toastClass=noticeTone==="fail"?"merchant-toast fail":noticeTone==="warning"?"merchant-toast warning":"merchant-toast ok";
   const patch=(next:Partial<StoreForm>)=>setForm(current=>({...current,...next}));
   const onThemeDirty=useCallback((dirty:boolean)=>setThemeDirty(dirty),[]);
   const onHoursDirty=useCallback((dirty:boolean)=>setHoursDirty(dirty),[]);
@@ -209,7 +216,7 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
       baseline.current=loaded;
       setForm(loaded);
       setEditingAddress(false);
-    }).catch(()=>notify("โหลดข้อมูลร้านไม่สำเร็จ")).finally(()=>{if(active)setFormLoading(false);});
+    }).catch(()=>notify("โหลดข้อมูลร้านไม่สำเร็จ","fail")).finally(()=>{if(active)setFormLoading(false);});
     return ()=>{active=false};
   },[loading,user,ready,shopId]);
 
@@ -218,11 +225,11 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
     const publicPhone=form.publicPhone.trim();
     const publicEmail=form.publicEmail.trim();
     if(publicPhone && !PUBLIC_PHONE_RE.test(publicPhone)){
-      notify("เบอร์ติดต่อหน้าร้านต้องเป็นตัวเลข 9–20 ตัว (อนุญาต +, ช่องว่าง, -)");
+      notify("เบอร์ติดต่อหน้าร้านต้องเป็นตัวเลข 9–20 ตัว (อนุญาต +, ช่องว่าง, -)","warning");
       return;
     }
     if(publicEmail && (publicEmail.length > 255 || !PUBLIC_EMAIL_RE.test(publicEmail))){
-      notify("อีเมลติดต่อหน้าร้านไม่ถูกต้อง");
+      notify("อีเมลติดต่อหน้าร้านไม่ถูกต้อง","warning");
       return;
     }
     setSaving(true);
@@ -242,15 +249,15 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
       baseline.current=saved;
       setForm(saved);
       setEditingAddress(false);
-      notify("บันทึกข้อมูลร้านค้าเรียบร้อยแล้ว");
+      notify("บันทึกข้อมูลร้านค้าเรียบร้อยแล้ว","ok");
     }catch(error){
-      notify(error instanceof ApiError?error.message:"บันทึกไม่สำเร็จ กรุณาลองใหม่");
+      notify(error instanceof ApiError?error.message:"บันทึกไม่สำเร็จ กรุณาลองใหม่","fail");
     }finally{setSaving(false);}
   };
   const cancel=()=>{
     setForm(baseline.current);
     setEditingAddress(false);
-    notify("ยกเลิกการแก้ไขแล้ว");
+    notify("ยกเลิกการแก้ไขแล้ว","ok");
   };
   const rememberImage=(kind:"coverUrl"|"logoUrl", url:string|null|undefined)=>{
     const next=url?`${url}${url.includes("?")?"&":"?"}t=${Date.now()}`:null;
@@ -258,14 +265,14 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
     baseline.current={...baseline.current,[kind]:next};
   };
   const uploadLogo=async(file:File)=>{
-    if(!isShopImage(file)){notify("โลโก้ต้องเป็น JPG, PNG หรือ WEBP");return;}
+    if(!isShopImage(file)){notify("โลโก้ต้องเป็น JPG, PNG หรือ WEBP","warning");return;}
     setLogoBusy(true);
     try{
       const saved=await merchantApi.uploadLogo(file, shopId);
       rememberImage("logoUrl", saved.logoUrl);
-      notify("อัปโหลดโลโก้แล้ว");
+      notify("อัปโหลดโลโก้แล้ว","ok");
     }catch(error){
-      notify(error instanceof ApiError?error.message:"อัปโหลดโลโก้ไม่สำเร็จ");
+      notify(error instanceof ApiError?error.message:"อัปโหลดโลโก้ไม่สำเร็จ","fail");
     }finally{setLogoBusy(false);}
   };
   const openStorefront=()=>{
@@ -291,7 +298,7 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
     <MerchantSidebar active={themePage?"theme":"store"} onNavigate={guardSidebar}/>
     <section className="pm-content my-store-content tc-content">
     {formLoading?<SkeletonForm fields={8}/>:<ShopThemeEditor shopId={shopId} shop={themeShop} canUpdate={canUpdate} deniedTitle={deniedTitle(canUpdate)} logoControl={logoControl} onDirtyChange={onThemeDirty} notify={notify} onBack={()=>requestHref("/merchant/store")}/>}
-    {pendingLeave&&<ConfirmDialog title={t("storeTheme.confirm.leave.title")} message={t("storeTheme.confirm.leave.message")} confirmLabel={t("storeTheme.confirm.leave.confirm")} cancelLabel={t("storeTheme.confirm.leave.stay")} danger onConfirm={confirmLeave} onCancel={()=>setPendingLeave(null)}/>}{notice&&<div className="merchant-toast" role="status">{notice}</div>}
+    {pendingLeave&&<ConfirmDialog title={t("storeTheme.confirm.leave.title")} message={t("storeTheme.confirm.leave.message")} confirmLabel={t("storeTheme.confirm.leave.confirm")} cancelLabel={t("storeTheme.confirm.leave.stay")} danger onConfirm={confirmLeave} onCancel={()=>setPendingLeave(null)}/>}{notice&&<div className={toastClass} role="status">{notice}</div>}
     </section>
   </main>;
   return <main className="merchant-shell pm-shell my-store-shell">
@@ -425,14 +432,16 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
                     </div>
                   </div>
                 )}
-                <ShopMapPinEditor
-                  address={addressLine}
-                  latitude={form.latitude}
-                  longitude={form.longitude}
-                  editable={canUpdate}
-                  onChange={({ latitude, longitude }) => patch({ latitude, longitude })}
-                  hint={canUpdate ? "ลากหมุดหรือคลิกบนแผนที่เพื่อกำหนดตำแหน่งร้าน แล้วกดบันทึก" : undefined}
-                />
+                <Suspense fallback={<div className="shop-map-pin-canvas" aria-hidden="true" />}>
+                  <ShopMapPinEditor
+                    address={addressLine}
+                    latitude={form.latitude}
+                    longitude={form.longitude}
+                    editable={canUpdate}
+                    onChange={({ latitude, longitude }) => patch({ latitude, longitude })}
+                    hint={canUpdate ? "ลากหมุดหรือคลิกบนแผนที่เพื่อกำหนดตำแหน่งร้าน แล้วกดบันทึก" : undefined}
+                  />
+                </Suspense>
                 <a className="store-maps-link is-inline" href={mapUrl} target="_blank" rel="noreferrer">
                   <ExternalLink aria-hidden />เปิดใน Google Maps
                 </a>
@@ -504,6 +513,6 @@ export default function MyStorePage({themePage=false}:{themePage?:boolean}={}){
         </aside>
       </div>
       )}
-    </section>{pendingLeave&&<ConfirmDialog title={t("storeTheme.confirm.leave.title")} message={t("storeTheme.confirm.leave.message")} confirmLabel={t("storeTheme.confirm.leave.confirm")} cancelLabel={t("storeTheme.confirm.leave.stay")} danger onConfirm={confirmLeave} onCancel={()=>setPendingLeave(null)}/>}{notice&&<div className="merchant-toast" role="status">{notice}</div>}
+    </section>{pendingLeave&&<ConfirmDialog title={t("storeTheme.confirm.leave.title")} message={t("storeTheme.confirm.leave.message")} confirmLabel={t("storeTheme.confirm.leave.confirm")} cancelLabel={t("storeTheme.confirm.leave.stay")} danger onConfirm={confirmLeave} onCancel={()=>setPendingLeave(null)}/>}{notice&&<div className={toastClass} role="status">{notice}</div>}
   </main>
 }

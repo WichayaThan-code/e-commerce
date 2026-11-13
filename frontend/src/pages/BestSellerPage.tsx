@@ -1,23 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Baby,
   BarChart3,
-  CircleEllipsis,
   TrendingUp,
-  Dumbbell,
-  Gift,
   Grid2X2,
   Heart,
-  Leaf,
+  LayoutGrid,
   List,
-  Shirt,
-  ShoppingBag,
   ShoppingCart,
-  Sofa,
-  Sparkles,
   Store,
-  Utensils,
-  Wine,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { loginPathForCart, useOptionalCart } from "../contexts/CartContext";
@@ -32,26 +22,13 @@ import {
 } from "../services/api";
 import bestSellerReference from "../assets/images/references/storefront/best-seller.png";
 import EmptyState from "../components/feedback/EmptyState";
+import { buildRecommendCategoryTiles } from "../components/marketplace/categoryTiles";
 import { usePublicTranslation } from "../hooks/usePublicTranslation";
 import "../styles/recommended-products.css";
 import "../styles/best-seller.css";
 import "../styles/shop-page.css";
 import "../styles/product-card.css";
 
-/** Chip icons (design order); labels come from /api/categories. Chip 0 = "ทั้งหมด". */
-const categoryIcons = [
-  Sparkles,
-  Shirt,
-  Wine,
-  Sofa,
-  ShoppingBag,
-  Utensils,
-  Dumbbell,
-  Baby,
-  Gift,
-  Leaf,
-  CircleEllipsis,
-] as const;
 /** Sidebar price radios -> [min, max] (inclusive, baht). */
 const priceBands: [string, number | undefined, number | undefined][] = [
   ["ทั้งหมด", undefined, undefined],
@@ -88,12 +65,14 @@ const primaryImage = (p: BestSellerProduct) =>
 
 
 export default function BestSellerPage() {
-  const { tp } = usePublicTranslation();
+  const { tp, localeTag } = usePublicTranslation();
   const { user } = useAuth();
-  const [activeCategory, setActiveCategory] = useState(0);
+  const lang = localeTag.startsWith("zh") ? "zh" : localeTag.startsWith("en") ? "en" : "th";
+  const allLabel = lang === "en" ? "All" : lang === "zh" ? "全部" : "ทั้งหมด";
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined);
   const [activeRank, setActiveRank] = useState(0);
   const cartApi = useOptionalCart();
-  const [categoryList, setCategoryList] = useState<ProductCategory[]>([]);
+  const [categoryList, setCategoryList] = useState<ProductCategory[] | null>(null);
   const [priceBand, setPriceBand] = useState(0);
   const [appliedPrice, setAppliedPrice] = useState<{
     min?: number;
@@ -109,6 +88,7 @@ export default function BestSellerPage() {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const fallbackCategories = tp("home.categories", { returnObjects: true }) as unknown as string[];
   const notify = (message: string) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 1900);
@@ -151,21 +131,16 @@ export default function BestSellerPage() {
       notify(error instanceof ApiError ? error.message : tp("favorites.actionFail"));
     }
   };
-  const chips = useMemo(
-    () => [
-      { id: undefined as number | undefined, label: "ทั้งหมด" },
-      ...categoryList
-        .slice(0, categoryIcons.length - 1)
-        .map((c) => ({ id: c.id as number | undefined, label: c.nameTh })),
-    ],
-    [categoryList],
+  const categoryTiles = useMemo(
+    () => buildRecommendCategoryTiles(categoryList, fallbackCategories, localeTag, allLabel),
+    [categoryList, fallbackCategories, localeTag, allLabel],
   );
   const otopTab = activeRank === 3;
-  const selectedCategory = otopTab
-    ? undefined
-    : activeCategory > 0
-      ? categoryList[activeCategory - 1]?.id
-      : undefined;
+  const selectedCategory = otopTab ? undefined : selectedCategoryId;
+  const selectCategory = (id: number | undefined, label: string) => {
+    setSelectedCategoryId(id);
+    notify(tp("catalog.pickCategory", { name: label.replace(/\n/g, " ") }));
+  };
   const [bandMin, bandMax] = [priceBands[priceBand][1], priceBands[priceBand][2]];
   const queryMin = appliedPrice.min ?? bandMin;
   const queryMax = appliedPrice.max ?? bandMax;
@@ -267,21 +242,39 @@ export default function BestSellerPage() {
           alt="สินค้าขายดี สินค้ายอดนิยมจากร้านค้าไทย ที่ลูกค้าเลือกซื้อมากที่สุด"
         />
       </section>
-      <section className="recommend-categories best-categories recommend-width">
-        {chips.map(({ label }, i) => {
-          const Icon = categoryIcons[i];
+      <section className="recommend-categories best-categories recommend-width" aria-label={tp("home.shopByCategory")}>
+        {categoryTiles.map((tile) => {
+          const isAll = tile.key === "all";
+          const isActive = isAll
+            ? selectedCategoryId == null
+            : tile.categoryId != null && tile.categoryId === selectedCategoryId;
           return (
-          <button
-            className={activeCategory === i ? "active" : ""}
-            key={`${i}-${label}`}
-            onClick={() => {
-              setActiveCategory(i);
-              notify(`เลือกหมวด ${label}`);
-            }}
-          >
-            <Icon />
-            <span>{label}</span>
-          </button>
+            <button
+              className={`category${isActive ? " is-active" : ""}`}
+              key={tile.key}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => {
+                if (isAll || tile.categoryId == null) {
+                  selectCategory(undefined, tile.label);
+                  return;
+                }
+                selectCategory(tile.categoryId, tile.label);
+              }}
+            >
+              {isAll ? (
+                <span className="category-more-icon" aria-hidden="true">
+                  <LayoutGrid />
+                </span>
+              ) : (
+                <span aria-hidden="true">{tile.emoji}</span>
+              )}
+              <b>
+                {tile.label.split("\n").map((line, j) => (
+                  <span key={j}>{line}</span>
+                ))}
+              </b>
+            </button>
           );
         })}
       </section>
@@ -289,12 +282,12 @@ export default function BestSellerPage() {
         <aside className="best-filters">
           <h2>ตัวกรองสินค้า</h2>
           <h3>หมวดหมู่</h3>
-          {[{ id: undefined as number | undefined, nameTh: "ทั้งหมด" }, ...categoryList].map((c, i) => (
-            <label key={`${i}-${c.nameTh}`}>
+          {[{ id: undefined as number | undefined, nameTh: allLabel }, ...(categoryList ?? [])].map((c) => (
+            <label key={c.id == null ? "all" : String(c.id)}>
               <input
                 type="checkbox"
-                checked={i === 0 ? activeCategory === 0 : categoryList[activeCategory - 1]?.id === c.id}
-                onChange={() => setActiveCategory(i)}
+                checked={c.id == null ? selectedCategoryId == null : selectedCategoryId === c.id}
+                onChange={() => setSelectedCategoryId(c.id)}
               />
               {c.nameTh}
             </label>
@@ -320,18 +313,28 @@ export default function BestSellerPage() {
           <div className="best-price-range">
             <input
               aria-label="ราคาต่ำสุด"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={minPrice}
-              onChange={(e) => setMinPrice(e.target.value)}
+              onChange={(e) => setMinPrice(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+" || e.key === ".") e.preventDefault();
+              }}
               placeholder="฿ ขั้นต่ำ"
             />
             <span>-</span>
             <input
               aria-label="ราคาสูงสุด"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
+              onChange={(e) => setMaxPrice(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "E" || e.key === "+" || e.key === ".") e.preventDefault();
+              }}
               placeholder="฿ สูงสุด"
             />
-            <button onClick={applyPrice}>ตกลง</button>
+            <button type="button" onClick={applyPrice}>ตกลง</button>
           </div>
         </aside>
         <div className="best-results">

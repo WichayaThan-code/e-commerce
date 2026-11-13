@@ -746,6 +746,11 @@
   color: #fff;
 }
 .catalog-shell .upgrade-card a { width: 100%; margin-top: 8px; }
+.pm-plan-quota {
+  margin: 0 0 10px;
+  color: #5d7396;
+  font: 600 13px/1.45 var(--font-sans), sans-serif;
+}
 .pm-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
 .pm-tabs button { border: 1px solid #d5e4f3; background: #fff; color: #244d87; border-radius: 999px; padding: 8px 14px; font: 700 13px var(--font-sans), sans-serif; display: inline-flex; gap: 8px; align-items: center; cursor: pointer; }
 .pm-tabs button.active { background: #087bf5; border-color: #087bf5; color: #fff; }

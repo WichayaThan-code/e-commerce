@@ -472,6 +472,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   min-height: 34px;
   padding: 0 14px;
   border: 0;
@@ -481,6 +482,10 @@
   font: 700 12px var(--font-sans), "IBM Plex Sans Thai", sans-serif;
   text-decoration: none;
   cursor: pointer;
+}
+
+.orders-card-cta svg {
+  flex: none;
 }
 
 .orders-card-cta:hover {

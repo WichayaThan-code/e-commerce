@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import Header from "./Header";
-import { CartProvider } from "../contexts/CartContext";
+import MerchantGateTopbar from "./merchant/MerchantGateTopbar";
 import "../styles/merchant-signup-gate.css";
 
 type Props = {
@@ -103,8 +102,7 @@ function PendingGateArt({ rejected }: { rejected: boolean }) {
 
 /**
  * Full-page gate when shop is pending review or rejected — same pattern as signup gate; blocks all merchant menus.
- * Shows the public site Header (logo, search, language, account menu / sign-out) because no merchant menu is usable yet.
- * Header reads the cart context, so it is wrapped in CartProvider (merchant accounts never load a buyer cart).
+ * Shows the merchant topbar (same as the suspended gate) on top.
  */
 export default function MerchantPendingStatus({ shopName, rejected = false }: Props) {
   const { t } = useTranslation("merchant");
@@ -116,10 +114,8 @@ export default function MerchantPendingStatus({ shopName, rejected = false }: Pr
     : t(rejected ? "pendingGate.rejectedDescriptionFallback" : "pendingGate.descriptionFallback");
 
   return (
-    <CartProvider>
-    <div className="merchant-gate-page">
-    <Header hideNavbar />
-    <main className="merchant-signup-gate merchant-signup-gate--with-header">
+    <main className="merchant-signup-gate merchant-signup-gate--topbar">
+      <MerchantGateTopbar />
       <div className="merchant-signup-gate__glow" aria-hidden="true" />
       <div className="merchant-signup-gate__layout">
         <div className="merchant-signup-gate__copy">
@@ -176,7 +172,5 @@ export default function MerchantPendingStatus({ shopName, rejected = false }: Pr
         <PendingGateArt rejected={rejected} />
       </div>
     </main>
-    </div>
-    </CartProvider>
   );
 }

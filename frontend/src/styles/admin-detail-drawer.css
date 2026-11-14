@@ -195,9 +195,7 @@
 
 .om-drawer.admin-detail-drawer .admin-detail-drawer-actions > .ap-drawer-actions,
 .om-drawer.admin-detail-drawer .admin-detail-drawer-actions > .payouts-drawer-actions,
-.om-drawer.admin-detail-drawer .admin-detail-drawer-actions > .store-drawer-actions,
-.om-drawer.admin-detail-drawer .admin-detail-drawer-actions > .application-drawer-actions__primary,
-.om-drawer.admin-detail-drawer .admin-detail-drawer-actions > .application-drawer-actions__secondary {
+.om-drawer.admin-detail-drawer .admin-detail-drawer-actions > .store-drawer-actions {
   display: contents;
 }
 

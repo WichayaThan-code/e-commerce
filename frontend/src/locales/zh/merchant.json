@@ -2042,7 +2042,8 @@
       "failed": "报表下载失败，请重试",
       "needRange": "请先选择有效的日期范围再下载",
       "xlsxNote": "真实 Excel (.xlsx) 报表，不含个人数据；手续费为估算",
-      "stale": "导出完成，但等待期间店铺或日期已变更 — 使用前请核对文件"
+      "stale": "导出完成，但等待期间店铺或日期已变更 — 使用前请核对文件",
+      "emptyTitle": "没有可导出的数据"
     },
     "placeholderProduct": "无商品图片"
   },
@@ -2370,7 +2371,8 @@
       "failed": "报表下载失败，请重试",
       "needRange": "请先选择有效的日期范围再下载",
       "xlsxNote": "真实 Excel (.xlsx) 报表，不含个人数据；手续费为估算",
-      "stale": "导出完成，但等待期间店铺或日期已变更 — 使用前请核对文件"
+      "stale": "导出完成，但等待期间店铺或日期已变更 — 使用前请核对文件",
+      "emptyTitle": "没有可导出的数据"
     }
   },
   "orderManagement": {
@@ -2874,7 +2876,8 @@
     "exporting": "正在导出…",
     "exportDone": "订单已导出为 Excel",
     "exportStale": "导出完成，但等待期间店铺或日期已变更 — 使用前请核对文件",
-    "exportHint": "将当前筛选条件下的全部订单导出为 Excel"
+    "exportHint": "将当前筛选条件下的全部订单导出为 Excel",
+    "exportEmptyTitle": "当前筛选条件下没有订单"
   },
   "shippingPage": {
     "title": "配送",
@@ -3037,6 +3040,7 @@
     "export": "导出 Excel",
     "exporting": "正在导出...",
     "exportHint": "导出符合当前筛选条件的全部行到 Excel 文件",
+    "exportEmptyTitle": "当前筛选条件下没有客户",
     "exportMasked": "可以导出，但因无个人资料权限，姓名/电话/邮箱将被遮蔽",
     "exportTooLarge": "导出行数过多 — 请缩小筛选条件后重试",
     "comingSoon": "即将推出",

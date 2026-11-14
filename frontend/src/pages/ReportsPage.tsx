@@ -157,6 +157,9 @@ export default function ReportsPage() {
   const loc = localeTag();
   const lang = (i18n.language || "th").toLowerCase();
   const data = state.data;
+  const reportLoading = state.status === "loading" || state.status === "idle";
+  const reportHasRows = state.status === "ready" && data != null
+    && (num(data.kpis.paidOrderCount) > 0 || num(data.kpis.allOrderCount) > 0 || num(data.kpis.gmv) > 0);
   const panels = TAB_PANELS[activeTab];
   const show = (panel: PanelKey) => panels.includes(panel);
   const count = (...keys: PanelKey[]) => keys.filter(show).length;
@@ -215,6 +218,7 @@ export default function ReportsPage() {
       : <button type="button" disabled title={t("reports.viewAllDenied")}>{t("reports.viewAll")}</button>;
 
   const download = async () => {
+    if (!canExport || exporting || reportLoading || !reportHasRows) return;
     if (!periodKey || shopId == null) { notify(t("reports.export.needRange")); return; }
     const exportShopId = shopId;
     const exportPeriod = JSON.parse(periodKey) as MerchantReportPeriod;
@@ -336,7 +340,7 @@ export default function ReportsPage() {
               />
             ) : <small>{rangeLong} · {t("reports.range.thaiTime")}</small>}
           </div>
-          <button type="button" disabled={!canExport || exporting || !periodKey} title={deniedTitle(canExport)} className="primary" onClick={() => void download()}>
+          <button type="button" disabled={!canExport || exporting || !periodKey || shopId == null || reportLoading || !reportHasRows} title={!canExport ? deniedTitle(canExport) : (!periodKey ? t("reports.export.needRange") : (!reportHasRows ? t("reports.export.emptyTitle") : undefined))} className="primary" onClick={() => void download()}>
             <Download />{exporting ? t("reports.export.busy") : t("reports.export.button")}
           </button>
         </div>

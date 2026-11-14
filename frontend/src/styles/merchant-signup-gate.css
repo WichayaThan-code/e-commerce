@@ -378,3 +378,14 @@
   flex: 1 0 auto;
   min-height: 0;
 }
+
+/* Pending / rejected gate with the merchant topbar (fixed, 70px) on top. */
+.merchant-signup-gate.merchant-signup-gate--topbar {
+  padding-top: calc(70px + clamp(28px, 4vw, 48px));
+}
+
+@media (max-width: 720px) {
+  .merchant-signup-gate.merchant-signup-gate--topbar {
+    padding-top: calc(62px + 24px);
+  }
+}

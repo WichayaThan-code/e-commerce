@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import {
   Ban,
   Building2,
@@ -25,7 +26,7 @@ import {
   Link2,
 } from "lucide-react";
 import { mediaUrl } from "../../services/api";
-import { maskEmail, maskPhone } from "../../utils/maskContact";
+import { maskEmail, maskPhone, normalizePhoneDigits } from "../../utils/maskContact";
 import "../../styles/admin-applications.css";
 import AdminDetailDrawer from "./AdminDetailDrawer";
 
@@ -94,6 +95,10 @@ type Props = {
     historySuspended: string;
     auditLink: string;
     contactOwner: string;
+    contactEmpty: string;
+    contactEmail: string;
+    contactPhone: string;
+    contactMenu: string;
     revealButton: string;
     revealed: string;
     approveShop: string;
@@ -108,7 +113,7 @@ type Props = {
   revealBusy: boolean;
   revealedContact: { shopId: number; phone: string; email: string } | null;
   onRevealContact: () => void;
-  onContactOwner: () => void;
+  onEnsureContact: () => Promise<{ email: string; phone: string } | null>;
   onApprove: () => void;
   onReject: () => void;
   onDownloadDocument: (documentId: string, filename: string) => void;
@@ -140,13 +145,56 @@ export default function AdminApplicationDrawer({
   revealBusy,
   revealedContact,
   onRevealContact,
-  onContactOwner,
+  onEnsureContact,
   onApprove,
   onReject,
   onDownloadDocument,
   fileSizeLabel,
   socialLink,
 }: Props) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const revealed = item && revealedContact?.shopId === item.id ? revealedContact : null;
+  const hasContactValue = (value: string | null | undefined) => {
+    const text = (value || "").trim();
+    return text !== "" && text !== "-" && text !== "—";
+  };
+  const hasContact = revealed
+    ? hasContactValue(revealed.email) || hasContactValue(revealed.phone)
+    : !!(item && (hasContactValue(item.email) || hasContactValue(item.phone)));
+  const canOpenContact = !!item && hasContact && (!!revealed || canRevealContact);
+  const contactTitle = !hasContact
+    ? labels.contactEmpty
+    : (!canRevealContact && !revealed ? deniedTitle(false) : undefined);
+  const email = revealed?.email.trim() || "";
+  const phone = revealed?.phone.trim() || "";
+  const phoneDigits = phone ? normalizePhoneDigits(phone) : "";
+
+  useEffect(() => { setMenuOpen(false); }, [item?.id, open]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuOpen(false); };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
+  const openContactMenu = async () => {
+    if (!canOpenContact || revealBusy) return;
+    if (revealed) {
+      setMenuOpen((current) => !current);
+      return;
+    }
+    const contact = await onEnsureContact();
+    if (contact && (hasContactValue(contact.email) || hasContactValue(contact.phone))) setMenuOpen(true);
+  };
+
   return (
     <AdminDetailDrawer
       open={open}
@@ -225,10 +273,42 @@ export default function AdminApplicationDrawer({
               </div>
             ) : null}
             <div className="application-drawer-actions__secondary">
-              <button type="button" className="quiet" onClick={onContactOwner}>
-                <Mail aria-hidden="true" />
-                <span>{labels.contactOwner}</span>
-              </button>
+              <div className="application-contact" ref={menuRef}>
+                <button
+                  type="button"
+                  className="quiet"
+                  disabled={!canOpenContact || revealBusy}
+                  title={contactTitle}
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  onClick={() => void openContactMenu()}
+                >
+                  <Mail aria-hidden="true" />
+                  <span>{labels.contactOwner}</span>
+                </button>
+                {menuOpen && (email || phoneDigits) ? (
+                  <div className="application-contact-menu" role="menu" aria-label={labels.contactMenu}>
+                    {email ? (
+                      <a role="menuitem" href={`mailto:${email}`}>
+                        <Mail aria-hidden="true" />
+                        <span>
+                          <b>{labels.contactEmail}</b>
+                          <small>{email}</small>
+                        </span>
+                      </a>
+                    ) : null}
+                    {phoneDigits ? (
+                      <a role="menuitem" href={`tel:${phoneDigits}`}>
+                        <Phone aria-hidden="true" />
+                        <span>
+                          <b>{labels.contactPhone}</b>
+                          <small>{phone}</small>
+                        </span>
+                      </a>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
               {canRevealContact ? (
                 <button
                   type="button"

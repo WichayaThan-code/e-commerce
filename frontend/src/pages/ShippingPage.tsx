@@ -20,7 +20,7 @@ import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions"
 import MerchantPagination from "../components/merchant/MerchantPagination";
 import ShipmentDrawer, { statusClass } from "../components/merchant/ShipmentDrawer";
 import ToggleSwitch from "../components/form/ToggleSwitch";
-import { LoadError, SkeletonTable } from "../components/feedback/Skeleton";
+import { LoadError, Skeleton, SkeletonTable } from "../components/feedback/Skeleton";
 import { formatBangkokDateTime, orderErrorMessage } from "../components/merchant/orderFormat";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -50,6 +50,55 @@ const TABS: readonly (readonly [string, string])[] = [
 const KPI_ICONS = { all: Package, wait: Clock3, moving: Truck, success: CheckCircle2, failed: XCircle } as const;
 const ALL_STATUSES = ["READY_TO_PACK", "PACKING", "PACKED", "DISPATCHED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED", "DELIVERY_FAILED", "RETURNED", "CANCELLED"];
 const SIZES = [10, 20, 50];
+
+function ShippingTableSkeleton({ rows, headers, label }: { rows: number; headers: string[]; label: string }) {
+  const widths = ["70%", "55%", "60%", "45%", "65%", "50%"];
+  const list = Array.from({ length: rows }, (_, index) => index);
+  return (
+    <div aria-busy="true" aria-label={label}>
+      <table>
+        <colgroup>
+          <col className="col-index" />
+          <col className="col-tracking" />
+          <col className="col-order" />
+          <col className="col-order-status" />
+          <col className="col-carrier" />
+          <col className="col-shipped" />
+          <col className="col-status" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col" className="col-index">#</th>
+            <th scope="col" className="col-tracking">{headers[0]}</th>
+            <th scope="col" className="col-order">{headers[1]}</th>
+            <th scope="col" className="col-order-status">{headers[2]}</th>
+            <th scope="col" className="col-carrier">{headers[3]}</th>
+            <th scope="col" className="col-shipped">{headers[4]}</th>
+            <th scope="col" className="col-status">{headers[5]}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((row) => (
+            <tr key={row}>
+              <td className="col-index num"><Skeleton width={16} height={13} /></td>
+              <td className="col-tracking"><Skeleton width={widths[row % widths.length]} height={13} /></td>
+              <td className="col-order"><Skeleton width="70%" height={13} /></td>
+              <td className="col-order-status"><Skeleton width="75%" height={13} /></td>
+              <td className="col-carrier">
+                <span className="shipping-carrier">
+                  <Skeleton width={32} height={32} radius={8} />
+                  <Skeleton width="60%" height={13} />
+                </span>
+              </td>
+              <td className="col-shipped"><Skeleton width="80%" height={13} /></td>
+              <td className="col-status"><Skeleton width={88} height={28} radius={999} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function ShippingPage(){
   const { t } = useTranslation("merchant");
@@ -88,7 +137,7 @@ export default function ShippingPage(){
   useEffect(()=>()=>window.clearTimeout(toastTimer.current),[]);
 
   const exportShipments=async()=>{
-    if(shopId==null||exporting||!canExport)return;
+    if(shopId==null||exporting||!canExport||fetching)return;
     const total=data?.totalItems??0;
     if(total<=0){
       notify(t("shippingPage.exportEmpty"),"fail");
@@ -211,9 +260,8 @@ export default function ShippingPage(){
   const statusOptions=[allLabel,...ALL_STATUSES.map((s)=>t(`shippingPage.status.${s}`))];
   const carrierValue=carrier?carrierName(carrier):allLabel;
   const statusValue=status?t(`shippingPage.status.${status}`,{defaultValue:status}):allLabel;
-  const filtersOn=!!(status||carrier||tracking||dateFrom||dateTo);
   const hasChipFilters=!!(carrier||tracking||dateFrom||dateTo);
-  const reset=()=>{setStatus("");setCarrier("");setQuery("");trackingRef.current="";setTracking("");setDateFrom("");setDateTo("");setPage(0)};
+  const reset=()=>{setCarrier("");setQuery("");trackingRef.current="";setTracking("");setDateFrom("");setDateTo("");setPage(0)};
   const clearChipFilters=()=>{setCarrier("");setQuery("");trackingRef.current="";setTracking("");setDateFrom("");setDateTo("");setPage(0)};
   const dateChipValue=dateFrom&&dateTo?`${dateFrom} – ${dateTo}`:dateFrom||dateTo||"";
   const clearChipLabel=(label:string)=>t("shippingPage.filters.clearChip",{label});
@@ -280,7 +328,7 @@ export default function ShippingPage(){
 
       <div className="shipping-layout">
       <div className="shipping-main">
-      <article className="shipping-table-card">
+      <article className="shipping-table-card pm-table-card">
         <form
           className="om-filters"
           onSubmit={(event)=>{
@@ -291,7 +339,7 @@ export default function ShippingPage(){
             setPage(0);
           }}
         >
-          <div className="om-filters-main">
+          <div className="om-filters-main pm-filters-main">
             <div className="om-filter-search">
               <span className="form-label">{t("shippingPage.filters.searchLabel")}</span>
               <label className="om-search">
@@ -345,7 +393,7 @@ export default function ShippingPage(){
               }}
             />
             <div className="om-filters-actions">
-              <button type="button" disabled={!filtersOn} onClick={reset}>{t("orderManagement.filters.reset")}</button>
+              <button type="button" onClick={reset}>{t("orderManagement.filters.reset")}</button>
               <button type="submit" className="primary">{t("orderManagement.filters.search")}</button>
             </div>
           </div>
@@ -412,10 +460,16 @@ export default function ShippingPage(){
         <div className="shipping-table-wrap" aria-busy={fetching}>
           {error ? (
             <LoadError message={error} onRetry={() => setReload((n) => n + 1)} retryLabel={t("shopSettings.retry")} />
-          ) : fetching && items.length === 0 ? (
-            <SkeletonTable rows={6} cols={8} />
+          ) : fetching ? (
+            <ShippingTableSkeleton
+              rows={Math.min(size, 8)}
+              label={t("shippingPage.loading", { defaultValue: "กำลังโหลดพัสดุ..." })}
+              headers={["tracking", "order", "orderStatus", "carrier", "shippedAt", "status"].map((key) => t(`shippingPage.columns.${key}`))}
+            />
+          ) : empty ? (
+            <div className="pm-empty">{t("shippingPage.empty")}</div>
           ) : (
-            <table className={fetching ? "is-refetching" : undefined}>
+            <table>
               <colgroup>
                 <col className="col-index" />
                 <col className="col-tracking" />
@@ -464,7 +518,6 @@ export default function ShippingPage(){
               </tbody>
             </table>
           )}
-          {empty && <div className="pm-empty">{t("shippingPage.empty")}</div>}
         </div>
         <MerchantPagination
           page={page}

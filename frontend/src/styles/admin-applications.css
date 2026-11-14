@@ -298,6 +298,84 @@
   cursor:not-allowed;
   box-shadow:none;
 }
+.om-drawer.application-drawer .admin-detail-drawer-actions.application-drawer-actions{position:relative;z-index:8;overflow:visible}
+.om-drawer.application-drawer .application-drawer-actions__primary,
+.om-drawer.application-drawer .application-drawer-actions__secondary{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.om-drawer.application-drawer .application-drawer-actions__secondary > button,
+.om-drawer.application-drawer .application-contact > button{
+  width:100%;
+}
+.om-drawer.application-drawer .application-contact{
+  position:relative;
+  min-width:0;
+  display:flex;
+  width:100%;
+  margin:0;
+  padding:0;
+  border:0;
+  background:none;
+  box-shadow:none;
+}
+.om-drawer.application-drawer .application-drawer-actions__secondary > .application-contact:only-child{
+  grid-column:1/-1;
+}
+.om-drawer.application-drawer .application-contact-menu{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:calc(100% + 6px);
+  z-index:12;
+  display:grid;
+  gap:4px;
+  padding:6px;
+  border:1px solid #d5e4f3;
+  border-radius:10px;
+  background:#fff;
+  box-shadow:0 10px 24px rgba(8,36,93,.14);
+}
+.om-drawer.application-drawer .application-contact-menu a{
+  min-width:0;
+  padding:8px 10px;
+  border-radius:8px;
+  color:#08245d;
+  text-decoration:none;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.om-drawer.application-drawer .application-contact-menu a:hover,
+.om-drawer.application-drawer .application-contact-menu a:focus-visible{
+  background:#f3f9ff;
+  color:#087bf5;
+}
+.om-drawer.application-drawer .application-contact-menu svg{
+  width:16px;
+  height:16px;
+  flex:none;
+  color:#087bf5;
+}
+.om-drawer.application-drawer .application-contact-menu span{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  text-align:left;
+  white-space:normal;
+}
+.om-drawer.application-drawer .application-contact-menu b{
+  font:700 12px var(--font-sans),sans-serif;
+}
+.om-drawer.application-drawer .application-contact-menu small{
+  color:#5a7396;
+  font:500 11px var(--font-sans),sans-serif;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
 @media(max-width:420px){
   .om-drawer.application-drawer .application-drawer-actions__primary,
   .om-drawer.application-drawer .application-drawer-actions__secondary{

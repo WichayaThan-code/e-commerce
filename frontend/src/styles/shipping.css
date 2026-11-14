@@ -77,6 +77,8 @@
   display:flex;
   flex-direction:column;
   gap:0;
+  container-type:inline-size;
+  container-name:shipping-main;
 }
 .shipping-main > .pm-tabs{
   margin:0 0 12px;
@@ -290,108 +292,60 @@
 .sh-ext svg{width:14px}
 .sh-drawer-overlay .shipping-status{min-width:0}
 
-/* Filter bar — lift out of sunk flat strip */
-.shipping-table-card .om-filters {
-  --om-control-h: 42px;
-  position: relative;
-  z-index: 20;
-  margin: 0;
-  padding: 14px 16px 16px;
-  border-bottom: 1px solid #d7e6f5;
-  background:
-    linear-gradient(180deg, #f7fbff 0%, #f3f8fe 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9);
+/* Filter bar — same look as /merchant/products (.om-filters + .pm-filters-main) */
+.shipping-table-card.pm-table-card{
+  overflow:visible;
+  border-color:#dce9f5;
+  border-radius:9px;
 }
-.shipping-table-card .om-filters-main {
+.shipping-table-card > .om-filters{
+  position:relative;
+  z-index:20;
+  margin:0;
+  border-bottom:1px solid #e0ebf5;
+  background:#fff;
+  box-shadow:none;
+}
+.shipping-table-card .om-filters-main.pm-filters-main{
   grid-template-columns:
-    minmax(220px, 1.6fr)
-    minmax(168px, 1.1fr)
-    minmax(148px, 1fr)
-    minmax(148px, 1fr)
+    minmax(180px,1.5fr)
+    minmax(200px,1.3fr)
+    minmax(130px,1fr)
+    minmax(130px,1fr)
     max-content;
-  gap: 10px 12px;
-  align-items: end;
 }
 .shipping-table-card .om-filters .om-filter-search,
 .shipping-table-card .om-filters .om-filter-range,
-.shipping-table-card .om-filters .searchable-select-wrap {
-  min-width: 0;
+.shipping-table-card .om-filters .searchable-select-wrap{
+  min-width:0;
 }
-.shipping-table-card .om-filters .form-label,
-.shipping-table-card .om-filters .date-picker-label,
-.shipping-table-card .om-filters .select-label {
-  color: #3f5f86;
-  font: 700 12px/18px var(--font-sans), sans-serif;
-}
-.shipping-table-card .om-filters .om-search,
-.shipping-table-card .om-filters .searchable-select-btn,
-.shipping-table-card .om-filters .date-picker-trigger {
-  height: var(--om-control-h);
-  border: 1px solid #cfe0f2;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(8, 36, 93, .04);
-}
-.shipping-table-card .om-filters .om-search:hover,
-.shipping-table-card .om-filters .searchable-select-btn:hover,
-.shipping-table-card .om-filters .date-picker-trigger:hover {
-  border-color: #9ec4ef;
-}
-.shipping-table-card .om-filters .date-range-picker .date-range-trigger-row {
-  gap: 8px;
-}
-.shipping-table-card .om-filters .date-range-picker .date-range-trigger-row .date-picker-trigger {
-  min-width: 0;
-}
-.shipping-table-card .om-filters-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: 0;
-}
-.shipping-table-card .om-filters-actions button {
-  height: var(--om-control-h);
-  min-width: 88px;
-  padding: 0 16px;
-  border-radius: 10px;
-  font: 700 13px var(--font-sans), sans-serif;
-  box-shadow: 0 1px 2px rgba(8, 36, 93, .04);
-}
-.shipping-table-card .om-filters-actions button.primary {
-  box-shadow: 0 8px 16px rgba(8, 123, 245, .2);
+.shipping-table-card .om-filters .date-range-picker .date-range-trigger-row .date-picker-trigger{
+  min-width:0;
 }
 .shipping-table-card .om-filters .date-range-picker .date-picker-panel,
-.shipping-table-card .om-filters .searchable-dropdown {
-  z-index: 40;
+.shipping-table-card .om-filters .searchable-dropdown{
+  z-index:40;
 }
-@media (max-width: 1100px) {
-  .shipping-table-card .om-filters-main {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+@container shipping-main (max-width: 920px){
+  .shipping-table-card .om-filters-main.pm-filters-main{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   }
-  .shipping-table-card .om-filters-actions {
-    grid-column: 1 / -1;
-    justify-content: flex-end;
+  .shipping-table-card .om-filter-search,
+  .shipping-table-card .om-filter-range,
+  .shipping-table-card .om-filters-actions{
+    grid-column:1/-1;
+  }
+  .shipping-table-card .om-filters-actions{
+    justify-content:flex-end;
   }
 }
-@media (max-width: 640px) {
-  .shipping-table-card .om-filters-main {
-    grid-template-columns: minmax(0, 1fr);
+@container shipping-main (max-width: 560px){
+  .shipping-table-card .om-filters-main.pm-filters-main{
+    grid-template-columns:minmax(0,1fr);
   }
-}
-
-/* Search field: single focus ring on .om-search (not the inner input) */
-.shipping-table-card .om-search input:focus,
-.shipping-table-card .om-search input:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
-  border: 0 !important;
-}
-.shipping-table-card .om-search:focus-within,
-.shipping-table-card .om-filters .searchable-select-btn.active,
-.shipping-table-card .om-filters .date-picker-trigger.open {
-  border-color: var(--shop-primary, #087bf5);
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(8, 123, 245, .16);
+  .shipping-table-card .om-filters-actions button{
+    flex:1 1 calc(50% - 4px);
+  }
 }
 
 .shipping-table-card .pm-pagination {

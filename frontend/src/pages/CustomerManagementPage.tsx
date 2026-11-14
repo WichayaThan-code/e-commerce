@@ -33,7 +33,7 @@ import MerchantTopbarSearch from "../components/merchant/MerchantTopbarSearch";
 import MerchantTopbarActions from "../components/merchant/MerchantTopbarActions";
 import DateRangePicker from "../components/form/DateRangePicker";
 import SearchableSelect from "../components/SearchableSelect";
-import { LoadError, Skeleton, SkeletonTable } from "../components/feedback/Skeleton";
+import { LoadError, Skeleton } from "../components/feedback/Skeleton";
 import { useAuth } from "../contexts/AuthContext";
 import { useActiveShop } from "../contexts/ActiveShopContext";
 import { hasPlatformAccess, hasMerchantAccess } from "../services/permissions";
@@ -122,6 +122,61 @@ function customerOrdersUrl(key: string, name: string) {
   const params = new URLSearchParams({ customer: key });
   if (name.trim()) params.set("customerName", name.trim().slice(0, 60));
   return `/merchant/orders?${params.toString()}`;
+}
+
+function CustomerTableSkeleton({ rows, headers, label }: { rows: number; headers: string[]; label: string }) {
+  const widths = ["70%", "55%", "60%", "45%", "65%", "50%"];
+  const list = Array.from({ length: rows }, (_, index) => index);
+  return (
+    <div aria-busy="true" aria-label={label}>
+      <table>
+        <thead>
+          <tr>
+            <th>{headers[0]}</th>
+            <th>{headers[1]}</th>
+            <th>{headers[2]}</th>
+            <th>{headers[3]}</th>
+            <th>{headers[4]}</th>
+            <th>{headers[5]}</th>
+            <th>{headers[6]}</th>
+            <th>{headers[7]}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((row) => (
+            <tr key={row}>
+              <td className="num"><Skeleton width={16} height={13} /></td>
+              <td>
+                <div className="cm-person">
+                  <Skeleton width={36} height={36} radius="50%" />
+                  <p style={{ flex: 1, display: "grid", gap: 6 }}>
+                    <Skeleton width={widths[row % widths.length]} height={13} />
+                    <Skeleton width="50%" height={11} />
+                  </p>
+                </div>
+              </td>
+              <td>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Skeleton width={20} height={20} radius="50%" />
+                  <Skeleton width={72} height={13} />
+                </div>
+              </td>
+              <td className="num"><Skeleton width={24} height={13} /></td>
+              <td><Skeleton width={72} height={13} /></td>
+              <td><Skeleton width={72} height={26} radius={13} /></td>
+              <td><Skeleton width={72} height={26} radius={13} /></td>
+              <td className="num">
+                <div style={{ display: "grid", gap: 4 }}>
+                  <Skeleton width="80%" height={13} />
+                  <Skeleton width="55%" height={11} />
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export default function CustomerManagementPage() {
@@ -366,7 +421,7 @@ export default function CustomerManagementPage() {
   const hasChipFilters = Boolean(qParam || joinedFrom || joinedTo || channel || status);
   const clearChipLabel = (label: string) => t("customers.filters.clearChip", { label });
   const exportCustomers = () => {
-    if (shopId == null || !canReadCustomers || exporting) return;
+    if (shopId == null || !canReadCustomers || exporting || fetching || total <= 0) return;
     setExporting(true);
     setError(null);
     exportCustomerInsights(shopId, {
@@ -665,8 +720,12 @@ export default function CustomerManagementPage() {
               <button
                 type="button"
                 className="pm-export-btn"
-                disabled={!canReadCustomers || exporting}
-                title={deniedTitle(canReadCustomers) || t("customers.exportHint")}
+                disabled={!canReadCustomers || exporting || shopId == null || fetching || total <= 0}
+                title={!canReadCustomers
+                  ? (deniedTitle(canReadCustomers) || t("customers.exportHint"))
+                  : total <= 0
+                    ? t("customers.exportEmptyTitle")
+                    : t("customers.exportHint")}
                 onClick={exportCustomers}
               >
                 <Download aria-hidden="true" />
@@ -676,8 +735,12 @@ export default function CustomerManagementPage() {
             <div className="cm-table-wrap" aria-busy={fetching}>
               {error ? (
                 <LoadError message={error} onRetry={() => setReload((n) => n + 1)} retryLabel={t("customers.retry")} />
-              ) : fetching && items.length === 0 ? (
-                <SkeletonTable rows={6} cols={6} />
+              ) : fetching ? (
+                <CustomerTableSkeleton
+                  rows={Math.min(size, 8)}
+                  label={t("customers.loading", { defaultValue: "กำลังโหลดลูกค้า..." })}
+                  headers={["#", t("customers.table.name"), t("customers.table.channel"), t("customers.table.orders"), t("customers.table.spent"), t("customers.table.group"), t("customers.table.status"), t("customers.table.joined")]}
+                />
               ) : empty ? (
                 <div className="cm-empty">{filteredEmpty ? t("customers.searchEmpty") : t("customers.empty")}</div>
               ) : (

@@ -105,6 +105,8 @@ export default function FinancePage() {
   const [ledgerSize, setLedgerSize] = useState(10);
   const [reloadTick, setReloadTick] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [transferList, setTransferList] = useState({ total: 0, loading: true });
+  const [invoiceList, setInvoiceList] = useState({ total: 0, loading: true });
   const reportReq = useRef(0);
   const ledgerReq = useRef(0);
   const invoiceExportFiltersRef = useRef<InvoiceExportFilters>({});
@@ -180,6 +182,16 @@ export default function FinancePage() {
 
   const loc = localeTag();
   const data = report.data;
+  const reportHasRows = report.status === "ready" && data != null
+    && (num(data.kpis.paidOrderCount) > 0 || num(data.kpis.allOrderCount) > 0 || num(data.kpis.gmv) > 0);
+  const exportLoading = tab === "transfers" ? transferList.loading
+    : tab === "invoices" ? invoiceList.loading
+    : tab === "ledger" ? (ledger.status === "loading" || ledger.status === "idle")
+    : (report.status === "loading" || report.status === "idle");
+  const exportHasRows = tab === "transfers" ? transferList.total > 0
+    : tab === "invoices" ? invoiceList.total > 0
+    : tab === "ledger" ? (ledger.page?.totalItems ?? 0) > 0
+    : reportHasRows;
   const panels = TAB_PANELS[tab];
   const show = (panel: PanelKey) => panels.includes(panel);
   const notify = (text: string) => { setNotice(text); window.setTimeout(() => setNotice(""), 1900); };
@@ -225,6 +237,7 @@ export default function FinancePage() {
 
   const download = async () => {
     if (shopId == null) { notify(t("finance.export.needRange")); return; }
+    if (exportLoading || !exportHasRows) return;
     if (tab === "transfers") {
       if (!canFinanceExport) { notify(t("finance.noPermission")); return; }
       setExporting(true);
@@ -427,10 +440,12 @@ export default function FinancePage() {
             </div>
             <button
               type="button"
-              disabled={(tab === "transfers" || tab === "invoices") ? (!canFinanceExport || exporting) : (!canExport || exporting || !periodKey)}
+              disabled={(tab === "transfers" || tab === "invoices")
+                ? (!canFinanceExport || exporting || exportLoading || !exportHasRows)
+                : (!canExport || exporting || !periodKey || exportLoading || !exportHasRows)}
               title={(tab === "transfers" || tab === "invoices")
-                ? deniedTitle(canFinanceExport)
-                : deniedTitle(canExport)}
+                ? (!canFinanceExport ? deniedTitle(canFinanceExport) : (!exportHasRows ? t("finance.export.emptyTitle") : undefined))
+                : (!canExport ? deniedTitle(canExport) : (!periodKey ? t("finance.export.needRange") : (!exportHasRows ? t("finance.export.emptyTitle") : undefined)))}
               className="primary"
               onClick={() => void download()}
             >
@@ -475,7 +490,7 @@ export default function FinancePage() {
             localeTag={loc}
             deniedTitle={deniedTitle}
             notify={notify}
-            mode="transfers"
+            onListStateChange={setTransferList}
           />
         )}
         {show("transfers") && !canFinanceRead && (
@@ -492,6 +507,7 @@ export default function FinancePage() {
             deniedTitle={deniedTitle}
             notify={notify}
             exportFiltersRef={invoiceExportFiltersRef}
+            onListStateChange={setInvoiceList}
           />
         )}
         {show("invoices") && !canFinanceRead && (
@@ -565,27 +581,14 @@ export default function FinancePage() {
             {(show("balance") || show("transferSummary") || show("documents")) && (
               <aside className="finance-panel finance-rail">
                 {show("balance") && (
-                  <>
-                    <section className="finance-rail-block">
-                      <header><h2>{t("finance.balance.title")}</h2></header>
-                      <div className="finance-rail-hero">
-                        <small>{t("finance.balance.estimatedNet")}</small>
-                        <b>{kpi((d) => baht(d.kpis.estimatedNet))}</b>
-                        <em>{t("finance.balance.estimatedNetNote")}</em>
-                      </div>
-                    </section>
-                    {shopId != null && canFinanceRead ? (
-                      <FinanceWithdrawPanel
-                        shopId={shopId}
-                        canWithdraw={canWithdraw}
-                        canExport={canFinanceExport}
-                        localeTag={loc}
-                        deniedTitle={deniedTitle}
-                        notify={notify}
-                        mode="balance"
-                      />
-                    ) : null}
-                  </>
+                  <section className="finance-rail-block">
+                    <header><h2>{t("finance.balance.title")}</h2></header>
+                    <div className="finance-rail-hero">
+                      <small>{t("finance.balance.estimatedNet")}</small>
+                      <b>{kpi((d) => baht(d.kpis.estimatedNet))}</b>
+                      <em>{t("finance.balance.estimatedNetNote")}</em>
+                    </div>
+                  </section>
                 )}
                 {(show("transferSummary") || show("documents")) && (
                   <section className="finance-rail-block finance-rail-soon">

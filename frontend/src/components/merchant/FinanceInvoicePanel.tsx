@@ -51,10 +51,11 @@ type Props = {
   notify: (msg: string) => void;
   /** Keeps page-header export in sync with the active list filters. */
   exportFiltersRef?: { current: InvoiceExportFilters };
+  onListStateChange?: (state: { total: number; loading: boolean }) => void;
 };
 
 export default function FinanceInvoicePanel({
-  shopId, canManage, localeTag, deniedTitle, notify, exportFiltersRef,
+  shopId, canManage, localeTag, deniedTitle, notify, exportFiltersRef, onListStateChange,
 }: Props) {
   const { t } = useTranslation("merchant");
   const [profile, setProfile] = useState<{ status: "loading" | "ready" | "error"; data: ShopTaxProfile | null }>({ status: "loading", data: null });
@@ -134,6 +135,14 @@ export default function FinanceInvoicePanel({
   }, [shopId, pageNo, size, docType, status, q, from, to, reload]);
 
   useEffect(() => { setPageNo(0); }, [docType, status, q, from, to, size, shopId]);
+
+  useEffect(() => {
+    if (!onListStateChange) return;
+    onListStateChange({
+      total: page.status === "ready" ? (page.data?.totalItems ?? 0) : 0,
+      loading: page.status === "loading",
+    });
+  }, [page, onListStateChange]);
 
   const openCreate = async () => {
     setFormError("");

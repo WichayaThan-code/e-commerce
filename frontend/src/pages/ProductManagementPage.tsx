@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { SkeletonTable, SkeletonBusy, LoadError } from "../components/feedback/Skeleton";
+import { Skeleton, SkeletonBusy, LoadError } from "../components/feedback/Skeleton";
 import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { Link, useSearchParams } from "react-router-dom";
 import { Archive, Download, Ellipsis, ExternalLink, Eye, Link2, LoaderCircle, Pencil, Plus, QrCode, RotateCcw, Search, Upload, X } from "lucide-react";
@@ -61,6 +61,69 @@ function priceLabel(product: Product, locale: Locale, format: (value: number | s
     return `${format(product.minPrice, locale)} – ${format(product.maxPrice, locale)}`;
   }
   return format(product.basePrice ?? product.skus[0]?.price, locale);
+}
+
+/** Loading placeholder that keeps the real table header and column widths (desktop) plus card placeholders (mobile). */
+function ProductTableSkeleton({ rows, headers, label }: { rows: number; headers: string[]; label: string }) {
+  const widths = ["70%", "55%", "60%", "45%", "65%", "50%"];
+  const list = Array.from({ length: rows }, (_, index) => index);
+  return (
+    <div className="pm-loading" aria-busy="true" aria-label={label}>
+      <div className="pm-table-wrap pm-detail-table">
+        <table>
+          <thead>
+            <tr>
+              <th className="pm-col-check"><Skeleton width={18} height={18} radius={5} /></th>
+              <th className="pm-col-fk pm-col-product">{headers[0]}</th>
+              <th className="pm-col-fk pm-col-sku">{headers[1]}</th>
+              <th className="pm-col-fk pm-col-category">{headers[2]}</th>
+              <th className="pm-col-price">{headers[3]}</th>
+              <th className="pm-col-stock">{headers[4]}</th>
+              <th className="pm-col-status">{headers[5]}</th>
+              <th className="pm-col-updated">{headers[6]}</th>
+              <th className="pm-col-actions">{headers[7]}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((row) => (
+              <tr key={row}>
+                <td className="pm-col-check"><Skeleton width={18} height={18} radius={5} /></td>
+                <td className="pm-col-fk pm-col-product">
+                  <div className="pm-product">
+                    <Skeleton className="pm-thumb" />
+                    <p style={{ flex: 1, display: "grid", gap: 6 }}>
+                      <Skeleton width={widths[row % widths.length]} height={13} />
+                      <Skeleton width="40%" height={11} />
+                    </p>
+                  </div>
+                </td>
+                <td className="pm-col-fk pm-col-sku"><Skeleton width="75%" height={13} /></td>
+                <td className="pm-col-fk pm-col-category"><Skeleton width="65%" height={13} /></td>
+                <td className="pm-col-price"><Skeleton width={64} height={13} /></td>
+                <td className="pm-col-stock"><Skeleton width={36} height={13} /></td>
+                <td className="pm-col-status"><Skeleton width={72} height={22} radius={999} /></td>
+                <td className="pm-col-updated"><Skeleton width="70%" height={13} /></td>
+                <td className="pm-col-actions"><Skeleton width={28} height={28} radius={8} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="pm-cards">
+        {list.map((row) => (
+          <article key={row}>
+            <div className="pm-card-media"><Skeleton width="100%" height="100%" radius={8} /></div>
+            <div style={{ display: "grid", gap: 8 }}>
+              <Skeleton width={widths[row % widths.length]} height={14} />
+              <Skeleton width="45%" height={11} />
+              <Skeleton width="35%" height={11} />
+              <Skeleton width={72} height={22} radius={999} />
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function ProductManagementPage() {
@@ -417,7 +480,7 @@ export default function ProductManagementPage() {
   const selectedCategory = categories.find((category) => String(category.id) === categoryId);
   const stockChipLabel = stockChoices.find(([value]) => value === stock)?.[1] || "";
   const clearChipLabel = (label: string) => t("catalog.filters.clearChip", { label });
-  const { showSkeleton, markHasData, isRefetching } = useDelayedLoading(loading, 150, shopId ?? "none");
+  const { markHasData, isRefetching } = useDelayedLoading(loading, 150, shopId ?? "none");
 
   useEffect(() => {
     if (!loading && !error) markHasData();
@@ -632,8 +695,12 @@ export default function ProductManagementPage() {
             <span>{transfer === "export" ? t("catalog.exporting") : t("catalog.export")}</span>
           </button>
         </div>
-        {showSkeleton && loading && items.length === 0 ? (
-          <div aria-busy="true" aria-label={t("catalog.loading")}><SkeletonTable rows={6} cols={9} /></div>
+        {loading ? (
+          <ProductTableSkeleton
+            rows={Math.min(size, 8)}
+            label={t("catalog.loading")}
+            headers={["product", "sku", "category", "price", "stock", "status", "updated", "actions"].map((key) => t(`catalog.columns.${key}`))}
+          />
         ) : error ? (
           <LoadError
             message={catalogMessage(t, error)}

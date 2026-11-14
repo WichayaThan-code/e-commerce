@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, Download, Landmark, RefreshCw, Wallet } from "lucide-react";
+import { AlertCircle, Download, Landmark, RefreshCw } from "lucide-react";
 import ConfirmDialog from "../form/ConfirmDialog";
 import SearchableSelect from "../SearchableSelect";
 import MerchantPagination from "./MerchantPagination";
@@ -38,11 +38,11 @@ type Props = {
   localeTag: string;
   deniedTitle: (ok: boolean) => string | undefined;
   notify: (msg: string) => void;
-  mode: "balance" | "transfers";
+  onListStateChange?: (state: { total: number; loading: boolean }) => void;
 };
 
 export default function FinanceWithdrawPanel({
-  shopId, canWithdraw, canExport, localeTag, deniedTitle, notify, mode,
+  shopId, canWithdraw, canExport, localeTag, deniedTitle, notify, onListStateChange,
 }: Props) {
   const { t } = useTranslation("merchant");
   const [wallet, setWallet] = useState<{ status: "loading" | "ready" | "error"; data: ShopWalletBalance | null }>({ status: "loading", data: null });
@@ -73,7 +73,6 @@ export default function FinanceWithdrawPanel({
   }, [shopId, reload]);
 
   useEffect(() => {
-    if (mode !== "transfers") return;
     const id = ++listReq.current;
     setPage({ status: "loading", data: null });
     merchantFinanceApi.withdrawals(shopId, {
@@ -84,9 +83,17 @@ export default function FinanceWithdrawPanel({
     })
       .then((data) => { if (listReq.current === id) setPage({ status: "ready", data }); })
       .catch(() => { if (listReq.current === id) setPage({ status: "error", data: null }); });
-  }, [shopId, mode, pageNo, size, statusFilter, reload]);
+  }, [shopId, pageNo, size, statusFilter, reload]);
 
   useEffect(() => { setPageNo(0); }, [statusFilter, size, shopId]);
+
+  useEffect(() => {
+    if (!onListStateChange) return;
+    onListStateChange({
+      total: page.status === "ready" ? (page.data?.totalItems ?? 0) : 0,
+      loading: page.status === "loading",
+    });
+  }, [page, onListStateChange]);
 
   const openWithdraw = async () => {
     setFormError("");
@@ -147,6 +154,8 @@ export default function FinanceWithdrawPanel({
   };
 
   const exportCsv = async () => {
+    const total = page.data?.totalItems ?? 0;
+    if (!canExport || exporting || page.status === "loading" || total <= 0) return;
     setExporting(true);
     try {
       await merchantFinanceApi.exportWithdrawalsCsv(shopId, {
@@ -161,110 +170,33 @@ export default function FinanceWithdrawPanel({
     }
   };
 
-  const available = money(wallet.data?.available);
-  const reserved = money(wallet.data?.reserved);
   const canRequest = !!wallet.data?.canRequestWithdrawal;
+  const withdrawTitle = !canWithdraw
+    ? deniedTitle(canWithdraw)
+    : wallet.status === "error"
+      ? t("finance.payout.walletError")
+      : (!canRequest ? t("finance.payout.noBalance") : t("finance.payout.withdraw"));
   const statusOptions = [
     { value: "", label: t("finance.payout.statusAll") },
     ...STATUSES.map((s) => ({ value: s, label: t(`finance.payout.status.${s}`) })),
   ];
   const statusLabel = statusOptions.find((o) => o.value === statusFilter)?.label ?? t("finance.payout.statusAll");
 
-  if (mode === "balance") {
-    return (
-      <section className="finance-rail-block finance-wallet-block">
-        <header className="finance-wallet-head">
-          <span className="finance-wallet-mark" aria-hidden="true"><Wallet /></span>
-          <h2>{t("finance.payout.walletTitle")}</h2>
-        </header>
-
-        {wallet.status === "loading" ? (
-          <div className="finance-rail-hero finance-wallet-hero is-loading" aria-busy="true">
-            <small>{t("finance.payout.available")}</small>
-            <b>—</b>
-            <em>{t("finance.loading")}</em>
-          </div>
-        ) : wallet.status === "error" ? (
-          <div className="finance-wallet-error" role="alert">
-            <span className="finance-wallet-error-icon" aria-hidden="true"><AlertCircle /></span>
-            <div>
-              <b>{t("finance.payout.walletError")}</b>
-              <p>{t("finance.error.hint")}</p>
-            </div>
-            <button type="button" className="finance-wallet-retry" onClick={() => setReload((n) => n + 1)}>
-              <RefreshCw />{t("finance.error.retry")}
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="finance-rail-hero finance-wallet-hero">
-              <small>{t("finance.payout.available")}</small>
-              <b>{baht(available, localeTag)}</b>
-              <em>{t("finance.payout.availableNote")}</em>
-            </div>
-            <div className="finance-rail-metric">
-              <span><Landmark /></span>
-              <p>
-                <small>{t("finance.payout.reserved")}</small>
-                <strong>{baht(reserved, localeTag)}</strong>
-                <em>{t("finance.payout.reservedNote")}</em>
-              </p>
-            </div>
-            <p className="finance-ledger-note finance-wallet-note">{t("finance.payout.policyHint")}</p>
-            <button
-              type="button"
-              className={`finance-rail-cta${canWithdraw && canRequest ? " is-ready" : ""}`}
-              disabled={!canWithdraw || !canRequest || busy}
-              title={!canWithdraw ? deniedTitle(canWithdraw) : (!canRequest ? t("finance.payout.noBalance") : t("finance.payout.withdraw"))}
-              onClick={() => void openWithdraw()}
-            >
-              <Landmark />{t("finance.payout.withdraw")}
-            </button>
-          </>
-        )}
-
-        {openForm ? (
-          <ConfirmDialog
-            title={t("finance.payout.confirmTitle")}
-            message={t("finance.payout.confirmBody", { amount: baht(Number(amount) || 0, localeTag) })}
-            confirmLabel={busy ? t("finance.payout.submitting") : t("finance.payout.confirm")}
-            cancelLabel={t("finance.payout.cancel")}
-            confirmDisabled={busy || accounts.length === 0}
-            onCancel={() => !busy && setOpenForm(false)}
-            onConfirm={() => void submitWithdraw()}
-          >
-            <div className="finance-withdraw-form" id={formId}>
-              <label>
-                <span>{t("finance.payout.amount")}</span>
-                <input type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={busy} />
-              </label>
-              <div className="finance-withdraw-account">
-                <SearchableSelect
-                  compact
-                  label={t("finance.payout.account")}
-                  placeholder={t("finance.payout.account")}
-                  options={accounts.map((a) => a.label)}
-                  value={accounts.find((a) => a.provider === provider)?.label ?? ""}
-                  disabled={busy || accounts.length === 0}
-                  onChange={(picked) => {
-                    const next = accounts.find((a) => a.label === picked);
-                    if (next) setProvider(next.provider);
-                  }}
-                />
-              </div>
-              {accounts.length === 0 ? <p className="form-field-error">{t("finance.payout.noAccount")}</p> : null}
-              {formError ? <p className="form-field-error">{formError}</p> : null}
-            </div>
-          </ConfirmDialog>
-        ) : null}
-      </section>
-    );
-  }
-
   return (
     <article className="finance-panel transaction-card is-ledger finance-transfers">
       <header>
         <h2>{t("finance.tabs.transfers")}</h2>
+        <div className="finance-transfer-header-actions">
+          <button
+            type="button"
+            className="primary"
+            disabled={!canWithdraw || !canRequest || busy || wallet.status === "loading"}
+            title={withdrawTitle}
+            onClick={() => void openWithdraw()}
+          >
+            <Landmark />{t("finance.payout.withdraw")}
+          </button>
+        </div>
       </header>
 
       <div className="finance-transfer-toolbar">
@@ -355,6 +287,41 @@ export default function FinanceWithdrawPanel({
             />
           </>
         )}
+
+      {openForm ? (
+        <ConfirmDialog
+          title={t("finance.payout.confirmTitle")}
+          message={t("finance.payout.confirmBody", { amount: baht(Number(amount) || 0, localeTag) })}
+          confirmLabel={busy ? t("finance.payout.submitting") : t("finance.payout.confirm")}
+          cancelLabel={t("finance.payout.cancel")}
+          confirmDisabled={busy || accounts.length === 0}
+          onCancel={() => !busy && setOpenForm(false)}
+          onConfirm={() => void submitWithdraw()}
+        >
+          <div className="finance-withdraw-form" id={formId}>
+            <label>
+              <span>{t("finance.payout.amount")}</span>
+              <input type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={busy} />
+            </label>
+            <div className="finance-withdraw-account">
+              <SearchableSelect
+                compact
+                label={t("finance.payout.account")}
+                placeholder={t("finance.payout.account")}
+                options={accounts.map((a) => a.label)}
+                value={accounts.find((a) => a.provider === provider)?.label ?? ""}
+                disabled={busy || accounts.length === 0}
+                onChange={(picked) => {
+                  const next = accounts.find((a) => a.label === picked);
+                  if (next) setProvider(next.provider);
+                }}
+              />
+            </div>
+            {accounts.length === 0 ? <p className="form-field-error">{t("finance.payout.noAccount")}</p> : null}
+            {formError ? <p className="form-field-error">{formError}</p> : null}
+          </div>
+        </ConfirmDialog>
+      ) : null}
 
       {detail ? (
         <ConfirmDialog

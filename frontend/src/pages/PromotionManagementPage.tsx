@@ -38,11 +38,10 @@ import MerchantPagination from "../components/merchant/MerchantPagination";
 import SearchableSelect from "../components/SearchableSelect";
 
 import ConfirmDialog from "../components/form/ConfirmDialog";
-import { LoadError, SkeletonBusy, SkeletonTable } from "../components/feedback/Skeleton";
+import { LoadError, Skeleton } from "../components/feedback/Skeleton";
 import PromotionFormDialog, { draftFrom, emptyDraft, type PromotionDraft } from "../components/merchant/PromotionFormDialog";
 import { benefitText, formatBaht, formatThaiDate, statusBadge, TYPE_CLASS, TYPE_LABEL } from "../components/merchant/promotionFormat";
 import { useActiveShop } from "../contexts/ActiveShopContext";
-import { useDelayedLoading } from "../hooks/useDelayedLoading";
 import { ApiError, promotionApi, type Promotion, type PromotionList, type PromotionStatus, type PromotionType, type PromotionWrite } from "../services/api";
 import MerchantSidebar from "../components/merchant/MerchantSidebar";
 
@@ -90,6 +89,74 @@ function conditionLines(promotion: Promotion): string[] {
 
 function errorMessage(error: unknown) {
   return error instanceof Error && error.message ? error.message : "เกิดข้อผิดพลาด กรุณาลองใหม่";
+}
+
+function PromoTableSkeleton({ rows, label }: { rows: number; label: string }) {
+  const widths = ["70%", "55%", "60%", "45%", "65%", "50%"];
+  const list = Array.from({ length: rows }, (_, index) => index);
+  return (
+    <div className="promo-table-wrap" aria-busy="true" aria-label={label}>
+      <table>
+        <thead>
+          <tr>
+            <th className="col-index">#</th>
+            <th className="col-name">ชื่อโปรโมชั่น / คูปอง</th>
+            <th className="col-type">ประเภท</th>
+            <th className="col-benefit">ส่วนลด / เงื่อนไข</th>
+            <th className="col-period">ช่วงเวลา</th>
+            <th className="col-usage">การใช้งาน</th>
+            <th className="col-status">สถานะ</th>
+            <th className="col-actions">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((row) => (
+            <tr key={row}>
+              <td className="col-index num"><Skeleton width={16} height={13} /></td>
+              <td className="col-name">
+                <div className="promo-name">
+                  <Skeleton width={40} height={40} radius={10} />
+                  <p style={{ flex: 1, display: "grid", gap: 6 }}>
+                    <Skeleton width={widths[row % widths.length]} height={13} />
+                    <Skeleton width="50%" height={11} />
+                  </p>
+                </div>
+              </td>
+              <td className="col-type"><Skeleton width={88} height={28} radius={8} /></td>
+              <td className="col-benefit">
+                <div className="promo-cell-stack">
+                  <Skeleton width="80%" height={13} />
+                  <Skeleton width="60%" height={11} />
+                </div>
+              </td>
+              <td className="col-period">
+                <div className="promo-cell-stack">
+                  <Skeleton width="85%" height={13} />
+                  <Skeleton width="70%" height={11} />
+                </div>
+              </td>
+              <td className="col-usage">
+                <div className="promo-usage">
+                  <Skeleton width="75%" height={13} />
+                  <div className="promo-usage-meter">
+                    <Skeleton width="100%" height={7} radius={5} />
+                    <Skeleton width={28} height={11} />
+                  </div>
+                </div>
+              </td>
+              <td className="col-status"><Skeleton width={80} height={28} radius={999} /></td>
+              <td className="col-actions pm-col-actions">
+                <div className="pm-row-actions">
+                  <Skeleton width={34} height={34} radius={8} />
+                  <Skeleton width={34} height={34} radius={8} />
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export default function PromotionManagementPage() {
@@ -164,9 +231,6 @@ export default function PromotionManagementPage() {
       .finally(() => { if (!cancelled) setListLoading(false); });
     return () => { cancelled = true; };
   }, [shopId, appliedQuery, effective, page, size, reload]);
-
-  const { showSkeleton, markHasData, isRefetching } = useDelayedLoading(listLoading, 150, shopId ?? "none");
-  useEffect(() => { if (!listLoading && !loadError) markHasData(); }, [listLoading, loadError, markHasData]);
 
   const placeMenu = (anchor: HTMLElement) => {
     const rect = anchor.getBoundingClientRect();
@@ -487,13 +551,14 @@ export default function PromotionManagementPage() {
                 <span>{exporting ? "กำลังส่งออก..." : "ส่งออก Excel"}</span>
               </button>
             </div>
-            {showSkeleton && listLoading && visible.length === 0 ? (
-              <div className="promo-table-wrap" aria-busy="true" aria-label="กำลังโหลดโปรโมชั่น"><SkeletonTable rows={6} cols={8} /></div>
+            {listLoading ? (
+              <PromoTableSkeleton rows={Math.min(size, 8)} label="กำลังโหลดโปรโมชั่น" />
             ) : loadError ? (
               <div className="promo-table-wrap"><LoadError message={forbidden ? "คุณไม่มีสิทธิ์ดูโปรโมชั่นของร้านนี้" : errorMessage(loadError)} onRetry={refresh} retryLabel="ลองใหม่" /></div>
+            ) : visible.length === 0 ? (
+              <div className="promo-table-wrap"><div className="promo-empty">{filtered ? "ไม่พบโปรโมชั่นที่ตรงกับตัวกรอง" : "ยังไม่มีโปรโมชั่น — กด \"สร้างโปรโมชั่น / คูปอง\" เพื่อเริ่ม"}</div></div>
             ) : (
-              <SkeletonBusy refetching={isRefetching} busy={isRefetching}>
-                <div className="promo-table-wrap">
+              <div className="promo-table-wrap">
                   <table>
                     <thead>
                       <tr>
@@ -586,9 +651,7 @@ export default function PromotionManagementPage() {
                       </tr>;
                     })}</tbody>
                   </table>
-                  {visible.length === 0 && !listLoading && <div className="promo-empty">{filtered ? "ไม่พบโปรโมชั่นที่ตรงกับตัวกรอง" : "ยังไม่มีโปรโมชั่น — กด \"สร้างโปรโมชั่น / คูปอง\" เพื่อเริ่ม"}</div>}
-                </div>
-              </SkeletonBusy>
+              </div>
             )}
             <MerchantPagination
               page={page}

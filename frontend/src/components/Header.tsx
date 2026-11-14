@@ -151,6 +151,16 @@ export default function Header({ hideNavbar = false, hideSearch = false }: Heade
           <aside className="drawer" onClick={(e) => e.stopPropagation()}>
             <button className="drawer-close" onClick={() => setMenuOpen(false)}><X /></button>
             <SiteBrand homeAria={homeAria} />
+            {!loading && !user ? (
+              <div className="drawer-auth">
+                <Link className="login" to="/login" onClick={() => setMenuOpen(false)}>
+                  <UserRound size={22} /> {ta('login')}
+                </Link>
+                <Link className="outline" to="/signup" onClick={() => setMenuOpen(false)}>
+                  {ta('signup')}
+                </Link>
+              </div>
+            ) : null}
             <Link to="/#categories" onClick={() => setMenuOpen(false)}>{t('nav.categories')} <ChevronRight size={17} /></Link>
             {/* FUTURE: ดีลพิเศษ — เปิดเมนูเมื่อพร้อมใช้งาน */}
             {/* <Link to="/deals" onClick={() => setMenuOpen(false)}>{t('nav.deals')} <ChevronRight size={17} /></Link> */}

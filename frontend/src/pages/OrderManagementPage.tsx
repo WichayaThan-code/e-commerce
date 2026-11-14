@@ -24,7 +24,7 @@ import OrderBulkResults, { type BulkResultRow } from "../components/merchant/Ord
 import OrderTagChips from "../components/merchant/OrderTagChips";
 import OrderTagManager from "../components/merchant/OrderTagManager";
 import { printMerchantOrder } from "../components/merchant/orderPrint";
-import { LoadError, SkeletonTable } from "../components/feedback/Skeleton";
+import { LoadError, Skeleton } from "../components/feedback/Skeleton";
 import DateRangePicker from "../components/form/DateRangePicker";
 import SearchableSelect from "../components/SearchableSelect";
 import { labelOf, uniqueOptions, valueOf } from "../components/merchant/selectOptions";
@@ -68,6 +68,67 @@ const TABS = [
 ];
 const SIZES = [10, 20, 50];
 const KPI_STATUSES = [undefined, "PENDING_PAYMENT", "MERCHANT_CONFIRMED", "COMPLETED"] as const;
+
+function OrderTableSkeleton({ rows, headers, label }: { rows: number; headers: string[]; label: string }) {
+  const widths = ["70%", "55%", "60%", "45%", "65%", "50%"];
+  const list = Array.from({ length: rows }, (_, index) => index);
+  return (
+    <div aria-busy="true" aria-label={label}>
+      <table>
+        <thead>
+          <tr>
+            <th className="om-col-check"><Skeleton width={18} height={18} radius={5} /></th>
+            <th>{headers[0]}</th>
+            <th>{headers[1]}</th>
+            <th>{headers[2]}</th>
+            <th>{headers[3]}</th>
+            <th>{headers[4]}</th>
+            <th>{headers[5]}</th>
+            <th>{headers[6]}</th>
+            <th>{headers[7]}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((row) => (
+            <tr key={row}>
+              <td className="om-col-check"><Skeleton width={18} height={18} radius={5} /></td>
+              <td>
+                <div style={{ display: "grid", gap: 6 }}>
+                  <Skeleton width={widths[row % widths.length]} height={13} />
+                  <Skeleton width={52} height={18} radius={999} />
+                </div>
+              </td>
+              <td><Skeleton width="70%" height={13} /></td>
+              <td>
+                <div className="om-product">
+                  <p style={{ display: "grid", gap: 4, flex: 1 }}>
+                    <Skeleton width="75%" height={13} />
+                    <Skeleton width="45%" height={11} />
+                  </p>
+                </div>
+              </td>
+              <td><Skeleton width={64} height={13} /></td>
+              <td><Skeleton width={82} height={27} radius={18} /></td>
+              <td><Skeleton width={82} height={27} radius={18} /></td>
+              <td>
+                <div style={{ display: "grid", gap: 4 }}>
+                  <Skeleton width="80%" height={13} />
+                  <Skeleton width="55%" height={11} />
+                </div>
+              </td>
+              <td>
+                <div className="om-row-actions">
+                  <Skeleton width={37} height={37} radius={7} />
+                  <Skeleton width={37} height={37} radius={7} />
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function OrderManagementPage() {
   const { t } = useTranslation("merchant");
@@ -598,7 +659,7 @@ export default function OrderManagementPage() {
   const empty = !fetching && !error && items.length === 0;
 
   const exportOrders = async () => {
-    if (shopId == null || exporting || !canExportOrders) return;
+    if (shopId == null || exporting || !canExportOrders || fetching || total <= 0) return;
     const exportShopId = shopId;
     const params: Record<string, string | number | boolean | null | undefined> = {
       status: tab !== "all" && tab !== "AWAITING" ? tab : undefined,
@@ -967,8 +1028,12 @@ export default function OrderManagementPage() {
             <button
               type="button"
               className="pm-export-btn"
-              disabled={!canExportOrders || exporting || shopId == null}
-              title={deniedTitle(canExportOrders) || t("orderManagement.exportHint")}
+              disabled={!canExportOrders || exporting || shopId == null || fetching || total <= 0}
+              title={!canExportOrders
+                ? (deniedTitle(canExportOrders) || t("orderManagement.exportHint"))
+                : total <= 0
+                  ? t("orderManagement.exportEmptyTitle")
+                  : t("orderManagement.exportHint")}
               onClick={() => void exportOrders()}
             >
               <Download aria-hidden="true" />
@@ -978,10 +1043,16 @@ export default function OrderManagementPage() {
           <div className="om-table-wrap" aria-busy={fetching}>
             {error ? (
               <LoadError message={error} onRetry={() => setReload((n) => n + 1)} retryLabel={t("shopSettings.retry")} />
-            ) : fetching && items.length === 0 ? (
-              <SkeletonTable rows={6} cols={8} />
+            ) : fetching ? (
+              <OrderTableSkeleton
+                rows={Math.min(size, 8)}
+                label={t("orderManagement.loading", { defaultValue: "กำลังโหลดคำสั่งซื้อ..." })}
+                headers={["order", "customer", "items", "total", "payment", "status", "placedAt", "actions"].map((key) => t(`orderManagement.columns.${key}`))}
+              />
+            ) : empty ? (
+              <div className="om-empty">{t("orderManagement.empty")}</div>
             ) : (
-              <table className={fetching ? "is-refetching" : undefined}>
+              <table>
               <thead>
                 <tr>
                   <th className="om-col-check">
@@ -1119,7 +1190,6 @@ export default function OrderManagementPage() {
               </tbody>
             </table>
             )}
-            {empty && <div className="om-empty">{t("orderManagement.empty")}</div>}
           </div>
           <MerchantPagination
             page={page}

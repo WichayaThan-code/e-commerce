@@ -2044,7 +2044,8 @@
       "failed": "Could not download the report. Please try again.",
       "needRange": "Select a valid date range before downloading",
       "xlsxNote": "Real Excel (.xlsx) from live report data; no PII; fees are estimates",
-      "stale": "Export finished, but shop or date range changed while waiting — verify the file before use"
+      "stale": "Export finished, but shop or date range changed while waiting — verify the file before use",
+      "emptyTitle": "No data to export"
     },
     "placeholderProduct": "No product image"
   },
@@ -2372,7 +2373,8 @@
       "failed": "Could not download the report. Please try again.",
       "needRange": "Select a valid date range before downloading",
       "xlsxNote": "Real Excel (.xlsx) from live report data; no PII; fees are estimates",
-      "stale": "Export finished, but shop or date range changed while waiting — verify the file before use"
+      "stale": "Export finished, but shop or date range changed while waiting — verify the file before use",
+      "emptyTitle": "No data to export"
     }
   },
   "orderManagement": {
@@ -2876,7 +2878,8 @@
     "exporting": "Exporting…",
     "exportDone": "Orders exported to Excel",
     "exportStale": "Export finished, but shop or date range changed while waiting — verify the file before use",
-    "exportHint": "Export all rows matching current filters as Excel"
+    "exportHint": "Export all rows matching current filters as Excel",
+    "exportEmptyTitle": "No orders match the current filters"
   },
   "shippingPage": {
     "title": "Shipping",
@@ -3039,6 +3042,7 @@
     "export": "Export Excel",
     "exporting": "Exporting...",
     "exportHint": "Export every row matching the current filters as an Excel file",
+    "exportEmptyTitle": "No customers match the current filters",
     "exportMasked": "Export is allowed, but name/phone/email will be masked without PII permission",
     "exportTooLarge": "Too many rows to export — narrow the filters and try again",
     "comingSoon": "Coming soon",

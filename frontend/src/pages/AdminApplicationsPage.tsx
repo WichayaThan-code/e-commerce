@@ -159,6 +159,22 @@ export default function AdminApplicationsPage() {
   const [busy, setBusy] = useState(false)
   const [revealedContact, setRevealedContact] = useState<{ shopId: number; phone: string; email: string } | null>(null)
   const [revealBusy, setRevealBusy] = useState(false)
+  const revealContactOf = (shopId: number, toast: boolean) => {
+    if (revealedContact?.shopId === shopId) return Promise.resolve(revealedContact)
+    setRevealBusy(true)
+    return adminApplicationApi.revealContact(shopId)
+      .then(contact => {
+        const next = { shopId, phone: contact.phone || '', email: contact.email || '' }
+        setRevealedContact(next)
+        if (toast) notify(tp('contactReveal.revealedToast'))
+        return next
+      })
+      .catch(error => {
+        notify(error instanceof ApiError ? error.message : tp('contactReveal.revealError'))
+        return null
+      })
+      .finally(() => setRevealBusy(false))
+  }
   const locale = i18n.language || 'th'
 
   const categoryOptions = useMemo(() => [
@@ -576,6 +592,10 @@ export default function AdminApplicationsPage() {
         historySuspended: tp('historySuspended'),
         auditLink: t('adminPlatform.audit.openForTarget'),
         contactOwner: tp('contactOwner'),
+        contactEmpty: tp('contactEmpty'),
+        contactEmail: tp('contactEmail'),
+        contactPhone: tp('contactPhone'),
+        contactMenu: tp('contactMenu'),
         revealButton: tp('contactReveal.button'),
         revealed: tp('contactReveal.revealed'),
         approveShop: tp('approveShop'),
@@ -591,24 +611,12 @@ export default function AdminApplicationsPage() {
       revealedContact={revealedContact}
       onRevealContact={() => {
         if (!selected || revealedContact?.shopId === selected.id) return
-        setRevealBusy(true)
-        adminApplicationApi.revealContact(selected.id)
-          .then(contact => {
-            setRevealedContact({
-              shopId: selected.id,
-              phone: contact.phone || '',
-              email: contact.email || '',
-            })
-            notify(tp('contactReveal.revealedToast'))
-          })
-          .catch(error => notify(error instanceof ApiError ? error.message : tp('contactReveal.revealError')))
-          .finally(() => setRevealBusy(false))
+        void revealContactOf(selected.id, true)
       }}
-      onContactOwner={() => {
-        if (!selected) return
-        const email = revealedContact?.shopId === selected.id ? revealedContact.email : selected.email
-        if (email && email !== '-' && !email.includes('*')) window.location.href = `mailto:${email}`
-        else notify(tp('contactReveal.needRevealForMail'))
+      onEnsureContact={async () => {
+        if (!selected) return null
+        if (revealedContact?.shopId === selected.id) return revealedContact
+        return revealContactOf(selected.id, false)
       }}
       onApprove={() => decide('approve')}
       onReject={() => decide('reject')}
